@@ -2214,6 +2214,9 @@ async function boot() {
   buildEntities(); S.enemies = [];
   const first = () => { Snd.init(); if (!Snd.musicKind) Snd.music('title'); };
   window.addEventListener('touchstart', first, { once: true }); window.addEventListener('mousedown', first, { once: true }); window.addEventListener('keydown', first, { once: true });
+  const wake = () => { try { if (Snd.ctx && Snd.ctx.state === 'suspended') Snd.ctx.resume(); } catch (e) { } };
+  window.addEventListener('touchend', wake); window.addEventListener('mouseup', wake); window.addEventListener('keyup', wake);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
   requestAnimationFrame(loop);
 }
 function goFullscreen() {

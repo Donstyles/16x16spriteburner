@@ -1,4 +1,4 @@
-const CACHE = 'ashen-mandate-202611062355VERSION__';
+const CACHE = 'ashen-mandate-202611062358VERSION__';
 const FILES = ['./', './index.html', './game.js', './manifest.webmanifest', './assets/tiles.png', './assets/creatures.png', './assets/creatures.json', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-180.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
