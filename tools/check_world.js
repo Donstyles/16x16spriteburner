@@ -18,6 +18,12 @@ for (let i = 0; i < g.length; i++) if ('bDKGF?'.includes(g[i])) check(i % MW, (i
 for (const o of W.objects.filter(o => o.type !== 'torch').concat(W.spawns)) { const c = g[(o.y | 0) * MW + (o.x | 0)]; if (!pass(c) || c === 'b') { console.log('ON NON-FLOOR', o.type || o.kind, o.x, o.y, JSON.stringify(c)); bad++; } }
 // doors need exactly two opposite wall neighbours
 for (let i = 0; i < g.length; i++) if ('DKGF'.includes(g[i])) { const x = i % MW, y = (i / MW) | 0; const w = (xx, yy) => !pass(g[yy * MW + xx]); const ns = w(x, y - 1) && w(x, y + 1), ew = w(x - 1, y) && w(x + 1, y); if (ns === ew) { console.log('BAD DOOR', g[i], x, y, 'ns', ns, 'ew', ew); bad++; } }
+// solid props must not sit in a one-tile corridor (they would block the player)
+const solidTypes = { deco: 1, breakable: 1, chest: 1, npc: 1, brazier: 1 };
+const isWall = (x, y) => x < 0 || y < 0 || x >= MW || y >= MH || !pass(g[y * MW + x]);
+const corridorCheck = (x, y, what) => { const cx = x | 0, cy = y | 0; const ns = isWall(cx, cy - 1) && isWall(cx, cy + 1) && !isWall(cx - 1, cy) && !isWall(cx + 1, cy); const ew = isWall(cx - 1, cy) && isWall(cx + 1, cy) && !isWall(cx, cy - 1) && !isWall(cx, cy + 1); if (ns || ew) { console.log('BLOCKS CORRIDOR', what, cx, cy); bad++; } };
+for (const o of W.objects) if (solidTypes[o.type] && !(o.type === 'deco' && /bones|skull/.test(o.spr))) corridorCheck(o.x, o.y, o.type + ':' + (o.spr || o.item || ''));
+for (let i = 0; i < g.length; i++) if (g[i] === '?' || g[i] === 'b') corridorCheck(i % MW, (i / MW) | 0, 'cell:' + g[i]);
 console.log('reachable cells', seen.reduce((a, b) => a + b, 0), 'problems', bad);
 // print the map
 let out = ''; for (let y = 0; y < MH; y++) { let row = ''; for (let x = 0; x < MW; x++) row += g[y * MW + x] === ' ' ? ' ' : g[y * MW + x]; out += row.replace(/ +$/, '') + '\n'; }

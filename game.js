@@ -914,7 +914,7 @@ function buildWorldGrid() {
   obj('deco', 19.5, 2.5, { spr: 'coffin' }); obj('deco', 25.5, 2.5, { spr: 'coffin_dark' }); obj('deco', 22.5, 2.5, { spr: 'altar' });
   obj('brazier', 20.5, 6.5, { spr: 'brazier_purple' }); obj('brazier', 24.5, 6.5, { spr: 'brazier_purple' });
   chest(22.5, 3.5, { item: 'soul_large' }, true);
-  lore(19, 12, 'Chapel of the Hollow Crown. They buried the queen standing, so she could keep watching the door.');
+  lore(20, 12, 'Chapel of the Hollow Crown. They buried the queen standing, so she could keep watching the door.');
 
   // ================= MOSSGRAVE CATACOMBS (28-63, 0-27) =================
   zone('moss');
@@ -925,7 +925,7 @@ function buildWorldGrid() {
   spawn('CorruptedTreant', 34.5, 12.5); spawn('CorruptedTreant', 39.5, 15.5); spawn('SneakySatyr', 37.5, 11.5); spawn('GoblinOccultist', 40.5, 10.5); spawn('SneakySatyr', 33.5, 16.5);
   obj('brazier', 32.5, 9.5, { spr: 'brazier_green' }); obj('brazier', 41.5, 18.5, { spr: 'brazier_green' });
   obj('breakable', 41.5, 9.5, { spr: 'pot' }); obj('breakable', 32.5, 18.5, { spr: 'pot' });
-  lore(32, 13, 'Mossgrave. The dead here were planted, not buried. Mind the roots.');
+  lore(32, 16, 'Mossgrave. The dead here were planted, not buried. Mind the roots.');
   // shortcut lever corridor back to Undercroft gate
   carve(29, 18, 31, 18); carve(29, 19, 29, 20); carve(28, 20, 28, 20); obj('lever', 29.5, 20.5, { gate: [27, 20] });
   spawn('GoblinOccultist', 30.5, 18.5);
@@ -958,7 +958,7 @@ function buildWorldGrid() {
   spawn('GelatinousCube', 47.5, 26.5); spawn('GreenNaga', 44.5, 23.5);
   spawn('NatureElemental', 50.5, 26.5, { unique: true });
   item(44.5, 26.5, 'ember');
-  lore(44, 25, 'The Sunken Cistern. What the Mossheart guards, it guards jealously.');
+  lore(43, 25, 'The Sunken Cistern. What the Mossheart guards, it guards jealously.');
 
   // ================= FROZEN RELIQUARY (0-27, 28-55) =================
   zone('ice');
@@ -978,7 +978,7 @@ function buildWorldGrid() {
   spawn('FrostMagus', 22.5, 37.5); spawn('IceGolem', 16.5, 39.5); spawn('BlinkDog', 23.5, 39.5); spawn('CapableCryomancer', 17.5, 36.5);
   obj('torch', 15.5, 35.5, {}); obj('torch', 23.5, 35.5, {}); obj('deco', 24.5, 36.5, { spr: 'coffin_dark' }); obj('deco', 14.5, 36.5, { spr: 'statue' });
   item(24.5, 40.5, 'gem_blue'); obj('breakable', 20.5, 39.5, { spr: 'pot_dark' });
-  lore(14, 40, 'Pilgrims froze here mid-prayer. The Sentinel let them finish.');
+  lore(16, 36, 'Pilgrims froze here mid-prayer. The Sentinel let them finish.');
   // shortcut gate from arena approach back to bonfire halls
   carve(9, 45, 9, 46); put(9, 47, 'G'); carve(9, 48, 13, 48);
   // arena
