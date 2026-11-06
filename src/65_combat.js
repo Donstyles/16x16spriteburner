@@ -303,7 +303,7 @@ function updateCombat(dt) {
   if (S.boss && (S.boss.dead)) S.boss = null;
   // pickups
   for (let i = S.pickups.length - 1; i >= 0; i--) { const p = S.pickups[i]; if (dist2(p.x, p.y, S.px, S.py) < 0.55 * 0.55) { S.pickups.splice(i, 1); S.flags.item[p.id] = 1; giveItem(p.item); saveGame(); } }
-  if (S.bloodstain && dist2(S.bloodstain.x, S.bloodstain.y, S.px, S.py) < 0.6 * 0.6) { gainSouls(S.bloodstain.souls, S.px, S.py); message('Recovered ' + fmtNum(S.bloodstain.souls) + ' souls.'); S.bloodstain = null; Snd.sfx('item'); saveGame(); }
+  if (S.mode === 'play' && S.bloodstain && S.t - (S.deathAt || -9) > 2 && dist2(S.bloodstain.x, S.bloodstain.y, S.px, S.py) < 0.6 * 0.6) { gainSouls(S.bloodstain.souls, S.px, S.py); message('Recovered ' + fmtNum(S.bloodstain.souls) + ' souls.'); S.bloodstain = null; Snd.sfx('item'); saveGame(); }
   // fx
   for (let i = S.fx.length - 1; i >= 0; i--) {
     const f = S.fx[i]; f.t -= dt;

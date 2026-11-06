@@ -254,7 +254,7 @@ function doInteract(f) {
       else { S.menu = { kind: 'bonfire', bonfire: f, sel: 0 }; S.mode = 'menu'; Snd.sfx('ui'); }
       break;
     }
-    case 'chest': openChest(f); break;
+    case 'chest': if (f.mimic) { const e = f.mimic; wakeEnemy(e); hitParty(rollEnemyDmg(e) * 0.8, e, { shake: 0.4 }); } else openChest(f); break;
     case 'npc': S.menu = { kind: 'keeper', line: 0, sel: 0 }; S.mode = 'menu'; Snd.sfx('ui'); break;
     case 'lever': { f.used = true; const d = MAP.doors.find(d => d.x === f.gate[0] && d.y === f.gate[1]); if (d) { d.unlocked = true; d.target = 1; S.flags.gate[d.id] = 1; } message('A gate opened somewhere.'); Snd.sfx('lever'); saveGame(); break; }
     case 'lore': { S.menu = { kind: 'lore', text: f.text }; S.mode = 'menu'; S.flags.lore[f.id] = 1; Snd.sfx('ui'); break; }
@@ -310,7 +310,7 @@ function restAtBonfire(b, first) {
 }
 function dieParty() {
   if (S.mode === 'dead') return;
-  S.mode = 'dead'; S.deathT = 0; S.deaths++; Snd.sfx('died'); Snd.music('ambient');
+  S.mode = 'dead'; S.deathT = 0; S.deaths++; S.deathAt = S.t; Snd.sfx('died'); Snd.music('ambient');
   S.bloodstain = S.souls > 0 ? { x: S.px, y: S.py, souls: S.souls } : S.bloodstain;
   S.souls = 0; S.boss = null; S.menu = null;
 }

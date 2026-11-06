@@ -6,7 +6,7 @@ const ENEMY_DEFS = {
   GoblinArcher: { name: 'Goblin Archer', hp: 24, dmg: [6, 10], spd: 1.6, souls: 34, size: 0.85, behav: 'ranged', proj: 'arrow', range: 7, poise: 0 },
   HungryMimic: { name: 'Mimic', hp: 95, dmg: [14, 22], spd: 1.1, souls: 160, size: 0.95, behav: 'melee', poise: 20, mimic: true, cd: 1.1 },
   StoneGolem: { name: 'Crypt Warden', hp: 130, dmg: [12, 18], spd: 0.8, souls: 220, size: 1.15, behav: 'melee', poise: 40, unique: true },
-  BestialMinotaur: { name: 'Asterion, Warden of the Undercroft', hp: 440, dmg: [16, 26], spd: 1.7, souls: 1500, size: 1.75, behav: 'melee', poise: 999, boss: true, special: 'charge', cd: 1.6 },
+  BestialMinotaur: { name: 'Asterion, Warden of the Undercroft', hp: 620, dmg: [20, 32], spd: 1.7, souls: 1500, size: 1.75, behav: 'melee', poise: 999, boss: true, special: 'charge', cd: 1.6 },
   // tier 2 - Mossgrave
   CorruptedTreant: { name: 'Blighted Treant', hp: 72, dmg: [10, 16], spd: 0.9, souls: 60, size: 1.0, behav: 'melee', poise: 15 },
   SneakySatyr: { name: 'Satyr Trickster', hp: 44, dmg: [8, 13], spd: 2.3, souls: 55, size: 0.9, behav: 'melee', poise: 0, cd: 1.1 },
@@ -15,21 +15,21 @@ const ENEMY_DEFS = {
   GoblinWolfRider: { name: 'Wolf Rider', hp: 62, dmg: [11, 16], spd: 2.6, souls: 85, size: 0.95, behav: 'melee', poise: 5, cd: 1.0 },
   GelatinousCube: { name: 'Gelatinous Cube', hp: 170, dmg: [12, 18], spd: 0.55, souls: 140, size: 1.15, behav: 'melee', poise: 60 },
   NatureElemental: { name: 'Mossheart', hp: 220, dmg: [16, 24], spd: 1.0, souls: 420, size: 1.3, behav: 'melee', poise: 50, unique: true },
-  GrizzledTreant: { name: 'The Rotten Elder', hp: 850, dmg: [20, 30], spd: 0.85, souls: 3200, size: 1.95, behav: 'melee', poise: 999, boss: true, special: 'summon', summon: 'CorruptedTreant', cd: 1.9 },
+  GrizzledTreant: { name: 'The Rotten Elder', hp: 1200, dmg: [24, 36], spd: 0.85, souls: 3200, size: 1.95, behav: 'melee', poise: 999, boss: true, special: 'summon', summon: 'CorruptedTreant', cd: 1.9 },
   // tier 3 - Frozen Reliquary
   IceGolem: { name: 'Rime Golem', hp: 135, dmg: [16, 24], spd: 0.95, souls: 165, size: 1.1, behav: 'melee', poise: 35 },
   CapableCryomancer: { name: 'Cryomancer', hp: 72, dmg: [14, 20], spd: 1.3, souls: 150, size: 0.9, behav: 'ranged', proj: 'icebolt', range: 8, poise: 0, chill: true },
   BlinkDog: { name: 'Blink Hound', hp: 62, dmg: [12, 18], spd: 2.2, souls: 135, size: 0.8, behav: 'melee', poise: 0, blink: true, cd: 1.0 },
   WaterElemental: { name: 'Water Elemental', hp: 115, dmg: [15, 22], spd: 1.4, souls: 175, size: 1.0, behav: 'melee', poise: 20 },
   FrostMagus: { name: 'Frost Magus', hp: 95, dmg: [18, 26], spd: 1.2, souls: 230, size: 0.95, behav: 'ranged', proj: 'icebolt', range: 8, poise: 5, volley: 3, chill: true },
-  MithrilConstruct: { name: 'Sentinel of the Reliquary', hp: 1450, dmg: [24, 36], spd: 1.15, souls: 6500, size: 1.95, behav: 'melee', poise: 999, boss: true, special: 'slam', cd: 1.8 },
+  MithrilConstruct: { name: 'Sentinel of the Reliquary', hp: 2000, dmg: [28, 42], spd: 1.15, souls: 6500, size: 1.95, behav: 'melee', poise: 999, boss: true, special: 'slam', cd: 1.8 },
   // tier 4 - Molten Gallery
   FireElemental: { name: 'Fire Elemental', hp: 150, dmg: [20, 28], spd: 1.5, souls: 240, size: 1.0, behav: 'melee', poise: 15, emissive: true },
   NovicePyromancer: { name: 'Pyromancer', hp: 92, dmg: [20, 30], spd: 1.3, souls: 235, size: 0.9, behav: 'ranged', proj: 'firebolt', range: 8, poise: 0 },
   FlameMagus: { name: 'Flame Magus', hp: 125, dmg: [22, 32], spd: 1.2, souls: 310, size: 0.95, behav: 'ranged', proj: 'firebolt', range: 8, poise: 5, volley: 3 },
   ObsidianGolem: { name: 'Obsidian Golem', hp: 270, dmg: [26, 36], spd: 0.8, souls: 410, size: 1.2, behav: 'melee', poise: 60 },
   BrassGolem: { name: 'Brass Golem', hp: 210, dmg: [22, 32], spd: 1.0, souls: 360, size: 1.15, behav: 'melee', poise: 45 },
-  MoltenEfreeti: { name: 'Ifrit of the Brass Gate', hp: 2300, dmg: [30, 44], spd: 1.45, souls: 13000, size: 2.0, behav: 'ranged', proj: 'firebolt', range: 9, volley: 3, poise: 999, boss: true, special: 'charge', emissive: true, cd: 1.5 },
+  MoltenEfreeti: { name: 'Ifrit of the Brass Gate', hp: 3200, dmg: [34, 50], spd: 1.45, souls: 13000, size: 2.0, behav: 'ranged', proj: 'firebolt', range: 9, volley: 3, poise: 999, boss: true, special: 'charge', emissive: true, cd: 1.5 },
   // tier 5 - Cosmic Sanctum
   ConjuringBeholder: { name: 'Beholder', hp: 250, dmg: [28, 40], spd: 1.0, souls: 620, size: 1.1, behav: 'ranged', proj: 'darkbolt', range: 9, volley: 3, poise: 30, zoff: 0.35 },
   MasterIllusionist: { name: 'Illusionist', hp: 125, dmg: [26, 36], spd: 1.3, souls: 460, size: 0.95, behav: 'ranged', proj: 'darkbolt', range: 8, poise: 0, blink: true },
@@ -39,7 +39,7 @@ const ENEMY_DEFS = {
   VileWitch: { name: 'Vile Witch', hp: 145, dmg: [26, 38], spd: 1.3, souls: 530, size: 0.95, behav: 'ranged', proj: 'venombolt', range: 8, poise: 5, venom: true },
   FleshGolem: { name: 'Flesh Golem', hp: 310, dmg: [28, 40], spd: 1.05, souls: 430, size: 1.2, behav: 'melee', poise: 70 },
   PowerfulDjinn: { name: 'Djinn of the Last Wish', hp: 950, dmg: [30, 42], spd: 1.6, souls: 4000, size: 1.5, behav: 'ranged', proj: 'darkbolt', range: 8, poise: 300, unique: true, blink: true },
-  AdamantiumGolem: { name: 'The Ashen King', hp: 4200, dmg: [36, 52], spd: 1.3, souls: 60000, size: 2.2, behav: 'melee', poise: 999, boss: true, special: 'slam', summon: 'FleshGolem', enrage: 0.4, cd: 1.7 },
+  AdamantiumGolem: { name: 'The Ashen King', hp: 5600, dmg: [40, 58], spd: 1.3, souls: 60000, size: 2.2, behav: 'melee', poise: 999, boss: true, special: 'slam', summon: 'FleshGolem', enrage: 0.4, cd: 1.7 },
   // extras
   FluttringPixie: null,
 };

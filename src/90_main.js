@@ -58,7 +58,8 @@ function loop(t) {
   } else if (S.mode === 'play') {
     S.playTime += dt;
     S.focus = findFocus();
-    updatePlayer(dt); updateEnemies(dt); updateProjectiles(dt); updateCombat(dt);
+    updatePlayer(dt); if (S.mode === 'play') updateEnemies(dt); if (S.mode === 'play') updateProjectiles(dt); if (S.mode === 'play') updateCombat(dt);
+    if (S.mode !== 'play') { Input.endFrame(); }
     if (Input.consume('attack') || Input.held.attack) partyAttack();
     if (Input.consume('flask')) useFlask();
     if (Input.consume('interact')) doInteract(S.focus);

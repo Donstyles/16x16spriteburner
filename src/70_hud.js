@@ -219,7 +219,7 @@ function drawButtons(ctx) {
     const j = Input.joy; ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(j.ox, j.oy, 46, 0, TAU); ctx.stroke();
     const dx = j.x - j.ox, dy = j.y - j.oy, d = Math.hypot(dx, dy), m = Math.min(1, d / 46); const kx = j.ox + (d ? dx / d * m * 46 : 0), ky = j.oy + (d ? dy / d * m * 46 : 0);
     ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.arc(kx, ky, 18, 0, TAU); ctx.fill();
-  } else if (Input.isTouch && S.t < 20) { ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(H.sl + 90, H.barTop - 90, 46, 0, TAU); ctx.stroke(); drawText(ctx, 'MOVE', H.sl + 90, H.barTop - 95, 1, 'rgba(255,255,255,0.4)', 'center'); drawText(ctx, 'DRAG RIGHT SIDE TO LOOK', H.W / 2, H.barTop - 60, 1, 'rgba(255,255,255,0.4)', 'center'); }
+  } else if (Input.isTouch && S.playTime < 14) { ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(H.sl + 90, H.barTop - 90, 46, 0, TAU); ctx.stroke(); drawText(ctx, 'MOVE', H.sl + 90, H.barTop - 95, 1, 'rgba(255,255,255,0.4)', 'center'); drawText(ctx, 'DRAG HERE TO LOOK', H.W - H.sr - 300, H.st + 60, 1, 'rgba(255,255,255,0.4)', 'center'); }
 }
 function drawMessages(ctx) {
   let y = H.barTop - 36;
