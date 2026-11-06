@@ -10,7 +10,7 @@ function resize() {
   const W = Math.round(vv ? vv.width : window.innerWidth), Hh = Math.round(vv ? vv.height : window.innerHeight);
   const dpr = Math.min(window.devicePixelRatio || 1, 3);
   const ins = readInsets();
-  const VH = clamp(Math.round(Hh / 2.1), 170, 270), VW = Math.min(620, Math.round(VH * W / Hh));
+  const VH = clamp(Math.round(Hh / 2.1 * (window.RES_SCALE || 1)), 140, 270), VW = Math.min(620, Math.round(VH * W / Hh));
   R.hfov = VW / VH > 2 ? 1.42 : 1.28;
   R.cvs = viewCvs; initRenderer(VW, VH);
   viewCvs.style.width = W + 'px'; viewCvs.style.height = Hh + 'px';
@@ -46,7 +46,7 @@ function startContinue() { Snd.init(); if (!loadGame()) startNew(); else Snd.mus
 function loop(t) {
   requestAnimationFrame(loop);
   const dt = Math.min(0.05, (t - lastT) / 1000 || 0.016); lastT = t;
-  fpsAcc += dt; fpsN++; if (fpsAcc >= 1) { FPS = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; }
+  fpsAcc += dt; fpsN++; if (fpsAcc >= 1) { FPS = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; if (S.mode === 'play' && S.playTime > 4 && FPS < 42 && (window.RES_SCALE || 1) > 0.6) { window.RES_SCALE = (window.RES_SCALE || 1) * 0.85; resize(); } }
   Input.update();
   S.t += dt;
   if (S.mode === 'title') {

@@ -205,7 +205,7 @@ function hitParty(dmg, src, opts = {}) {
 function recoveryTime(m) { return m.def.rec * Math.max(0.45, 1 - (m.sp - m.def.sp) * 0.03); }
 function rollDamage(m) { const d = m.def; let base = d.base + (d.atk === 'melee' ? m.mt * 0.8 : (m.id === 'archer' ? m.mt * 0.65 : m.it * 0.5)) + S.weaponLvl * 2.5; return base * (0.85 + Math.random() * 0.3); }
 function partyAttack() {
-  const tgt = S.target; let any = false, blockedByStam = false;
+  const tgt = S.target; let any = false, blockedByStam = false, meleeHit = false;
   for (const m of S.party) {
     if (m.dead || m.rec > 0) continue;
     const d = m.def;
@@ -216,7 +216,7 @@ function partyAttack() {
       if (S.stam < 10) { blockedByStam = true; continue; }
       S.stam -= 10; S.stamT = 0.7; m.rec = recoveryTime(m); m.bounce = 1; any = true;
       const crit = Math.random() < 0.08 + m.sp * 0.004; const dmg = rollDamage(m) * (crit ? 2 : 1);
-      damageEnemy(tgt, dmg, m, crit); hitSpark(tgt); Snd.sfx(m.id === 'knight' ? 'sword' : 'mace');
+      damageEnemy(tgt, dmg, m, crit); hitSpark(tgt); Snd.sfx(m.id === 'knight' ? 'sword' : 'mace'); meleeHit = true;
     } else {
       if (S.stam < 8) { blockedByStam = true; continue; }
       S.stam -= 8; S.stamT = 0.7; m.rec = recoveryTime(m); m.bounce = 1; any = true;
@@ -225,7 +225,7 @@ function partyAttack() {
     }
   }
   if (!any && blockedByStam) { message('Exhausted!'); }
-  if (any) S.swing = 0.2;
+  if (any) { if (meleeHit) S.swing = 0.25; else S.rangedFlash = 0.15; }
 }
 function firePartyProjectile(m, sprName, dmg, tgt, spread, extra = {}) {
   let a = S.pa;
@@ -294,7 +294,7 @@ function updateCombat(dt) {
   S.target = best;
   for (const m of S.party) { if (m.rec > 0) m.rec -= dt; if (m.cd > 0) m.cd -= dt; if (m.bounce > 0) m.bounce -= dt * 4; if (m.hurt > 0) m.hurt -= dt; if (m.heal > 0) m.heal -= dt; if (m.block > 0) m.block -= dt; if (m.dmgPop) { m.dmgPop.t -= dt; if (m.dmgPop.t <= 0) m.dmgPop = null; } if (!m.dead && m.spts < m.spMax) m.spts = Math.min(m.spMax, m.spts + dt * 0.6); }
   if (S.stamT > 0) S.stamT -= dt; else S.stam = Math.min(S.stamMax, S.stam + dt * 30);
-  if (S.bulwark > 0) S.bulwark -= dt; if (S.chill > 0) S.chill -= dt; if (S.iframes > 0) S.iframes -= dt; if (S.hurtT > 0) S.hurtT -= dt; if (S.healFx > 0) S.healFx -= dt; if (S.swing > 0) S.swing -= dt;
+  if (S.bulwark > 0) S.bulwark -= dt; if (S.chill > 0) S.chill -= dt; if (S.iframes > 0) S.iframes -= dt; if (S.hurtT > 0) S.hurtT -= dt; if (S.healFx > 0) S.healFx -= dt; if (S.swing > 0) S.swing -= dt; if (S.rangedFlash > 0) S.rangedFlash -= dt;
   if (S.venom > 0) { S.venom -= dt; S.venomTick = (S.venomTick || 0) + dt; if (S.venomTick > 1) { S.venomTick = 0; for (const m of S.party) if (!m.dead) { m.hp = Math.max(1, m.hp - 2); } } }
   if (S.shake > 0) S.shake -= dt;
   if (S.volley) { S.volley.t -= dt; if (S.volley.t <= 0) { firePartyProjectile(S.volley.m, 'arrow', rollDamage(S.volley.m) * 0.8, S.target, (Math.random() - 0.5) * 0.12); Snd.sfx('bow'); S.volley.n--; S.volley.t = 0.11; if (S.volley.n <= 0) S.volley = null; } }

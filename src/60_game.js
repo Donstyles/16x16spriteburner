@@ -190,7 +190,7 @@ function updatePlayer(dt) {
   S.px = clamp(S.px, 0.3, MW - 0.3); S.py = clamp(S.py, 0.3, MH - 0.3);
   // field name
   const z = zoneAt(S.px, S.py);
-  if (z.idx !== S.lastZone) { S.lastZone = z.idx; if (!S.boss && (S.areaShown !== z.idx)) { showCenter(z.name.toUpperCase(), null, 3.5, 'area'); S.areaShown = z.idx; } }
+  if (z.idx !== S.lastZone) { S.lastZone = z.idx; S.areaT = S.areaT || {}; if (!S.boss && (S.t - (S.areaT[z.idx] || -999) > 90)) { showCenter(z.name.toUpperCase(), null, 3.5, 'area'); S.areaT[z.idx] = S.t; } }
   MAP.explored[(S.py | 0) * MW + (S.px | 0)] = 1;
   // doors: auto open for the player when near
   for (const d of MAP.doors) {

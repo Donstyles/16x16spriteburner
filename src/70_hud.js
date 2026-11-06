@@ -64,6 +64,7 @@ function drawHUD(dt) {
   if (S.mode === 'victory') { drawVictory(ctx); return; }
   drawWorldFx(ctx);
   drawOverlays(ctx);
+  if (S.mode === 'play' && !Input.hideWeapon) drawWeapon(ctx);
   if (S.mode === 'play' || S.mode === 'menu' || S.mode === 'dead') {
     drawPortraits(ctx);
     if (S.mode === 'play') {
@@ -87,8 +88,29 @@ function drawWorldFx(ctx) {
     }
   }
 }
+function drawWeapon(ctx) {
+  // first-person weapon feedback: sword sweep on melee, bow flash on ranged
+  const W = H.W, HH = H.H, base = H.barTop;
+  const sw = S.swing || 0, k = sw > 0 ? 1 - sw / 0.25 : 1; // 0..1 progress of the swing
+  const restX = Input.isTouch ? W - H.sr - 270 : W - H.sr - 150, restY = base + 40;
+  const im = spriteCanvas(getSprite('sword_gold'), 0, 4);
+  const size = Math.min(150, HH * 0.42);
+  ctx.save();
+  if (sw > 0) {
+    const ang = -0.9 + Math.sin(k * Math.PI) * 1.6, px = restX - Math.sin(k * Math.PI) * size * 0.9, py = restY - Math.sin(k * Math.PI) * size * 0.75;
+    ctx.translate(px, py); ctx.rotate(ang);
+    ctx.globalAlpha = 0.95; ctx.drawImage(im, -size * 0.1, -size * 0.9, size, size);
+  } else if (S.mode === 'play') {
+    const bob = Math.sin(S.walkT * 9) * 3, breathe = Math.sin(S.t * 1.5) * 2;
+    ctx.translate(restX + 30, restY + 18 + bob + breathe); ctx.rotate(-0.55);
+    ctx.globalAlpha = 0.9; ctx.drawImage(im, -size * 0.1, -size * 0.9, size, size);
+  }
+  ctx.restore();
+  if (S.rangedFlash > 0) { const cx = W / 2, cy = HH / 2 + S.pitch * H.viewScaleY; const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 40); g.addColorStop(0, 'rgba(255,230,160,' + (S.rangedFlash * 1.6) + ')'); g.addColorStop(1, 'rgba(255,200,100,0)'); ctx.fillStyle = g; ctx.fillRect(cx - 40, cy - 40, 80, 80); }
+}
 function drawOverlays(ctx) {
   const W = H.W, HH = H.H;
+  { const g = ctx.createRadialGradient(W / 2, HH / 2, HH * 0.45, W / 2, HH / 2, HH * 1.05); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.55)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, HH); }
   if (S.hurtT > 0 || S.party.some(m => !m.dead && m.hp < m.hpMax * 0.25)) {
     const low = S.party.some(m => !m.dead && m.hp < m.hpMax * 0.25) ? 0.25 + Math.sin(S.t * 4) * 0.08 : 0;
     const a = Math.max(low, S.hurtT * 1.2);
@@ -208,7 +230,7 @@ function drawButtons(ctx) {
   }
   const bx = H.W - H.sr - 64, by = H.barTop - 74;
   if (Input.isTouch) {
-    circleBtn(ctx, 'attack', bx, by, 38, 'ATTACK', 'sword_gold', Input.held.attack);
+    circleBtn(ctx, 'attack', bx, by, 38, 'ATTACK', 'sword_gold', Input.held.attack, null, S.stam < 10 ? 'rgba(60,20,20,0.7)' : undefined);
     circleBtn(ctx, 'dodge', bx - 86, by + 30, 27, 'DODGE', null, Input.held.dodge);
     circleBtn(ctx, 'flask', bx - 86, by - 44, 27, 'FLASK', 'potion_red', false, S.estus + '');
     if (S.target && S.target.boss === false) { }
