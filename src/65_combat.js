@@ -72,6 +72,11 @@ function updateEnemies(dt) {
       case 'sleep': if (!def.mimic && d < 2.0 && hasLOS(e.x, e.y, px, py)) wakeEnemy(e); break;
       case 'idle': case 'return': {
         if (e.state === 'return') { const hdx = e.hx - e.x, hdy = e.hy - e.y, hd = Math.hypot(hdx, hdy); if (hd > 0.3) enemyMove(e, hdx / hd, hdy / hd, dt, 0.8); else { e.state = 'idle'; e.hp = Math.min(e.hpMax, e.hp + e.hpMax * 0.5); } }
+        if (e.state === 'idle' && !e.boss && !def.mimic) {
+          e.wanderT = (e.wanderT || 0) - dt;
+          if (e.wanderT <= 0) { e.wanderT = 2 + Math.random() * 4; const a = Math.random() * TAU; e.wander = Math.random() < 0.5 ? null : { x: Math.cos(a), y: Math.sin(a), t: 0.6 + Math.random() * 0.8 }; }
+          if (e.wander) { e.wander.t -= dt; if (e.wander.t <= 0) e.wander = null; else if (dist2(e.x, e.y, e.hx, e.hy) < 2.2) enemyMove(e, e.wander.x, e.wander.y, dt, 0.35); else { const hdx = e.hx - e.x, hdy = e.hy - e.y, hd = Math.hypot(hdx, hdy) || 1; enemyMove(e, hdx / hd, hdy / hd, dt, 0.35); } }
+        }
         const aggro = e.boss ? 7.5 : 6.5;
         if (d < aggro && hasLOS(e.x, e.y, px, py)) { e.aggroT += dt; if (e.aggroT > (e.boss ? 0 : 0.25)) wakeEnemy(e); } else e.aggroT = 0;
         break;
@@ -196,7 +201,7 @@ function hitParty(dmg, src, opts = {}) {
     m.hp -= d; m.hurt = 0.5; m.dmgPop = { n: d, t: 1 };
     if (m.hp <= 0) { m.hp = 0; m.dead = true; message(m.name + ' has fallen.'); Snd.sfx('fallen'); }
   }
-  S.hurtT = 0.5; S.shake = Math.max(S.shake, opts.shake || 0.18); Snd.sfx('hurt');
+  S.hurtT = 0.5; S.shake = Math.max(S.shake, opts.shake || 0.18); Snd.sfx('hurt'); try { if (navigator.vibrate) navigator.vibrate(opts.shake ? 60 : 25); } catch (e) { }
   if (src && src.def) { if (src.def.chill) { S.chill = 3; message('The cold slows the party.'); } if (src.def.venom) { S.venom = 5; } }
   if (!S.party.some(m => !m.dead)) dieParty();
 }

@@ -152,7 +152,7 @@ function placeOnWall(cx, cy) {
 }
 
 // ---- messages & UI state ----
-function message(t) { S.msgs.push({ t, time: 6 }); if (S.msgs.length > 4) S.msgs.shift(); }
+function message(t) { const last = S.msgs[S.msgs.length - 1]; if (last && last.t === t) { last.time = 6; return; } S.msgs.push({ t, time: 6 }); if (S.msgs.length > 4) S.msgs.shift(); }
 function showCenter(text, sub, dur, kind) { S.center = { text, sub, t: dur, dur, kind }; }
 function showItem(item, extra) { S.itemCard = { item, t: 4.5, extra }; }
 

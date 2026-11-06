@@ -1221,7 +1221,7 @@ function placeOnWall(cx, cy) {
 }
 
 // ---- messages & UI state ----
-function message(t) { S.msgs.push({ t, time: 6 }); if (S.msgs.length > 4) S.msgs.shift(); }
+function message(t) { const last = S.msgs[S.msgs.length - 1]; if (last && last.t === t) { last.time = 6; return; } S.msgs.push({ t, time: 6 }); if (S.msgs.length > 4) S.msgs.shift(); }
 function showCenter(text, sub, dur, kind) { S.center = { text, sub, t: dur, dur, kind }; }
 function showItem(item, extra) { S.itemCard = { item, t: 4.5, extra }; }
 
@@ -1508,6 +1508,11 @@ function updateEnemies(dt) {
       case 'sleep': if (!def.mimic && d < 2.0 && hasLOS(e.x, e.y, px, py)) wakeEnemy(e); break;
       case 'idle': case 'return': {
         if (e.state === 'return') { const hdx = e.hx - e.x, hdy = e.hy - e.y, hd = Math.hypot(hdx, hdy); if (hd > 0.3) enemyMove(e, hdx / hd, hdy / hd, dt, 0.8); else { e.state = 'idle'; e.hp = Math.min(e.hpMax, e.hp + e.hpMax * 0.5); } }
+        if (e.state === 'idle' && !e.boss && !def.mimic) {
+          e.wanderT = (e.wanderT || 0) - dt;
+          if (e.wanderT <= 0) { e.wanderT = 2 + Math.random() * 4; const a = Math.random() * TAU; e.wander = Math.random() < 0.5 ? null : { x: Math.cos(a), y: Math.sin(a), t: 0.6 + Math.random() * 0.8 }; }
+          if (e.wander) { e.wander.t -= dt; if (e.wander.t <= 0) e.wander = null; else if (dist2(e.x, e.y, e.hx, e.hy) < 2.2) enemyMove(e, e.wander.x, e.wander.y, dt, 0.35); else { const hdx = e.hx - e.x, hdy = e.hy - e.y, hd = Math.hypot(hdx, hdy) || 1; enemyMove(e, hdx / hd, hdy / hd, dt, 0.35); } }
+        }
         const aggro = e.boss ? 7.5 : 6.5;
         if (d < aggro && hasLOS(e.x, e.y, px, py)) { e.aggroT += dt; if (e.aggroT > (e.boss ? 0 : 0.25)) wakeEnemy(e); } else e.aggroT = 0;
         break;
@@ -1632,7 +1637,7 @@ function hitParty(dmg, src, opts = {}) {
     m.hp -= d; m.hurt = 0.5; m.dmgPop = { n: d, t: 1 };
     if (m.hp <= 0) { m.hp = 0; m.dead = true; message(m.name + ' has fallen.'); Snd.sfx('fallen'); }
   }
-  S.hurtT = 0.5; S.shake = Math.max(S.shake, opts.shake || 0.18); Snd.sfx('hurt');
+  S.hurtT = 0.5; S.shake = Math.max(S.shake, opts.shake || 0.18); Snd.sfx('hurt'); try { if (navigator.vibrate) navigator.vibrate(opts.shake ? 60 : 25); } catch (e) { }
   if (src && src.def) { if (src.def.chill) { S.chill = 3; message('The cold slows the party.'); } if (src.def.venom) { S.venom = 5; } }
   if (!S.party.some(m => !m.dead)) dieParty();
 }
@@ -2079,13 +2084,19 @@ function menuItems() {
     items.push({ label: 'Talk', sub: 'Hear what the Keeper knows', act: () => { m.line = (m.line + 1) % lines.length; m.said = lines[m.line]; } });
     for (const w of KEEPER_WARES) { const sold = S.flags.item['keeper_' + w.id]; items.push({ label: w.name + (sold ? '  (sold)' : '  ' + fmtNum(w.cost)), sub: w.sub, disabled: sold || S.souls < w.cost, act: () => { S.souls -= w.cost; S.flags.item['keeper_' + w.id] = 1; giveItem(w.item); m.said = 'Spend it well. Souls are the only coin the dark respects.'; saveGame(); } }); }
     items.push({ label: 'Leave', act: closeMenu });
+  } else if (m.kind === 'items') {
+    const keys = Object.keys(S.items);
+    if (!keys.length) items.push({ label: 'The party carries nothing of note.', act: () => { } });
+    for (const k of keys.slice(0, 6)) { const d = ITEM_DEFS[k]; items.push({ label: d.name + (S.items[k] > 1 ? '  x' + S.items[k] : ''), sub: d.lore.slice(0, 70), act: () => { S.menu = { kind: 'lore', text: d.name + '. ' + d.lore, back: m }; } }); }
+    items.push({ label: 'Back', act: () => { S.menu = m.back; } });
   } else if (m.kind === 'lore') {
-    items.push({ label: 'Close', act: closeMenu });
+    items.push({ label: 'Close', act: () => { if (m.back) S.menu = m.back; else closeMenu(); } });
   } else if (m.kind === 'pause') {
     items.push({ label: 'Resume', act: closeMenu });
     items.push({ label: (Snd.muted ? 'Unmute' : 'Mute') + ' audio', act: () => { Snd.muted = !Snd.muted; if (Snd.master) Snd.master.gain.value = Snd.muted ? 0 : 0.5; } });
     items.push({ label: 'Look sensitivity: ' + (Input.sensT > 0.006 ? 'High' : Input.sensT > 0.0035 ? 'Normal' : 'Low'), act: () => { Input.sensT = Input.sensT > 0.006 ? 0.0028 : Input.sensT > 0.0035 ? 0.0075 : 0.0045; } });
-    items.push({ label: 'Journal', sub: 'Souls ' + fmtNum(S.souls) + '  Deaths ' + S.deaths + '  Kills ' + S.kills + '  Time ' + fmtTime(S.playTime), act: () => { } });
+    items.push({ label: 'Items', sub: Object.keys(S.items).length ? Object.keys(S.items).map(k => ITEM_DEFS[k].name).join(', ').slice(0, 60) : 'Nothing yet', act: () => { S.menu = { kind: 'items', sel: 0, back: m }; } });
+    items.push({ label: 'Journal', sub: 'Souls ' + fmtNum(S.souls) + '  Deaths ' + S.deaths + '  Kills ' + S.kills + '  Bosses ' + S.bossKills + '  Time ' + fmtTime(S.playTime), act: () => { } });
     items.push({ label: 'Quit to title', sub: 'Progress is saved at bonfires', act: () => { saveGame(); S.mode = 'title'; S.menu = null; Snd.music('title'); } });
   }
   return items;
@@ -2115,7 +2126,7 @@ function drawMenu(ctx) {
   const h = titleH + bodyH + extraH, x = H.W / 2 - w / 2, y = Math.max(H.st + 6, H.H / 2 - h / 2 - 20);
   ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, 0, H.W, H.H);
   panel(ctx, x, y, w, h, 0.92);
-  const title = { bonfire: 'BONFIRE', levelup: m.member !== undefined ? S.party[m.member].name.toUpperCase() + ' - CHOOSE A STAT' : 'LEVEL UP', travel: 'TRAVEL', keeper: 'THE KEEPER', lore: 'INSCRIPTION', pause: 'PAUSED' }[m.kind];
+  const title = { items: 'ITEMS', bonfire: 'BONFIRE', levelup: m.member !== undefined ? S.party[m.member].name.toUpperCase() + ' - CHOOSE A STAT' : 'LEVEL UP', travel: 'TRAVEL', keeper: 'THE KEEPER', lore: 'INSCRIPTION', pause: 'PAUSED' }[m.kind];
   serifText(ctx, title, x + w / 2, y + 24, 18, '#e8c060', 'center', 2);
   if (m.kind === 'bonfire' || m.kind === 'levelup' || m.kind === 'keeper') drawText(ctx, fmtNum(S.souls) + ' souls', x + w - 12, y + 10, 1, '#b8ffd0', 'right');
   let cy = y + titleH;

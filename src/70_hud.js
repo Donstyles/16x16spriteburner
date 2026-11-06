@@ -317,13 +317,19 @@ function menuItems() {
     items.push({ label: 'Talk', sub: 'Hear what the Keeper knows', act: () => { m.line = (m.line + 1) % lines.length; m.said = lines[m.line]; } });
     for (const w of KEEPER_WARES) { const sold = S.flags.item['keeper_' + w.id]; items.push({ label: w.name + (sold ? '  (sold)' : '  ' + fmtNum(w.cost)), sub: w.sub, disabled: sold || S.souls < w.cost, act: () => { S.souls -= w.cost; S.flags.item['keeper_' + w.id] = 1; giveItem(w.item); m.said = 'Spend it well. Souls are the only coin the dark respects.'; saveGame(); } }); }
     items.push({ label: 'Leave', act: closeMenu });
+  } else if (m.kind === 'items') {
+    const keys = Object.keys(S.items);
+    if (!keys.length) items.push({ label: 'The party carries nothing of note.', act: () => { } });
+    for (const k of keys.slice(0, 6)) { const d = ITEM_DEFS[k]; items.push({ label: d.name + (S.items[k] > 1 ? '  x' + S.items[k] : ''), sub: d.lore.slice(0, 70), act: () => { S.menu = { kind: 'lore', text: d.name + '. ' + d.lore, back: m }; } }); }
+    items.push({ label: 'Back', act: () => { S.menu = m.back; } });
   } else if (m.kind === 'lore') {
-    items.push({ label: 'Close', act: closeMenu });
+    items.push({ label: 'Close', act: () => { if (m.back) S.menu = m.back; else closeMenu(); } });
   } else if (m.kind === 'pause') {
     items.push({ label: 'Resume', act: closeMenu });
     items.push({ label: (Snd.muted ? 'Unmute' : 'Mute') + ' audio', act: () => { Snd.muted = !Snd.muted; if (Snd.master) Snd.master.gain.value = Snd.muted ? 0 : 0.5; } });
     items.push({ label: 'Look sensitivity: ' + (Input.sensT > 0.006 ? 'High' : Input.sensT > 0.0035 ? 'Normal' : 'Low'), act: () => { Input.sensT = Input.sensT > 0.006 ? 0.0028 : Input.sensT > 0.0035 ? 0.0075 : 0.0045; } });
-    items.push({ label: 'Journal', sub: 'Souls ' + fmtNum(S.souls) + '  Deaths ' + S.deaths + '  Kills ' + S.kills + '  Time ' + fmtTime(S.playTime), act: () => { } });
+    items.push({ label: 'Items', sub: Object.keys(S.items).length ? Object.keys(S.items).map(k => ITEM_DEFS[k].name).join(', ').slice(0, 60) : 'Nothing yet', act: () => { S.menu = { kind: 'items', sel: 0, back: m }; } });
+    items.push({ label: 'Journal', sub: 'Souls ' + fmtNum(S.souls) + '  Deaths ' + S.deaths + '  Kills ' + S.kills + '  Bosses ' + S.bossKills + '  Time ' + fmtTime(S.playTime), act: () => { } });
     items.push({ label: 'Quit to title', sub: 'Progress is saved at bonfires', act: () => { saveGame(); S.mode = 'title'; S.menu = null; Snd.music('title'); } });
   }
   return items;
@@ -353,7 +359,7 @@ function drawMenu(ctx) {
   const h = titleH + bodyH + extraH, x = H.W / 2 - w / 2, y = Math.max(H.st + 6, H.H / 2 - h / 2 - 20);
   ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, 0, H.W, H.H);
   panel(ctx, x, y, w, h, 0.92);
-  const title = { bonfire: 'BONFIRE', levelup: m.member !== undefined ? S.party[m.member].name.toUpperCase() + ' - CHOOSE A STAT' : 'LEVEL UP', travel: 'TRAVEL', keeper: 'THE KEEPER', lore: 'INSCRIPTION', pause: 'PAUSED' }[m.kind];
+  const title = { items: 'ITEMS', bonfire: 'BONFIRE', levelup: m.member !== undefined ? S.party[m.member].name.toUpperCase() + ' - CHOOSE A STAT' : 'LEVEL UP', travel: 'TRAVEL', keeper: 'THE KEEPER', lore: 'INSCRIPTION', pause: 'PAUSED' }[m.kind];
   serifText(ctx, title, x + w / 2, y + 24, 18, '#e8c060', 'center', 2);
   if (m.kind === 'bonfire' || m.kind === 'levelup' || m.kind === 'keeper') drawText(ctx, fmtNum(S.souls) + ' souls', x + w - 12, y + 10, 1, '#b8ffd0', 'right');
   let cy = y + titleH;
