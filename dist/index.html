@@ -995,7 +995,7 @@ const Input = {
         if (!this.joy && t.clientX < window.innerWidth * 0.42) { this.joy = { id: t.identifier, ox: t.clientX, oy: t.clientY, x: t.clientX, y: t.clientY }; continue; }
         if (!this.look) { this.look = { id: t.identifier, lx: t.clientX, ly: t.clientY, sx: t.clientX, sy: t.clientY, t: performance.now(), moved: 0 }; continue; }
       }
-      e.preventDefault();
+      if (e.cancelable) e.preventDefault();
     };
     const tm = e => {
       for (const t of e.changedTouches) {
@@ -1005,7 +1005,7 @@ const Input = {
           this.turn += dx * this.sensT; this.pitchD -= dy * this.sensP; this.look.lx = t.clientX; this.look.ly = t.clientY; this.look.moved += Math.abs(dx) + Math.abs(dy);
         }
       }
-      e.preventDefault();
+      if (e.cancelable) e.preventDefault();
     };
     const te = e => {
       for (const t of e.changedTouches) {
@@ -1017,7 +1017,7 @@ const Input = {
           this.look = null;
         }
       }
-      e.preventDefault();
+      if (e.cancelable) e.preventDefault();
     };
     window.addEventListener('touchstart', ts, { passive: false });
     window.addEventListener('touchmove', tm, { passive: false });
@@ -2223,7 +2223,7 @@ function drawHUD(dt) {
   if (S.mode === 'play' || S.mode === 'menu' || S.mode === 'dead') {
     drawPortraits(ctx);
     if (S.mode === 'play') {
-      drawCrosshair(ctx); drawTarget(ctx); drawMinimap(ctx); drawSouls(ctx); drawStamina(ctx); drawBossBar(ctx); drawButtons(ctx); drawMessages(ctx); drawItemCard(ctx);
+      drawEnemyBars(ctx); drawCrosshair(ctx); drawTarget(ctx); drawMinimap(ctx); drawSouls(ctx); drawStamina(ctx); drawBossBar(ctx); drawButtons(ctx); drawMessages(ctx); drawItemCard(ctx);
     }
   }
   drawCenter(ctx);
@@ -2289,6 +2289,15 @@ function drawCrosshair(ctx) {
     drawText(ctx, label, H.W / 2, y + 6, 2, '#ffe9a0', 'center');
     if (!Input.isTouch) drawText(ctx, '[E]', x + w - 6, y - 10, 1, '#b8a888', 'right');
     Input.buttons.push({ id: 'interact', x, y, w, h: 26 });
+  }
+}
+function drawEnemyBars(ctx) {
+  for (const e of S.enemies) {
+    if (e.dead || e.boss || e.hp >= e.hpMax || (e.state === 'sleep')) continue;
+    if (S.t - (e.lastHit || -99) > 6 && e.state !== 'windup') continue;
+    const p = worldToScreen(e.x, e.y, e.zoff + e.def.size + 0.12); if (!p || p.d > 9) continue;
+    const w = clamp(60 / p.d, 14, 46);
+    bar(ctx, p.x - w / 2, p.y - 3, w, 3, e.hp / e.hpMax, e === S.target ? '#ff5a3a' : '#b8282a', 'rgba(20,10,10,0.8)');
   }
 }
 function drawTarget(ctx) {
@@ -2530,7 +2539,9 @@ function drawTitle(ctx) {
   rectBtn(ctx, 'new', W / 2 - bw / 2, by - (has ? 26 : 0), bw, 40, has ? 'NEW GAME' : 'BEGIN', S.titleSel === 0);
   if (has) rectBtn(ctx, 'continue', W / 2 - bw / 2, by + 24, bw, 40, 'CONTINUE', S.titleSel === 1);
   drawText(ctx, 'Dungeon tiles by RunninBlood. Creature sprites from the Basic, Premium and Supporter asset packs.', W / 2, HH - H.sb - 30, 1, '#8a8078', 'center');
-  drawText(ctx, Input.isTouch ? 'Best played in landscape, added to your Home Screen.' : 'Click the view to capture the mouse. WASD + mouse, SPACE to attack.', W / 2, HH - H.sb - 18, 1, '#8a8078', 'center');
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) && !navigator.standalone;
+  const hint = ios ? 'iPhone: tap Share, then Add to Home Screen, for full screen play.' : Input.isTouch ? 'Best played in landscape, installed to your Home Screen.' : 'Click the view to capture the mouse. WASD + mouse, SPACE to attack.';
+  drawText(ctx, hint, W / 2, HH - H.sb - 18, 1, ios ? '#e8c060' : '#8a8078', 'center');
 }
 function drawVictory(ctx) {
   const W = H.W, HH = H.H;
@@ -2553,7 +2564,7 @@ function readInsets() {
 function resize() {
   const vv = window.visualViewport;
   const W = Math.round(vv ? vv.width : window.innerWidth), Hh = Math.round(vv ? vv.height : window.innerHeight);
-  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const ins = readInsets();
   const VH = clamp(Math.round(Hh / 2.1 * (window.RES_SCALE || 1)), 140, 270), VW = Math.min(620, Math.round(VH * W / Hh));
   R.hfov = VW / VH > 2 ? 1.42 : 1.28;
@@ -2587,8 +2598,12 @@ async function boot() {
   window.addEventListener('touchstart', first, { once: true }); window.addEventListener('mousedown', first, { once: true }); window.addEventListener('keydown', first, { once: true });
   requestAnimationFrame(loop);
 }
-function startNew() { Snd.init(); newGame(); Snd.music('ambient'); S.fade = { t: 1.5, dur: 1.5, color: '#000' }; }
-function startContinue() { Snd.init(); if (!loadGame()) startNew(); else Snd.music('ambient'); }
+function goFullscreen() {
+  if (!Input.isTouch || navigator.standalone) return;
+  try { const el = document.documentElement; const p = el.requestFullscreen ? el.requestFullscreen({ navigationUI: 'hide' }) : null; const lock = () => { try { const l = screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'); if (l && l.catch) l.catch(() => {}); } catch (e) { } }; if (p && p.then) p.then(lock, () => {}); else lock(); } catch (e) { }
+}
+function startNew() { Snd.init(); goFullscreen(); newGame(); Snd.music('ambient'); S.fade = { t: 1.5, dur: 1.5, color: '#000' }; }
+function startContinue() { Snd.init(); goFullscreen(); if (!loadGame()) startNew(); else Snd.music('ambient'); }
 function loop(t) {
   requestAnimationFrame(loop);
   const dt = Math.min(0.05, (t - lastT) / 1000 || 0.016); lastT = t;

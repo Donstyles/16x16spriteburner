@@ -36,7 +36,7 @@ const Input = {
         if (!this.joy && t.clientX < window.innerWidth * 0.42) { this.joy = { id: t.identifier, ox: t.clientX, oy: t.clientY, x: t.clientX, y: t.clientY }; continue; }
         if (!this.look) { this.look = { id: t.identifier, lx: t.clientX, ly: t.clientY, sx: t.clientX, sy: t.clientY, t: performance.now(), moved: 0 }; continue; }
       }
-      e.preventDefault();
+      if (e.cancelable) e.preventDefault();
     };
     const tm = e => {
       for (const t of e.changedTouches) {
@@ -46,7 +46,7 @@ const Input = {
           this.turn += dx * this.sensT; this.pitchD -= dy * this.sensP; this.look.lx = t.clientX; this.look.ly = t.clientY; this.look.moved += Math.abs(dx) + Math.abs(dy);
         }
       }
-      e.preventDefault();
+      if (e.cancelable) e.preventDefault();
     };
     const te = e => {
       for (const t of e.changedTouches) {
@@ -58,7 +58,7 @@ const Input = {
           this.look = null;
         }
       }
-      e.preventDefault();
+      if (e.cancelable) e.preventDefault();
     };
     window.addEventListener('touchstart', ts, { passive: false });
     window.addEventListener('touchmove', tm, { passive: false });

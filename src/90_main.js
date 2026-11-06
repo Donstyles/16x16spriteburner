@@ -8,7 +8,7 @@ function readInsets() {
 function resize() {
   const vv = window.visualViewport;
   const W = Math.round(vv ? vv.width : window.innerWidth), Hh = Math.round(vv ? vv.height : window.innerHeight);
-  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const ins = readInsets();
   const VH = clamp(Math.round(Hh / 2.1 * (window.RES_SCALE || 1)), 140, 270), VW = Math.min(620, Math.round(VH * W / Hh));
   R.hfov = VW / VH > 2 ? 1.42 : 1.28;
@@ -42,8 +42,12 @@ async function boot() {
   window.addEventListener('touchstart', first, { once: true }); window.addEventListener('mousedown', first, { once: true }); window.addEventListener('keydown', first, { once: true });
   requestAnimationFrame(loop);
 }
-function startNew() { Snd.init(); newGame(); Snd.music('ambient'); S.fade = { t: 1.5, dur: 1.5, color: '#000' }; }
-function startContinue() { Snd.init(); if (!loadGame()) startNew(); else Snd.music('ambient'); }
+function goFullscreen() {
+  if (!Input.isTouch || navigator.standalone) return;
+  try { const el = document.documentElement; const p = el.requestFullscreen ? el.requestFullscreen({ navigationUI: 'hide' }) : null; const lock = () => { try { const l = screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'); if (l && l.catch) l.catch(() => {}); } catch (e) { } }; if (p && p.then) p.then(lock, () => {}); else lock(); } catch (e) { }
+}
+function startNew() { Snd.init(); goFullscreen(); newGame(); Snd.music('ambient'); S.fade = { t: 1.5, dur: 1.5, color: '#000' }; }
+function startContinue() { Snd.init(); goFullscreen(); if (!loadGame()) startNew(); else Snd.music('ambient'); }
 function loop(t) {
   requestAnimationFrame(loop);
   const dt = Math.min(0.05, (t - lastT) / 1000 || 0.016); lastT = t;

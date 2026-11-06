@@ -68,7 +68,7 @@ function drawHUD(dt) {
   if (S.mode === 'play' || S.mode === 'menu' || S.mode === 'dead') {
     drawPortraits(ctx);
     if (S.mode === 'play') {
-      drawCrosshair(ctx); drawTarget(ctx); drawMinimap(ctx); drawSouls(ctx); drawStamina(ctx); drawBossBar(ctx); drawButtons(ctx); drawMessages(ctx); drawItemCard(ctx);
+      drawEnemyBars(ctx); drawCrosshair(ctx); drawTarget(ctx); drawMinimap(ctx); drawSouls(ctx); drawStamina(ctx); drawBossBar(ctx); drawButtons(ctx); drawMessages(ctx); drawItemCard(ctx);
     }
   }
   drawCenter(ctx);
@@ -134,6 +134,15 @@ function drawCrosshair(ctx) {
     drawText(ctx, label, H.W / 2, y + 6, 2, '#ffe9a0', 'center');
     if (!Input.isTouch) drawText(ctx, '[E]', x + w - 6, y - 10, 1, '#b8a888', 'right');
     Input.buttons.push({ id: 'interact', x, y, w, h: 26 });
+  }
+}
+function drawEnemyBars(ctx) {
+  for (const e of S.enemies) {
+    if (e.dead || e.boss || e.hp >= e.hpMax || (e.state === 'sleep')) continue;
+    if (S.t - (e.lastHit || -99) > 6 && e.state !== 'windup') continue;
+    const p = worldToScreen(e.x, e.y, e.zoff + e.def.size + 0.12); if (!p || p.d > 9) continue;
+    const w = clamp(60 / p.d, 14, 46);
+    bar(ctx, p.x - w / 2, p.y - 3, w, 3, e.hp / e.hpMax, e === S.target ? '#ff5a3a' : '#b8282a', 'rgba(20,10,10,0.8)');
   }
 }
 function drawTarget(ctx) {
@@ -375,7 +384,9 @@ function drawTitle(ctx) {
   rectBtn(ctx, 'new', W / 2 - bw / 2, by - (has ? 26 : 0), bw, 40, has ? 'NEW GAME' : 'BEGIN', S.titleSel === 0);
   if (has) rectBtn(ctx, 'continue', W / 2 - bw / 2, by + 24, bw, 40, 'CONTINUE', S.titleSel === 1);
   drawText(ctx, 'Dungeon tiles by RunninBlood. Creature sprites from the Basic, Premium and Supporter asset packs.', W / 2, HH - H.sb - 30, 1, '#8a8078', 'center');
-  drawText(ctx, Input.isTouch ? 'Best played in landscape, added to your Home Screen.' : 'Click the view to capture the mouse. WASD + mouse, SPACE to attack.', W / 2, HH - H.sb - 18, 1, '#8a8078', 'center');
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) && !navigator.standalone;
+  const hint = ios ? 'iPhone: tap Share, then Add to Home Screen, for full screen play.' : Input.isTouch ? 'Best played in landscape, installed to your Home Screen.' : 'Click the view to capture the mouse. WASD + mouse, SPACE to attack.';
+  drawText(ctx, hint, W / 2, HH - H.sb - 18, 1, ios ? '#e8c060' : '#8a8078', 'center');
 }
 function drawVictory(ctx) {
   const W = H.W, HH = H.H;
