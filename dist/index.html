@@ -1314,7 +1314,7 @@ function buildWorldGrid() {
   carve(28, 13, 31, 13); carve(32, 9, 41, 18); // graveyard hall
   obj('torch', 29.5, 12.5, {});
   for (const [x, y] of [[33, 10], [35, 10], [37, 10], [39, 10], [33, 17], [35, 17], [37, 17], [39, 17]]) obj('deco', x + 0.5, y + 0.5, { spr: hash2(x, y) > 0.5 ? 'grave' : 'grave2' });
-  obj('deco', 36.5, 13.5, { spr: 'coffin_open' }); obj('deco', 33.5, 13.5, { spr: 'bigpot_moss' }); obj('deco', 40.5, 14.5, { spr: 'bush' });
+  obj('deco', 36.5, 13.5, { spr: 'coffin_open' }); obj('deco', 34.5, 11.5, { spr: 'bigpot_moss' }); obj('deco', 40.5, 14.5, { spr: 'bush' });
   spawn('CorruptedTreant', 34.5, 12.5); spawn('CorruptedTreant', 39.5, 15.5); spawn('SneakySatyr', 37.5, 11.5); spawn('GoblinOccultist', 40.5, 10.5); spawn('SneakySatyr', 33.5, 16.5);
   obj('brazier', 32.5, 9.5, { spr: 'brazier_green' }); obj('brazier', 41.5, 18.5, { spr: 'brazier_green' });
   obj('breakable', 41.5, 9.5, { spr: 'pot' }); obj('breakable', 32.5, 18.5, { spr: 'pot' });
@@ -2657,7 +2657,7 @@ function loop(t) {
   Input.endFrame();
 }
 window.addEventListener('load', boot);
-window.AM = { S, R, Input, get MAP() { return MAP; }, newGame, loadGame, saveGame, message, showCenter, giveItem, ENEMY_DEFS, WORLD, Snd, getSprite, spawnEnemies, damageEnemy, useAbility, partyAttack, doInteract, findFocus, hitParty, respawn, dieParty, restAtBonfire, makeEnemy, zoneAt };
+window.AM = { S, R, Input, get MAP() { return MAP; }, newGame, loadGame, saveGame, message, showCenter, giveItem, ENEMY_DEFS, WORLD, Snd, getSprite, spawnEnemies, damageEnemy, useAbility, partyAttack, doInteract, findFocus, hitParty, respawn, dieParty, restAtBonfire, makeEnemy, zoneAt, useFlask, levelUp, openChest, wakeEnemy };
 
 })();
 </script>

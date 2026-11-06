@@ -101,4 +101,4 @@ function loop(t) {
   Input.endFrame();
 }
 window.addEventListener('load', boot);
-window.AM = { S, R, Input, get MAP() { return MAP; }, newGame, loadGame, saveGame, message, showCenter, giveItem, ENEMY_DEFS, WORLD, Snd, getSprite, spawnEnemies, damageEnemy, useAbility, partyAttack, doInteract, findFocus, hitParty, respawn, dieParty, restAtBonfire, makeEnemy, zoneAt };
+window.AM = { S, R, Input, get MAP() { return MAP; }, newGame, loadGame, saveGame, message, showCenter, giveItem, ENEMY_DEFS, WORLD, Snd, getSprite, spawnEnemies, damageEnemy, useAbility, partyAttack, doInteract, findFocus, hitParty, respawn, dieParty, restAtBonfire, makeEnemy, zoneAt, useFlask, levelUp, openChest, wakeEnemy };

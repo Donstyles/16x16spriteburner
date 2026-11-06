@@ -9,7 +9,7 @@ Five zones: The Undercroft, Mossgrave Catacombs, The Frozen Reliquary, The Molte
 
 ## Play
 
-Open `index.html` from any static host (GitHub Pages works: Settings → Pages → deploy from this branch, root). Everything is plain HTML, CSS and JavaScript with no build dependencies at runtime.
+Open `index.html` from any static host. For GitHub Pages: repository **Settings → Pages → Build and deployment → Source: Deploy from a branch**, pick this branch and `/ (root)`, save, and the game appears at `https://donstyles.github.io/16x16spriteburner/` within a minute or two. Everything is plain HTML, CSS and JavaScript with no build dependencies at runtime.
 
 `dist/index.html` is a single self-contained file with every asset inlined, for hosts that can only serve one file.
 
