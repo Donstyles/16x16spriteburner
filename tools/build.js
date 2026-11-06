@@ -25,4 +25,9 @@ const head1 = `<link rel="manifest" href="data:application/manifest+json,${encod
 const scripts1 = `<script>window.ASSET_SRC = { tiles: '${b64('assets/tiles.png')}', creatures: '${b64('assets/creatures.png')}', cindexData: ${cindex} };</script>\n<script>${js.replace(/<\/script/g, '<\\/script')}</script>`;
 fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
 fs.writeFileSync(path.join(root, 'dist/index.html'), tpl.replace('<!--HEAD-->', head1).replace('<!--SCRIPTS-->', scripts1));
+// artifact variant: same single-file page without the document skeleton (the host wraps it)
+const single = fs.readFileSync(path.join(root, 'dist/index.html'), 'utf8');
+let art = single.replace(/^<!doctype html>\s*<html[^>]*>\s*<head>\s*/i, '').replace(/<\/head>\s*<body>\s*/i, '').replace(/<\/body>\s*<\/html>\s*$/i, '');
+art = art.replace(/<meta charset="utf-8">\s*/, '').replace(/<meta name="viewport"[^>]*>\s*/, '');
+fs.writeFileSync(path.join(root, 'dist/artifact.html'), art);
 console.log('built', files.length, 'modules, game.js', (js.length / 1024).toFixed(0) + 'KB, dist/index.html', (fs.statSync(path.join(root, 'dist/index.html')).size / 1024).toFixed(0) + 'KB');

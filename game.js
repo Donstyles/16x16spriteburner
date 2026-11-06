@@ -583,7 +583,7 @@ const Input = {
       if (this.isTouch) return;
       const b = this.hitButton(e.clientX, e.clientY);
       if (b) { this.press(b.id); this.mouseBtn = b.id; return; }
-      if (!this.pointerLocked) { viewEl.requestPointerLock && viewEl.requestPointerLock(); this.anyKey++; return; }
+      if (!this.pointerLocked) { try { const pr = viewEl.requestPointerLock && viewEl.requestPointerLock(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) { } this.anyKey++; return; }
       if (e.button === 0) this.press('attack'); else if (e.button === 2) this.press('dodge');
     });
     viewEl.addEventListener('mouseup', () => { if (this.mouseBtn) { this.held[this.mouseBtn] = false; this.mouseBtn = null; } this.held.attack = false; });
@@ -2168,7 +2168,8 @@ function resize() {
   viewCvs.style.width = W + 'px'; viewCvs.style.height = Hh + 'px';
   H.viewScaleX = W / VW; H.viewScaleY = Hh / VH;
   hudResize(W, Hh, dpr, ins);
-  document.getElementById('rotate').style.display = (W < Hh && Input.isTouch) ? 'flex' : 'none';
+  const touchDev = Input.isTouch || navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+  document.getElementById('rotate').style.display = (W < Hh && touchDev) ? 'flex' : 'none';
 }
 async function boot() {
   viewCvs = document.getElementById('view');

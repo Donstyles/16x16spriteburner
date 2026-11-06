@@ -16,7 +16,8 @@ function resize() {
   viewCvs.style.width = W + 'px'; viewCvs.style.height = Hh + 'px';
   H.viewScaleX = W / VW; H.viewScaleY = Hh / VH;
   hudResize(W, Hh, dpr, ins);
-  document.getElementById('rotate').style.display = (W < Hh && Input.isTouch) ? 'flex' : 'none';
+  const touchDev = Input.isTouch || navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+  document.getElementById('rotate').style.display = (W < Hh && touchDev) ? 'flex' : 'none';
 }
 async function boot() {
   viewCvs = document.getElementById('view');
