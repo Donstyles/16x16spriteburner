@@ -107,7 +107,7 @@ const CAMPS = [ // overworld monster camps: x, y, radius, list, count
   [16, 50, 5, ['bandit', 'bandit', 'bandit_slinger'], 4], [12, 66, 5, ['bandit', 'bandit_slinger', 'assassin'], 4], [22, 30, 5, ['bandit', 'bandit', 'wild_dog', 'bandit_slinger'], 5],
   [84, 44, 6, ['lizard_scout', 'lizard_spear', 'lizard_archer'], 5], [92, 56, 6, ['lizard_spear', 'lizard_gladiator', 'lizard_scout'], 5], [76, 30, 5, ['lizard_scout', 'lizard_archer', 'satyr'], 4],
   [20, 18, 5, ['satyr', 'pixie', 'treant'], 4], [30, 8, 5, ['wisp', 'fairy', 'satyr'], 4], [88, 10, 5, ['treant', 'wolf_rider', 'satyr'], 4],
-  [8, 26, 5, ['stone_golem', 'earth_elemental', 'clay_golem'], 3], [100, 40, 5, ['fire_elemental', 'pyromancer'], 3], [70, 68, 5, ['lizard_gladiator', 'bestial_lizard', 'naga'], 4], [40, 70, 5, ['minotaur', 'wolf_rider'], 3],
+  [8, 26, 5, ['stone_golem', 'earth_elemental', 'clay_golem'], 3], [100, 40, 5, ['fire_elemental', 'pyromancer'], 3], [92, 68, 5, ['lizard_gladiator', 'bestial_lizard', 'naga'], 4], [6, 56, 5, ['minotaur', 'wolf_rider'], 3],
 ];
 
 // ---------- value noise ----------
@@ -187,6 +187,7 @@ function buildOverworld() {
   for (let i = 0; i < 7; i++) m.objects.push({ kind: 'pickup', x: 78 + Math.floor(rng() * 20), y: 36 + Math.floor(rng() * 22), item: 'marsh_herb', id: 'herb' + i });
   // a few treasure chests in the wilds
   for (const [x, y, tier] of [[20, 20, 1], [62, 8, 1], [8, 28, 2], [96, 12, 2], [96, 58, 3], [38, 74, 2], [72, 72, 3], [12, 70, 2]]) m.objects.push({ kind: 'chest', x, y, tier, id: 'oc' + x + ',' + y });
+  m.monsters = m.monsters.filter(mo => !(mo.x >= m.town.x0 - 1 && mo.x <= m.town.x1 + 1 && mo.y >= m.town.y0 - 1 && mo.y <= m.town.y1 + 1));
   cleanOverworld(m);
   return m;
 }

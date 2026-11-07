@@ -173,7 +173,8 @@ function drawTitle(ctx) {
   const W = U.W, H = U.H; const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, 'rgba(0,0,0,0.2)'); g.addColorStop(1, 'rgba(0,0,0,0.85)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   serif(ctx, 'HARROWMERE', W / 2, H * 0.26, Math.min(64, W / 10), C.gold, 'center', 8); ctx.fillStyle = 'rgba(212,169,76,0.5)'; ctx.fillRect(W / 2 - 170, H * 0.26 + 40, 340, 1);
   serif(ctx, 'a top-down tale of Might and Magic', W / 2, H * 0.26 + 58, 15, C.text, 'center', 1);
-  const by = H * 0.58; btn(ctx, 'newgame', W / 2 - 110, by, 220, 40, 'NEW GAME', { scale: 2 }); if (hasSave()) btn(ctx, 'continue', W / 2 - 110, by + 48, 220, 40, 'CONTINUE', { scale: 2 });
+  const by = H * 0.52; btn(ctx, 'newgame', W / 2 - 110, by, 220, 40, 'NEW GAME', { scale: 2 }); if (hasSave()) btn(ctx, 'continue', W / 2 - 110, by + 48, 220, 40, 'CONTINUE', { scale: 2 });
+  btn(ctx, 'watch', W / 2 - 110, by + (hasSave() ? 96 : 48), 220, 40, 'WATCH CLAUDE PLAY', { scale: 1, sub: 'a full walkthrough, hands off' });
   text(ctx, 'Dungeon tiles by RunninBlood. Creature sprites from the Basic, Premium and Supporter packs.', W / 2, H - U.ins.b - 28, 1, C.dim, 'center');
   text(ctx, I.isTouch ? 'Play in landscape. Add to your Home Screen for full screen.' : 'WASD to move, SPACE to attack, F to cast, C for the party, E to interact.', W / 2, H - U.ins.b - 16, 1, C.dim, 'center');
 }

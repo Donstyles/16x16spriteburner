@@ -42,6 +42,7 @@ function drawHUD() {
   drawWorldFx(ctx);
   drawPortraitBar(ctx);
   if (G.mode === 'play' && !G.screen) { drawTopBar(ctx); drawButtons(ctx); drawLog(ctx); drawPrompt(ctx); drawTargetBar(ctx); }
+  if (BOT.on && (G.mode === 'play' || G.mode === 'dead')) drawBotCaption(ctx);
   drawNotice(ctx);
   if (G.screen) drawScreen(ctx);
   if (G.mode === 'dead') drawDead(ctx);
@@ -55,6 +56,12 @@ function drawWorldFx(ctx) {
   if (G.fearT > 0) { ctx.fillStyle = 'rgba(120,40,160,' + Math.min(0.25, G.fearT * 0.1) + ')'; ctx.fillRect(0, 0, U.W, U.barTop); }
   if (G.chill > 0) { ctx.fillStyle = 'rgba(120,180,255,' + Math.min(0.18, G.chill * 0.08) + ')'; ctx.fillRect(0, 0, U.W, U.barTop); }
   const hurt = Math.max(...G.party.map(m => m.hurt || 0)); if (hurt > 0) { const g = ctx.createRadialGradient(U.W / 2, U.barTop / 2, U.barTop * 0.4, U.W / 2, U.barTop / 2, U.barTop); g.addColorStop(0, 'rgba(120,0,0,0)'); g.addColorStop(1, 'rgba(140,0,0,' + hurt * 0.8 + ')'); ctx.fillStyle = g; ctx.fillRect(0, 0, U.W, U.barTop); }
+}
+function drawBotCaption(ctx) {
+  const y = U.ins.t + 50, w = Math.min(560, U.W - 240); const x = U.W / 2 - w / 2;
+  ctx.fillStyle = 'rgba(8,6,6,0.72)'; ctx.fillRect(x, y, w, 16); ctx.fillStyle = C.gold; ctx.fillRect(x, y, 2, 16);
+  text(ctx, 'Claude: ' + (BOT.say || '...'), x + 8, y + 4, 1, '#ffe9a0');
+  btn(ctx, 'stopbot', x + w + 6, y - 2, 46, 20, 'STOP', { scale: 1 });
 }
 function drawTopBar(ctx) {
   const x0 = U.ins.l + 8, y0 = U.ins.t + 6;

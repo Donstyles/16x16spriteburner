@@ -89,6 +89,21 @@ function ambientColor() {
   if (M.outdoor) { const d = daylight(); return [lerp(52, 255, d), lerp(62, 255, d), lerp(105, 255, d)]; }
   const a = THEMES[M.theme].ambient; return [a * 200, a * 196, a * 215];
 }
+function stepPlay(dt) {
+  if (BOT.on) { BOT.update(dt); I.mx = BOT.mx; I.my = BOT.my; if (I.take('stopbot')) BOT.stop(); }
+  if (G.mode === 'dead') { G.deadT += dt; G.playTime += dt; if (G.deadT > 1.5 && (I.take('wake') || I.take('interact'))) partyWipe(); return; }
+  G.playTime += dt; G.mapT = (G.mapT || 0) + dt;
+  playInput();
+  Snd.music(M.outdoor ? 'town' : 'dungeon');
+  if (!G.screen && G.mode === 'play') {
+    frameCombatDt(dt); updateParty(dt); updateMonsters(dt); updateProjectiles(dt); updateFx(dt); updatePartyTimers(dt); updateClock(dt); updateNpcs(dt);
+    G.focus = nearestInteractable();
+    for (const l of G.log) l.t += dt; if (G.log.length && G.log[0].t > 10) G.log.shift();
+    if (G.notice) { G.notice.t -= dt; if (G.notice.t <= 0) G.notice = null; }
+    autosaveT += dt; if (autosaveT > 90) { autosaveT = 0; saveGame(); }
+  }
+  if (G.fadeT > 0) G.fadeT -= dt * 1.5;
+}
 function loop(t) {
   requestAnimationFrame(loop);
   const dt = Math.min(0.05, (t - lastT) / 1000 || 0.016); lastT = t;
@@ -96,25 +111,17 @@ function loop(t) {
   if (G.mode === 'title') {
     G.titleT += dt; G.playTime += dt; updateNpcs(dt); G.x = M.townSquare.x + Math.sin(G.titleT * 0.1) * 6; G.y = M.townSquare.y + Math.cos(G.titleT * 0.13) * 3;
     if (I.take('newgame')) { Snd.init(); goFullscreen(); startCreate(); } if (I.take('continue')) { Snd.init(); goFullscreen(); if (!loadGame()) startCreate(); }
+    if (I.take('watch')) { Snd.init(); goFullscreen(); newGame(defaultParty()); G.fadeT = 1; BOT.start(); }
   } else if (G.mode === 'create') {
     G.playTime += dt; const cls = Object.keys(CLASSES);
     G.create.forEach((c, i) => { if (I.take('cls_prev' + i)) c.cls = cls[(cls.indexOf(c.cls) + cls.length - 1) % cls.length]; if (I.take('cls_next' + i)) c.cls = cls[(cls.indexOf(c.cls) + 1) % cls.length]; if (I.take('name' + i)) { if (I.isTouch) c.name = pick(NAME_POOL.filter(n => !G.create.some(x => x.name === n))); else { G.editing = i; I.textTarget = ch => { if (ch === '\b') c.name = c.name.slice(0, -1); else if (c.name.length < 12 && /[a-zA-Z' ]/.test(ch)) c.name += ch; }; } } });
     if (I.take('defparty')) { G.create = [{ cls: 'Knight', name: 'Roderick' }, { cls: 'Archer', name: 'Sable' }, { cls: 'Cleric', name: 'Mira' }, { cls: 'Sorcerer', name: 'Vesper' }]; }
     if (I.take('backtitle')) { G.mode = 'title'; I.textTarget = null; }
     if (I.take('begin') || I.take('interact')) { I.textTarget = null; G.editing = null; newGame(G.create.map(c => makeMember(c.name.trim() || pick(NAME_POOL), c.cls))); G.fadeT = 1; }
-  } else if (G.mode === 'play') {
-    G.playTime += dt; G.mapT = (G.mapT || 0) + dt;
-    playInput();
-    Snd.music(M.outdoor ? 'town' : 'dungeon');
-    if (!G.screen) {
-      frameCombatDt(dt); updateParty(dt); updateMonsters(dt); updateProjectiles(dt); updateFx(dt); updatePartyTimers(dt); updateClock(dt); updateNpcs(dt);
-      G.focus = nearestInteractable();
-      for (const l of G.log) l.t += dt; if (G.log.length && G.log[0].t > 10) G.log.shift();
-      if (G.notice) { G.notice.t -= dt; if (G.notice.t <= 0) G.notice = null; }
-      autosaveT += dt; if (autosaveT > 90) { autosaveT = 0; saveGame(); }
-    }
-    if (G.fadeT > 0) G.fadeT -= dt * 1.5;
-  } else if (G.mode === 'dead') { G.deadT += dt; G.playTime += dt; if (G.deadT > 1.5 && (I.take('wake') || I.take('interact'))) partyWipe(); }
+  } else if (G.mode === 'play' || G.mode === 'dead') {
+    const steps = window.HM_TURBO || 1;
+    for (let k = 0; k < steps; k++) { stepPlay(dt); if (k < steps - 1) I.endFrame(); }
+  }
   else if (G.mode === 'ending') { G.endT += dt; if (I.take('keepplaying')) G.mode = 'play'; }
   // camera
   const vw = V.W / V.zoom, vh = V.H / V.zoom; const tx = G.x * T - vw / 2, ty = G.y * T - (vh - (U.H - U.barTop) / V.zoom) / 2;
@@ -125,4 +132,4 @@ function loop(t) {
   I.endFrame();
 }
 window.addEventListener('load', boot);
-window.HM = { G, I, V, canCast, get M() { return M; }, getMap, newGame, loadGame, saveGame, enterMap, partyAttack, castSpell, openScreen, closeScreen, makeMember, spawnMonster, hurtMonster, MONSTERS, ITEMS, SPELLS, QUESTS, doInteract, nearestInteractable, giveXp, train, addInv, makeItem, restParty, completeQuest, startQuest };
+window.HM = { G, I, V, BOT, canCast, get M() { return M; }, getMap, newGame, loadGame, saveGame, enterMap, partyAttack, castSpell, openScreen, closeScreen, makeMember, spawnMonster, hurtMonster, MONSTERS, ITEMS, SPELLS, QUESTS, doInteract, nearestInteractable, giveXp, train, addInv, makeItem, restParty, completeQuest, startQuest };

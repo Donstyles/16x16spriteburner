@@ -137,6 +137,7 @@ function updateMonsters(dt) {
       continue;
     }
     if (d > 22 && !M.outdoor || d > 30) { mo.aware = false; continue; }
+    if (M.town && G.x >= M.town.x0 && G.x <= M.town.x1 + 1 && G.y >= M.town.y0 && G.y <= M.town.y1 + 1 && !(mo.x >= M.town.x0 && mo.x <= M.town.x1 + 1 && mo.y >= M.town.y0 && mo.y <= M.town.y1 + 1)) { mo.aware = false; continue; } // the town walls are a sanctuary
     const spdMul = (mo.slow > 0 ? 0.5 : 1) * (mo.fear > 0 ? 1.1 : 1);
     const ranged = mo.d.ranged, spell = mo.d.spell && MONSTER_SPELLS[mo.d.spell];
     const dx = (G.x - mo.x) / (d || 1), dy = (G.y - mo.y) / (d || 1);
