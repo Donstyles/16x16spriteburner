@@ -92,13 +92,15 @@ function respawnCheck(map, st, live) { // the dead come back after a while (boss
 }
 function mapState(id) { if (!G.mapState[id]) G.mapState[id] = { dead: {}, opened: {}, lastVisit: -1e9, explored: null }; return G.mapState[id]; }
 function enterMap(id, x, y) {
-  if (M) { const st = mapState(M.id); st.explored = M.explored; st.lastVisit = G.time; }
+  if (M) { const st = mapState(M.id); st.explored = M.explored; st.lastVisit = G.time; st.drops = G.drops.filter(d => d.gold > 0 || d.items.length); } // what lies on the floor stays there
   M = getMap(id); const st = mapState(id);
   // respawn
   respawnCheck(M, st, false);
   if (st.explored && st.explored.length === M.explored.length) M.explored = st.explored; else st.explored = M.explored;
   G.monsters = []; M.monsters.forEach((mo, i) => { if (st.dead[i]) return; G.monsters.push(spawnMonster(mo, i)); });
-  G.projs = []; G.fx = []; G.drops = [];
+  G.projs = []; G.fx = []; G.drops = st.drops || [];
+  // a slain boss's quest item can never be lost: if it is nowhere, it lies where the boss fell
+  const D = DUNGEONS[id]; if (D && D.drop) { const bi = M.monsters.findIndex(mo => mo.boss); const need = Object.values(QUESTS).find(q => q.item === D.drop || (q.items && q.items.includes(D.drop))); const needed = !need || Object.keys(QUESTS).some(k => QUESTS[k] === need && G.quests[k] !== 'done'); if (bi >= 0 && st.dead[bi] && needed && !countInv(D.drop) && !G.drops.some(d => d.items.some(it => it.id === D.drop))) { const b = M.monsters[bi]; G.drops.push({ x: b.x, y: b.y, gold: 0, items: [makeItem(D.drop)], t: 0 }); } }
   const sx = x !== null && x !== undefined ? x : M.start.x, sy = y !== null && y !== undefined ? y : M.start.y;
   G.x = sx; G.y = sy; G.trail = []; for (let i = 0; i < 24; i++) { const ox = sx, oy = sy + i * 0.22; G.trail.push(mPass(M, Math.floor(ox), Math.floor(oy)) ? [ox, oy] : [sx, sy]); }
   G.camSet = false; G.mapT = 0;

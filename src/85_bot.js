@@ -114,6 +114,13 @@ const BOT = {
     if (r === true || r === 'nopath') { this.lastRestT = G.playTime; this.talk('Resting with one eye open.'); restParty(8); G.fadeT = 1; }
     return true;
   },
+  unfinished() { // which dungeon still owes us a main quest item
+    if (questState('main1') === 'active' && !countInv('goblin_signet')) return 'warrens';
+    if (questState('main2') === 'active' && !countInv('barrow_relic')) return 'barrow';
+    if (questState('main3') === 'active') { if (!countInv('frost_key')) return 'reliquary'; if (!countInv('brass_key')) return 'molten'; }
+    if (questState('main4') === 'active' && !countInv('scepter')) return 'sanctum';
+    return null;
+  },
   needRest() { return G.party.some(m => m.cond.unconscious) || G.party.some(m => alive(m) && m.hp < maxHp(m) * 0.55) || G.party.some(m => alive(m) && maxSp(m) > 10 && m.sp < maxSp(m) * 0.3); },
   // ---------- screen flows: a queue of [action, delay] ----------
   runFlow(steps, after) { this.flow = { steps, i: 0, t: 0.4, after }; },
@@ -267,7 +274,7 @@ const BOT = {
     if (c.k === 'town') {
       if (M.id !== 'over') { this.leaveDungeon(dt); return; }
       if (!c.steps) { c.steps = this.townRoutine(c); c.si = 0; }
-      if (c.si >= c.steps.length) { this.cur = null; if (c.last) { this.talk('Harrowmere is quiet again. We keep walking.'); this.goals.push({ k: 'wander' }); } return; }
+      if (c.si >= c.steps.length) { this.cur = null; if (c.last) { const next = this.unfinished(); if (next) { this.talk('Unfinished business in the ' + DUNGEONS[next].name + '.'); this.goals.push({ k: 'dungeon', id: next, need: 1 }, { k: 'town', last: true }); } else { this.talk('Harrowmere is quiet again. We keep walking.'); this.goals.push({ k: 'wander' }); } } return; }
       const s = c.steps[c.si];
       if (s.k === 'goto') { if (s.say && this.sayT > 6) this.talk(s.say); const r = this.goto(s.x, s.y, dt); if (r === true) c.si++; else if (r === 'nopath') c.si++; return; }
       if (s.k === 'flow') { const it = nearestInteractable(); if (it && it.o === s.door) { doInteract(it); s.fn(); } c.si++; return; }
