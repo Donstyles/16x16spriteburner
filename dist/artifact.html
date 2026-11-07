@@ -619,6 +619,8 @@ function buildOverworld() {
     m.exits.push({ x: ex, y: ey, to: id });
   }
   // monster camps
+  sealPockets(m, Math.floor(m.townSquare.x), Math.floor(m.townSquare.y), TR.TREE);
+  relocateCamps(m);
   for (const [cx, cy, r, list, n] of CAMPS) for (let i = 0; i < n; i++) m.monsters.push({ kind: list[i % list.length], x: cx + (rng() - 0.5) * r * 2, y: cy + (rng() - 0.5) * r * 2, group: cx + ',' + cy });
   // marsh herbs (quest) in the east marsh, ore nowhere here
   for (let i = 0; i < 7; i++) m.objects.push({ kind: 'pickup', x: 78 + Math.floor(rng() * 20), y: 36 + Math.floor(rng() * 22), item: 'marsh_herb', id: 'herb' + i });
@@ -627,6 +629,15 @@ function buildOverworld() {
   m.monsters = m.monsters.filter(mo => !(mo.x >= m.town.x0 - 1 && mo.x <= m.town.x1 + 1 && mo.y >= m.town.y0 - 1 && mo.y <= m.town.y1 + 1));
   cleanOverworld(m);
   return m;
+}
+function sealPockets(m, sx, sy, fill) { // passable ground that cannot be walked to from the start is sealed, so nothing can ever get stuck in it
+  const N = m.w * m.h, seen = new Uint8Array(N), st = [sy * m.w + sx]; seen[st[0]] = 1;
+  while (st.length) { const i = st.pop(); const x = i % m.w, y = (i / m.w) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= m.w || ny >= m.h) continue; const j = ny * m.w + nx; if (seen[j] || !PASSABLE.has(m.t[j])) continue; seen[j] = 1; st.push(j); } }
+  let n = 0; for (let i = 0; i < N; i++) if (!seen[i] && PASSABLE.has(m.t[i])) { m.t[i] = fill; n++; }
+  m.reach = seen; return n;
+}
+function relocateCamps(m) { // a camp whose centre sits in the trees moves to the nearest walkable ground
+  for (const camp of CAMPS) { const [cx, cy] = camp; if (m.reach[cy * m.w + cx]) continue; let best = null, bd = 1e9; for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) { const x = cx + dx, y = cy + dy; if (x < 1 || y < 1 || x >= m.w - 1 || y >= m.h - 1 || !m.reach[y * m.w + x]) continue; const d = dx * dx + dy * dy; if (d < bd) { bd = d; best = [x, y]; } } if (best) { camp[0] = best[0]; camp[1] = best[1]; } }
 }
 function cleanOverworld(m) {
   // keep objects and monsters on passable ground; nudge them to nearest passable cell
@@ -686,6 +697,8 @@ function buildDungeon(id) {
   // make sure spawn cells are floor (lava avoidance)
   for (const mo of m.monsters) if (!mPass(m, mo.x | 0, mo.y | 0)) { const r = rooms.find(r => (mo.x | 0) >= r.x && (mo.x | 0) < r.x + r.w && (mo.y | 0) >= r.y && (mo.y | 0) < r.y + r.h); if (r) { mo.x = r.cx + 0.5; mo.y = r.cy + 0.5; } }
   for (const o of m.objects) if (!mPass(m, o.x, o.y) && o.kind !== 'stairs') { mSet(m, o.x, o.y, TR.FLOOR); }
+  sealPockets(m, Math.floor(m.start.x), Math.floor(m.start.y), TR.WALL);
+  m.monsters = m.monsters.filter(mo => mo.boss || mPass(m, mo.x | 0, mo.y | 0)); m.objects = m.objects.filter(o => o.kind === 'stairs' || mPass(m, o.x | 0, o.y | 0));
   return m;
 }
 function getMap(id) { if (!MAPS[id]) MAPS[id] = id === 'over' ? buildOverworld() : buildDungeon(id); return MAPS[id]; }
@@ -2042,6 +2055,18 @@ const BOT = {
     const ths = this.threats();
     if (ths.length) { this.why = 'combat'; this.combat(dt, ths); return; }
     G.target = null;
+    // watchdog: standing still with nothing dying for a minute means the plan is broken; change it
+    if (!this.wd || G.kills !== this.wd.kills || this.wd.map !== M.id || dist(this.wd.x, this.wd.y, G.x, G.y) > 2) this.wd = { x: G.x, y: G.y, kills: G.kills, map: M.id, t: 0 }; else this.wd.t += dt;
+    if (this.wd.t > 60) {
+      this.wd = null; this.stalls = (this.stalls || 0) + 1; this.path = null; this.eng = null;
+      for (const mo of G.monsters) if (mo.aware) { mo.aware = false; mo.botIgnore = G.playTime + 30; }
+      if (this.cur && this.cur.k === 'grind' && this.lastCamp) this.skip[this.lastCamp] = G.playTime + 900;
+      if (this.cur && this.cur.k === 'town') this.cur.steps = null;
+      if (this.cur) { this.goals.unshift(this.cur); this.cur = null; }
+      this.goals.unshift({ k: 'town' }); this.talk('This is going nowhere. Back to town to think again.');
+      if (this.stalls % 3 === 0) { const sq = getMap('over').townSquare; enterMap('over', sq.x, sq.y); G.fadeT = 1; this.talk('Lost. We double back to Harrowmere by the old paths.'); }
+      return;
+    }
     // rest when hurt and safe
     if (this.needRest() && G.playTime - this.lastRestT > 8) {
       if (!canRest()) { this.lastRestT = G.playTime; this.talk(G.food > 0 ? 'Making camp. Everyone needs rest.' : 'No food, but we must rest anyway.'); restParty(8); G.fadeT = 1; return; }
@@ -2103,7 +2128,7 @@ const BOT = {
       if (questState('herbs') === 'active' && !c.herbs && countInv('marsh_herb') < 4 && this.avgLevel() >= 3) { c.herbs = true; this.goals.unshift({ k: 'herbs' }, c); this.cur = null; return; }
       const camp = this.nearestCamp();
       if (camp) {
-        this.lastCamp = camp.key; if (this.sayT > 8) this.talk('Hunting ' + camp.name + ' for experience. ' + c.why + ' can wait.');
+        this.lastCamp = camp.key; if (this.sayT > 8) this.talk('Hunting the ' + camp.name + ' camp for experience. ' + c.why.charAt(0).toUpperCase() + c.why.slice(1) + ' can wait.');
         const r = this.goto(camp.x, camp.y, dt);
         if (r === true || r === 'nopath') { c.campT = (c.campT || 0) + dt; if (r === 'nopath' || c.campT > 15) { this.skip[camp.key] = G.playTime + 600; c.campT = 0; this.path = null; } } else c.campT = 0;
         return;
@@ -2120,7 +2145,18 @@ const BOT = {
     if (c.k === 'wander') { const camp = this.nearestCamp(); if (camp) { this.goto(camp.x, camp.y, dt); } return; }
     this.cur = null;
   },
-  nearestCamp() { let best = null, bd = 1e9; for (const [cx, cy, r, list, n] of CAMPS) { const key = cx + ',' + cy; if (this.skip[key] > G.playTime) continue; const anyAlive = G.monsters.some(mo => !mo.dead && mo.group === key); if (!anyAlive) continue; const tier = MONSTERS[list[0]].tier; if (tier > Math.ceil(this.avgLevel() / 3) + 1) continue; const d = dist(cx, cy, G.x, G.y) + tier * 60; if (d < bd) { bd = d; best = { x: cx + 0.5, y: cy + 0.5, name: MONSTERS[list[0]].name + 's', key }; } } return best; },
+  nearestCamp() { // sticky: once we have picked a camp we keep walking to it, or two equidistant camps make us dither forever
+    let best = null, bd = 1e9;
+    for (const [cx, cy, r, list, n] of CAMPS) {
+      const key = cx + ',' + cy; if (this.skip[key] > G.playTime) continue;
+      const anyAlive = G.monsters.some(mo => !mo.dead && mo.group === key); if (!anyAlive) continue;
+      const tier = MONSTERS[list[0]].tier; if (tier > Math.ceil(this.avgLevel() / 3) + 1) continue;
+      const cand = { x: cx + 0.5, y: cy + 0.5, name: MONSTERS[list[0]].name, key };
+      if (key === this.lastCamp) return cand;
+      const d = dist(cx, cy, G.x, G.y) + tier * 60; if (d < bd) { bd = d; best = cand; }
+    }
+    return best;
+  },
   leaveDungeon(dt) { const st = M.objects.find(o => o.kind === 'stairs'); if (!st) { enterMap('over', null, null); return; } const port = G.party.find(m => alive(m) && m.spells.includes('town_portal') && m.sp >= 12 && m.rec <= 0); if (port) { this.talk('Town Portal. The long way home is for other people.'); castSpell(port, 'town_portal'); return; } if (this.sayT > 8) this.talk('Back to the stairs.'); const r = this.goto(st.x + 0.5, st.y + 0.5, dt); if (r === true) { const it = nearestInteractable(); if (it && it.o === st) doInteract(it); } else if (r === 'nopath') enterMap('over', null, null); },
 };
 function isUpgrade(m, it) { const b = ITEMS[it.id]; const slot = SLOT_OF[b.type]; if (!slot) return false; const cur = m.equip[slot]; if (b.type === 'weapon') { if (cur && !!ITEMS[cur.id].ranged !== !!b.ranged) return false; if (m.cls === 'Sorcerer' && b.skill !== 'Staff') return false; if (m.cls === 'Archer' && !b.ranged) return false; const avg = w => w.dmg[0] * (w.dmg[1] + 1) / 2 + w.dmg[2]; return avg(b) > (cur ? avg(ITEMS[cur.id]) : 0) + 0.4; } return (b.acv || 0) > (cur ? ITEMS[cur.id].acv || 0 : 0); }

@@ -224,6 +224,18 @@ const BOT = {
     const ths = this.threats();
     if (ths.length) { this.why = 'combat'; this.combat(dt, ths); return; }
     G.target = null;
+    // watchdog: standing still with nothing dying for a minute means the plan is broken; change it
+    if (!this.wd || G.kills !== this.wd.kills || this.wd.map !== M.id || dist(this.wd.x, this.wd.y, G.x, G.y) > 2) this.wd = { x: G.x, y: G.y, kills: G.kills, map: M.id, t: 0 }; else this.wd.t += dt;
+    if (this.wd.t > 60) {
+      this.wd = null; this.stalls = (this.stalls || 0) + 1; this.path = null; this.eng = null;
+      for (const mo of G.monsters) if (mo.aware) { mo.aware = false; mo.botIgnore = G.playTime + 30; }
+      if (this.cur && this.cur.k === 'grind' && this.lastCamp) this.skip[this.lastCamp] = G.playTime + 900;
+      if (this.cur && this.cur.k === 'town') this.cur.steps = null;
+      if (this.cur) { this.goals.unshift(this.cur); this.cur = null; }
+      this.goals.unshift({ k: 'town' }); this.talk('This is going nowhere. Back to town to think again.');
+      if (this.stalls % 3 === 0) { const sq = getMap('over').townSquare; enterMap('over', sq.x, sq.y); G.fadeT = 1; this.talk('Lost. We double back to Harrowmere by the old paths.'); }
+      return;
+    }
     // rest when hurt and safe
     if (this.needRest() && G.playTime - this.lastRestT > 8) {
       if (!canRest()) { this.lastRestT = G.playTime; this.talk(G.food > 0 ? 'Making camp. Everyone needs rest.' : 'No food, but we must rest anyway.'); restParty(8); G.fadeT = 1; return; }
@@ -285,7 +297,7 @@ const BOT = {
       if (questState('herbs') === 'active' && !c.herbs && countInv('marsh_herb') < 4 && this.avgLevel() >= 3) { c.herbs = true; this.goals.unshift({ k: 'herbs' }, c); this.cur = null; return; }
       const camp = this.nearestCamp();
       if (camp) {
-        this.lastCamp = camp.key; if (this.sayT > 8) this.talk('Hunting ' + camp.name + ' for experience. ' + c.why + ' can wait.');
+        this.lastCamp = camp.key; if (this.sayT > 8) this.talk('Hunting the ' + camp.name + ' camp for experience. ' + c.why.charAt(0).toUpperCase() + c.why.slice(1) + ' can wait.');
         const r = this.goto(camp.x, camp.y, dt);
         if (r === true || r === 'nopath') { c.campT = (c.campT || 0) + dt; if (r === 'nopath' || c.campT > 15) { this.skip[camp.key] = G.playTime + 600; c.campT = 0; this.path = null; } } else c.campT = 0;
         return;
@@ -302,7 +314,18 @@ const BOT = {
     if (c.k === 'wander') { const camp = this.nearestCamp(); if (camp) { this.goto(camp.x, camp.y, dt); } return; }
     this.cur = null;
   },
-  nearestCamp() { let best = null, bd = 1e9; for (const [cx, cy, r, list, n] of CAMPS) { const key = cx + ',' + cy; if (this.skip[key] > G.playTime) continue; const anyAlive = G.monsters.some(mo => !mo.dead && mo.group === key); if (!anyAlive) continue; const tier = MONSTERS[list[0]].tier; if (tier > Math.ceil(this.avgLevel() / 3) + 1) continue; const d = dist(cx, cy, G.x, G.y) + tier * 60; if (d < bd) { bd = d; best = { x: cx + 0.5, y: cy + 0.5, name: MONSTERS[list[0]].name + 's', key }; } } return best; },
+  nearestCamp() { // sticky: once we have picked a camp we keep walking to it, or two equidistant camps make us dither forever
+    let best = null, bd = 1e9;
+    for (const [cx, cy, r, list, n] of CAMPS) {
+      const key = cx + ',' + cy; if (this.skip[key] > G.playTime) continue;
+      const anyAlive = G.monsters.some(mo => !mo.dead && mo.group === key); if (!anyAlive) continue;
+      const tier = MONSTERS[list[0]].tier; if (tier > Math.ceil(this.avgLevel() / 3) + 1) continue;
+      const cand = { x: cx + 0.5, y: cy + 0.5, name: MONSTERS[list[0]].name, key };
+      if (key === this.lastCamp) return cand;
+      const d = dist(cx, cy, G.x, G.y) + tier * 60; if (d < bd) { bd = d; best = cand; }
+    }
+    return best;
+  },
   leaveDungeon(dt) { const st = M.objects.find(o => o.kind === 'stairs'); if (!st) { enterMap('over', null, null); return; } const port = G.party.find(m => alive(m) && m.spells.includes('town_portal') && m.sp >= 12 && m.rec <= 0); if (port) { this.talk('Town Portal. The long way home is for other people.'); castSpell(port, 'town_portal'); return; } if (this.sayT > 8) this.talk('Back to the stairs.'); const r = this.goto(st.x + 0.5, st.y + 0.5, dt); if (r === true) { const it = nearestInteractable(); if (it && it.o === st) doInteract(it); } else if (r === 'nopath') enterMap('over', null, null); },
 };
 function isUpgrade(m, it) { const b = ITEMS[it.id]; const slot = SLOT_OF[b.type]; if (!slot) return false; const cur = m.equip[slot]; if (b.type === 'weapon') { if (cur && !!ITEMS[cur.id].ranged !== !!b.ranged) return false; if (m.cls === 'Sorcerer' && b.skill !== 'Staff') return false; if (m.cls === 'Archer' && !b.ranged) return false; const avg = w => w.dmg[0] * (w.dmg[1] + 1) / 2 + w.dmg[2]; return avg(b) > (cur ? avg(ITEMS[cur.id]) : 0) + 0.4; } return (b.acv || 0) > (cur ? ITEMS[cur.id].acv || 0 : 0); }

@@ -182,6 +182,8 @@ function buildOverworld() {
     m.exits.push({ x: ex, y: ey, to: id });
   }
   // monster camps
+  sealPockets(m, Math.floor(m.townSquare.x), Math.floor(m.townSquare.y), TR.TREE);
+  relocateCamps(m);
   for (const [cx, cy, r, list, n] of CAMPS) for (let i = 0; i < n; i++) m.monsters.push({ kind: list[i % list.length], x: cx + (rng() - 0.5) * r * 2, y: cy + (rng() - 0.5) * r * 2, group: cx + ',' + cy });
   // marsh herbs (quest) in the east marsh, ore nowhere here
   for (let i = 0; i < 7; i++) m.objects.push({ kind: 'pickup', x: 78 + Math.floor(rng() * 20), y: 36 + Math.floor(rng() * 22), item: 'marsh_herb', id: 'herb' + i });
@@ -190,6 +192,15 @@ function buildOverworld() {
   m.monsters = m.monsters.filter(mo => !(mo.x >= m.town.x0 - 1 && mo.x <= m.town.x1 + 1 && mo.y >= m.town.y0 - 1 && mo.y <= m.town.y1 + 1));
   cleanOverworld(m);
   return m;
+}
+function sealPockets(m, sx, sy, fill) { // passable ground that cannot be walked to from the start is sealed, so nothing can ever get stuck in it
+  const N = m.w * m.h, seen = new Uint8Array(N), st = [sy * m.w + sx]; seen[st[0]] = 1;
+  while (st.length) { const i = st.pop(); const x = i % m.w, y = (i / m.w) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= m.w || ny >= m.h) continue; const j = ny * m.w + nx; if (seen[j] || !PASSABLE.has(m.t[j])) continue; seen[j] = 1; st.push(j); } }
+  let n = 0; for (let i = 0; i < N; i++) if (!seen[i] && PASSABLE.has(m.t[i])) { m.t[i] = fill; n++; }
+  m.reach = seen; return n;
+}
+function relocateCamps(m) { // a camp whose centre sits in the trees moves to the nearest walkable ground
+  for (const camp of CAMPS) { const [cx, cy] = camp; if (m.reach[cy * m.w + cx]) continue; let best = null, bd = 1e9; for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) { const x = cx + dx, y = cy + dy; if (x < 1 || y < 1 || x >= m.w - 1 || y >= m.h - 1 || !m.reach[y * m.w + x]) continue; const d = dx * dx + dy * dy; if (d < bd) { bd = d; best = [x, y]; } } if (best) { camp[0] = best[0]; camp[1] = best[1]; } }
 }
 function cleanOverworld(m) {
   // keep objects and monsters on passable ground; nudge them to nearest passable cell
@@ -249,6 +260,8 @@ function buildDungeon(id) {
   // make sure spawn cells are floor (lava avoidance)
   for (const mo of m.monsters) if (!mPass(m, mo.x | 0, mo.y | 0)) { const r = rooms.find(r => (mo.x | 0) >= r.x && (mo.x | 0) < r.x + r.w && (mo.y | 0) >= r.y && (mo.y | 0) < r.y + r.h); if (r) { mo.x = r.cx + 0.5; mo.y = r.cy + 0.5; } }
   for (const o of m.objects) if (!mPass(m, o.x, o.y) && o.kind !== 'stairs') { mSet(m, o.x, o.y, TR.FLOOR); }
+  sealPockets(m, Math.floor(m.start.x), Math.floor(m.start.y), TR.WALL);
+  m.monsters = m.monsters.filter(mo => mo.boss || mPass(m, mo.x | 0, mo.y | 0)); m.objects = m.objects.filter(o => o.kind === 'stairs' || mPass(m, o.x | 0, o.y | 0));
   return m;
 }
 function getMap(id) { if (!MAPS[id]) MAPS[id] = id === 'over' ? buildOverworld() : buildDungeon(id); return MAPS[id]; }
