@@ -1,15 +1,15 @@
 {
-  "name": "Harrowmere",
-  "short_name": "Harrowmere",
-  "description": "A top-down party role-playing game in the spirit of Might and Magic VI.",
+  "name": "Cellar of Ruin",
+  "short_name": "Cellar",
+  "description": "A dungeon battle that plays itself.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "fullscreen",
   "orientation": "landscape",
-  "background_color": "#1a1410",
-  "theme_color": "#1a1410",
+  "background_color": "#0b0c0f",
+  "theme_color": "#0b0c0f",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }

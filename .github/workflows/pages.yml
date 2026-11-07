@@ -1,7 +1,7 @@
 name: Deploy to GitHub Pages
 on:
   push:
-    branches: [claude/inspiring-euler-1cph7t, main]
+    branches: [claude/inspiring-euler-1cph7t]
   workflow_dispatch:
 permissions:
   contents: read
@@ -18,13 +18,10 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-      - name: Stage site
-        run: |
-          mkdir -p site
-          cp -r index.html game.js sw.js manifest.webmanifest assets icons README.md site/
+      - name: Collect site files
+        run: mkdir _site && cp -r index.html manifest.webmanifest sw.js icons _site/
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

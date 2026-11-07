@@ -1,0 +1,9 @@
+/* one screen, one dark world: the cellar at night. Display: Grenze Gotisch (banners, floor cards). HUD: Teko (numbers, names). */
+:root { --void: #0b0c0f; --ember: #ecc878; --bone: #efe4cc; --ash: #8f8472; color-scheme: dark; }
+html, body { height: 100%; margin: 0; overflow: hidden; background: var(--void); color: var(--bone); overscroll-behavior: none; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+body { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+#c { position: fixed; left: 0; top: 0; width: 100%; height: 100%; display: block; background: var(--void); cursor: pointer; }
+#safe { position: fixed; inset: 0; visibility: hidden; pointer-events: none; padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+[hidden] { display: none !important; }
+#loading { position: fixed; inset: 0; display: grid; place-items: center; color: var(--ember); font: 900 2.4rem "Grenze Gotisch", "Palatino Linotype", Palatino, serif; letter-spacing: 0.04em; background: var(--void); }
+@media (prefers-reduced-motion: reduce) { #loading { letter-spacing: 0.02em; } }
