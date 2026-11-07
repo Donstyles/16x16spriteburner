@@ -1942,6 +1942,16 @@ const BOT = {
     const sq = getMap('over').townSquare; const r = this.goto(sq.x, sq.y, dt);
     if (!chasers || r === true || r === 'nopath') { this.flee = 0; this.path = null; this.talk('We got away. Barely.'); }
   },
+  fresh() { return G.party.every(m => !m.cond.unconscious && (!alive(m) || (m.hp >= maxHp(m) * 0.8 && (maxSp(m) < 10 || m.sp >= maxSp(m) * 0.5)))); },
+  freshenUp(dt, what, fallback) { // returns true while still busy getting ready
+    if (this.fresh()) return false;
+    this.why = 'prefight';
+    if (!canRest()) { this.lastRestT = G.playTime; this.talk('Catching our breath before ' + what + '.'); restParty(8); G.fadeT = 1; return true; }
+    if (this.sayT > 6) this.talk('Enemies about. Falling back before ' + what + '.');
+    const r = fallback ? this.goto(fallback.x, fallback.y, dt) : 'nopath';
+    if (r === true || r === 'nopath') { this.lastRestT = G.playTime; this.talk('Resting with one eye open.'); restParty(8); G.fadeT = 1; }
+    return true;
+  },
   needRest() { return G.party.some(m => m.cond.unconscious) || G.party.some(m => alive(m) && m.hp < maxHp(m) * 0.55) || G.party.some(m => alive(m) && maxSp(m) > 10 && m.sp < maxSp(m) * 0.3); },
   // ---------- screen flows: a queue of [action, delay] ----------
   runFlow(steps, after) { this.flow = { steps, i: 0, t: 0.4, after }; },
@@ -2118,7 +2128,7 @@ const BOT = {
         const want = Math.max(c.need, c.minLv || 0);
         if (this.avgLevel() < want) { this.talk('We are not ready for the ' + D.name + '. Let us hunt the roads first.'); this.goals.unshift({ k: 'grind', to: want, why: 'the ' + D.name }, c); this.cur = null; return; }
         const [ex, ey] = ENTRANCES[c.id]; if (this.sayT > 8) this.talk('On the road to the ' + D.name + '.');
-        const r = this.goto(ex + 0.5, ey + 0.9, dt); if (r === true) { const it = nearestInteractable(); if (it && it.o && it.o.kind === 'entrance') { doInteract(it); this.talk(D.entrance); } } return;
+        const r = this.goto(ex + 0.5, ey + 0.9, dt); if (r === true) { if (this.freshenUp(dt, 'the ' + D.name, getMap('over').townSquare)) return; const it = nearestInteractable(); if (it && it.o && it.o.kind === 'entrance') { doInteract(it); this.talk(D.entrance); } } return;
       }
       if (M.id !== c.id) { this.leaveDungeon(dt); return; }
       // inside: chests, then the boss, then leave
@@ -2129,7 +2139,7 @@ const BOT = {
         const r = this.goto(t.x, t.y, dt); if (r === true) { const it = nearestInteractable(); if (it && it.o === t.o) doInteract(it); else { t.o.opened = true; t.o.taken = true; } } else if (r === 'nopath') { t.o.opened = true; t.o.taken = true; }
         return;
       }
-      if (boss) { const want = Math.max(BOSS_LV[c.id] || 0, c.minLv || 0); if (this.avgLevel() < want) { this.talk(boss.name + ' is beyond us for now. We will come back stronger.'); c.minLv = want; this.goals.unshift({ k: 'grind', to: want, why: boss.name }, c); this.cur = null; return; } if (this.sayT > 8) this.talk('Now for ' + boss.name + '.'); const r = this.goto(boss.x, boss.y, dt); if (r === 'nopath') { boss.aware = true; boss.botIgnore = 0; c.bossNoPath = (c.bossNoPath || 0) + dt; if (c.bossNoPath > 30) { c.bossNoPath = 0; boss.x = boss.hx; boss.y = boss.hy; } } else c.bossNoPath = 0; return; }
+      if (boss) { const st = M.objects.find(o => o.kind === 'stairs'); if (this.freshenUp(dt, boss.name, st && { x: st.x + 0.5, y: st.y + 0.5 })) return; const want = Math.max(BOSS_LV[c.id] || 0, c.minLv || 0); if (this.avgLevel() < want) { this.talk(boss.name + ' is beyond us for now. We will come back stronger.'); c.minLv = want; this.goals.unshift({ k: 'grind', to: want, why: boss.name }, c); this.cur = null; return; } if (this.sayT > 8) this.talk('Now for ' + boss.name + '.'); const r = this.goto(boss.x, boss.y, dt); if (r === 'nopath') { boss.aware = true; boss.botIgnore = 0; c.bossNoPath = (c.bossNoPath || 0) + dt; if (c.bossNoPath > 30) { c.bossNoPath = 0; boss.x = boss.hx; boss.y = boss.hy; } } else c.bossNoPath = 0; return; }
       if (G.drops.length) { const d = G.drops[0]; this.goto(d.x, d.y, dt); return; }
       this.talk(D.name + ' is cleared. Back to town.'); this.cur = null; return;
     }
