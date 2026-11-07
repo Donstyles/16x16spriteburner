@@ -2158,10 +2158,10 @@ const BOT = {
     for (const [cx, cy, r, list, n] of CAMPS) {
       const key = cx + ',' + cy; if (this.skip[key] > G.playTime) continue;
       const anyAlive = G.monsters.some(mo => !mo.dead && mo.group === key); if (!anyAlive) continue;
-      const tier = MONSTERS[list[0]].tier; if (tier > Math.ceil(this.avgLevel() / 3) + 1) continue;
+      const tier = MONSTERS[list[0]].tier, ideal = clamp(Math.ceil(this.avgLevel() / 3), 1, 5); if (tier > ideal + 1) continue; // hunt what is worth hunting at our level
       const cand = { x: cx + 0.5, y: cy + 0.5, name: MONSTERS[list[0]].name, key };
       if (key === this.lastCamp) return cand;
-      const d = dist(cx, cy, G.x, G.y) + tier * 60; if (d < bd) { bd = d; best = cand; }
+      const d = dist(cx, cy, G.x, G.y) + Math.abs(tier - ideal) * 50; if (d < bd) { bd = d; best = cand; }
     }
     return best;
   },
