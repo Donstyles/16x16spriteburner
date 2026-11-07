@@ -1,5 +1,5 @@
 // ===================== autoplay bot: "Watch Claude play" =====================
-const BOSS_LV = { warrens: 5, barrow: 6, reliquary: 9, molten: 10, sanctum: 13 }; // party level the bot wants before it fights each boss
+const BOSS_LV = { warrens: 3, barrow: 6, reliquary: 9, molten: 8, sanctum: 13 }; // party level the bot wants before it fights each boss
 const BOT = {
   on: false, say: '', sayT: 0, goals: [], cur: null, path: null, pathT: 0, stuckT: 0, lastPos: null, mx: 0, my: 0, flow: null, waitT: 0, retry: {}, wipes: 0, flee: 0, eng: null, skip: {}, lastCamp: null, done: false, lastRestT: -1e9, log: [],
   start() { this.on = true; this.goals = []; this.cur = null; this.flow = null; this.done = false; this.plan(); this.talk('Four strangers in Harrowmere. First, the lord of the town.'); },
@@ -17,9 +17,9 @@ const BOT = {
     g.push({ k: 'town' });
     g.push({ k: 'dungeon', id: 'reliquary', need: 7 });
     g.push({ k: 'town' });
-    g.push({ k: 'dungeon', id: 'molten', need: 10 });
+    g.push({ k: 'dungeon', id: 'molten', need: 8 });
     g.push({ k: 'town' });
-    g.push({ k: 'dungeon', id: 'sanctum', need: 13 });
+    g.push({ k: 'dungeon', id: 'sanctum', need: 11 });
     g.push({ k: 'town', last: true });
   },
   avgLevel() { return G.party.reduce((a, m) => a + m.lvl, 0) / G.party.length; },
@@ -59,17 +59,19 @@ const BOT = {
     const near = ths.sort((a, b) => dist(a.x, a.y, G.x, G.y) - dist(b.x, b.y, G.x, G.y)); const t = near[0]; G.target = t;
     const d = dist(t.x, t.y, G.x, G.y);
     const aliveN = G.party.filter(alive).length, hpFrac = G.party.reduce((a, m) => a + Math.max(0, m.hp), 0) / Math.max(1, G.party.reduce((a, m) => a + maxHp(m), 0));
-    if (aliveN <= 1 || (t.boss && (aliveN <= 2 || hpFrac < 0.3) && t.hp > t.maxHp * 0.3)) { this.flee = G.playTime + 30; this.path = null; this.eng = null; this.talk('Retreat! Live to fight another day.'); if (this.cur && this.cur.k === 'dungeon') this.cur.minLv = Math.max(this.cur.minLv || 0, Math.ceil(this.avgLevel()) + 1); if (this.cur && this.cur.k === 'grind' && this.lastCamp) this.skip[this.lastCamp] = G.playTime + 900; return; }
+    const bossNearDead = t.boss && t.hp < t.maxHp * 0.15; // when the boss is almost down, the last one standing finishes it
+    if (!bossNearDead && (aliveN <= 1 || (t.boss && (aliveN <= 2 || hpFrac < 0.3) && t.hp / t.maxHp > hpFrac + 0.15 && t.hp > t.maxHp * 0.25))) { this.flee = G.playTime + 30; this.path = null; this.eng = null; this.talk('Retreat! Live to fight another day.'); if (this.cur && this.cur.k === 'dungeon') this.cur.minLv = Math.max(this.cur.minLv || 0, Math.ceil(this.avgLevel()) + 1); if (this.cur && this.cur.k === 'grind' && this.lastCamp) this.skip[this.lastCamp] = G.playTime + 900; return; }
     // close the distance if nobody can hit it
     const melee = findMeleeTarget(t); const ranged = G.party.some(m => alive(m) && isRanged(m) && m.rec <= 0);
-    const php = G.party.reduce((a, m) => a + m.hp, 0);
-    if (this.eng && this.eng.t0 === t && this.eng.hp === t.hp && this.eng.php === php) this.eng.t += dt; else this.eng = { t0: t, hp: t.hp, php, t: 0 };
+    const php = G.party.reduce((a, m) => a + m.hp, 0), thp = near.reduce((a, mo) => a + mo.hp, 0);
+    if (this.eng && this.eng.kills === G.kills && this.eng.thp === thp && this.eng.php === php) this.eng.t += dt; else this.eng = { kills: G.kills, thp, php, t: 0 };
     let r = false;
     if (!melee && (d > 1.4 || !hasLOS(G.x, G.y, t.x, t.y))) { r = this.goto(t.x, t.y, dt); } else { this.mx = this.my = 0; }
-    if ((r === 'nopath' && d > 1.6) || this.eng.t > 7) { this.giveUpOn(t, 'That ' + t.name + ' cannot reach us and we cannot reach it. Moving on.'); return; }
-    if (G.fearT <= 0) partyAttack();
+    if (r === 'nopath' && d > 1.6) { this.giveUpOn(t, 'That ' + t.name + ' cannot reach us and we cannot reach it. Moving on.'); return; }
+    if (this.eng.t > 8) { for (const mo of near) this.giveUpOn(mo, ''); this.talk('Nobody can reach anybody here. Moving on.'); if (this.cur && this.cur.k === 'grind' && this.lastCamp) this.skip[this.lastCamp] = G.playTime + 600; return; }
+    if (!(G.fearT > 0)) partyAttack();
     // healing
-    for (const m of G.party) { if (!alive(m)) continue; if (m.hp < maxHp(m) * 0.35) { const cleric = G.party.find(c => alive(c) && c.spells.includes('cure_wounds') && c.sp >= 3 && c.rec <= 0); if (cleric && d > 0.0) { castSpell(cleric, 'cure_wounds'); } else { const pot = G.inv.find(i => i.id === 'potion_heal2') || G.inv.find(i => i.id === 'potion_heal'); if (pot) useItem(pot, m); } } }
+    for (const m of G.party) { if (!alive(m)) continue; if (m.hp < maxHp(m) * (t.boss ? 0.45 : 0.35)) { const cleric = G.party.find(c => alive(c) && c.spells.includes('cure_wounds') && c.sp >= 3 && c.rec <= 0); if (cleric && d > 0.0) { castSpell(cleric, 'cure_wounds'); } else { const pot = G.inv.find(i => i.id === 'potion_heal2') || G.inv.find(i => i.id === 'potion_heal'); if (pot) useItem(pot, m); } } }
     const hurtCount = G.party.filter(m => alive(m) && m.hp < maxHp(m) * 0.6).length; const pc = G.party.find(c => alive(c) && c.spells.includes('power_cure') && c.sp >= 10 && c.rec <= 0); if (pc && hurtCount >= 2) castSpell(pc, 'power_cure');
     // offensive magic
     const n3 = near.filter(mo => dist(mo.x, mo.y, G.x, G.y) < 3).length;

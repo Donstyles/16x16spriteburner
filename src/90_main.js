@@ -40,7 +40,7 @@ function playInput() {
   if (I.clicked) {
     const [wx, wy] = screenToWorld(I.clicked.x, I.clicked.y);
     let best = null, bd = 1.0; for (const mo of G.monsters) { if (mo.dead || mo.hidden) continue; const d = dist(wx, wy + 0.4, mo.x, mo.y); if (d < bd) { bd = d; best = mo; } }
-    if (best) { G.target = best; if (G.fearT <= 0) partyAttack(); }
+    if (best) { G.target = best; if (!(G.fearT > 0)) partyAttack(); }
     else { const it = nearestInteractable(); if (it) { const ox = it.o ? it.o.x + 0.5 : it.n.x, oy = it.o ? it.o.y + 0.5 : it.n.y; if (dist(wx, wy, ox, oy) < 1.3) doInteract(it); else if (I.clicked.touch) { } } }
   }
   if (G.target && (G.target.dead || dist(G.target.x, G.target.y, G.x, G.y) > 12)) G.target = null;

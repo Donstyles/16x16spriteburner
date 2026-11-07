@@ -76,7 +76,7 @@ function notice(text, sub, dur = 3) { G.notice = { text, sub, t: dur, dur }; }
 function newGame(members) {
   Object.assign(G, {
     mode: 'play', party: members, sel: 0, gold: 500, food: 6, time: 8 * 60, inv: [], buffs: {}, mapState: {}, quests: {}, counters: {}, flags: {}, log: [], notice: null, screen: null,
-    turnBased: false, tbClock: 0, monsters: [], projs: [], fx: [], drops: [], trail: [], facing: 1, kills: 0, playTime: 0, camSet: false, lastRest: 8 * 60, fadeT: 0,
+    turnBased: false, tbClock: 0, monsters: [], projs: [], fx: [], drops: [], trail: [], facing: 1, kills: 0, fearT: 0, playTime: 0, camSet: false, lastRest: 8 * 60, fadeT: 0,
   });
   addInv(makeItem('potion_heal')); addInv(makeItem('potion_heal')); addInv(makeItem('torch')); addInv(makeItem('torch'));
   enterMap('over', null, null);
@@ -286,7 +286,7 @@ function saveGame(slot = 'auto') {
 function hasSave(slot = 'auto') { try { return !!localStorage.getItem(SAVE_KEY + '_' + slot); } catch (e) { return false; } }
 function loadGame(slot = 'auto') {
   let d; try { d = JSON.parse(localStorage.getItem(SAVE_KEY + '_' + slot)); } catch (e) { return false; } if (!d) return false;
-  Object.assign(G, { mode: 'play', party: d.party, sel: d.sel || 0, gold: d.gold, food: d.food, time: d.time, inv: d.inv, buffs: d.buffs || {}, mapState: {}, quests: d.quests, counters: d.counters, flags: d.flags, log: [], notice: null, screen: null, turnBased: false, tbClock: 0, monsters: [], projs: [], fx: [], drops: [], trail: [], facing: 1, kills: d.kills || 0, playTime: d.playTime || 0, camSet: false, fadeT: 0 });
+  Object.assign(G, { mode: 'play', party: d.party, sel: d.sel || 0, gold: d.gold, food: d.food, time: d.time, inv: d.inv, buffs: d.buffs || {}, mapState: {}, quests: d.quests, counters: d.counters, flags: d.flags, log: [], notice: null, screen: null, turnBased: false, tbClock: 0, monsters: [], projs: [], fx: [], drops: [], trail: [], facing: 1, kills: d.kills || 0, fearT: 0, playTime: d.playTime || 0, camSet: false, fadeT: 0 });
   for (const id in d.mapState) { const s = d.mapState[id]; G.mapState[id] = { dead: s.dead, opened: s.opened, lastVisit: s.lastVisit, explored: s.explored ? Uint8Array.from(atob(s.explored), c => c === '1' ? 1 : 0) : null }; }
   for (const m of G.party) { m.rec = 0; m.hurt = 0; m.bounce = 0; m.dmgPop = null; }
   M = null; enterMap(d.mapId, d.x, d.y);

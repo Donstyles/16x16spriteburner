@@ -432,8 +432,8 @@ const MONSTERS = {
   nature_elemental: { name: 'Nature Elemental', spr: 'NatureElemental', hp: 170, acv: 18, atk: 11, dmg: [3, 8, 3], spd: 2.0, xp: 650, gold: [0, 40], tier: 4, res: { poison: 100, fire: -50, elec: 50 }, special: 'regen' },
   mithril_construct: { name: 'Mithril Sentinel', spr: 'MithrilConstruct', hp: 320, acv: 26, atk: 14, dmg: [4, 10, 4], spd: 2.0, xp: 2500, gold: [300, 600], tier: 4, boss: true, size: 1.6, res: { mind: 100, poison: 100, cold: 100, fire: 50 } },
   efreeti: { name: 'Molten Efreeti', spr: 'MoltenEfreeti', hp: 360, acv: 24, atk: 15, dmg: [4, 10, 5], spd: 2.6, xp: 3000, gold: [400, 800], tier: 4, boss: true, size: 1.7, spell: 'fireball', res: { fire: 100, cold: -50, poison: 100 }, light: true },
-  elder_treant: { name: 'Elder Barrow Treant', spr: 'GrizzledTreant', hp: 300, acv: 18, atk: 12, dmg: [4, 8, 4], spd: 1.5, xp: 1500, gold: [100, 300], tier: 3, boss: true, size: 1.7, res: { fire: -50, poison: 100, cold: 50 }, special: 'summon:treant' },
-  adamantium_golem: { name: 'The Hollow Regent', spr: 'AdamantiumGolem', hp: 420, acv: 24, atk: 15, dmg: [4, 8, 4], spd: 2.0, xp: 8000, gold: [1000, 2000], tier: 5, boss: true, size: 2.0, res: { mind: 100, poison: 100, fire: 50, cold: 50, elec: -50, phys: 25 }, special: 'summon:gargoyle', summonMax: 2, summonCount: 1, summonEvery: 30 },
+  elder_treant: { name: 'Elder Barrow Treant', spr: 'GrizzledTreant', hp: 300, acv: 18, atk: 12, dmg: [4, 8, 4], spd: 1.5, xp: 1500, gold: [100, 300], tier: 3, boss: true, size: 1.7, res: { fire: -50, poison: 100, cold: 50 }, special: 'summon:treant', summonMax: 2, summonCount: 1, summonEvery: 25 },
+  adamantium_golem: { name: 'The Hollow Regent', spr: 'AdamantiumGolem', hp: 360, acv: 22, atk: 15, dmg: [4, 8, 2], spd: 2.0, xp: 8000, gold: [1000, 2000], tier: 5, boss: true, size: 2.0, res: { mind: 100, poison: 100, fire: 50, cold: 50, elec: -50 }, special: 'summon:gargoyle', summonMax: 1, summonCount: 1, summonEvery: 45 },
 };
 const MONSTER_SPELLS = {
   spark: { dmg: [1, 6, 0], elem: 'elec', range: 6, proj: 'spark' }, fire_bolt: { dmg: [2, 6, 0], elem: 'fire', range: 7, proj: 'fire' }, ice_bolt: { dmg: [2, 6, 0], elem: 'cold', range: 7, proj: 'ice', slow: true },
@@ -959,7 +959,7 @@ function notice(text, sub, dur = 3) { G.notice = { text, sub, t: dur, dur }; }
 function newGame(members) {
   Object.assign(G, {
     mode: 'play', party: members, sel: 0, gold: 500, food: 6, time: 8 * 60, inv: [], buffs: {}, mapState: {}, quests: {}, counters: {}, flags: {}, log: [], notice: null, screen: null,
-    turnBased: false, tbClock: 0, monsters: [], projs: [], fx: [], drops: [], trail: [], facing: 1, kills: 0, playTime: 0, camSet: false, lastRest: 8 * 60, fadeT: 0,
+    turnBased: false, tbClock: 0, monsters: [], projs: [], fx: [], drops: [], trail: [], facing: 1, kills: 0, fearT: 0, playTime: 0, camSet: false, lastRest: 8 * 60, fadeT: 0,
   });
   addInv(makeItem('potion_heal')); addInv(makeItem('potion_heal')); addInv(makeItem('torch')); addInv(makeItem('torch'));
   enterMap('over', null, null);
@@ -1169,7 +1169,7 @@ function saveGame(slot = 'auto') {
 function hasSave(slot = 'auto') { try { return !!localStorage.getItem(SAVE_KEY + '_' + slot); } catch (e) { return false; } }
 function loadGame(slot = 'auto') {
   let d; try { d = JSON.parse(localStorage.getItem(SAVE_KEY + '_' + slot)); } catch (e) { return false; } if (!d) return false;
-  Object.assign(G, { mode: 'play', party: d.party, sel: d.sel || 0, gold: d.gold, food: d.food, time: d.time, inv: d.inv, buffs: d.buffs || {}, mapState: {}, quests: d.quests, counters: d.counters, flags: d.flags, log: [], notice: null, screen: null, turnBased: false, tbClock: 0, monsters: [], projs: [], fx: [], drops: [], trail: [], facing: 1, kills: d.kills || 0, playTime: d.playTime || 0, camSet: false, fadeT: 0 });
+  Object.assign(G, { mode: 'play', party: d.party, sel: d.sel || 0, gold: d.gold, food: d.food, time: d.time, inv: d.inv, buffs: d.buffs || {}, mapState: {}, quests: d.quests, counters: d.counters, flags: d.flags, log: [], notice: null, screen: null, turnBased: false, tbClock: 0, monsters: [], projs: [], fx: [], drops: [], trail: [], facing: 1, kills: d.kills || 0, fearT: 0, playTime: d.playTime || 0, camSet: false, fadeT: 0 });
   for (const id in d.mapState) { const s = d.mapState[id]; G.mapState[id] = { dead: s.dead, opened: s.opened, lastVisit: s.lastVisit, explored: s.explored ? Uint8Array.from(atob(s.explored), c => c === '1' ? 1 : 0) : null }; }
   for (const m of G.party) { m.rec = 0; m.hurt = 0; m.bounce = 0; m.dmgPop = null; }
   M = null; enterMap(d.mapId, d.x, d.y);
@@ -1824,7 +1824,7 @@ const I = {
 
 // ---- 85_bot.js ----
 // ===================== autoplay bot: "Watch Claude play" =====================
-const BOSS_LV = { warrens: 5, barrow: 6, reliquary: 9, molten: 10, sanctum: 13 }; // party level the bot wants before it fights each boss
+const BOSS_LV = { warrens: 3, barrow: 6, reliquary: 9, molten: 8, sanctum: 13 }; // party level the bot wants before it fights each boss
 const BOT = {
   on: false, say: '', sayT: 0, goals: [], cur: null, path: null, pathT: 0, stuckT: 0, lastPos: null, mx: 0, my: 0, flow: null, waitT: 0, retry: {}, wipes: 0, flee: 0, eng: null, skip: {}, lastCamp: null, done: false, lastRestT: -1e9, log: [],
   start() { this.on = true; this.goals = []; this.cur = null; this.flow = null; this.done = false; this.plan(); this.talk('Four strangers in Harrowmere. First, the lord of the town.'); },
@@ -1842,9 +1842,9 @@ const BOT = {
     g.push({ k: 'town' });
     g.push({ k: 'dungeon', id: 'reliquary', need: 7 });
     g.push({ k: 'town' });
-    g.push({ k: 'dungeon', id: 'molten', need: 10 });
+    g.push({ k: 'dungeon', id: 'molten', need: 8 });
     g.push({ k: 'town' });
-    g.push({ k: 'dungeon', id: 'sanctum', need: 13 });
+    g.push({ k: 'dungeon', id: 'sanctum', need: 11 });
     g.push({ k: 'town', last: true });
   },
   avgLevel() { return G.party.reduce((a, m) => a + m.lvl, 0) / G.party.length; },
@@ -1884,17 +1884,19 @@ const BOT = {
     const near = ths.sort((a, b) => dist(a.x, a.y, G.x, G.y) - dist(b.x, b.y, G.x, G.y)); const t = near[0]; G.target = t;
     const d = dist(t.x, t.y, G.x, G.y);
     const aliveN = G.party.filter(alive).length, hpFrac = G.party.reduce((a, m) => a + Math.max(0, m.hp), 0) / Math.max(1, G.party.reduce((a, m) => a + maxHp(m), 0));
-    if (aliveN <= 1 || (t.boss && (aliveN <= 2 || hpFrac < 0.3) && t.hp > t.maxHp * 0.3)) { this.flee = G.playTime + 30; this.path = null; this.eng = null; this.talk('Retreat! Live to fight another day.'); if (this.cur && this.cur.k === 'dungeon') this.cur.minLv = Math.max(this.cur.minLv || 0, Math.ceil(this.avgLevel()) + 1); if (this.cur && this.cur.k === 'grind' && this.lastCamp) this.skip[this.lastCamp] = G.playTime + 900; return; }
+    const bossNearDead = t.boss && t.hp < t.maxHp * 0.15; // when the boss is almost down, the last one standing finishes it
+    if (!bossNearDead && (aliveN <= 1 || (t.boss && (aliveN <= 2 || hpFrac < 0.3) && t.hp / t.maxHp > hpFrac + 0.15 && t.hp > t.maxHp * 0.25))) { this.flee = G.playTime + 30; this.path = null; this.eng = null; this.talk('Retreat! Live to fight another day.'); if (this.cur && this.cur.k === 'dungeon') this.cur.minLv = Math.max(this.cur.minLv || 0, Math.ceil(this.avgLevel()) + 1); if (this.cur && this.cur.k === 'grind' && this.lastCamp) this.skip[this.lastCamp] = G.playTime + 900; return; }
     // close the distance if nobody can hit it
     const melee = findMeleeTarget(t); const ranged = G.party.some(m => alive(m) && isRanged(m) && m.rec <= 0);
-    const php = G.party.reduce((a, m) => a + m.hp, 0);
-    if (this.eng && this.eng.t0 === t && this.eng.hp === t.hp && this.eng.php === php) this.eng.t += dt; else this.eng = { t0: t, hp: t.hp, php, t: 0 };
+    const php = G.party.reduce((a, m) => a + m.hp, 0), thp = near.reduce((a, mo) => a + mo.hp, 0);
+    if (this.eng && this.eng.kills === G.kills && this.eng.thp === thp && this.eng.php === php) this.eng.t += dt; else this.eng = { kills: G.kills, thp, php, t: 0 };
     let r = false;
     if (!melee && (d > 1.4 || !hasLOS(G.x, G.y, t.x, t.y))) { r = this.goto(t.x, t.y, dt); } else { this.mx = this.my = 0; }
-    if ((r === 'nopath' && d > 1.6) || this.eng.t > 7) { this.giveUpOn(t, 'That ' + t.name + ' cannot reach us and we cannot reach it. Moving on.'); return; }
-    if (G.fearT <= 0) partyAttack();
+    if (r === 'nopath' && d > 1.6) { this.giveUpOn(t, 'That ' + t.name + ' cannot reach us and we cannot reach it. Moving on.'); return; }
+    if (this.eng.t > 8) { for (const mo of near) this.giveUpOn(mo, ''); this.talk('Nobody can reach anybody here. Moving on.'); if (this.cur && this.cur.k === 'grind' && this.lastCamp) this.skip[this.lastCamp] = G.playTime + 600; return; }
+    if (!(G.fearT > 0)) partyAttack();
     // healing
-    for (const m of G.party) { if (!alive(m)) continue; if (m.hp < maxHp(m) * 0.35) { const cleric = G.party.find(c => alive(c) && c.spells.includes('cure_wounds') && c.sp >= 3 && c.rec <= 0); if (cleric && d > 0.0) { castSpell(cleric, 'cure_wounds'); } else { const pot = G.inv.find(i => i.id === 'potion_heal2') || G.inv.find(i => i.id === 'potion_heal'); if (pot) useItem(pot, m); } } }
+    for (const m of G.party) { if (!alive(m)) continue; if (m.hp < maxHp(m) * (t.boss ? 0.45 : 0.35)) { const cleric = G.party.find(c => alive(c) && c.spells.includes('cure_wounds') && c.sp >= 3 && c.rec <= 0); if (cleric && d > 0.0) { castSpell(cleric, 'cure_wounds'); } else { const pot = G.inv.find(i => i.id === 'potion_heal2') || G.inv.find(i => i.id === 'potion_heal'); if (pot) useItem(pot, m); } } }
     const hurtCount = G.party.filter(m => alive(m) && m.hp < maxHp(m) * 0.6).length; const pc = G.party.find(c => alive(c) && c.spells.includes('power_cure') && c.sp >= 10 && c.rec <= 0); if (pc && hurtCount >= 2) castSpell(pc, 'power_cure');
     // offensive magic
     const n3 = near.filter(mo => dist(mo.x, mo.y, G.x, G.y) < 3).length;
@@ -2173,7 +2175,7 @@ function playInput() {
   if (I.clicked) {
     const [wx, wy] = screenToWorld(I.clicked.x, I.clicked.y);
     let best = null, bd = 1.0; for (const mo of G.monsters) { if (mo.dead || mo.hidden) continue; const d = dist(wx, wy + 0.4, mo.x, mo.y); if (d < bd) { bd = d; best = mo; } }
-    if (best) { G.target = best; if (G.fearT <= 0) partyAttack(); }
+    if (best) { G.target = best; if (!(G.fearT > 0)) partyAttack(); }
     else { const it = nearestInteractable(); if (it) { const ox = it.o ? it.o.x + 0.5 : it.n.x, oy = it.o ? it.o.y + 0.5 : it.n.y; if (dist(wx, wy, ox, oy) < 1.3) doInteract(it); else if (I.clicked.touch) { } } }
   }
   if (G.target && (G.target.dead || dist(G.target.x, G.target.y, G.x, G.y) > 12)) G.target = null;
