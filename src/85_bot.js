@@ -60,7 +60,7 @@ const BOT = {
     const d = dist(t.x, t.y, G.x, G.y);
     const aliveN = G.party.filter(alive).length, hpFrac = G.party.reduce((a, m) => a + Math.max(0, m.hp), 0) / Math.max(1, G.party.reduce((a, m) => a + maxHp(m), 0));
     const bossNearDead = t.boss && t.hp < t.maxHp * 0.15; // when the boss is almost down, the last one standing finishes it
-    if (!bossNearDead && (aliveN <= 1 || (t.boss && (aliveN <= 2 || hpFrac < 0.3) && t.hp / t.maxHp > hpFrac + 0.15 && t.hp > t.maxHp * 0.25))) { this.flee = G.playTime + 30; this.path = null; this.eng = null; this.talk('Retreat! Live to fight another day.'); if (this.cur && this.cur.k === 'dungeon') this.cur.minLv = Math.max(this.cur.minLv || 0, Math.ceil(this.avgLevel()) + 1); if (this.cur && this.cur.k === 'grind' && this.lastCamp) this.skip[this.lastCamp] = G.playTime + 900; return; }
+    if (!bossNearDead && (aliveN <= 1 || (t.boss && (aliveN <= 2 || hpFrac < 0.3) && t.hp / t.maxHp > hpFrac + 0.15 && t.hp > t.maxHp * 0.25))) { this.flee = G.playTime + 30; this.path = null; this.eng = null; this.talk('Retreat! Live to fight another day.'); if (this.cur && this.cur.k === 'dungeon') { this.setback(this.cur); this.goals.unshift({ k: 'town' }, this.cur); this.cur = null; } if (this.cur && this.cur.k === 'grind' && this.lastCamp) this.skip[this.lastCamp] = G.playTime + 900; return; }
     // close the distance if nobody can hit it
     const melee = findMeleeTarget(t); const ranged = G.party.some(m => alive(m) && isRanged(m) && m.rec <= 0);
     const php = G.party.reduce((a, m) => a + m.hp, 0), thp = near.reduce((a, mo) => a + mo.hp, 0);
@@ -95,6 +95,7 @@ const BOT = {
     if (!buffOn('stoneskin') && !buffOn('shield')) { const c = G.party.find(c => alive(c) && c.rec <= 0 && ((c.spells.includes('stone_skin') && c.sp >= 8) || (c.spells.includes('shield') && c.sp >= 8))); if (c) castSpell(c, c.spells.includes('stone_skin') ? 'stone_skin' : 'shield'); }
     this.talk(t.boss ? 'The ' + t.name + '! Everyone, hold the line.' : 'Fighting ' + t.name + (near.length > 1 ? ' and ' + (near.length - 1) + ' more.' : '.'));
   },
+  setback(c) { c.fails = (c.fails || 0) + 1; if (c.fails >= 2) { c.fails = 0; c.minLv = Math.max(c.minLv || 0, Math.ceil(this.avgLevel()) + 1); } },
   fleeing(dt) {
     for (const m of G.party) { if (alive(m) && m.hp < maxHp(m) * 0.4) { const pot = G.inv.find(i => i.id === 'potion_heal2') || G.inv.find(i => i.id === 'potion_heal'); if (pot) useItem(pot, m); } }
     if (this.sayT > 6) this.talk('Running for it.');
@@ -212,7 +213,7 @@ const BOT = {
   // ---------- main update ----------
   update(dt) {
     if (!this.on) return; this.sayT += dt;
-    if (G.mode === 'dead') { this.waitT += dt; if (this.waitT > 2.5) { this.waitT = 0; this.wipes++; I.press('wake'); this.talk('We wake in the temple. Lighter of purse, wiser of heart.'); this.flee = 0; this.eng = null; if (this.cur) { if (this.cur.k === 'town') this.cur.steps = null; if (this.cur.k === 'dungeon') { this.cur.wipes = (this.cur.wipes || 0) + 1; this.cur.minLv = Math.max(this.cur.minLv || 0, Math.ceil(this.avgLevel()) + 1); } if (this.cur.k === 'grind' && this.lastCamp) this.skip[this.lastCamp] = G.playTime + 900; this.goals.unshift(this.cur); } this.goals.unshift({ k: 'town' }); this.cur = null; this.path = null; } return; }
+    if (G.mode === 'dead') { this.waitT += dt; if (this.waitT > 2.5) { this.waitT = 0; this.wipes++; I.press('wake'); this.talk('We wake in the temple. Lighter of purse, wiser of heart.'); this.flee = 0; this.eng = null; if (this.cur) { if (this.cur.k === 'town') this.cur.steps = null; if (this.cur.k === 'dungeon') { this.cur.wipes = (this.cur.wipes || 0) + 1; this.setback(this.cur); } if (this.cur.k === 'grind' && this.lastCamp) this.skip[this.lastCamp] = G.playTime + 900; this.goals.unshift(this.cur); } this.goals.unshift({ k: 'town' }); this.cur = null; this.path = null; } return; }
     if (G.mode === 'ending') { this.talk('The Scepter is home. That is the whole game, beginning to end.'); this.done = true; return; }
     if (G.mode !== 'play') return;
     this.mx = this.my = 0; this.why = 'goal';
