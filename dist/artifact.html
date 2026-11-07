@@ -2004,15 +2004,16 @@ const BOT = {
       if (!CLASSES[m.cls].schools.some(s => g.schools.includes(s))) return;
       fl.push([() => I.press('mtab' + i), 0.5]);
       // learn schools we want (Water for town portal, Earth, Mind)
-      fl.push([() => { for (const sc of g.schools) { if (!CLASSES[m.cls].schools.includes(sc) || m.skills[sc]) continue; const wantSchool = (m.cls === 'Sorcerer' && (sc === 'Water' || sc === 'Earth')) || (m.cls === 'Cleric' && sc === 'Mind') || (m.cls === 'Archer' && sc === 'Fire'); if (wantSchool && G.gold > 700) { I.press('learn_' + sc); return; } } }, 0.7]);
-      for (let k = 0; k < 5; k++) fl.push([() => { for (const id of WANT[m.cls] || []) { const sp = SPELLS[id]; if (!g.schools.includes(sp.school) || m.spells.includes(id) || !CLASSES[m.cls].schools.includes(sp.school)) continue; const need = sp.lvl === 1 ? 1 : sp.lvl === 2 ? 2 : sp.lvl === 3 ? 4 : 8; if ((m.skills[sp.school] || 0) >= need && G.gold >= sp.price + 250) { I.press('spell_' + id); return; } } }, 0.8, m.name + ' studies a new spell.']);
+      fl.push([() => { for (const sc of g.schools) { if (!CLASSES[m.cls].schools.includes(sc) || m.skills[sc]) continue; const wantSchool = (m.cls === 'Sorcerer' && (sc === 'Water' || sc === 'Earth')) || (m.cls === 'Cleric' && sc === 'Mind') || (m.cls === 'Archer' && sc === 'Fire'); if (wantSchool && G.gold - 300 >= this.reserve() + 100) { I.press('learn_' + sc); return; } } }, 0.7]);
+      for (let k = 0; k < 5; k++) fl.push([() => { for (const id of WANT[m.cls] || []) { const sp = SPELLS[id]; if (!g.schools.includes(sp.school) || m.spells.includes(id) || !CLASSES[m.cls].schools.includes(sp.school)) continue; const need = sp.lvl === 1 ? 1 : sp.lvl === 2 ? 2 : sp.lvl === 3 ? 4 : 8; if ((m.skills[sp.school] || 0) >= need && G.gold - sp.price >= this.reserve()) { I.press('spell_' + id); return; } } }, 0.8, m.name + ' studies a new spell.']);
       fl.push([() => { for (const sc of g.schools) { if (!m.skills[sc]) continue; const have = (m.promo && m.promo[sc]) || 0; if (m.skills[sc] >= 3 && have < 4 && G.gold > 1200) { I.press('promo_' + sc + '_4'); return; } if (m.skills[sc] >= 7 && have < 8 && G.gold > 5000) { I.press('promo_' + sc + '_8'); return; } } }, 0.6]);
     });
     fl.push([() => I.press('close'), 0.5]);
     this.runFlow(fl);
   },
+  reserve() { const pend = G.party.filter(m => canTrain(m)).map(m => TRAIN_COST(m.lvl + 1)); return Math.max(350, pend.length ? Math.min(...pend) + 50 : 0); }, // keep enough gold for the next training
   shopFlow(id) {
-    const fl = []; const b = Object.values(BUILDINGS).find(x => x.id === id); const reserve = 350;
+    const fl = []; const b = Object.values(BUILDINGS).find(x => x.id === id); const reserve = this.reserve();
     const avg = w => w.dmg[0] * (w.dmg[1] + 1) / 2 + w.dmg[2];
     if (id === 'weapons') {
       // sell spare weapons/armor first
