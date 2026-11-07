@@ -1546,7 +1546,7 @@ function updateEnemies(dt) {
         break;
       }
       case 'windup': {
-        e.sd.tint = [255, 70, 50, 0.35 + 0.45 * (1 - e.t / e.windupDur)];
+        e.sd.tint = [255, 70, 50, 0.18 + 0.32 * (1 - e.t / e.windupDur)];
         if (e.special !== 'charge' && melee) { const face = Math.atan2(dy, dx); e.sd.shake = 0; }
         if (e.t <= 0) {
           e.sd.tint = null;
