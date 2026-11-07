@@ -188,6 +188,7 @@ function updatePlayer(dt) {
   for (const o of S.objects) { if (!o.solid) continue; pushApart(S, o, 0.26 + o.solid, 1); }
   for (const e of S.enemies) { if (e.dead) continue; pushApart(S, e, 0.26 + e.r, 1); }
   S.px = clamp(S.px, 0.3, MW - 0.3); S.py = clamp(S.py, 0.3, MH - 0.3);
+  { const p = { x: S.px, y: S.py }; if (unstick(p, 0.26, false)) { S.px = p.x; S.py = p.y; } }
   // field name
   const z = zoneAt(S.px, S.py);
   if (z.idx !== S.lastZone) { S.lastZone = z.idx; S.areaT = S.areaT || {}; if (!S.boss && (S.t - (S.areaT[z.idx] || -999) > 90)) { showCenter(z.name.toUpperCase(), null, 3.5, 'area'); S.areaT[z.idx] = S.t; } }
@@ -205,10 +206,31 @@ function updatePlayer(dt) {
   }
 }
 function pushApart(a, b, minD, weightA) {
-  const dx = a.px !== undefined ? a.px - b.x : a.x - b.x, dy = a.px !== undefined ? a.py - b.y : a.y - b.y;
-  const d2 = dx * dx + dy * dy; if (d2 >= minD * minD || d2 < 1e-6) return;
+  const isP = a.px !== undefined;
+  const ax = isP ? a.px : a.x, ay = isP ? a.py : a.y;
+  let dx = ax - b.x, dy = ay - b.y;
+  let d2 = dx * dx + dy * dy; if (d2 >= minD * minD) return;
+  if (d2 < 1e-6) { dx = Math.cos(S.t * 7) * 0.01; dy = Math.sin(S.t * 7) * 0.01; d2 = dx * dx + dy * dy; }
   const d = Math.sqrt(d2), push = (minD - d) * weightA, nx = dx / d, ny = dy / d;
-  if (a.px !== undefined) { a.px += nx * push; a.py += ny * push; } else { a.x += nx * push; a.y += ny * push; }
+  // apply the push as a wall-aware slide so nothing is ever shoved into a wall
+  const tmp = { x: ax, y: ay }; moveCircle(tmp, nx * push, ny * push, isP ? 0.26 : (a.r || 0.3), !isP);
+  if (isP) { a.px = tmp.x; a.py = tmp.y; } else { a.x = tmp.x; a.y = tmp.y; }
+}
+// if an entity's circle overlaps a solid cell (door closed on it, a bad push, a teleport), move it back out
+function unstick(ent, r, forEnemy) {
+  const cx = ent.x | 0, cy = ent.y | 0;
+  if (cellBlocked(ent.x, ent.y, forEnemy)) {
+    for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [-1, -1], [1, -1], [-1, 1], [0, 2], [0, -2], [2, 0], [-2, 0]]) {
+      if (!cellBlocked(cx + dx + 0.5, cy + dy + 0.5, forEnemy)) { ent.x = cx + dx + 0.5; ent.y = cy + dy + 0.5; return true; }
+    }
+    return false;
+  }
+  let moved = false;
+  if (cellBlocked(ent.x + r, ent.y, forEnemy)) { ent.x = cx + 1 - r - 0.002; moved = true; }
+  if (cellBlocked(ent.x - r, ent.y, forEnemy)) { ent.x = cx + r + 0.002; moved = true; }
+  if (cellBlocked(ent.x, ent.y + r, forEnemy)) { ent.y = cy + 1 - r - 0.002; moved = true; }
+  if (cellBlocked(ent.x, ent.y - r, forEnemy)) { ent.y = cy + r + 0.002; moved = true; }
+  return moved;
 }
 // ---- interaction ----
 function findFocus() {

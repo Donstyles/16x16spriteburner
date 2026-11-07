@@ -141,7 +141,7 @@ function renderWorld(map, cam, sprites) {
     const fw = fr.w, fh = fr.h;
     const screenX = (VW / 2) * (1 + s._tx / ty) + (s.shake || 0) * projV / ty;
     const spH = s.h * projV / ty, spW = s.w * projV / ty;
-    const bottom = horizon + (camZ - (s.z || 0)) * projV / ty;
+    const bottom = horizon + (camZ - (s.z || 0) + s.h * (s.spr.padB || 0)) * projV / ty;
     const top = bottom - spH, left = screenX - spW / 2;
     let xs = Math.ceil(left), xe = Math.floor(left + spW); if (xs < 0) xs = 0; if (xe >= VW) xe = VW - 1;
     let ys = Math.ceil(top), ye = Math.floor(bottom); if (ys < 0) ys = 0; if (ye >= VH) ye = VH - 1;

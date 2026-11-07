@@ -134,6 +134,7 @@ function updateEnemies(dt) {
     if (e.state !== 'windup' && !e.dead) e.sd.tint = e.flash > 0 ? [255, 255, 255, 0.85] : (e.enraged ? [255, 60, 40, 0.3] : null);
     else if (e.flash > 0) e.sd.tint = [255, 255, 255, 0.85];
     if (e.boss && def.enrage && !e.enraged && e.hp < e.hpMax * def.enrage) { e.enraged = true; e.spd *= 1.3; e.cd *= 0.75; message(e.name + ' is enraged!'); Snd.sfx('roar'); }
+    if (e.state !== 'sleep') unstick(e, e.r, true);
     // sprite descriptor
     e.sd.x = e.x; e.sd.y = e.y; e.sd.shake = e.shake > 0 ? Math.sin(S.t * 60) * 0.04 : 0;
     const hover = e.zoff ? Math.sin(e.anim * 2.5) * 0.08 : 0;

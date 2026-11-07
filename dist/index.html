@@ -650,7 +650,14 @@ const wallTexId = (theme, variant = 0) => WALLTEX_ID[theme + ':' + variant];
 
 // ---- sprites ----
 const SPR = {};
-function makeSprite(name, frames, opts = {}) { const s = Object.assign({ name, frames, fps: 6 }, opts); SPR[name] = s; return s; }
+function makeSprite(name, frames, opts = {}) {
+  const s = Object.assign({ name, frames, fps: 6 }, opts); SPR[name] = s;
+  // transparent rows under the art (minimum across frames) as a fraction of the frame height
+  let pad = 1;
+  for (const fr of frames) { let rows = 0; outer: for (let y = fr.h - 1; y >= 0; y--) { for (let x = 0; x < fr.w; x++) if (fr.px[y * fr.w + x] >>> 24) break outer; rows++; } pad = Math.min(pad, rows / fr.h); }
+  s.padB = pad >= 1 ? 0 : pad;
+  return s;
+}
 function creatureSprite(name) {
   if (SPR[name]) return SPR[name];
   const e = ASSETS.cindex[name];
@@ -928,7 +935,7 @@ function renderWorld(map, cam, sprites) {
     const fw = fr.w, fh = fr.h;
     const screenX = (VW / 2) * (1 + s._tx / ty) + (s.shake || 0) * projV / ty;
     const spH = s.h * projV / ty, spW = s.w * projV / ty;
-    const bottom = horizon + (camZ - (s.z || 0)) * projV / ty;
+    const bottom = horizon + (camZ - (s.z || 0) + s.h * (s.spr.padB || 0)) * projV / ty;
     const top = bottom - spH, left = screenX - spW / 2;
     let xs = Math.ceil(left), xe = Math.floor(left + spW); if (xs < 0) xs = 0; if (xe >= VW) xe = VW - 1;
     let ys = Math.ceil(top), ye = Math.floor(bottom); if (ys < 0) ys = 0; if (ye >= VH) ye = VH - 1;
@@ -1650,6 +1657,7 @@ function updatePlayer(dt) {
   for (const o of S.objects) { if (!o.solid) continue; pushApart(S, o, 0.26 + o.solid, 1); }
   for (const e of S.enemies) { if (e.dead) continue; pushApart(S, e, 0.26 + e.r, 1); }
   S.px = clamp(S.px, 0.3, MW - 0.3); S.py = clamp(S.py, 0.3, MH - 0.3);
+  { const p = { x: S.px, y: S.py }; if (unstick(p, 0.26, false)) { S.px = p.x; S.py = p.y; } }
   // field name
   const z = zoneAt(S.px, S.py);
   if (z.idx !== S.lastZone) { S.lastZone = z.idx; S.areaT = S.areaT || {}; if (!S.boss && (S.t - (S.areaT[z.idx] || -999) > 90)) { showCenter(z.name.toUpperCase(), null, 3.5, 'area'); S.areaT[z.idx] = S.t; } }
@@ -1667,10 +1675,31 @@ function updatePlayer(dt) {
   }
 }
 function pushApart(a, b, minD, weightA) {
-  const dx = a.px !== undefined ? a.px - b.x : a.x - b.x, dy = a.px !== undefined ? a.py - b.y : a.y - b.y;
-  const d2 = dx * dx + dy * dy; if (d2 >= minD * minD || d2 < 1e-6) return;
+  const isP = a.px !== undefined;
+  const ax = isP ? a.px : a.x, ay = isP ? a.py : a.y;
+  let dx = ax - b.x, dy = ay - b.y;
+  let d2 = dx * dx + dy * dy; if (d2 >= minD * minD) return;
+  if (d2 < 1e-6) { dx = Math.cos(S.t * 7) * 0.01; dy = Math.sin(S.t * 7) * 0.01; d2 = dx * dx + dy * dy; }
   const d = Math.sqrt(d2), push = (minD - d) * weightA, nx = dx / d, ny = dy / d;
-  if (a.px !== undefined) { a.px += nx * push; a.py += ny * push; } else { a.x += nx * push; a.y += ny * push; }
+  // apply the push as a wall-aware slide so nothing is ever shoved into a wall
+  const tmp = { x: ax, y: ay }; moveCircle(tmp, nx * push, ny * push, isP ? 0.26 : (a.r || 0.3), !isP);
+  if (isP) { a.px = tmp.x; a.py = tmp.y; } else { a.x = tmp.x; a.y = tmp.y; }
+}
+// if an entity's circle overlaps a solid cell (door closed on it, a bad push, a teleport), move it back out
+function unstick(ent, r, forEnemy) {
+  const cx = ent.x | 0, cy = ent.y | 0;
+  if (cellBlocked(ent.x, ent.y, forEnemy)) {
+    for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [-1, -1], [1, -1], [-1, 1], [0, 2], [0, -2], [2, 0], [-2, 0]]) {
+      if (!cellBlocked(cx + dx + 0.5, cy + dy + 0.5, forEnemy)) { ent.x = cx + dx + 0.5; ent.y = cy + dy + 0.5; return true; }
+    }
+    return false;
+  }
+  let moved = false;
+  if (cellBlocked(ent.x + r, ent.y, forEnemy)) { ent.x = cx + 1 - r - 0.002; moved = true; }
+  if (cellBlocked(ent.x - r, ent.y, forEnemy)) { ent.x = cx + r + 0.002; moved = true; }
+  if (cellBlocked(ent.x, ent.y + r, forEnemy)) { ent.y = cy + 1 - r - 0.002; moved = true; }
+  if (cellBlocked(ent.x, ent.y - r, forEnemy)) { ent.y = cy + r + 0.002; moved = true; }
+  return moved;
 }
 // ---- interaction ----
 function findFocus() {
@@ -1963,6 +1992,7 @@ function updateEnemies(dt) {
     if (e.state !== 'windup' && !e.dead) e.sd.tint = e.flash > 0 ? [255, 255, 255, 0.85] : (e.enraged ? [255, 60, 40, 0.3] : null);
     else if (e.flash > 0) e.sd.tint = [255, 255, 255, 0.85];
     if (e.boss && def.enrage && !e.enraged && e.hp < e.hpMax * def.enrage) { e.enraged = true; e.spd *= 1.3; e.cd *= 0.75; message(e.name + ' is enraged!'); Snd.sfx('roar'); }
+    if (e.state !== 'sleep') unstick(e, e.r, true);
     // sprite descriptor
     e.sd.x = e.x; e.sd.y = e.y; e.sd.shake = e.shake > 0 ? Math.sin(S.t * 60) * 0.04 : 0;
     const hover = e.zoff ? Math.sin(e.anim * 2.5) * 0.08 : 0;

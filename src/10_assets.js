@@ -124,7 +124,14 @@ const wallTexId = (theme, variant = 0) => WALLTEX_ID[theme + ':' + variant];
 
 // ---- sprites ----
 const SPR = {};
-function makeSprite(name, frames, opts = {}) { const s = Object.assign({ name, frames, fps: 6 }, opts); SPR[name] = s; return s; }
+function makeSprite(name, frames, opts = {}) {
+  const s = Object.assign({ name, frames, fps: 6 }, opts); SPR[name] = s;
+  // transparent rows under the art (minimum across frames) as a fraction of the frame height
+  let pad = 1;
+  for (const fr of frames) { let rows = 0; outer: for (let y = fr.h - 1; y >= 0; y--) { for (let x = 0; x < fr.w; x++) if (fr.px[y * fr.w + x] >>> 24) break outer; rows++; } pad = Math.min(pad, rows / fr.h); }
+  s.padB = pad >= 1 ? 0 : pad;
+  return s;
+}
 function creatureSprite(name) {
   if (SPR[name]) return SPR[name];
   const e = ASSETS.cindex[name];
