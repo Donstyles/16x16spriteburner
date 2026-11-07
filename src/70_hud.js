@@ -106,7 +106,7 @@ function drawWeapon(ctx) {
     ctx.globalAlpha = 0.9; ctx.drawImage(im, -size * 0.1, -size * 0.9, size, size);
   }
   ctx.restore();
-  if (S.rangedFlash > 0) { const cx = W / 2, cy = HH / 2 + S.pitch * H.viewScaleY; const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 40); g.addColorStop(0, 'rgba(255,230,160,' + (S.rangedFlash * 1.6) + ')'); g.addColorStop(1, 'rgba(255,200,100,0)'); ctx.fillStyle = g; ctx.fillRect(cx - 40, cy - 40, 80, 80); }
+  if (S.rangedFlash > 0) { const cx = W / 2, cy = H.barTop / 2 + S.pitch * H.viewScaleY; const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 40); g.addColorStop(0, 'rgba(255,230,160,' + (S.rangedFlash * 1.6) + ')'); g.addColorStop(1, 'rgba(255,200,100,0)'); ctx.fillStyle = g; ctx.fillRect(cx - 40, cy - 40, 80, 80); }
 }
 function drawOverlays(ctx) {
   const W = H.W, HH = H.H;
@@ -123,12 +123,12 @@ function drawOverlays(ctx) {
   if (S.bulwark > 0) { ctx.strokeStyle = 'rgba(216,179,106,' + Math.min(0.8, S.bulwark * 0.4) + ')'; ctx.lineWidth = 6; ctx.strokeRect(3, 3, W - 6, HH - 6); }
 }
 function drawCrosshair(ctx) {
-  const cx = H.W / 2, cy = H.H / 2 + S.pitch * H.viewScaleY; const sw = S.swing > 0 ? 1 + S.swing * 4 : 1;
+  const cx = H.W / 2, cy = H.barTop / 2 + S.pitch * H.viewScaleY; const sw = S.swing > 0 ? 1 + S.swing * 4 : 1;
   ctx.strokeStyle = S.target ? '#ff7a5a' : 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(cx - 7 * sw, cy); ctx.lineTo(cx - 3, cy); ctx.moveTo(cx + 3, cy); ctx.lineTo(cx + 7 * sw, cy); ctx.moveTo(cx, cy - 7 * sw); ctx.lineTo(cx, cy - 3); ctx.moveTo(cx, cy + 3); ctx.lineTo(cx, cy + 7 * sw); ctx.stroke();
   const f = S.focus; const label = focusLabel(f);
   if (label) {
-    const y = H.H * 0.56 + S.pitch * 0.5;
+    const y = H.barTop * 0.6 + S.pitch * 0.5;
     const w = textWidth(label, 2) + 28; const x = H.W / 2 - w / 2;
     ctx.fillStyle = 'rgba(10,8,14,0.78)'; ctx.fillRect(x, y, w, 26); ctx.strokeStyle = 'rgba(210,180,120,0.7)'; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, 25);
     drawText(ctx, label, H.W / 2, y + 6, 2, '#ffe9a0', 'center');

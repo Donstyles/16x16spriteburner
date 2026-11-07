@@ -799,7 +799,7 @@ const R = {
   VW: 0, VH: 0, buf: null, img: null, cvs: null, ctx: null,
   zbuf: null, wallTop: null, wallBot: null,
   hfov: 1.25, planeLen: 0, projV: 0, horizon: 0, pitch: 0,
-  camZ: 1.0, fogScale: 3.1, flick: 1, bob: 0, time: 0,
+  camZ: 0.84, hShift: 0, fogScale: 3.1, flick: 1, bob: 0, time: 0,
 };
 function initRenderer(w, h) {
   R.VW = w; R.VH = h;
@@ -820,7 +820,7 @@ function renderWorld(map, cam, sprites) {
   const px = cam.x, py = cam.y, dirX = Math.cos(cam.a), dirY = Math.sin(cam.a);
   const planeX = -dirY * R.planeLen, planeY = dirX * R.planeLen;
   const projV = R.projV, camZ = R.camZ + R.bob * 0.02;
-  const horizon = (VH / 2 + R.pitch + R.bob) | 0; R.horizon = horizon;
+  const horizon = (VH / 2 + R.hShift + R.pitch + R.bob) | 0; R.horizon = horizon;
   const fogScale = R.fogScale * R.flick;
   const mw = map.w, mh = map.h, type = map.type, wall = map.wall, light = map.light, doors = map.doors, doorIdx = map.doorIdx;
   const NL1 = NLV - 1;
@@ -1170,45 +1170,45 @@ const Snd = {
 // ===== World definition: zones, enemies, items, map builder =====
 const ENEMY_DEFS = {
   // tier 1 - Undercroft
-  ScarecrowGolem: { name: 'Scarecrow Husk', hp: 26, dmg: [4, 8], spd: 1.2, souls: 18, size: 0.9, behav: 'melee', poise: 0, color: '#c9a86b' },
-  GoblinFighter: { name: 'Goblin Cutthroat', hp: 34, dmg: [6, 11], spd: 1.9, souls: 32, size: 0.85, behav: 'melee', poise: 0, cd: 1.3 },
-  GoblinArcher: { name: 'Goblin Archer', hp: 24, dmg: [6, 10], spd: 1.6, souls: 34, size: 0.85, behav: 'ranged', proj: 'arrow', range: 7, poise: 0 },
-  HungryMimic: { name: 'Mimic', hp: 95, dmg: [14, 22], spd: 1.1, souls: 160, size: 0.95, behav: 'melee', poise: 20, mimic: true, cd: 1.1 },
-  StoneGolem: { name: 'Crypt Warden', hp: 130, dmg: [12, 18], spd: 0.8, souls: 220, size: 1.15, behav: 'melee', poise: 40, unique: true },
-  BestialMinotaur: { name: 'Asterion, Warden of the Undercroft', hp: 620, dmg: [20, 32], spd: 1.7, souls: 1500, size: 1.75, behav: 'melee', poise: 999, boss: true, special: 'charge', cd: 1.6 },
+  ScarecrowGolem: { name: 'Scarecrow Husk', hp: 26, dmg: [4, 8], spd: 1.2, souls: 18, size: 1.22, behav: 'melee', poise: 0, color: '#c9a86b' },
+  GoblinFighter: { name: 'Goblin Cutthroat', hp: 34, dmg: [6, 11], spd: 1.9, souls: 32, size: 1.15, behav: 'melee', poise: 0, cd: 1.3 },
+  GoblinArcher: { name: 'Goblin Archer', hp: 24, dmg: [6, 10], spd: 1.6, souls: 34, size: 1.15, behav: 'ranged', proj: 'arrow', range: 7, poise: 0 },
+  HungryMimic: { name: 'Mimic', hp: 95, dmg: [14, 22], spd: 1.1, souls: 160, size: 1.28, behav: 'melee', poise: 20, mimic: true, cd: 1.1 },
+  StoneGolem: { name: 'Crypt Warden', hp: 130, dmg: [12, 18], spd: 0.8, souls: 220, size: 1.55, behav: 'melee', poise: 40, unique: true },
+  BestialMinotaur: { name: 'Asterion, Warden of the Undercroft', hp: 620, dmg: [20, 32], spd: 1.7, souls: 1500, size: 2.0, behav: 'melee', poise: 999, boss: true, special: 'charge', cd: 1.6 },
   // tier 2 - Mossgrave
-  CorruptedTreant: { name: 'Blighted Treant', hp: 72, dmg: [10, 16], spd: 0.9, souls: 60, size: 1.0, behav: 'melee', poise: 15 },
-  SneakySatyr: { name: 'Satyr Trickster', hp: 44, dmg: [8, 13], spd: 2.3, souls: 55, size: 0.9, behav: 'melee', poise: 0, cd: 1.1 },
-  GoblinOccultist: { name: 'Goblin Occultist', hp: 40, dmg: [10, 15], spd: 1.5, souls: 70, size: 0.85, behav: 'ranged', proj: 'darkbolt', range: 7, poise: 0 },
-  GreenNaga: { name: 'Grave Naga', hp: 115, dmg: [14, 20], spd: 1.3, souls: 125, size: 1.05, behav: 'melee', poise: 25, venom: true },
-  GoblinWolfRider: { name: 'Wolf Rider', hp: 62, dmg: [11, 16], spd: 2.6, souls: 85, size: 0.95, behav: 'melee', poise: 5, cd: 1.0 },
-  GelatinousCube: { name: 'Gelatinous Cube', hp: 170, dmg: [12, 18], spd: 0.55, souls: 140, size: 1.15, behav: 'melee', poise: 60 },
-  NatureElemental: { name: 'Mossheart', hp: 220, dmg: [16, 24], spd: 1.0, souls: 420, size: 1.3, behav: 'melee', poise: 50, unique: true },
-  GrizzledTreant: { name: 'The Rotten Elder', hp: 1200, dmg: [24, 36], spd: 0.85, souls: 3200, size: 1.95, behav: 'melee', poise: 999, boss: true, special: 'summon', summon: 'CorruptedTreant', cd: 1.9 },
+  CorruptedTreant: { name: 'Blighted Treant', hp: 72, dmg: [10, 16], spd: 0.9, souls: 60, size: 1.35, behav: 'melee', poise: 15 },
+  SneakySatyr: { name: 'Satyr Trickster', hp: 44, dmg: [8, 13], spd: 2.3, souls: 55, size: 1.22, behav: 'melee', poise: 0, cd: 1.1 },
+  GoblinOccultist: { name: 'Goblin Occultist', hp: 40, dmg: [10, 15], spd: 1.5, souls: 70, size: 1.15, behav: 'ranged', proj: 'darkbolt', range: 7, poise: 0 },
+  GreenNaga: { name: 'Grave Naga', hp: 115, dmg: [14, 20], spd: 1.3, souls: 125, size: 1.42, behav: 'melee', poise: 25, venom: true },
+  GoblinWolfRider: { name: 'Wolf Rider', hp: 62, dmg: [11, 16], spd: 2.6, souls: 85, size: 1.28, behav: 'melee', poise: 5, cd: 1.0 },
+  GelatinousCube: { name: 'Gelatinous Cube', hp: 170, dmg: [12, 18], spd: 0.55, souls: 140, size: 1.55, behav: 'melee', poise: 60 },
+  NatureElemental: { name: 'Mossheart', hp: 220, dmg: [16, 24], spd: 1.0, souls: 420, size: 1.76, behav: 'melee', poise: 50, unique: true },
+  GrizzledTreant: { name: 'The Rotten Elder', hp: 1200, dmg: [24, 36], spd: 0.85, souls: 3200, size: 2.1, behav: 'melee', poise: 999, boss: true, special: 'summon', summon: 'CorruptedTreant', cd: 1.9 },
   // tier 3 - Frozen Reliquary
-  IceGolem: { name: 'Rime Golem', hp: 135, dmg: [16, 24], spd: 0.95, souls: 165, size: 1.1, behav: 'melee', poise: 35 },
-  CapableCryomancer: { name: 'Cryomancer', hp: 72, dmg: [14, 20], spd: 1.3, souls: 150, size: 0.9, behav: 'ranged', proj: 'icebolt', range: 8, poise: 0, chill: true },
-  BlinkDog: { name: 'Blink Hound', hp: 62, dmg: [12, 18], spd: 2.2, souls: 135, size: 0.8, behav: 'melee', poise: 0, blink: true, cd: 1.0 },
-  WaterElemental: { name: 'Water Elemental', hp: 115, dmg: [15, 22], spd: 1.4, souls: 175, size: 1.0, behav: 'melee', poise: 20 },
-  FrostMagus: { name: 'Frost Magus', hp: 95, dmg: [18, 26], spd: 1.2, souls: 230, size: 0.95, behav: 'ranged', proj: 'icebolt', range: 8, poise: 5, volley: 3, chill: true },
-  MithrilConstruct: { name: 'Sentinel of the Reliquary', hp: 2000, dmg: [28, 42], spd: 1.15, souls: 6500, size: 1.95, behav: 'melee', poise: 999, boss: true, special: 'slam', cd: 1.8 },
+  IceGolem: { name: 'Rime Golem', hp: 135, dmg: [16, 24], spd: 0.95, souls: 165, size: 1.49, behav: 'melee', poise: 35 },
+  CapableCryomancer: { name: 'Cryomancer', hp: 72, dmg: [14, 20], spd: 1.3, souls: 150, size: 1.22, behav: 'ranged', proj: 'icebolt', range: 8, poise: 0, chill: true },
+  BlinkDog: { name: 'Blink Hound', hp: 62, dmg: [12, 18], spd: 2.2, souls: 135, size: 1.08, behav: 'melee', poise: 0, blink: true, cd: 1.0 },
+  WaterElemental: { name: 'Water Elemental', hp: 115, dmg: [15, 22], spd: 1.4, souls: 175, size: 1.35, behav: 'melee', poise: 20 },
+  FrostMagus: { name: 'Frost Magus', hp: 95, dmg: [18, 26], spd: 1.2, souls: 230, size: 1.28, behav: 'ranged', proj: 'icebolt', range: 8, poise: 5, volley: 3, chill: true },
+  MithrilConstruct: { name: 'Sentinel of the Reliquary', hp: 2000, dmg: [28, 42], spd: 1.15, souls: 6500, size: 2.1, behav: 'melee', poise: 999, boss: true, special: 'slam', cd: 1.8 },
   // tier 4 - Molten Gallery
-  FireElemental: { name: 'Fire Elemental', hp: 150, dmg: [20, 28], spd: 1.5, souls: 240, size: 1.0, behav: 'melee', poise: 15, emissive: true },
-  NovicePyromancer: { name: 'Pyromancer', hp: 92, dmg: [20, 30], spd: 1.3, souls: 235, size: 0.9, behav: 'ranged', proj: 'firebolt', range: 8, poise: 0 },
-  FlameMagus: { name: 'Flame Magus', hp: 125, dmg: [22, 32], spd: 1.2, souls: 310, size: 0.95, behav: 'ranged', proj: 'firebolt', range: 8, poise: 5, volley: 3 },
-  ObsidianGolem: { name: 'Obsidian Golem', hp: 270, dmg: [26, 36], spd: 0.8, souls: 410, size: 1.2, behav: 'melee', poise: 60 },
-  BrassGolem: { name: 'Brass Golem', hp: 210, dmg: [22, 32], spd: 1.0, souls: 360, size: 1.15, behav: 'melee', poise: 45 },
-  MoltenEfreeti: { name: 'Ifrit of the Brass Gate', hp: 3200, dmg: [34, 50], spd: 1.45, souls: 13000, size: 2.0, behav: 'ranged', proj: 'firebolt', range: 9, volley: 3, poise: 999, boss: true, special: 'charge', emissive: true, cd: 1.5 },
+  FireElemental: { name: 'Fire Elemental', hp: 150, dmg: [20, 28], spd: 1.5, souls: 240, size: 1.35, behav: 'melee', poise: 15, emissive: true },
+  NovicePyromancer: { name: 'Pyromancer', hp: 92, dmg: [20, 30], spd: 1.3, souls: 235, size: 1.22, behav: 'ranged', proj: 'firebolt', range: 8, poise: 0 },
+  FlameMagus: { name: 'Flame Magus', hp: 125, dmg: [22, 32], spd: 1.2, souls: 310, size: 1.28, behav: 'ranged', proj: 'firebolt', range: 8, poise: 5, volley: 3 },
+  ObsidianGolem: { name: 'Obsidian Golem', hp: 270, dmg: [26, 36], spd: 0.8, souls: 410, size: 1.62, behav: 'melee', poise: 60 },
+  BrassGolem: { name: 'Brass Golem', hp: 210, dmg: [22, 32], spd: 1.0, souls: 360, size: 1.55, behav: 'melee', poise: 45 },
+  MoltenEfreeti: { name: 'Ifrit of the Brass Gate', hp: 3200, dmg: [34, 50], spd: 1.45, souls: 13000, size: 2.15, behav: 'ranged', proj: 'firebolt', range: 9, volley: 3, poise: 999, boss: true, special: 'charge', emissive: true, cd: 1.5 },
   // tier 5 - Cosmic Sanctum
-  ConjuringBeholder: { name: 'Beholder', hp: 250, dmg: [28, 40], spd: 1.0, souls: 620, size: 1.1, behav: 'ranged', proj: 'darkbolt', range: 9, volley: 3, poise: 30, zoff: 0.35 },
-  MasterIllusionist: { name: 'Illusionist', hp: 125, dmg: [26, 36], spd: 1.3, souls: 460, size: 0.95, behav: 'ranged', proj: 'darkbolt', range: 8, poise: 0, blink: true },
-  GraniteGargoyle: { name: 'Gargoyle', hp: 225, dmg: [26, 36], spd: 1.9, souls: 510, size: 1.05, behav: 'melee', poise: 40 },
-  AirElemental: { name: 'Air Elemental', hp: 185, dmg: [24, 34], spd: 2.3, souls: 490, size: 1.0, behav: 'melee', poise: 10, zoff: 0.2 },
-  AdeptNecromancer: { name: 'Necromancer', hp: 155, dmg: [24, 34], spd: 1.1, souls: 660, size: 0.95, behav: 'ranged', proj: 'darkbolt', range: 8, poise: 5, summon: 'ScarecrowGolem' },
-  VileWitch: { name: 'Vile Witch', hp: 145, dmg: [26, 38], spd: 1.3, souls: 530, size: 0.95, behav: 'ranged', proj: 'venombolt', range: 8, poise: 5, venom: true },
-  FleshGolem: { name: 'Flesh Golem', hp: 310, dmg: [28, 40], spd: 1.05, souls: 430, size: 1.2, behav: 'melee', poise: 70 },
-  PowerfulDjinn: { name: 'Djinn of the Last Wish', hp: 950, dmg: [30, 42], spd: 1.6, souls: 4000, size: 1.5, behav: 'ranged', proj: 'darkbolt', range: 8, poise: 300, unique: true, blink: true },
-  AdamantiumGolem: { name: 'The Ashen King', hp: 5600, dmg: [40, 58], spd: 1.3, souls: 60000, size: 2.2, behav: 'melee', poise: 999, boss: true, special: 'slam', summon: 'FleshGolem', enrage: 0.4, cd: 1.7 },
+  ConjuringBeholder: { name: 'Beholder', hp: 250, dmg: [28, 40], spd: 1.0, souls: 620, size: 1.49, behav: 'ranged', proj: 'darkbolt', range: 9, volley: 3, poise: 30, zoff: 0.35 },
+  MasterIllusionist: { name: 'Illusionist', hp: 125, dmg: [26, 36], spd: 1.3, souls: 460, size: 1.28, behav: 'ranged', proj: 'darkbolt', range: 8, poise: 0, blink: true },
+  GraniteGargoyle: { name: 'Gargoyle', hp: 225, dmg: [26, 36], spd: 1.9, souls: 510, size: 1.42, behav: 'melee', poise: 40 },
+  AirElemental: { name: 'Air Elemental', hp: 185, dmg: [24, 34], spd: 2.3, souls: 490, size: 1.35, behav: 'melee', poise: 10, zoff: 0.2 },
+  AdeptNecromancer: { name: 'Necromancer', hp: 155, dmg: [24, 34], spd: 1.1, souls: 660, size: 1.28, behav: 'ranged', proj: 'darkbolt', range: 8, poise: 5, summon: 'ScarecrowGolem' },
+  VileWitch: { name: 'Vile Witch', hp: 145, dmg: [26, 38], spd: 1.3, souls: 530, size: 1.28, behav: 'ranged', proj: 'venombolt', range: 8, poise: 5, venom: true },
+  FleshGolem: { name: 'Flesh Golem', hp: 310, dmg: [28, 40], spd: 1.05, souls: 430, size: 1.62, behav: 'melee', poise: 70 },
+  PowerfulDjinn: { name: 'Djinn of the Last Wish', hp: 950, dmg: [30, 42], spd: 1.6, souls: 4000, size: 2.03, behav: 'ranged', proj: 'darkbolt', range: 8, poise: 300, unique: true, blink: true },
+  AdamantiumGolem: { name: 'The Ashen King', hp: 5600, dmg: [40, 58], spd: 1.3, souls: 60000, size: 2.3, behav: 'melee', poise: 999, boss: true, special: 'slam', summon: 'FleshGolem', enrage: 0.4, cd: 1.7 },
   // extras
   FluttringPixie: null,
 };
@@ -2299,7 +2299,7 @@ function drawWeapon(ctx) {
     ctx.globalAlpha = 0.9; ctx.drawImage(im, -size * 0.1, -size * 0.9, size, size);
   }
   ctx.restore();
-  if (S.rangedFlash > 0) { const cx = W / 2, cy = HH / 2 + S.pitch * H.viewScaleY; const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 40); g.addColorStop(0, 'rgba(255,230,160,' + (S.rangedFlash * 1.6) + ')'); g.addColorStop(1, 'rgba(255,200,100,0)'); ctx.fillStyle = g; ctx.fillRect(cx - 40, cy - 40, 80, 80); }
+  if (S.rangedFlash > 0) { const cx = W / 2, cy = H.barTop / 2 + S.pitch * H.viewScaleY; const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 40); g.addColorStop(0, 'rgba(255,230,160,' + (S.rangedFlash * 1.6) + ')'); g.addColorStop(1, 'rgba(255,200,100,0)'); ctx.fillStyle = g; ctx.fillRect(cx - 40, cy - 40, 80, 80); }
 }
 function drawOverlays(ctx) {
   const W = H.W, HH = H.H;
@@ -2316,12 +2316,12 @@ function drawOverlays(ctx) {
   if (S.bulwark > 0) { ctx.strokeStyle = 'rgba(216,179,106,' + Math.min(0.8, S.bulwark * 0.4) + ')'; ctx.lineWidth = 6; ctx.strokeRect(3, 3, W - 6, HH - 6); }
 }
 function drawCrosshair(ctx) {
-  const cx = H.W / 2, cy = H.H / 2 + S.pitch * H.viewScaleY; const sw = S.swing > 0 ? 1 + S.swing * 4 : 1;
+  const cx = H.W / 2, cy = H.barTop / 2 + S.pitch * H.viewScaleY; const sw = S.swing > 0 ? 1 + S.swing * 4 : 1;
   ctx.strokeStyle = S.target ? '#ff7a5a' : 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(cx - 7 * sw, cy); ctx.lineTo(cx - 3, cy); ctx.moveTo(cx + 3, cy); ctx.lineTo(cx + 7 * sw, cy); ctx.moveTo(cx, cy - 7 * sw); ctx.lineTo(cx, cy - 3); ctx.moveTo(cx, cy + 3); ctx.lineTo(cx, cy + 7 * sw); ctx.stroke();
   const f = S.focus; const label = focusLabel(f);
   if (label) {
-    const y = H.H * 0.56 + S.pitch * 0.5;
+    const y = H.barTop * 0.6 + S.pitch * 0.5;
     const w = textWidth(label, 2) + 28; const x = H.W / 2 - w / 2;
     ctx.fillStyle = 'rgba(10,8,14,0.78)'; ctx.fillRect(x, y, w, 26); ctx.strokeStyle = 'rgba(210,180,120,0.7)'; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, 25);
     drawText(ctx, label, H.W / 2, y + 6, 2, '#ffe9a0', 'center');
@@ -2613,6 +2613,7 @@ function resize() {
   const VH = clamp(Math.round(Hh / 2.1 * (window.RES_SCALE || 1)), 140, 270), VW = Math.min(620, Math.round(VH * W / Hh));
   R.hfov = VW / VH > 2 ? 1.42 : 1.28;
   R.cvs = viewCvs; initRenderer(VW, VH);
+  R.hShift = -Math.round((66 + ins.b) * VH / Hh / 2); // horizon centred on the part of the view the portrait bar leaves visible
   viewCvs.style.width = W + 'px'; viewCvs.style.height = Hh + 'px';
   H.viewScaleX = W / VW; H.viewScaleY = Hh / VH;
   hudResize(W, Hh, dpr, ins);

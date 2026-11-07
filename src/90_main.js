@@ -13,6 +13,7 @@ function resize() {
   const VH = clamp(Math.round(Hh / 2.1 * (window.RES_SCALE || 1)), 140, 270), VW = Math.min(620, Math.round(VH * W / Hh));
   R.hfov = VW / VH > 2 ? 1.42 : 1.28;
   R.cvs = viewCvs; initRenderer(VW, VH);
+  R.hShift = -Math.round((66 + ins.b) * VH / Hh / 2); // horizon centred on the part of the view the portrait bar leaves visible
   viewCvs.style.width = W + 'px'; viewCvs.style.height = Hh + 'px';
   H.viewScaleX = W / VW; H.viewScaleY = Hh / VH;
   hudResize(W, Hh, dpr, ins);

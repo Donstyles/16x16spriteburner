@@ -5,7 +5,7 @@ const R = {
   VW: 0, VH: 0, buf: null, img: null, cvs: null, ctx: null,
   zbuf: null, wallTop: null, wallBot: null,
   hfov: 1.25, planeLen: 0, projV: 0, horizon: 0, pitch: 0,
-  camZ: 1.0, fogScale: 3.1, flick: 1, bob: 0, time: 0,
+  camZ: 0.84, hShift: 0, fogScale: 3.1, flick: 1, bob: 0, time: 0,
 };
 function initRenderer(w, h) {
   R.VW = w; R.VH = h;
@@ -26,7 +26,7 @@ function renderWorld(map, cam, sprites) {
   const px = cam.x, py = cam.y, dirX = Math.cos(cam.a), dirY = Math.sin(cam.a);
   const planeX = -dirY * R.planeLen, planeY = dirX * R.planeLen;
   const projV = R.projV, camZ = R.camZ + R.bob * 0.02;
-  const horizon = (VH / 2 + R.pitch + R.bob) | 0; R.horizon = horizon;
+  const horizon = (VH / 2 + R.hShift + R.pitch + R.bob) | 0; R.horizon = horizon;
   const fogScale = R.fogScale * R.flick;
   const mw = map.w, mh = map.h, type = map.type, wall = map.wall, light = map.light, doors = map.doors, doorIdx = map.doorIdx;
   const NL1 = NLV - 1;
