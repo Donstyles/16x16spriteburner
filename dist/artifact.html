@@ -938,7 +938,10 @@ function renderWorld(map, cam, sprites) {
     if (lvl < 0) lvl = 0; else if (lvl > NL1) lvl = NL1; lvl |= 0;
     const sh = shadedFrame(fr), base = lvl * fw * fh;
     const txStep = fw / spW, tyStep = fh / spH;
-    const alpha = s.alpha == null ? 1 : s.alpha, aThr = (alpha * 16) | 0;
+    let alpha = s.alpha == null ? 1 : s.alpha;
+    if (s.fadeNear && ty < 0.8) alpha *= clamp((ty - 0.32) / 0.48, 0, 1); // props never swallow the view
+    if (alpha <= 0) continue;
+    const aThr = (alpha * 16) | 0;
     const tint = s.tint; // [r,g,b,t]
     for (let x = xs; x <= xe; x++) {
       if (ty >= zbuf[x]) continue;
@@ -1254,7 +1257,7 @@ function buildWorldGrid() {
   zone('under');
   // awakening cell
   carve(2, 2, 4, 4); put(3, 3, 'P'); put(3, 5, 'D');
-  obj('deco', 2.5, 2.5, { spr: 'bones' }); obj('deco', 4.5, 2.5, { spr: 'skull' });
+  obj('deco', 2.4, 2.4, { spr: 'bones' });
   lore(4, 4, 'The cell door hangs open. Someone, or something, wanted you to leave.');
   // corridor down to hub
   carve(3, 6, 3, 9); carve(3, 9, 9, 9);
@@ -1587,14 +1590,14 @@ function buildEntities() {
   for (let i = 0; i < g.length; i++) {
     const c = g[i], x = i % MW, y = (i / MW) | 0;
     if (c === 'b') { const id = x + ',' + y; const b = { type: 'bonfire', x: x + 0.5, y: y + 0.5, id, lit: !!S.flags.bonfire[id], zone: zoneAt(x, y), name: zoneAt(x, y).name }; S.bonfires.push(b); S.objects.push({ spr: getSprite(b.lit ? 'bonfire' : 'bonfire_unlit'), x: b.x, y: b.y, w: 0.7, h: 1.05, z: 0, frame: 0, emissive: b.lit, solid: 0.35, ref: b, anim: Math.random() * 10 }); S.interact.push(b); }
-    if (c === '?') { const id = x + ',' + y; const l = { type: 'lore', x: x + 0.5, y: y + 0.5, id, text: WORLD.lore[id] }; S.objects.push({ spr: getSprite('sign_text'), x: l.x, y: l.y, w: 0.55, h: 0.55, z: 0, frame: 0, solid: 0.25, ref: l }); S.interact.push(l); }
+    if (c === '?') { const id = x + ',' + y; const l = { type: 'lore', x: x + 0.5, y: y + 0.5, id, text: WORLD.lore[id] }; S.objects.push({ spr: getSprite('sign_text'), x: l.x, y: l.y, w: 0.55, h: 0.55, z: 0, frame: 0, solid: 0.25, ref: l, fadeNear: true }); S.interact.push(l); }
   }
   for (const o of WORLD.objects) {
-    if (o.type === 'deco') { const spr = getSprite(o.spr); const tall = spr.frames[0].h > 16; S.objects.push({ spr, x: o.x, y: o.y, w: spr.frames[0].w / 16 * 0.7, h: tall ? 1.3 : 0.7, z: 0, frame: 0, solid: o.spr === 'bones' || o.spr === 'skull' || o.spr === 'skull_dark' ? 0 : 0.3, anim: Math.random() * 5 }); }
-    else if (o.type === 'breakable') { const id = 'p' + o.x + ',' + o.y; if (S.flags.item[id]) continue; const spr = getSprite(o.spr); const b = { type: 'breakable', x: o.x, y: o.y, id, souls: 15 + ((o.zone + 1) * 25) * (o.spr === 'pot_gold' ? 3 : 1) }; S.objects.push({ spr, x: o.x, y: o.y, w: 0.6, h: 0.6, z: 0, frame: 0, solid: 0.3, ref: b }); S.interact.push(b); }
-    else if (o.type === 'torch') { const t = placeOnWall(o.x | 0, o.y | 0); if (t) S.objects.push({ spr: getSprite('torch'), x: t.x, y: t.y, z: 0.95, w: 0.22, h: 0.5, frame: 0, emissive: true, anim: Math.random() * 5 }); }
-    else if (o.type === 'brazier') { S.objects.push({ spr: getSprite(o.spr), x: o.x, y: o.y, w: 0.7, h: 0.7, z: 0, frame: 0, emissive: true, solid: 0.33 }); const fl = { brazier_red: 'fire', brazier_green: 'greenflame', brazier_purple: 'purpleflame', brazier_blue: 'blueflame' }[o.spr]; if (fl) S.objects.push({ spr: getSprite(fl), x: o.x, y: o.y, w: 0.42, h: 0.5, z: 0.52, frame: 0, emissive: true, anim: Math.random() * 5 }); }
-    else if (o.type === 'chest') { const id = 'c' + o.x + ',' + o.y; const opened = !!S.flags.chest[id]; const ch = { type: 'chest', x: o.x, y: o.y, id, loot: o.loot, big: o.big, opened }; const spr = getSprite(o.big ? (opened ? 'bigchest_open' : 'bigchest') : (opened ? 'chest_open' : 'chest')); const ob = { spr, x: o.x, y: o.y, w: o.big ? 0.9 : 0.65, h: o.big ? 0.9 : 0.65, z: 0, frame: 0, solid: 0.35, ref: ch }; ch.obj = ob; S.objects.push(ob); S.interact.push(ch); }
+    if (o.type === 'deco') { const spr = getSprite(o.spr); const tall = spr.frames[0].h > 16; const small = o.spr === 'bones' || o.spr === 'skull' || o.spr === 'skull_dark'; S.objects.push({ spr, x: o.x, y: o.y, w: spr.frames[0].w / 16 * (small ? 0.45 : 0.7), h: tall ? 1.3 : (small ? 0.45 : 0.7), z: 0, frame: 0, solid: small ? 0 : 0.3, anim: Math.random() * 5, fadeNear: true }); }
+    else if (o.type === 'breakable') { const id = 'p' + o.x + ',' + o.y; if (S.flags.item[id]) continue; const spr = getSprite(o.spr); const b = { type: 'breakable', x: o.x, y: o.y, id, souls: 15 + ((o.zone + 1) * 25) * (o.spr === 'pot_gold' ? 3 : 1) }; S.objects.push({ spr, x: o.x, y: o.y, w: 0.6, h: 0.6, z: 0, frame: 0, solid: 0.3, ref: b, fadeNear: true }); S.interact.push(b); }
+    else if (o.type === 'torch') { const t = placeOnWall(o.x | 0, o.y | 0); if (t) S.objects.push({ spr: getSprite('torch'), x: t.x, y: t.y, z: 0.95, w: 0.22, h: 0.5, frame: 0, emissive: true, anim: Math.random() * 5, fadeNear: true }); }
+    else if (o.type === 'brazier') { S.objects.push({ spr: getSprite(o.spr), x: o.x, y: o.y, w: 0.7, h: 0.7, z: 0, frame: 0, emissive: true, solid: 0.33, fadeNear: true }); const fl = { brazier_red: 'fire', brazier_green: 'greenflame', brazier_purple: 'purpleflame', brazier_blue: 'blueflame' }[o.spr]; if (fl) S.objects.push({ spr: getSprite(fl), x: o.x, y: o.y, w: 0.42, h: 0.5, z: 0.52, frame: 0, emissive: true, anim: Math.random() * 5, fadeNear: true }); }
+    else if (o.type === 'chest') { const id = 'c' + o.x + ',' + o.y; const opened = !!S.flags.chest[id]; const ch = { type: 'chest', x: o.x, y: o.y, id, loot: o.loot, big: o.big, opened }; const spr = getSprite(o.big ? (opened ? 'bigchest_open' : 'bigchest') : (opened ? 'chest_open' : 'chest')); const ob = { spr, x: o.x, y: o.y, w: o.big ? 0.9 : 0.65, h: o.big ? 0.9 : 0.65, z: 0, frame: 0, solid: 0.35, ref: ch, fadeNear: true }; ch.obj = ob; S.objects.push(ob); S.interact.push(ch); }
     else if (o.type === 'item') { const id = 'i' + o.x + ',' + o.y; if (S.flags.item[id]) continue; S.pickups.push({ x: o.x, y: o.y, id, item: o.item }); }
     else if (o.type === 'npc') { const np = { type: 'npc', x: o.x, y: o.y, npc: o.npc, name: 'The Keeper' }; S.objects.push({ spr: getSprite('WiseWizard'), x: o.x, y: o.y, w: 0.9, h: 0.9, z: 0, frame: 0, solid: 0.35, ref: np, anim: Math.random() * 5 }); S.interact.push(np); }
     else if (o.type === 'lever') { const id = 'l' + o.x + ',' + o.y; const t = placeOnWall(o.x | 0, o.y | 0); const lv = { type: 'lever', x: t ? t.x : o.x, y: t ? t.y : o.y, id, gate: o.gate, used: !!S.flags.gate[o.gate[0] + ',' + o.gate[1]] }; S.objects.push({ spr: getSprite('lantern'), x: lv.x, y: lv.y, z: 0.7, w: 0.3, h: 0.4, frame: 0, ref: lv }); S.interact.push(lv); }
@@ -2175,7 +2178,7 @@ function gatherSprites() {
   for (const o of S.objects) { if (o.anim !== undefined) { o.anim += 1 / 60; o.frame = (o.anim * o.spr.fps) | 0; } L.push(o); }
   for (const e of S.enemies) L.push(e.sd);
   for (const p of S.projectiles) L.push({ spr: p.spr, x: p.x, y: p.y, z: p.z, w: p.w, h: p.h, frame: (p.anim * p.spr.fps) | 0, emissive: p.emissive });
-  for (const p of S.pickups) { const def = ITEM_DEFS[p.item]; L.push({ spr: getSprite('itemglow'), x: p.x, y: p.y, z: 0.1, w: 0.7, h: 0.7, frame: (S.t * 2) | 0, emissive: true }); L.push({ spr: getSprite(def.icon), x: p.x, y: p.y, z: 0.25 + Math.sin(S.t * 2 + p.x) * 0.04, w: 0.35, h: 0.35, frame: 0, emissive: true }); }
+  for (const p of S.pickups) { const def = ITEM_DEFS[p.item]; L.push({ spr: getSprite('itemglow'), x: p.x, y: p.y, z: 0.1, w: 0.7, h: 0.7, frame: (S.t * 2) | 0, emissive: true, fadeNear: true }); L.push({ spr: getSprite(def.icon), x: p.x, y: p.y, z: 0.25 + Math.sin(S.t * 2 + p.x) * 0.04, w: 0.35, h: 0.35, frame: 0, emissive: true, fadeNear: true }); }
   if (S.bloodstain) L.push({ spr: getSprite('bloodstain'), x: S.bloodstain.x, y: S.bloodstain.y, z: 0.05, w: 0.7, h: 0.5, frame: (S.t * 3) | 0, emissive: true });
   return L;
 }

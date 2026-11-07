@@ -4,7 +4,7 @@ const { chromium } = require('playwright');
   const browser = await chromium.launch({ args: ['--no-sandbox'] });
   const page = await (await browser.newContext({ viewport: { width: 932, height: 430 } })).newPage();
   const errors = []; page.on('pageerror', e => errors.push(e.message));
-  await page.goto('http://127.0.0.1:8787/index.html');
+  await page.goto('http://127.0.0.1:8787/' + (process.env.OLD ? 'index_old.html' : 'index.html') + '');
   await page.waitForFunction(() => document.getElementById('loading').style.display === 'none', null, { timeout: 30000 });
   await page.keyboard.press('Enter'); await page.waitForTimeout(300);
   await page.evaluate(() => { AM.S.fade = null; });

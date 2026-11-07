@@ -151,7 +151,10 @@ function renderWorld(map, cam, sprites) {
     if (lvl < 0) lvl = 0; else if (lvl > NL1) lvl = NL1; lvl |= 0;
     const sh = shadedFrame(fr), base = lvl * fw * fh;
     const txStep = fw / spW, tyStep = fh / spH;
-    const alpha = s.alpha == null ? 1 : s.alpha, aThr = (alpha * 16) | 0;
+    let alpha = s.alpha == null ? 1 : s.alpha;
+    if (s.fadeNear && ty < 0.8) alpha *= clamp((ty - 0.32) / 0.48, 0, 1); // props never swallow the view
+    if (alpha <= 0) continue;
+    const aThr = (alpha * 16) | 0;
     const tint = s.tint; // [r,g,b,t]
     for (let x = xs; x <= xe; x++) {
       if (ty >= zbuf[x]) continue;

@@ -95,7 +95,7 @@ function buildWorldGrid() {
   zone('under');
   // awakening cell
   carve(2, 2, 4, 4); put(3, 3, 'P'); put(3, 5, 'D');
-  obj('deco', 2.5, 2.5, { spr: 'bones' }); obj('deco', 4.5, 2.5, { spr: 'skull' });
+  obj('deco', 2.4, 2.4, { spr: 'bones' });
   lore(4, 4, 'The cell door hangs open. Someone, or something, wanted you to leave.');
   // corridor down to hub
   carve(3, 6, 3, 9); carve(3, 9, 9, 9);

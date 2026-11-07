@@ -324,7 +324,7 @@ function gatherSprites() {
   for (const o of S.objects) { if (o.anim !== undefined) { o.anim += 1 / 60; o.frame = (o.anim * o.spr.fps) | 0; } L.push(o); }
   for (const e of S.enemies) L.push(e.sd);
   for (const p of S.projectiles) L.push({ spr: p.spr, x: p.x, y: p.y, z: p.z, w: p.w, h: p.h, frame: (p.anim * p.spr.fps) | 0, emissive: p.emissive });
-  for (const p of S.pickups) { const def = ITEM_DEFS[p.item]; L.push({ spr: getSprite('itemglow'), x: p.x, y: p.y, z: 0.1, w: 0.7, h: 0.7, frame: (S.t * 2) | 0, emissive: true }); L.push({ spr: getSprite(def.icon), x: p.x, y: p.y, z: 0.25 + Math.sin(S.t * 2 + p.x) * 0.04, w: 0.35, h: 0.35, frame: 0, emissive: true }); }
+  for (const p of S.pickups) { const def = ITEM_DEFS[p.item]; L.push({ spr: getSprite('itemglow'), x: p.x, y: p.y, z: 0.1, w: 0.7, h: 0.7, frame: (S.t * 2) | 0, emissive: true, fadeNear: true }); L.push({ spr: getSprite(def.icon), x: p.x, y: p.y, z: 0.25 + Math.sin(S.t * 2 + p.x) * 0.04, w: 0.35, h: 0.35, frame: 0, emissive: true, fadeNear: true }); }
   if (S.bloodstain) L.push({ spr: getSprite('bloodstain'), x: S.bloodstain.x, y: S.bloodstain.y, z: 0.05, w: 0.7, h: 0.5, frame: (S.t * 3) | 0, emissive: true });
   return L;
 }
