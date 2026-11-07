@@ -14,7 +14,7 @@ async function boot() {
   try { await loadAssets(window.ASSET_SRC); } catch (e) { loading.textContent = 'Failed to load: ' + e.message; throw e; }
   loading.style.display = 'none';
   resize(); window.addEventListener('resize', resize); window.addEventListener('orientationchange', () => setTimeout(resize, 300)); if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
-  const first = () => Snd.init(); window.addEventListener('touchstart', first, { once: true }); window.addEventListener('mousedown', first, { once: true }); window.addEventListener('keydown', first, { once: true });
+  const first = () => { Snd.init(); Snd.music(G.mode === 'title' || (M && M.outdoor) ? 'town' : 'dungeon'); }; window.addEventListener('touchstart', first, { once: true }); window.addEventListener('mousedown', first, { once: true }); window.addEventListener('keydown', first, { once: true });
   const wake = () => { try { if (Snd.ctx && Snd.ctx.state === 'suspended') Snd.ctx.resume(); } catch (e) { } }; window.addEventListener('touchend', wake); window.addEventListener('mouseup', wake);
   titleSetup();
   requestAnimationFrame(loop);
@@ -31,7 +31,7 @@ function playInput() {
   if (G.screen) { screenInput(); return; }
   if (I.take('attack') || I.held.attack) { if (G.fearT > 0) { if (I.take('attack')) log('The party is too afraid to attack!'); } else partyAttack(); }
   if (I.take('interact')) doInteract(G.focus);
-  if (I.take('cast') || I.take('spells')) openScreen('spells');
+  if (I.take('cast') || I.take('spells')) { if (!G.party[G.sel].spells.length) { const j = G.party.findIndex(m => m.spells.length && alive(m)); if (j >= 0) G.sel = j; } openScreen('spells'); }
   if (I.take('char') || I.take('inventory')) openScreen('char', { tab: I.take('inventory') ? 2 : 0 });
   if (I.take('map')) openScreen('map'); if (I.take('quests') || I.take('journal')) openScreen('quests'); if (I.take('rest')) openScreen('rest'); if (I.take('menu')) openScreen('menu');
   if (I.take('turn')) { G.turnBased = !G.turnBased; G.tbClock = 0; log(G.turnBased ? 'Turn-based mode: enemies act only when you do.' : 'Real-time mode.'); Snd.play('ui'); }
@@ -105,6 +105,7 @@ function loop(t) {
   } else if (G.mode === 'play') {
     G.playTime += dt; G.mapT = (G.mapT || 0) + dt;
     playInput();
+    Snd.music(M.outdoor ? 'town' : 'dungeon');
     if (!G.screen) {
       frameCombatDt(dt); updateParty(dt); updateMonsters(dt); updateProjectiles(dt); updateFx(dt); updatePartyTimers(dt); updateClock(dt); updateNpcs(dt);
       G.focus = nearestInteractable();

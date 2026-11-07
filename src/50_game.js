@@ -97,7 +97,7 @@ function enterMap(id, x, y) {
   G.monsters = []; M.monsters.forEach((mo, i) => { if (st.dead[i]) return; G.monsters.push(spawnMonster(mo, i)); });
   G.projs = []; G.fx = []; G.drops = [];
   const sx = x !== null && x !== undefined ? x : M.start.x, sy = y !== null && y !== undefined ? y : M.start.y;
-  G.x = sx; G.y = sy; G.trail = []; for (let i = 0; i < 24; i++) G.trail.push([sx, sy]);
+  G.x = sx; G.y = sy; G.trail = []; for (let i = 0; i < 24; i++) { const ox = sx, oy = sy + i * 0.22; G.trail.push(mPass(M, Math.floor(ox), Math.floor(oy)) ? [ox, oy] : [sx, sy]); }
   G.camSet = false; G.mapT = 0;
   if (M.id !== 'over') notice(M.name.toUpperCase(), DUNGEONS[M.id].entrance, 4); else if (G.playTime > 1) notice('HARROWMERE REACH', null, 2.5);
 }

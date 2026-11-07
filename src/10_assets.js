@@ -61,6 +61,8 @@ function buildIcons() {
   mk('relic', p => { p.r(6, 3, 4, 10, col.gold).r(5, 5, 6, 2, col.gold).r(7, 1, 2, 2, col.gem).p(8, 8, col.red); });
   mk('scepter', p => { p.line(4, 13, 11, 6, col.gold).r(10, 2, 4, 4, col.gold).r(11, 3, 2, 2, '#c050ff').p(11, 3, '#fff'); });
   mk('food', p => { p.r(4, 6, 8, 6, '#c08040').r(5, 5, 6, 1, '#e0a060').r(3, 9, 10, 1, '#8a5020').p(6, 7, '#ffd080').p(9, 8, '#ffd080'); });
+  mk('book', p => { p.r(3, 2, 10, 12, col.leather2).r(4, 3, 9, 10, '#a04030').r(12, 3, 1, 10, '#e8d8a8').r(13, 3, 1, 10, '#d8c898').r(6, 5, 5, 1, col.gold).r(6, 7, 5, 1, col.gold).r(6, 9, 3, 1, col.gold); });
+  mk('scroll', p => { p.r(3, 3, 10, 10, '#e8d8a8').r(2, 2, 12, 2, '#c8a870').r(2, 12, 12, 2, '#c8a870').r(5, 6, 6, 1, '#6a5030').r(5, 8, 6, 1, '#6a5030').r(5, 10, 4, 1, '#6a5030'); });
   mk('empty', p => { });
 }
 function iconCanvas(id) {

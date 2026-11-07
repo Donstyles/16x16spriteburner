@@ -4,6 +4,17 @@ const Snd = {
   init() { if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; } try { const AC = window.AudioContext || window.webkitAudioContext; this.ctx = new AC(); this.master = this.ctx.createGain(); this.master.gain.value = 0.45; this.master.connect(this.ctx.destination); const len = this.ctx.sampleRate, nb = this.ctx.createBuffer(1, len, this.ctx.sampleRate), d = nb.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; this.noise = nb; } catch (e) { } },
   tone(type, f0, f1, dur, vol, a = 0.005) { const c = this.ctx, t = c.currentTime, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + dur); o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + 0.05); },
   burst(dur, vol, f0, f1, type = 'bandpass', q = 1) { const c = this.ctx, t = c.currentTime, s = c.createBufferSource(); s.buffer = this.noise; const f = c.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(f0, t); if (f1) f.frequency.exponentialRampToValueAtTime(f1, t + dur); f.Q.value = q; const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); s.connect(f); f.connect(g); g.connect(this.master); s.start(t); s.stop(t + dur + 0.05); },
+  music(kind) {
+    if (!this.ctx || this.muted) return; if (this.musicKind === kind) return; this.musicKind = kind; this.stopMusic();
+    const c = this.ctx; this.mg = c.createGain(); this.mg.gain.value = 0.0001; this.mg.connect(this.master); this.mg.gain.linearRampToValueAtTime(0.16, c.currentTime + 2);
+    const pluck = (f, t, dur, vol) => { const o = c.createOscillator(), g = c.createGain(); o.type = kind === 'town' ? 'triangle' : 'sine'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g); g.connect(this.mg); o.start(t); o.stop(t + dur + 0.05); };
+    const town = [[0, 262], [1, 330], [2, 392], [3, 494], [4, 392], [5, 330], [6, 294], [7, 349], [8, 440], [9, 523], [10, 440], [11, 349], [12, 262], [13, 330], [14, 392], [15, 330]];
+    const dungeon = [[0, 110], [4, 131], [8, 98], [12, 123], [2, 165], [6, 196], [10, 147], [14, 185]];
+    const pat = kind === 'town' ? town : dungeon, step = kind === 'town' ? 0.32 : 0.6, bar = 16 * step;
+    const schedule = () => { if (this.musicKind !== kind) return; const t0 = c.currentTime + 0.1; for (const [i, f] of pat) pluck(f, t0 + i * step, kind === 'town' ? 0.5 : 2.2, kind === 'town' ? 0.5 : 0.35); if (kind === 'dungeon') pluck(55, t0, bar, 0.4); this.musicTimer = setTimeout(schedule, bar * 1000 - 50); };
+    schedule();
+  },
+  stopMusic() { if (this.musicTimer) clearTimeout(this.musicTimer); this.musicTimer = null; if (this.mg) { try { this.mg.gain.linearRampToValueAtTime(0.0001, this.ctx.currentTime + 0.5); const g = this.mg; setTimeout(() => g.disconnect(), 700); } catch (e) { } } this.mg = null; },
   play(n) {
     if (!this.ctx || this.muted) return; const now = performance.now(); if (this.last[n] && now - this.last[n] < 50) return; this.last[n] = now;
     switch (n) {

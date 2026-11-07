@@ -162,6 +162,8 @@ function buildIcons() {
   mk('relic', p => { p.r(6, 3, 4, 10, col.gold).r(5, 5, 6, 2, col.gold).r(7, 1, 2, 2, col.gem).p(8, 8, col.red); });
   mk('scepter', p => { p.line(4, 13, 11, 6, col.gold).r(10, 2, 4, 4, col.gold).r(11, 3, 2, 2, '#c050ff').p(11, 3, '#fff'); });
   mk('food', p => { p.r(4, 6, 8, 6, '#c08040').r(5, 5, 6, 1, '#e0a060').r(3, 9, 10, 1, '#8a5020').p(6, 7, '#ffd080').p(9, 8, '#ffd080'); });
+  mk('book', p => { p.r(3, 2, 10, 12, col.leather2).r(4, 3, 9, 10, '#a04030').r(12, 3, 1, 10, '#e8d8a8').r(13, 3, 1, 10, '#d8c898').r(6, 5, 5, 1, col.gold).r(6, 7, 5, 1, col.gold).r(6, 9, 3, 1, col.gold); });
+  mk('scroll', p => { p.r(3, 3, 10, 10, '#e8d8a8').r(2, 2, 12, 2, '#c8a870').r(2, 12, 12, 2, '#c8a870').r(5, 6, 6, 1, '#6a5030').r(5, 8, 6, 1, '#6a5030').r(5, 10, 4, 1, '#6a5030'); });
   mk('empty', p => { });
 }
 function iconCanvas(id) {
@@ -833,6 +835,17 @@ const Snd = {
   init() { if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; } try { const AC = window.AudioContext || window.webkitAudioContext; this.ctx = new AC(); this.master = this.ctx.createGain(); this.master.gain.value = 0.45; this.master.connect(this.ctx.destination); const len = this.ctx.sampleRate, nb = this.ctx.createBuffer(1, len, this.ctx.sampleRate), d = nb.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; this.noise = nb; } catch (e) { } },
   tone(type, f0, f1, dur, vol, a = 0.005) { const c = this.ctx, t = c.currentTime, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + dur); o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + 0.05); },
   burst(dur, vol, f0, f1, type = 'bandpass', q = 1) { const c = this.ctx, t = c.currentTime, s = c.createBufferSource(); s.buffer = this.noise; const f = c.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(f0, t); if (f1) f.frequency.exponentialRampToValueAtTime(f1, t + dur); f.Q.value = q; const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); s.connect(f); f.connect(g); g.connect(this.master); s.start(t); s.stop(t + dur + 0.05); },
+  music(kind) {
+    if (!this.ctx || this.muted) return; if (this.musicKind === kind) return; this.musicKind = kind; this.stopMusic();
+    const c = this.ctx; this.mg = c.createGain(); this.mg.gain.value = 0.0001; this.mg.connect(this.master); this.mg.gain.linearRampToValueAtTime(0.16, c.currentTime + 2);
+    const pluck = (f, t, dur, vol) => { const o = c.createOscillator(), g = c.createGain(); o.type = kind === 'town' ? 'triangle' : 'sine'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g); g.connect(this.mg); o.start(t); o.stop(t + dur + 0.05); };
+    const town = [[0, 262], [1, 330], [2, 392], [3, 494], [4, 392], [5, 330], [6, 294], [7, 349], [8, 440], [9, 523], [10, 440], [11, 349], [12, 262], [13, 330], [14, 392], [15, 330]];
+    const dungeon = [[0, 110], [4, 131], [8, 98], [12, 123], [2, 165], [6, 196], [10, 147], [14, 185]];
+    const pat = kind === 'town' ? town : dungeon, step = kind === 'town' ? 0.32 : 0.6, bar = 16 * step;
+    const schedule = () => { if (this.musicKind !== kind) return; const t0 = c.currentTime + 0.1; for (const [i, f] of pat) pluck(f, t0 + i * step, kind === 'town' ? 0.5 : 2.2, kind === 'town' ? 0.5 : 0.35); if (kind === 'dungeon') pluck(55, t0, bar, 0.4); this.musicTimer = setTimeout(schedule, bar * 1000 - 50); };
+    schedule();
+  },
+  stopMusic() { if (this.musicTimer) clearTimeout(this.musicTimer); this.musicTimer = null; if (this.mg) { try { this.mg.gain.linearRampToValueAtTime(0.0001, this.ctx.currentTime + 0.5); const g = this.mg; setTimeout(() => g.disconnect(), 700); } catch (e) { } } this.mg = null; },
   play(n) {
     if (!this.ctx || this.muted) return; const now = performance.now(); if (this.last[n] && now - this.last[n] < 50) return; this.last[n] = now;
     switch (n) {
@@ -959,7 +972,7 @@ function enterMap(id, x, y) {
   G.monsters = []; M.monsters.forEach((mo, i) => { if (st.dead[i]) return; G.monsters.push(spawnMonster(mo, i)); });
   G.projs = []; G.fx = []; G.drops = [];
   const sx = x !== null && x !== undefined ? x : M.start.x, sy = y !== null && y !== undefined ? y : M.start.y;
-  G.x = sx; G.y = sy; G.trail = []; for (let i = 0; i < 24; i++) G.trail.push([sx, sy]);
+  G.x = sx; G.y = sy; G.trail = []; for (let i = 0; i < 24; i++) { const ox = sx, oy = sy + i * 0.22; G.trail.push(mPass(M, Math.floor(ox), Math.floor(oy)) ? [ox, oy] : [sx, sy]); }
   G.camSet = false; G.mapT = 0;
   if (M.id !== 'over') notice(M.name.toUpperCase(), DUNGEONS[M.id].entrance, 4); else if (G.playTime > 1) notice('HARROWMERE REACH', null, 2.5);
 }
@@ -1751,7 +1764,7 @@ function screenInput() {
   }
   if (s.kind === 'npc' && I.take('next')) s.line++;
   if (s.kind === 'rest') { if (I.take('rest8')) { restParty(8); closeScreen(); Snd.play('rest'); G.fadeT = 1; } if (I.take('wait1')) { G.time += 60; closeScreen(); } }
-  if (s.kind === 'menu') { if (I.take('resume')) closeScreen(); if (I.take('save')) { s.msg = saveGame() ? 'Saved.' : 'Save failed.'; } if (I.take('load')) { if (loadGame()) closeScreen(); } if (I.take('sound')) { Snd.muted = !Snd.muted; } if (I.take('quit')) { saveGame(); closeScreen(); G.mode = 'title'; } }
+  if (s.kind === 'menu') { if (I.take('resume')) closeScreen(); if (I.take('save')) { s.msg = saveGame() ? 'Saved.' : 'Save failed.'; } if (I.take('load')) { if (loadGame()) closeScreen(); } if (I.take('sound')) { Snd.muted = !Snd.muted; if (Snd.master) Snd.master.gain.value = Snd.muted ? 0 : 0.45; if (Snd.muted) { Snd.stopMusic(); Snd.musicKind = null; } } if (I.take('quit')) { saveGame(); closeScreen(); G.mode = 'title'; } }
   for (const qid in QUESTS) { if (I.take('qaccept_' + qid)) { startQuest(qid); openText(QUESTS[qid].name, QUESTS[qid].giver + ': "' + QUESTS[qid].text + '"'); Snd.play('quest'); } if (I.take('qturn_' + qid)) { if (completeQuest(qid)) Snd.play('level'); else openText(QUESTS[qid].name, QUESTS[qid].giver + ': "' + QUESTS[qid].text + '"  (' + questProgress(qid) + ')'); } }
 }
 
@@ -1805,7 +1818,7 @@ async function boot() {
   try { await loadAssets(window.ASSET_SRC); } catch (e) { loading.textContent = 'Failed to load: ' + e.message; throw e; }
   loading.style.display = 'none';
   resize(); window.addEventListener('resize', resize); window.addEventListener('orientationchange', () => setTimeout(resize, 300)); if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
-  const first = () => Snd.init(); window.addEventListener('touchstart', first, { once: true }); window.addEventListener('mousedown', first, { once: true }); window.addEventListener('keydown', first, { once: true });
+  const first = () => { Snd.init(); Snd.music(G.mode === 'title' || (M && M.outdoor) ? 'town' : 'dungeon'); }; window.addEventListener('touchstart', first, { once: true }); window.addEventListener('mousedown', first, { once: true }); window.addEventListener('keydown', first, { once: true });
   const wake = () => { try { if (Snd.ctx && Snd.ctx.state === 'suspended') Snd.ctx.resume(); } catch (e) { } }; window.addEventListener('touchend', wake); window.addEventListener('mouseup', wake);
   titleSetup();
   requestAnimationFrame(loop);
@@ -1822,7 +1835,7 @@ function playInput() {
   if (G.screen) { screenInput(); return; }
   if (I.take('attack') || I.held.attack) { if (G.fearT > 0) { if (I.take('attack')) log('The party is too afraid to attack!'); } else partyAttack(); }
   if (I.take('interact')) doInteract(G.focus);
-  if (I.take('cast') || I.take('spells')) openScreen('spells');
+  if (I.take('cast') || I.take('spells')) { if (!G.party[G.sel].spells.length) { const j = G.party.findIndex(m => m.spells.length && alive(m)); if (j >= 0) G.sel = j; } openScreen('spells'); }
   if (I.take('char') || I.take('inventory')) openScreen('char', { tab: I.take('inventory') ? 2 : 0 });
   if (I.take('map')) openScreen('map'); if (I.take('quests') || I.take('journal')) openScreen('quests'); if (I.take('rest')) openScreen('rest'); if (I.take('menu')) openScreen('menu');
   if (I.take('turn')) { G.turnBased = !G.turnBased; G.tbClock = 0; log(G.turnBased ? 'Turn-based mode: enemies act only when you do.' : 'Real-time mode.'); Snd.play('ui'); }
@@ -1896,6 +1909,7 @@ function loop(t) {
   } else if (G.mode === 'play') {
     G.playTime += dt; G.mapT = (G.mapT || 0) + dt;
     playInput();
+    Snd.music(M.outdoor ? 'town' : 'dungeon');
     if (!G.screen) {
       frameCombatDt(dt); updateParty(dt); updateMonsters(dt); updateProjectiles(dt); updateFx(dt); updatePartyTimers(dt); updateClock(dt); updateNpcs(dt);
       G.focus = nearestInteractable();

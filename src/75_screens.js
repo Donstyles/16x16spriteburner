@@ -232,6 +232,6 @@ function screenInput() {
   }
   if (s.kind === 'npc' && I.take('next')) s.line++;
   if (s.kind === 'rest') { if (I.take('rest8')) { restParty(8); closeScreen(); Snd.play('rest'); G.fadeT = 1; } if (I.take('wait1')) { G.time += 60; closeScreen(); } }
-  if (s.kind === 'menu') { if (I.take('resume')) closeScreen(); if (I.take('save')) { s.msg = saveGame() ? 'Saved.' : 'Save failed.'; } if (I.take('load')) { if (loadGame()) closeScreen(); } if (I.take('sound')) { Snd.muted = !Snd.muted; } if (I.take('quit')) { saveGame(); closeScreen(); G.mode = 'title'; } }
+  if (s.kind === 'menu') { if (I.take('resume')) closeScreen(); if (I.take('save')) { s.msg = saveGame() ? 'Saved.' : 'Save failed.'; } if (I.take('load')) { if (loadGame()) closeScreen(); } if (I.take('sound')) { Snd.muted = !Snd.muted; if (Snd.master) Snd.master.gain.value = Snd.muted ? 0 : 0.45; if (Snd.muted) { Snd.stopMusic(); Snd.musicKind = null; } } if (I.take('quit')) { saveGame(); closeScreen(); G.mode = 'title'; } }
   for (const qid in QUESTS) { if (I.take('qaccept_' + qid)) { startQuest(qid); openText(QUESTS[qid].name, QUESTS[qid].giver + ': "' + QUESTS[qid].text + '"'); Snd.play('quest'); } if (I.take('qturn_' + qid)) { if (completeQuest(qid)) Snd.play('level'); else openText(QUESTS[qid].name, QUESTS[qid].giver + ': "' + QUESTS[qid].text + '"  (' + questProgress(qid) + ')'); } }
 }
