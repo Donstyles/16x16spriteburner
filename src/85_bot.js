@@ -147,9 +147,13 @@ const BOT = {
   },
   trainerFlow() {
     const fl = []; const PRI = { Knight: ['Sword', 'Chain', 'BodyBuilding', 'Shield', 'Plate'], Archer: ['Bow', 'Leather', 'Air', 'Fire', 'Perception'], Cleric: ['Body', 'Spirit', 'Mace', 'Meditation', 'Leather'], Sorcerer: ['Fire', 'Water', 'Air', 'Meditation', 'Earth'], Paladin: ['Mace', 'Spirit', 'Chain', 'Body'], Druid: ['Earth', 'Body', 'Water', 'Meditation'] };
+    // train the lowest level member first, one level at a time, so nobody hogs the gold
+    for (let round = 0; round < 6; round++) {
+      fl.push([() => { const order = G.party.map((m, i) => [m, i]).filter(([m]) => canTrain(m) && G.gold >= TRAIN_COST(m.lvl + 1)).sort((a, b) => a[0].lvl - b[0].lvl); if (order.length) { const [m, i] = order[0]; I.press('mtab' + i); this.trainee = m; } else this.trainee = null; }, 0.4]);
+      fl.push([() => { if (this.trainee && canTrain(this.trainee) && G.gold >= TRAIN_COST(this.trainee.lvl + 1)) { I.press('train'); this.talk(this.trainee.name + ' trains.'); } }, 0.9]);
+    }
     G.party.forEach((m, i) => {
       fl.push([() => I.press('mtab' + i), 0.5]);
-      for (let k = 0; k < 6; k++) fl.push([() => { if (canTrain(m) && G.gold >= TRAIN_COST(m.lvl + 1)) I.press('train'); }, 0.9, m.name + ' trains.']);
       // learn Plate for the knight when rich
       fl.push([() => { if (m.cls === 'Knight' && !m.skills.Plate && G.gold > 1600) I.press('learn_Plate'); if (m.cls === 'Sorcerer' && !m.skills.Meditation && G.gold > 900) I.press('learn_Meditation'); if (m.cls === 'Archer' && !m.skills.Learning && G.gold > 1200) I.press('learn_Learning'); }, 0.6]);
       // promotions for non-magic skills
