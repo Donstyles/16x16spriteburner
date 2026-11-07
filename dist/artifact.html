@@ -1855,7 +1855,9 @@ const BOT = {
   goto(tx, ty, dt) { // returns true when arrived (within 0.6)
     const d = dist(G.x, G.y, tx, ty); if (d < 0.6) { this.mx = this.my = 0; this.path = null; return true; }
     this.pathT -= dt;
-    if (!this.path || this.pathT <= 0 || this.pathTarget !== tx + ',' + ty) { this.path = this.findPath(tx, ty); this.pathTarget = tx + ',' + ty; this.pathT = 2.5; if (!this.path) { this.mx = this.my = 0; return 'nopath'; } if (this.path.length) this.path.push([tx, ty]); }
+    const key = tx + ',' + ty; if (this.pathTarget !== key) { this.budget = 25 + d * 1.5; }
+    this.budget -= dt; if (this.budget <= 0) { this.budget = 25 + d * 1.5; this.path = null; this.pathTarget = key; this.mx = this.my = 0; return 'nopath'; }
+    if (!this.path || this.pathT <= 0 || this.pathTarget !== key) { this.path = this.findPath(tx, ty); this.pathTarget = key; this.pathT = 2.5; if (!this.path) { this.mx = this.my = 0; return 'nopath'; } if (this.path.length) this.path.push([tx, ty]); }
     while (this.path.length > 1 && dist(G.x, G.y, this.path[0][0], this.path[0][1]) < 0.45) this.path.shift();
     const n = this.path[0] || [tx, ty]; const dx = n[0] - G.x, dy = n[1] - G.y, l = Math.hypot(dx, dy) || 1; this.mx = dx / l; this.my = dy / l;
     // stuck detection
@@ -1864,13 +1866,18 @@ const BOT = {
     return false;
   },
   // ---------- threats & combat ----------
-  threats() { return G.monsters.filter(mo => !mo.dead && !mo.hidden && mo.aware && dist(mo.x, mo.y, G.x, G.y) < 10); },
+  threats() { return G.monsters.filter(mo => { if (mo.dead || mo.hidden || !mo.aware || mo.botIgnore > G.playTime) return false; const d = dist(mo.x, mo.y, G.x, G.y); return d < 10 && (d < 3 || hasLOS(G.x, G.y, mo.x, mo.y)); }); },
+  giveUpOn(t, why) { t.botIgnore = G.playTime + 25; t.aware = false; this.eng = null; this.path = null; this.mx = this.my = 0; this.talk(why); },
   combat(dt, ths) {
     const near = ths.sort((a, b) => dist(a.x, a.y, G.x, G.y) - dist(b.x, b.y, G.x, G.y)); const t = near[0]; G.target = t;
     const d = dist(t.x, t.y, G.x, G.y);
     // close the distance if nobody can hit it
     const melee = findMeleeTarget(t); const ranged = G.party.some(m => alive(m) && isRanged(m) && m.rec <= 0);
-    if (!melee && (d > 1.4 || !hasLOS(G.x, G.y, t.x, t.y))) { this.goto(t.x, t.y, dt); } else { this.mx = this.my = 0; }
+    const php = G.party.reduce((a, m) => a + m.hp, 0);
+    if (this.eng && this.eng.t0 === t && this.eng.hp === t.hp && this.eng.php === php) this.eng.t += dt; else this.eng = { t0: t, hp: t.hp, php, t: 0 };
+    let r = false;
+    if (!melee && (d > 1.4 || !hasLOS(G.x, G.y, t.x, t.y))) { r = this.goto(t.x, t.y, dt); } else { this.mx = this.my = 0; }
+    if ((r === 'nopath' && d > 1.6) || this.eng.t > 7) { this.giveUpOn(t, 'That ' + t.name + ' cannot reach us and we cannot reach it. Moving on.'); return; }
     if (G.fearT <= 0) partyAttack();
     // healing
     for (const m of G.party) { if (!alive(m)) continue; if (m.hp < maxHp(m) * 0.35) { const cleric = G.party.find(c => alive(c) && c.spells.includes('cure_wounds') && c.sp >= 3 && c.rec <= 0); if (cleric && d > 0.0) { castSpell(cleric, 'cure_wounds'); } else { const pot = G.inv.find(i => i.id === 'potion_heal2') || G.inv.find(i => i.id === 'potion_heal'); if (pot) useItem(pot, m); } } }
@@ -1907,27 +1914,32 @@ const BOT = {
     const O = getMap('over'); const bld = id => O.objects.find(o => o.kind === 'door' && BUILDINGS[o.building].id === id);
     const steps = [];
     const visit = (door, fn, saying) => { steps.push({ k: 'goto', x: door.x + 0.5, y: door.y + 0.6, say: saying }); steps.push({ k: 'flow', door, fn }); };
-    // quests: hall first on the first visit; turn-ins whenever ready
-    const hall = bld('hall');
-    visit(hall, () => { const main = ['main1', 'main2', 'main3', 'main4'].find(q => questState(q) !== 'done') || 'main4'; const st = questState(main); const fl = []; if (st === 'none') fl.push([() => I.press('qaccept_' + main), 1.6, 'Lord Harrow has a task for us.'], [() => I.press('close'), 0.8]); else if (questReady(main)) fl.push([() => I.press('qturn_' + main), 1.6, 'Reporting back to Lord Harrow.']); fl.push([() => I.press('close'), 0.8]); this.runFlow(fl); }, 'To Harrow Hall, north of the square.');
-    const turnIns = [['inn', 'bandits'], ['weapons', 'ore'], ['alchemist', 'herbs'], ['widow', 'locket'], ['temple', 'pilgrims'], ['scholar', 'tome']];
-    for (const [b, q] of turnIns) { if (questState(q) === 'active' && questReady(q)) visit(bld(b), () => this.runFlow([[() => I.press('qturn_' + q), 1.6, 'Turning in: ' + QUESTS[q].name + '.'], [() => I.press('close'), 0.8]]), 'Someone is waiting on us.'); }
-    if (opts.first) { for (const [b, q] of [['inn', 'bandits'], ['weapons', 'ore'], ['alchemist', 'herbs'], ['widow', 'locket'], ['temple', 'pilgrims'], ['scholar', 'tome']]) visit(bld(b), () => this.runFlow([[() => I.press('qaccept_' + q), 1.4, 'Collecting work from the townsfolk.'], [() => I.press('close'), 0.6], [() => I.press('close'), 0.4]]), 'Asking around town.'); }
-    // temple: raise dead / heal
-    visit(bld('temple'), () => { const fl = []; const lv = G.party.reduce((a, m) => a + m.lvl, 0); if (G.party.some(m => m.cond.dead) && G.gold >= 150 * lv) fl.push([() => I.press('raise'), 1.2, 'The temple can raise our fallen.']); if (G.party.some(m => m.cond.poison) && G.gold >= 15 * lv) fl.push([() => I.press('cure'), 1, 'Curing the poison.']); fl.push([() => I.press('close'), 0.6]); this.runFlow(fl); }, 'A visit to the temple.');
-    // trainer: train and spend skill points, learn useful skills
-    visit(bld('trainer'), () => this.trainerFlow(), 'Time to train what we have learned.');
-    // guilds
-    steps.push({ k: 'goto', x: O.npcs.find(n => n.guild === 'elemental').x + 0.8, y: O.npcs.find(n => n.guild === 'elemental').y, say: 'The Guild of the Elements sells spells.' }); steps.push({ k: 'npcflow', npc: O.npcs.find(n => n.guild === 'elemental'), fn: () => this.guildFlow('elemental') });
-    steps.push({ k: 'goto', x: O.npcs.find(n => n.guild === 'spirit').x - 0.8, y: O.npcs.find(n => n.guild === 'spirit').y, say: 'And the Guild of the Spirit.' }); steps.push({ k: 'npcflow', npc: O.npcs.find(n => n.guild === 'spirit'), fn: () => this.guildFlow('spirit') });
+    const main = ['main1', 'main2', 'main3', 'main4'].find(q => questState(q) !== 'done') || 'main4';
+    const lvSum = G.party.reduce((a, m) => a + m.lvl, 0);
+    // temple first if anyone is dead
+    if (G.party.some(m => m.cond.dead) && G.gold >= 150 * lvSum || G.party.some(m => m.cond.poison)) visit(bld('temple'), () => { const fl = []; if (G.party.some(m => m.cond.dead) && G.gold >= 150 * lvSum) fl.push([() => I.press('raise'), 1.2, 'The temple can raise our fallen.']); if (G.party.some(m => m.cond.poison) && G.gold >= 15 * lvSum) fl.push([() => I.press('cure'), 1, 'Curing the poison.']); fl.push([() => I.press('close'), 0.6]); this.runFlow(fl); }, 'A visit to the temple.');
+    // lord: accept or turn in the main quest
+    if (questState(main) === 'none' || questReady(main)) visit(bld('hall'), () => { const fl = []; if (questState(main) === 'none') fl.push([() => I.press('qaccept_' + main), 1.6, 'Lord Harrow has a task for us.'], [() => I.press('close'), 0.8]); else fl.push([() => I.press('qturn_' + main), 1.6, 'Reporting back to Lord Harrow.']); fl.push([() => I.press('close'), 0.8]); this.runFlow(fl); }, 'To Harrow Hall, north of the square.');
+    const givers = [['inn', 'bandits'], ['weapons', 'ore'], ['alchemist', 'herbs'], ['widow', 'locket'], ['temple', 'pilgrims'], ['scholar', 'tome']];
+    for (const [b, q] of givers) { if (questState(q) === 'active' && questReady(q)) visit(bld(b), () => this.runFlow([[() => I.press('qturn_' + q), 1.6, 'Turning in: ' + QUESTS[q].name + '.'], [() => I.press('close'), 0.8]]), 'Someone is waiting on us.'); }
+    if (opts.first) { for (const [b, q] of givers) visit(bld(b), () => this.runFlow([[() => I.press('qaccept_' + q), 1.4, 'Collecting work from the townsfolk.'], [() => I.press('close'), 0.6], [() => I.press('close'), 0.4]]), 'Asking around town.'); }
+    // trainer when someone can train or has points to spend
+    if (G.party.some(m => (canTrain(m) && G.gold >= TRAIN_COST(m.lvl + 1) + 150) || m.skillPts >= 2) || G.gold > 1600) visit(bld('trainer'), () => this.trainerFlow(), 'Time to train what we have learned.');
+    // guilds when we can afford a spell or a school
+    if (G.gold >= 400) {
+      const el = O.npcs.find(n => n.guild === 'elemental'), sp = O.npcs.find(n => n.guild === 'spirit');
+      steps.push({ k: 'goto', x: el.x + 0.8, y: el.y, say: 'The Guild of the Elements sells spells.' }); steps.push({ k: 'npcflow', npc: el, fn: () => this.guildFlow('elemental') });
+      steps.push({ k: 'goto', x: sp.x - 0.8, y: sp.y, say: 'And the Guild of the Spirit.' }); steps.push({ k: 'npcflow', npc: sp, fn: () => this.guildFlow('spirit') });
+    }
     // shops
-    visit(bld('weapons'), () => this.shopFlow('weapons'), 'Better steel at the Rusty Blade.');
-    visit(bld('armor'), () => this.shopFlow('armor'), 'Armor at the Iron Hauberk.');
-    visit(bld('alchemist'), () => this.shopFlow('alchemist'), 'Potions from Old Ysolde.');
+    const spare = G.inv.some(it => ['weapon', 'armor', 'shield', 'helm', 'boots'].includes(ITEMS[it.id].type) && !G.party.some(m => canUse(m, it) && isUpgrade(m, it)));
+    if (G.gold >= 450 || spare) visit(bld('weapons'), () => this.shopFlow('weapons'), 'Better steel at the Rusty Blade.');
+    if (G.gold >= 450) visit(bld('armor'), () => this.shopFlow('armor'), 'Armor at the Iron Hauberk.');
+    if (countInv('potion_heal') < 3 && G.gold >= 400) visit(bld('alchemist'), () => this.shopFlow('alchemist'), 'Potions from Old Ysolde.');
     // inn: food and rest
-    visit(bld('inn'), () => { const fl = []; const want = Math.max(0, 8 - G.food); for (let i = 0; i < Math.ceil(want / 5) && G.gold > 60; i++) fl.push([() => I.press('buyfood'), 0.8, 'Rations for the road.']); if (this.needRest() || G.party.some(m => m.cond.unconscious)) fl.push([() => I.press('innrest'), 1.5, 'A night at the Drowsy Dragon.']); fl.push([() => I.press('close'), 0.6]); this.runFlow(fl); }, 'The Drowsy Dragon, for food and a bed.');
-    // equip pass (character screen, visible)
-    steps.push({ k: 'equipflow' });
+    if (G.food < 4 || this.needRest() || G.party.some(m => m.cond.unconscious)) visit(bld('inn'), () => { const fl = []; const want = Math.max(0, 8 - G.food); for (let i = 0; i < Math.ceil(want / 5) && G.gold > 60; i++) fl.push([() => I.press('buyfood'), 0.8, 'Rations for the road.']); if ((this.needRest() || G.party.some(m => m.cond.unconscious)) && G.gold >= 30) fl.push([() => I.press('innrest'), 1.5, 'A night at the Drowsy Dragon.']); fl.push([() => I.press('close'), 0.6]); this.runFlow(fl); }, 'The Drowsy Dragon, for food and a bed.');
+    // equip pass (character screen, visible) when the pack holds an upgrade
+    if (G.inv.some(it => SLOT_OF[ITEMS[it.id].type] && G.party.some(m => canUse(m, it) && isUpgrade(m, it)))) steps.push({ k: 'equipflow' });
     return steps;
   },
   trainerFlow() {
@@ -2048,7 +2060,7 @@ const BOT = {
         const r = this.goto(t.x, t.y, dt); if (r === true) { const it = nearestInteractable(); if (it && it.o === t.o) doInteract(it); else { t.o.opened = true; t.o.taken = true; } } else if (r === 'nopath') { t.o.opened = true; t.o.taken = true; }
         return;
       }
-      if (boss) { if (this.sayT > 8) this.talk('Now for ' + boss.name + '.'); const r = this.goto(boss.x, boss.y, dt); if (r === 'nopath') { boss.aware = true; } return; }
+      if (boss) { if (this.sayT > 8) this.talk('Now for ' + boss.name + '.'); const r = this.goto(boss.x, boss.y, dt); if (r === 'nopath') { boss.aware = true; boss.botIgnore = 0; c.bossNoPath = (c.bossNoPath || 0) + dt; if (c.bossNoPath > 30) { c.bossNoPath = 0; boss.x = boss.hx; boss.y = boss.hy; } } else c.bossNoPath = 0; return; }
       if (G.drops.length) { const d = G.drops[0]; this.goto(d.x, d.y, dt); return; }
       this.talk(D.name + ' is cleared. Back to town.'); this.cur = null; return;
     }
