@@ -132,4 +132,4 @@ function loop(t) {
   I.endFrame();
 }
 window.addEventListener('load', boot);
-window.HM = { G, I, V, BOT, canCast, get M() { return M; }, getMap, newGame, loadGame, saveGame, enterMap, partyAttack, castSpell, openScreen, closeScreen, makeMember, spawnMonster, hurtMonster, MONSTERS, ITEMS, SPELLS, QUESTS, doInteract, nearestInteractable, giveXp, train, addInv, makeItem, restParty, completeQuest, startQuest };
+window.HM = { G, I, V, BOT, canCast, get M() { return M; }, getMap, newGame, loadGame, saveGame, enterMap, partyAttack, castSpell, openScreen, closeScreen, makeMember, spawnMonster, hurtMonster, MONSTERS, ITEMS, SPELLS, QUESTS, doInteract, nearestInteractable, giveXp, train, addInv, makeItem, restParty, completeQuest, startQuest, defaultParty, raiseSkill, equipItem, skillUpCost, XP_FOR_LEVEL, canUse, maxHp, maxSp, CAMPS, DUNGEONS, mapState, questState, SKILLS };

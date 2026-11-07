@@ -401,7 +401,7 @@ const MONSTERS = {
   mithril_construct: { name: 'Mithril Sentinel', spr: 'MithrilConstruct', hp: 320, acv: 26, atk: 14, dmg: [4, 10, 4], spd: 2.0, xp: 2500, gold: [300, 600], tier: 4, boss: true, size: 1.6, res: { mind: 100, poison: 100, cold: 100, fire: 50 } },
   efreeti: { name: 'Molten Efreeti', spr: 'MoltenEfreeti', hp: 360, acv: 24, atk: 15, dmg: [4, 10, 5], spd: 2.6, xp: 3000, gold: [400, 800], tier: 4, boss: true, size: 1.7, spell: 'fireball', res: { fire: 100, cold: -50, poison: 100 }, light: true },
   elder_treant: { name: 'Elder Barrow Treant', spr: 'GrizzledTreant', hp: 300, acv: 18, atk: 12, dmg: [4, 8, 4], spd: 1.5, xp: 1500, gold: [100, 300], tier: 3, boss: true, size: 1.7, res: { fire: -50, poison: 100, cold: 50 }, special: 'summon:treant' },
-  adamantium_golem: { name: 'The Hollow Regent', spr: 'AdamantiumGolem', hp: 650, acv: 30, atk: 18, dmg: [5, 10, 6], spd: 2.0, xp: 8000, gold: [1000, 2000], tier: 5, boss: true, size: 2.0, res: { mind: 100, poison: 100, fire: 50, cold: 50, elec: 50, phys: 25 }, special: 'summon:flesh_golem' },
+  adamantium_golem: { name: 'The Hollow Regent', spr: 'AdamantiumGolem', hp: 420, acv: 24, atk: 15, dmg: [4, 8, 4], spd: 2.0, xp: 8000, gold: [1000, 2000], tier: 5, boss: true, size: 2.0, res: { mind: 100, poison: 100, fire: 50, cold: 50, elec: -50, phys: 25 }, special: 'summon:gargoyle', summonMax: 2, summonCount: 1, summonEvery: 30 },
 };
 const MONSTER_SPELLS = {
   spark: { dmg: [1, 6, 0], elem: 'elec', range: 6, proj: 'spark' }, fire_bolt: { dmg: [2, 6, 0], elem: 'fire', range: 7, proj: 'fire' }, ice_bolt: { dmg: [2, 6, 0], elem: 'cold', range: 7, proj: 'ice', slow: true },
@@ -937,13 +937,16 @@ function newGame(members) {
 function defaultParty() { return [makeMember('Roderick', 'Knight'), makeMember('Sable', 'Archer'), makeMember('Mira', 'Cleric'), makeMember('Vesper', 'Sorcerer')]; }
 
 // ---- maps ----
+function respawnCheck(map, st, live) { // the dead come back after a while (bosses excepted); outdoors in 3 days, dungeons in 10
+  const respawnAfter = map.id === 'over' ? 3 * DAY : 10 * DAY;
+  for (const k in st.dead) { const mo = map.monsters[k]; if (!mo || mo.boss) continue; const t = st.dead[k] === 1 ? -1e9 : st.dead[k]; if (G.time - t > respawnAfter) { delete st.dead[k]; if (live && dist(mo.x, mo.y, G.x, G.y) > 14 && !G.monsters.some(o => o.id === +k)) G.monsters.push(spawnMonster(mo, +k)); } }
+}
 function mapState(id) { if (!G.mapState[id]) G.mapState[id] = { dead: {}, opened: {}, lastVisit: -1e9, explored: null }; return G.mapState[id]; }
 function enterMap(id, x, y) {
   if (M) { const st = mapState(M.id); st.explored = M.explored; st.lastVisit = G.time; }
   M = getMap(id); const st = mapState(id);
   // respawn
-  const respawnAfter = id === 'over' ? 3 * DAY : 10 * DAY;
-  if (st.lastVisit > -1e8 && G.time - st.lastVisit > respawnAfter) { for (const k in st.dead) { const mo = M.monsters[k]; if (mo && !mo.boss) delete st.dead[k]; } }
+  respawnCheck(M, st, false);
   if (st.explored && st.explored.length === M.explored.length) M.explored = st.explored; else st.explored = M.explored;
   G.monsters = []; M.monsters.forEach((mo, i) => { if (st.dead[i]) return; G.monsters.push(spawnMonster(mo, i)); });
   G.projs = []; G.fx = []; G.drops = [];
@@ -1064,6 +1067,7 @@ function restParty(hours = 8, inn = false) {
   G.lastRest = G.time;
   // monsters wander back home while you sleep
   for (const mo of G.monsters) if (!mo.dead) { mo.aware = false; mo.x = mo.hx; mo.y = mo.hy; mo.hp = Math.min(mo.maxHp, mo.hp + mo.maxHp * 0.5); }
+  respawnCheck(M, mapState(M.id), true);
   log('The party rests for ' + hours + ' hours.');
 }
 function damageMember(m, dmg, elem, src) {
@@ -1168,7 +1172,7 @@ function hurtMonster(mo, dmg, elem, srcMember, silent) {
 }
 function alertGroup(mo) { for (const o of G.monsters) if (!o.dead && !o.aware && o.group && o.group === mo.group && dist(o.x, o.y, mo.x, mo.y) < 8) o.aware = true; }
 function killMonster(mo, src) {
-  mo.dead = true; mo.deadT = 0.8; G.kills++; mapState(M.id).dead[mo.id] = 1;
+  mo.dead = true; mo.deadT = 0.8; G.kills++; mapState(M.id).dead[mo.id] = G.time || 1;
   giveXp(mo.d.xp);
   const perc = Math.max(...G.party.map(m => m.skills.Perception || 0));
   const gold = Math.floor(rint(mo.d.gold[0], mo.d.gold[1]) * (1 + perc * 0.1));
@@ -1289,7 +1293,7 @@ function updateMonsters(dt) {
     if (mo.fear > 0) { monsterMove(mo, -dx, -dy, cd, spdMul); continue; }
     // specials
     if (mo.d.special === 'blink') { mo.blinkT -= cd; if (mo.blinkT <= 0 && d > 3) { blink(mo); mo.blinkT = 6 + Math.random() * 4; } }
-    if (mo.d.special && mo.d.special.startsWith('summon:')) { mo.summonT -= cd; if (mo.summonT <= 0 && d < 9) { summon(mo, mo.d.special.split(':')[1]); mo.summonT = 14; } }
+    if (mo.d.special && mo.d.special.startsWith('summon:')) { mo.summonT -= cd; if (mo.summonT <= 0 && d < 9) { summon(mo, mo.d.special.split(':')[1]); mo.summonT = mo.d.summonEvery || 14; } }
     const meleeRange = PR + mo.r + 0.35;
     const los = hasLOS(mo.x, mo.y, G.x, G.y);
     if (spell && los && d <= spell.range && d > 1.2) {
@@ -1336,7 +1340,7 @@ function monsterCast(mo, spell) {
   Snd.play('cast');
 }
 function blink(mo) { for (let i = 0; i < 10; i++) { const a = Math.random() * TAU, r = 1.5 + Math.random() * 1.5, x = G.x + Math.cos(a) * r, y = G.y + Math.sin(a) * r; if (!blockedAt(x, y)) { fxAt(mo.x, mo.y, 'spark', '#c080ff'); mo.x = x; mo.y = y; fxAt(x, y, 'spark', '#c080ff'); return; } } }
-function summon(mo, kind) { const n = G.monsters.filter(o => o.summoned && !o.dead).length; if (n >= 3) return; for (let i = 0; i < 2; i++) { const a = Math.random() * TAU, x = mo.x + Math.cos(a) * 1.5, y = mo.y + Math.sin(a) * 1.5; if (blockedAt(x, y)) continue; const s = spawnMonster({ kind, x, y }, -1); s.aware = true; s.summoned = true; s.id = -1; G.monsters.push(s); fxAt(x, y, 'spark', '#80ff80'); } log(mo.name + ' calls for aid!'); }
+function summon(mo, kind) { const n = G.monsters.filter(o => o.summoned && !o.dead).length; if (n >= (mo.d.summonMax || 3)) return; for (let i = 0; i < (mo.d.summonCount || 2); i++) { const a = Math.random() * TAU, x = mo.x + Math.cos(a) * 1.5, y = mo.y + Math.sin(a) * 1.5; if (blockedAt(x, y)) continue; const s = spawnMonster({ kind, x, y }, -1); s.aware = true; s.summoned = true; s.id = -1; G.monsters.push(s); fxAt(x, y, 'spark', '#80ff80'); } log(mo.name + ' calls for aid!'); }
 // ---- projectiles ----
 function updateProjectiles(dt) {
   const cd = combatDt(dt); if (cd <= 0) return;
@@ -1788,8 +1792,9 @@ const I = {
 
 // ---- 85_bot.js ----
 // ===================== autoplay bot: "Watch Claude play" =====================
+const BOSS_LV = { warrens: 5, barrow: 6, reliquary: 9, molten: 10, sanctum: 13 }; // party level the bot wants before it fights each boss
 const BOT = {
-  on: false, say: '', sayT: 0, goals: [], cur: null, path: null, pathT: 0, stuckT: 0, lastPos: null, mx: 0, my: 0, flow: null, waitT: 0, retry: {}, wipes: 0, done: false, lastRestT: -1e9, log: [],
+  on: false, say: '', sayT: 0, goals: [], cur: null, path: null, pathT: 0, stuckT: 0, lastPos: null, mx: 0, my: 0, flow: null, waitT: 0, retry: {}, wipes: 0, flee: 0, eng: null, skip: {}, lastCamp: null, done: false, lastRestT: -1e9, log: [],
   start() { this.on = true; this.goals = []; this.cur = null; this.flow = null; this.done = false; this.plan(); this.talk('Four strangers in Harrowmere. First, the lord of the town.'); },
   stop() { this.on = false; this.mx = this.my = 0; this.flow = null; this.talk(''); },
   talk(t) { if (t && t !== this.say) { this.log.push(t); if (this.log.length > 50) this.log.shift(); } this.say = t; this.sayT = 0; },
@@ -1846,6 +1851,8 @@ const BOT = {
   combat(dt, ths) {
     const near = ths.sort((a, b) => dist(a.x, a.y, G.x, G.y) - dist(b.x, b.y, G.x, G.y)); const t = near[0]; G.target = t;
     const d = dist(t.x, t.y, G.x, G.y);
+    const aliveN = G.party.filter(alive).length, hpFrac = G.party.reduce((a, m) => a + Math.max(0, m.hp), 0) / Math.max(1, G.party.reduce((a, m) => a + maxHp(m), 0));
+    if (aliveN <= 1 || (t.boss && (aliveN <= 2 || hpFrac < 0.3) && t.hp > t.maxHp * 0.3)) { this.flee = G.playTime + 30; this.path = null; this.eng = null; this.talk('Retreat! Live to fight another day.'); if (this.cur && this.cur.k === 'dungeon') this.cur.minLv = Math.max(this.cur.minLv || 0, Math.ceil(this.avgLevel()) + 1); if (this.cur && this.cur.k === 'grind' && this.lastCamp) this.skip[this.lastCamp] = G.playTime + 900; return; }
     // close the distance if nobody can hit it
     const melee = findMeleeTarget(t); const ranged = G.party.some(m => alive(m) && isRanged(m) && m.rec <= 0);
     const php = G.party.reduce((a, m) => a + m.hp, 0);
@@ -1861,22 +1868,33 @@ const BOT = {
     const n3 = near.filter(mo => dist(mo.x, mo.y, G.x, G.y) < 3).length;
     for (const m of G.party) {
       if (!alive(m) || m.rec > 0) continue;
-      const has = id => m.spells.includes(id) && m.sp >= SPELLS[id].sp;
+      const has = (id, max = 50) => m.spells.includes(id) && m.sp >= SPELLS[id].sp && monsterResist(t, SPELLS[id].elem) < max; // never waste mana on what it shrugs off
+      const weak = ['lightning_bolt', 'acid_burst', 'fireball', 'fire_bolt', 'ice_bolt', 'sparks', 'rock_blast', 'spirit_lash'].find(id => has(id, 0)); // hit the weakness first
+      if (weak) { castSpell(m, weak); continue; }
       if (n3 >= 2 && has('ring_of_fire')) { castSpell(m, 'ring_of_fire'); continue; }
       if (near.length >= 2 && has('fireball') && d > 2.5) { castSpell(m, 'fireball'); continue; }
       if (has('lightning_bolt') && t.hp > 40) { castSpell(m, 'lightning_bolt'); continue; }
       if (has('acid_burst') && t.hp > 40) { castSpell(m, 'acid_burst'); continue; }
-      if (has('fire_bolt') && monsterResist(t, 'fire') < 50 && m.sp > 6) { castSpell(m, 'fire_bolt'); continue; }
-      if (has('ice_bolt') && monsterResist(t, 'cold') < 50 && m.sp > 6) { castSpell(m, 'ice_bolt'); continue; }
+      if (has('rock_blast') && t.hp > 40) { castSpell(m, 'rock_blast'); continue; }
+      if (has('fire_bolt') && m.sp > 6) { castSpell(m, 'fire_bolt'); continue; }
+      if (has('ice_bolt') && m.sp > 6) { castSpell(m, 'ice_bolt'); continue; }
       if (has('sparks') && m.sp > 6) { castSpell(m, 'sparks'); continue; }
-      if (has('mind_blast') && monsterResist(t, 'mind') < 50 && m.sp > 8 && !m.spells.includes('cure_wounds')) { castSpell(m, 'mind_blast'); continue; }
+      if (has('mind_blast') && m.sp > 8 && !m.spells.includes('cure_wounds')) { castSpell(m, 'mind_blast'); continue; }
       if (has('spirit_lash') && m.sp > 12) { castSpell(m, 'spirit_lash'); continue; }
     }
     if (!buffOn('bless')) { const c = G.party.find(c => alive(c) && c.spells.includes('bless') && c.sp >= 6 && c.rec <= 0); if (c) castSpell(c, 'bless'); }
     if (!buffOn('stoneskin') && !buffOn('shield')) { const c = G.party.find(c => alive(c) && c.rec <= 0 && ((c.spells.includes('stone_skin') && c.sp >= 8) || (c.spells.includes('shield') && c.sp >= 8))); if (c) castSpell(c, c.spells.includes('stone_skin') ? 'stone_skin' : 'shield'); }
     this.talk(t.boss ? 'The ' + t.name + '! Everyone, hold the line.' : 'Fighting ' + t.name + (near.length > 1 ? ' and ' + (near.length - 1) + ' more.' : '.'));
   },
-  needRest() { const low = G.party.some(m => alive(m) && m.hp < maxHp(m) * 0.55) || G.party.some(m => alive(m) && maxSp(m) > 10 && m.sp < maxSp(m) * 0.3); return low; },
+  fleeing(dt) {
+    for (const m of G.party) { if (alive(m) && m.hp < maxHp(m) * 0.4) { const pot = G.inv.find(i => i.id === 'potion_heal2') || G.inv.find(i => i.id === 'potion_heal'); if (pot) useItem(pot, m); } }
+    if (this.sayT > 6) this.talk('Running for it.');
+    if (M.id !== 'over') { this.leaveDungeon(dt); return; }
+    const chasers = G.monsters.some(mo => !mo.dead && mo.aware && dist(mo.x, mo.y, G.x, G.y) < 12);
+    const sq = getMap('over').townSquare; const r = this.goto(sq.x, sq.y, dt);
+    if (!chasers || r === true || r === 'nopath') { this.flee = 0; this.path = null; this.talk('We got away. Barely.'); }
+  },
+  needRest() { return G.party.some(m => m.cond.unconscious) || G.party.some(m => alive(m) && m.hp < maxHp(m) * 0.55) || G.party.some(m => alive(m) && maxSp(m) > 10 && m.sp < maxSp(m) * 0.3); },
   // ---------- screen flows: a queue of [action, delay] ----------
   runFlow(steps, after) { this.flow = { steps, i: 0, t: 0.4, after }; },
   updateFlow(dt) {
@@ -1899,7 +1917,7 @@ const BOT = {
     for (const [b, q] of givers) { if (questState(q) === 'active' && questReady(q)) visit(bld(b), () => this.runFlow([[() => I.press('qturn_' + q), 1.6, 'Turning in: ' + QUESTS[q].name + '.'], [() => I.press('close'), 0.8]]), 'Someone is waiting on us.'); }
     if (opts.first) { for (const [b, q] of givers) visit(bld(b), () => this.runFlow([[() => I.press('qaccept_' + q), 1.4, 'Collecting work from the townsfolk.'], [() => I.press('close'), 0.6], [() => I.press('close'), 0.4]]), 'Asking around town.'); }
     // trainer when someone can train or has points to spend
-    if (G.party.some(m => (canTrain(m) && G.gold >= TRAIN_COST(m.lvl + 1) + 150) || m.skillPts >= 2) || G.gold > 1600) visit(bld('trainer'), () => this.trainerFlow(), 'Time to train what we have learned.');
+    if (G.party.some(m => (canTrain(m) && G.gold >= TRAIN_COST(m.lvl + 1)) || m.skillPts >= 2) || G.gold > 1600) visit(bld('trainer'), () => this.trainerFlow(), 'Time to train what we have learned.');
     // guilds when we can afford a spell or a school
     if (G.gold >= 400) {
       const el = O.npcs.find(n => n.guild === 'elemental'), sp = O.npcs.find(n => n.guild === 'spirit');
@@ -1907,9 +1925,9 @@ const BOT = {
       steps.push({ k: 'goto', x: sp.x - 0.8, y: sp.y, say: 'And the Guild of the Spirit.' }); steps.push({ k: 'npcflow', npc: sp, fn: () => this.guildFlow('spirit') });
     }
     // shops
-    const spare = G.inv.some(it => ['weapon', 'armor', 'shield', 'helm', 'boots'].includes(ITEMS[it.id].type) && !G.party.some(m => canUse(m, it) && isUpgrade(m, it)));
-    if (G.gold >= 450 || spare) visit(bld('weapons'), () => this.shopFlow('weapons'), 'Better steel at the Rusty Blade.');
-    if (G.gold >= 450) visit(bld('armor'), () => this.shopFlow('armor'), 'Armor at the Iron Hauberk.');
+    const spareOf = types => G.inv.some(it => types.includes(ITEMS[it.id].type) && !G.party.some(m => canUse(m, it) && isUpgrade(m, it)));
+    if (G.gold >= 450 || spareOf(['weapon'])) visit(bld('weapons'), () => this.shopFlow('weapons'), 'Better steel at the Rusty Blade.');
+    if (G.gold >= 450 || spareOf(['armor', 'shield', 'helm', 'boots'])) visit(bld('armor'), () => this.shopFlow('armor'), 'Armor at the Iron Hauberk.');
     if (countInv('potion_heal') < 3 && G.gold >= 400) visit(bld('alchemist'), () => this.shopFlow('alchemist'), 'Potions from Old Ysolde.');
     // inn: food and rest
     if (G.food < 4 || this.needRest() || G.party.some(m => m.cond.unconscious)) visit(bld('inn'), () => { const fl = []; const want = Math.max(0, 8 - G.food); for (let i = 0; i < Math.ceil(want / 5) && G.gold > 60; i++) fl.push([() => I.press('buyfood'), 0.8, 'Rations for the road.']); if ((this.needRest() || G.party.some(m => m.cond.unconscious)) && G.gold >= 30) fl.push([() => I.press('innrest'), 1.5, 'A night at the Drowsy Dragon.']); fl.push([() => I.press('close'), 0.6]); this.runFlow(fl); }, 'The Drowsy Dragon, for food and a bed.');
@@ -1921,7 +1939,7 @@ const BOT = {
     const fl = []; const PRI = { Knight: ['Sword', 'Chain', 'BodyBuilding', 'Shield', 'Plate'], Archer: ['Bow', 'Leather', 'Air', 'Fire', 'Perception'], Cleric: ['Body', 'Spirit', 'Mace', 'Meditation', 'Leather'], Sorcerer: ['Fire', 'Water', 'Air', 'Meditation', 'Earth'], Paladin: ['Mace', 'Spirit', 'Chain', 'Body'], Druid: ['Earth', 'Body', 'Water', 'Meditation'] };
     G.party.forEach((m, i) => {
       fl.push([() => I.press('mtab' + i), 0.5]);
-      for (let k = 0; k < 6; k++) fl.push([() => { if (canTrain(m) && G.gold >= TRAIN_COST(m.lvl + 1) + 150) I.press('train'); }, 0.9, m.name + ' trains.']);
+      for (let k = 0; k < 6; k++) fl.push([() => { if (canTrain(m) && G.gold >= TRAIN_COST(m.lvl + 1)) I.press('train'); }, 0.9, m.name + ' trains.']);
       // learn Plate for the knight when rich
       fl.push([() => { if (m.cls === 'Knight' && !m.skills.Plate && G.gold > 1600) I.press('learn_Plate'); if (m.cls === 'Sorcerer' && !m.skills.Meditation && G.gold > 900) I.press('learn_Meditation'); if (m.cls === 'Archer' && !m.skills.Learning && G.gold > 1200) I.press('learn_Learning'); }, 0.6]);
       // promotions for non-magic skills
@@ -1954,10 +1972,13 @@ const BOT = {
     if (id === 'weapons') {
       // sell spare weapons/armor first
       fl.push([() => I.press('tab1'), 0.6, 'Selling what we do not need.']);
-      for (let k = 0; k < 6; k++) fl.push([() => { const i = G.inv.findIndex(it => ['weapon', 'armor', 'shield', 'helm', 'boots'].includes(ITEMS[it.id].type) && !G.party.some(m => canUse(m, it) && isUpgrade(m, it))); if (i >= 0) I.press('sell' + i); }, 0.5]);
+      for (let k = 0; k < 6; k++) fl.push([() => { const i = G.inv.findIndex(it => ITEMS[it.id].type === 'weapon' && !G.party.some(m => canUse(m, it) && isUpgrade(m, it))); if (i >= 0) I.press('sell' + i); }, 0.5]);
       fl.push([() => I.press('tab0'), 0.6]);
       G.party.forEach(m => { for (let k = 0; k < 2; k++) fl.push([() => { if (!alive(m) && m.cond.dead) return; const cur = weaponOf(m); let best = -1, bestV = cur ? avg(cur) : 0; b.stock.forEach((sid, i) => { const w = ITEMS[sid]; if (w.type !== 'weapon' || !m.skills[w.skill]) return; if (cur && !!cur.ranged !== !!w.ranged) return; if (m.cls === 'Sorcerer' && w.skill !== 'Staff') return; const price = buyPrice(makeItem(sid)); if (avg(w) > bestV + 0.5 && G.gold - price >= reserve) { best = i; bestV = avg(w); } }); if (best >= 0) { I.press('buy' + best); this.talk('A ' + ITEMS[b.stock[best]].name + ' for ' + m.name + '.'); } }, 0.9]); });
     } else if (id === 'armor') {
+      fl.push([() => I.press('tab1'), 0.6, 'Selling what we do not need.']);
+      for (let k = 0; k < 6; k++) fl.push([() => { const i = G.inv.findIndex(it => ['armor', 'shield', 'helm', 'boots'].includes(ITEMS[it.id].type) && !G.party.some(m => canUse(m, it) && isUpgrade(m, it))); if (i >= 0) I.press('sell' + i); }, 0.5]);
+      fl.push([() => I.press('tab0'), 0.6]);
       G.party.forEach(m => { fl.push([() => { for (const type of ['armor', 'shield', 'helm', 'boots']) { const cur = m.equip[SLOT_OF[type]]; const curV = cur ? ITEMS[cur.id].acv : 0; let best = -1, bestV = curV; b.stock.forEach((sid, i) => { const a = ITEMS[sid]; if (a.type !== type) return; if (a.skill && !m.skills[a.skill]) return; if (type === 'shield' && weaponOf(m) && weaponOf(m).twoHand) return; const price = buyPrice(makeItem(sid)); if (a.acv > bestV && G.gold - price >= reserve) { best = i; bestV = a.acv; } }); if (best >= 0) { I.press('buy' + best); this.talk(ITEMS[b.stock[best]].name + ' for ' + m.name + '.'); return; } } }, 0.9]); fl.push([() => { for (const type of ['armor', 'shield', 'helm', 'boots']) { const cur = m.equip[SLOT_OF[type]]; const curV = cur ? ITEMS[cur.id].acv : 0; let best = -1, bestV = curV; b.stock.forEach((sid, i) => { const a = ITEMS[sid]; if (a.type !== type || (a.skill && !m.skills[a.skill])) return; if (type === 'shield' && weaponOf(m) && weaponOf(m).twoHand) return; const price = buyPrice(makeItem(sid)); if (a.acv > bestV && G.gold - price >= reserve) { best = i; bestV = a.acv; } }); if (best >= 0) { I.press('buy' + best); return; } } }, 0.9]); });
     } else {
       const want = { potion_heal: 5, potion_mana: 3, potion_cure: 2, potion_heal2: G.gold > 2500 ? 3 : 0 };
@@ -1982,19 +2003,27 @@ const BOT = {
   // ---------- main update ----------
   update(dt) {
     if (!this.on) return; this.sayT += dt;
-    if (G.mode === 'dead') { this.waitT += dt; if (this.waitT > 2.5) { this.waitT = 0; this.wipes++; I.press('wake'); this.talk('We wake in the temple. Lighter of purse, wiser of heart.'); if (this.cur) { if (this.cur.k === 'town') this.cur.steps = null; this.goals.unshift(this.cur); } this.goals.unshift({ k: 'town' }); this.cur = null; this.path = null; } return; }
+    if (G.mode === 'dead') { this.waitT += dt; if (this.waitT > 2.5) { this.waitT = 0; this.wipes++; I.press('wake'); this.talk('We wake in the temple. Lighter of purse, wiser of heart.'); this.flee = 0; this.eng = null; if (this.cur) { if (this.cur.k === 'town') this.cur.steps = null; if (this.cur.k === 'dungeon') { this.cur.wipes = (this.cur.wipes || 0) + 1; this.cur.minLv = Math.max(this.cur.minLv || 0, Math.ceil(this.avgLevel()) + 1); } if (this.cur.k === 'grind' && this.lastCamp) this.skip[this.lastCamp] = G.playTime + 900; this.goals.unshift(this.cur); } this.goals.unshift({ k: 'town' }); this.cur = null; this.path = null; } return; }
     if (G.mode === 'ending') { this.talk('The Scepter is home. That is the whole game, beginning to end.'); this.done = true; return; }
     if (G.mode !== 'play') return;
-    this.mx = this.my = 0;
-    if (this.flow) { this.updateFlow(dt); return; }
-    if (G.screen) { if (G.screen.kind === 'text' || G.screen.kind === 'npc') { this.waitT += dt; if (this.waitT > 1.8) { this.waitT = 0; I.press('close'); } return; } this.waitT += dt; if (this.waitT > 3) { this.waitT = 0; closeScreen(); } return; }
+    this.mx = this.my = 0; this.why = 'goal';
+    if (this.flow) { this.why = 'flow'; this.updateFlow(dt); return; }
+    if (G.screen) { this.why = 'screen:' + G.screen.kind; if (G.screen.kind === 'text' || G.screen.kind === 'npc') { this.waitT += dt; if (this.waitT > 1.8) { this.waitT = 0; I.press('close'); } return; } this.waitT += dt; if (this.waitT > 3) { this.waitT = 0; closeScreen(); } return; }
     this.waitT = 0;
+    if (this.flee > G.playTime) { this.why = 'flee'; this.fleeing(dt); return; }
     // combat first
     const ths = this.threats();
-    if (ths.length) { this.combat(dt, ths); return; }
+    if (ths.length) { this.why = 'combat'; this.combat(dt, ths); return; }
     G.target = null;
     // rest when hurt and safe
-    if (this.needRest() && !canRest() && G.playTime - this.lastRestT > 8) { this.lastRestT = G.playTime; this.talk(G.food > 0 ? 'Making camp. Everyone needs rest.' : 'No food, but we must rest anyway.'); restParty(8); G.fadeT = 1; return; }
+    if (this.needRest() && G.playTime - this.lastRestT > 8) {
+      if (!canRest()) { this.lastRestT = G.playTime; this.talk(G.food > 0 ? 'Making camp. Everyone needs rest.' : 'No food, but we must rest anyway.'); restParty(8); G.fadeT = 1; return; }
+      // enemies about: put some distance between us and them first
+      this.why = 'saferest'; this.restWalkT = (this.restWalkT || 0) + dt; if (this.sayT > 6) this.talk('Too dangerous to camp here. Moving on a little.');
+      const sq = M.id === 'over' ? getMap('over').townSquare : M.objects.find(o => o.kind === 'stairs'); const r = sq ? this.goto(sq.x + (M.id === 'over' ? 0 : 0.5), sq.y + (M.id === 'over' ? 0 : 0.5), dt) : 'nopath';
+      if (r === 'nopath' || r === true || this.restWalkT > 25) { this.restWalkT = 0; this.lastRestT = G.playTime; this.talk('Resting with one eye open.'); restParty(8); G.fadeT = 1; }
+      return;
+    }
     // goals
     if (!this.cur) { this.cur = this.goals.shift(); if (!this.cur) { this.talk('Nothing left on the list.'); this.done = true; return; } this.cur.state = 0; }
     const c = this.cur; const O = getMap('over');
@@ -2021,8 +2050,8 @@ const BOT = {
     if (c.k === 'dungeon') {
       const D = DUNGEONS[c.id];
       if (M.id === 'over') {
-        if (this.avgLevel() < c.need - 2 && !c.grinding) { c.grinding = true; this.talk('We are not ready for the ' + D.name + '. Let us hunt the roads first.'); }
-        if (c.grinding) { const camp = this.nearestCamp(); if (camp && this.avgLevel() < c.need - 1) { if (this.sayT > 8) this.talk('Hunting for experience near ' + camp.name + '.'); const r = this.goto(camp.x, camp.y, dt); if (r === true || r === 'nopath') c.campVisited = (c.campVisited || 0) + 1; if (c.campVisited > 2 || this.avgLevel() >= c.need - 1) { c.grinding = false; c.campVisited = 0; this.goals.unshift({ k: 'town' }, c); this.cur = null; } return; } c.grinding = false; }
+        const want = Math.max(c.need, c.minLv || 0);
+        if (this.avgLevel() < want) { this.talk('We are not ready for the ' + D.name + '. Let us hunt the roads first.'); this.goals.unshift({ k: 'grind', to: want, why: 'the ' + D.name }, c); this.cur = null; return; }
         const [ex, ey] = ENTRANCES[c.id]; if (this.sayT > 8) this.talk('On the road to the ' + D.name + '.');
         const r = this.goto(ex + 0.5, ey + 0.9, dt); if (r === true) { const it = nearestInteractable(); if (it && it.o && it.o.kind === 'entrance') { doInteract(it); this.talk(D.entrance); } } return;
       }
@@ -2035,14 +2064,36 @@ const BOT = {
         const r = this.goto(t.x, t.y, dt); if (r === true) { const it = nearestInteractable(); if (it && it.o === t.o) doInteract(it); else { t.o.opened = true; t.o.taken = true; } } else if (r === 'nopath') { t.o.opened = true; t.o.taken = true; }
         return;
       }
-      if (boss) { if (this.sayT > 8) this.talk('Now for ' + boss.name + '.'); const r = this.goto(boss.x, boss.y, dt); if (r === 'nopath') { boss.aware = true; boss.botIgnore = 0; c.bossNoPath = (c.bossNoPath || 0) + dt; if (c.bossNoPath > 30) { c.bossNoPath = 0; boss.x = boss.hx; boss.y = boss.hy; } } else c.bossNoPath = 0; return; }
+      if (boss) { const want = Math.max(BOSS_LV[c.id] || 0, c.minLv || 0); if (this.avgLevel() < want) { this.talk(boss.name + ' is beyond us for now. We will come back stronger.'); c.minLv = want; this.goals.unshift({ k: 'grind', to: want, why: boss.name }, c); this.cur = null; return; } if (this.sayT > 8) this.talk('Now for ' + boss.name + '.'); const r = this.goto(boss.x, boss.y, dt); if (r === 'nopath') { boss.aware = true; boss.botIgnore = 0; c.bossNoPath = (c.bossNoPath || 0) + dt; if (c.bossNoPath > 30) { c.bossNoPath = 0; boss.x = boss.hx; boss.y = boss.hy; } } else c.bossNoPath = 0; return; }
       if (G.drops.length) { const d = G.drops[0]; this.goto(d.x, d.y, dt); return; }
       this.talk(D.name + ' is cleared. Back to town.'); this.cur = null; return;
+    }
+    if (c.k === 'grind') {
+      if (M.id !== 'over') { this.leaveDungeon(dt); return; }
+      if (this.avgLevel() >= c.to) { this.talk('Strong enough now. Back to ' + c.why + '.'); this.cur = null; return; }
+      const trainable = G.party.some(m => canTrain(m) && G.gold >= TRAIN_COST(m.lvl + 1));
+      if (trainable && G.playTime - (c.townT || -1e9) > 90) { c.townT = G.playTime; this.goals.unshift({ k: 'town' }, c); this.cur = null; return; }
+      if (questState('herbs') === 'active' && !c.herbs && countInv('marsh_herb') < 4 && this.avgLevel() >= 3) { c.herbs = true; this.goals.unshift({ k: 'herbs' }, c); this.cur = null; return; }
+      const camp = this.nearestCamp();
+      if (camp) {
+        this.lastCamp = camp.key; if (this.sayT > 8) this.talk('Hunting ' + camp.name + ' for experience. ' + c.why + ' can wait.');
+        const r = this.goto(camp.x, camp.y, dt);
+        if (r === true || r === 'nopath') { c.campT = (c.campT || 0) + dt; if (r === 'nopath' || c.campT > 15) { this.skip[camp.key] = G.playTime + 600; c.campT = 0; this.path = null; } } else c.campT = 0;
+        return;
+      }
+      // nothing left to hunt: sell, train, eat, then wait for the roads to fill again
+      this.goals.unshift({ k: 'town' }, { k: 'passtime', rests: 9 }, c); this.cur = null; return;
+    }
+    if (c.k === 'passtime') {
+      if (M.id !== 'over') { this.leaveDungeon(dt); return; }
+      if ((c.done || 0) >= c.rests) { this.cur = null; return; }
+      if (G.playTime - this.lastRestT < 1.5) return;
+      this.lastRestT = G.playTime; c.done = (c.done || 0) + 1; this.talk('Waiting for the roads to fill with trouble again.'); restParty(8); G.fadeT = 1; return;
     }
     if (c.k === 'wander') { const camp = this.nearestCamp(); if (camp) { this.goto(camp.x, camp.y, dt); } return; }
     this.cur = null;
   },
-  nearestCamp() { const O = getMap('over'); let best = null, bd = 1e9; for (const [cx, cy, r, list, n] of CAMPS) { const alive = G.monsters.some(mo => !mo.dead && mo.group === cx + ',' + cy); if (!alive) continue; const tier = MONSTERS[list[0]].tier; if (tier > Math.ceil(this.avgLevel() / 3) + 1) continue; const d = dist(cx, cy, G.x, G.y); if (d < bd) { bd = d; best = { x: cx + 0.5, y: cy + 0.5, name: MONSTERS[list[0]].name + 's' }; } } return best; },
+  nearestCamp() { let best = null, bd = 1e9; for (const [cx, cy, r, list, n] of CAMPS) { const key = cx + ',' + cy; if (this.skip[key] > G.playTime) continue; const anyAlive = G.monsters.some(mo => !mo.dead && mo.group === key); if (!anyAlive) continue; const tier = MONSTERS[list[0]].tier; if (tier > Math.ceil(this.avgLevel() / 3) + 1) continue; const d = dist(cx, cy, G.x, G.y) + tier * 60; if (d < bd) { bd = d; best = { x: cx + 0.5, y: cy + 0.5, name: MONSTERS[list[0]].name + 's', key }; } } return best; },
   leaveDungeon(dt) { const st = M.objects.find(o => o.kind === 'stairs'); if (!st) { enterMap('over', null, null); return; } const port = G.party.find(m => alive(m) && m.spells.includes('town_portal') && m.sp >= 12 && m.rec <= 0); if (port) { this.talk('Town Portal. The long way home is for other people.'); castSpell(port, 'town_portal'); return; } if (this.sayT > 8) this.talk('Back to the stairs.'); const r = this.goto(st.x + 0.5, st.y + 0.5, dt); if (r === true) { const it = nearestInteractable(); if (it && it.o === st) doInteract(it); } else if (r === 'nopath') enterMap('over', null, null); },
 };
 function isUpgrade(m, it) { const b = ITEMS[it.id]; const slot = SLOT_OF[b.type]; if (!slot) return false; const cur = m.equip[slot]; if (b.type === 'weapon') { if (cur && !!ITEMS[cur.id].ranged !== !!b.ranged) return false; if (m.cls === 'Sorcerer' && b.skill !== 'Staff') return false; if (m.cls === 'Archer' && !b.ranged) return false; const avg = w => w.dmg[0] * (w.dmg[1] + 1) / 2 + w.dmg[2]; return avg(b) > (cur ? avg(ITEMS[cur.id]) : 0) + 0.4; } return (b.acv || 0) > (cur ? ITEMS[cur.id].acv || 0 : 0); }
@@ -2182,6 +2233,6 @@ function loop(t) {
   I.endFrame();
 }
 window.addEventListener('load', boot);
-window.HM = { G, I, V, BOT, canCast, get M() { return M; }, getMap, newGame, loadGame, saveGame, enterMap, partyAttack, castSpell, openScreen, closeScreen, makeMember, spawnMonster, hurtMonster, MONSTERS, ITEMS, SPELLS, QUESTS, doInteract, nearestInteractable, giveXp, train, addInv, makeItem, restParty, completeQuest, startQuest };
+window.HM = { G, I, V, BOT, canCast, get M() { return M; }, getMap, newGame, loadGame, saveGame, enterMap, partyAttack, castSpell, openScreen, closeScreen, makeMember, spawnMonster, hurtMonster, MONSTERS, ITEMS, SPELLS, QUESTS, doInteract, nearestInteractable, giveXp, train, addInv, makeItem, restParty, completeQuest, startQuest, defaultParty, raiseSkill, equipItem, skillUpCost, XP_FOR_LEVEL, canUse, maxHp, maxSp, CAMPS, DUNGEONS, mapState, questState, SKILLS };
 
 })();

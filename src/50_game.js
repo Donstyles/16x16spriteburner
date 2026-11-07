@@ -86,13 +86,16 @@ function newGame(members) {
 function defaultParty() { return [makeMember('Roderick', 'Knight'), makeMember('Sable', 'Archer'), makeMember('Mira', 'Cleric'), makeMember('Vesper', 'Sorcerer')]; }
 
 // ---- maps ----
+function respawnCheck(map, st, live) { // the dead come back after a while (bosses excepted); outdoors in 3 days, dungeons in 10
+  const respawnAfter = map.id === 'over' ? 3 * DAY : 10 * DAY;
+  for (const k in st.dead) { const mo = map.monsters[k]; if (!mo || mo.boss) continue; const t = st.dead[k] === 1 ? -1e9 : st.dead[k]; if (G.time - t > respawnAfter) { delete st.dead[k]; if (live && dist(mo.x, mo.y, G.x, G.y) > 14 && !G.monsters.some(o => o.id === +k)) G.monsters.push(spawnMonster(mo, +k)); } }
+}
 function mapState(id) { if (!G.mapState[id]) G.mapState[id] = { dead: {}, opened: {}, lastVisit: -1e9, explored: null }; return G.mapState[id]; }
 function enterMap(id, x, y) {
   if (M) { const st = mapState(M.id); st.explored = M.explored; st.lastVisit = G.time; }
   M = getMap(id); const st = mapState(id);
   // respawn
-  const respawnAfter = id === 'over' ? 3 * DAY : 10 * DAY;
-  if (st.lastVisit > -1e8 && G.time - st.lastVisit > respawnAfter) { for (const k in st.dead) { const mo = M.monsters[k]; if (mo && !mo.boss) delete st.dead[k]; } }
+  respawnCheck(M, st, false);
   if (st.explored && st.explored.length === M.explored.length) M.explored = st.explored; else st.explored = M.explored;
   G.monsters = []; M.monsters.forEach((mo, i) => { if (st.dead[i]) return; G.monsters.push(spawnMonster(mo, i)); });
   G.projs = []; G.fx = []; G.drops = [];
@@ -213,6 +216,7 @@ function restParty(hours = 8, inn = false) {
   G.lastRest = G.time;
   // monsters wander back home while you sleep
   for (const mo of G.monsters) if (!mo.dead) { mo.aware = false; mo.x = mo.hx; mo.y = mo.hy; mo.hp = Math.min(mo.maxHp, mo.hp + mo.maxHp * 0.5); }
+  respawnCheck(M, mapState(M.id), true);
   log('The party rests for ' + hours + ' hours.');
 }
 function damageMember(m, dmg, elem, src) {

@@ -23,7 +23,7 @@ function hurtMonster(mo, dmg, elem, srcMember, silent) {
 }
 function alertGroup(mo) { for (const o of G.monsters) if (!o.dead && !o.aware && o.group && o.group === mo.group && dist(o.x, o.y, mo.x, mo.y) < 8) o.aware = true; }
 function killMonster(mo, src) {
-  mo.dead = true; mo.deadT = 0.8; G.kills++; mapState(M.id).dead[mo.id] = 1;
+  mo.dead = true; mo.deadT = 0.8; G.kills++; mapState(M.id).dead[mo.id] = G.time || 1;
   giveXp(mo.d.xp);
   const perc = Math.max(...G.party.map(m => m.skills.Perception || 0));
   const gold = Math.floor(rint(mo.d.gold[0], mo.d.gold[1]) * (1 + perc * 0.1));
@@ -144,7 +144,7 @@ function updateMonsters(dt) {
     if (mo.fear > 0) { monsterMove(mo, -dx, -dy, cd, spdMul); continue; }
     // specials
     if (mo.d.special === 'blink') { mo.blinkT -= cd; if (mo.blinkT <= 0 && d > 3) { blink(mo); mo.blinkT = 6 + Math.random() * 4; } }
-    if (mo.d.special && mo.d.special.startsWith('summon:')) { mo.summonT -= cd; if (mo.summonT <= 0 && d < 9) { summon(mo, mo.d.special.split(':')[1]); mo.summonT = 14; } }
+    if (mo.d.special && mo.d.special.startsWith('summon:')) { mo.summonT -= cd; if (mo.summonT <= 0 && d < 9) { summon(mo, mo.d.special.split(':')[1]); mo.summonT = mo.d.summonEvery || 14; } }
     const meleeRange = PR + mo.r + 0.35;
     const los = hasLOS(mo.x, mo.y, G.x, G.y);
     if (spell && los && d <= spell.range && d > 1.2) {
@@ -191,7 +191,7 @@ function monsterCast(mo, spell) {
   Snd.play('cast');
 }
 function blink(mo) { for (let i = 0; i < 10; i++) { const a = Math.random() * TAU, r = 1.5 + Math.random() * 1.5, x = G.x + Math.cos(a) * r, y = G.y + Math.sin(a) * r; if (!blockedAt(x, y)) { fxAt(mo.x, mo.y, 'spark', '#c080ff'); mo.x = x; mo.y = y; fxAt(x, y, 'spark', '#c080ff'); return; } } }
-function summon(mo, kind) { const n = G.monsters.filter(o => o.summoned && !o.dead).length; if (n >= 3) return; for (let i = 0; i < 2; i++) { const a = Math.random() * TAU, x = mo.x + Math.cos(a) * 1.5, y = mo.y + Math.sin(a) * 1.5; if (blockedAt(x, y)) continue; const s = spawnMonster({ kind, x, y }, -1); s.aware = true; s.summoned = true; s.id = -1; G.monsters.push(s); fxAt(x, y, 'spark', '#80ff80'); } log(mo.name + ' calls for aid!'); }
+function summon(mo, kind) { const n = G.monsters.filter(o => o.summoned && !o.dead).length; if (n >= (mo.d.summonMax || 3)) return; for (let i = 0; i < (mo.d.summonCount || 2); i++) { const a = Math.random() * TAU, x = mo.x + Math.cos(a) * 1.5, y = mo.y + Math.sin(a) * 1.5; if (blockedAt(x, y)) continue; const s = spawnMonster({ kind, x, y }, -1); s.aware = true; s.summoned = true; s.id = -1; G.monsters.push(s); fxAt(x, y, 'spark', '#80ff80'); } log(mo.name + ' calls for aid!'); }
 // ---- projectiles ----
 function updateProjectiles(dt) {
   const cd = combatDt(dt); if (cd <= 0) return;

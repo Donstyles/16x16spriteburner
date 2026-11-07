@@ -12,7 +12,7 @@ const path = require('path');
   const t0 = Date.now(); let last = '';
   while (Date.now() - t0 < maxMin * 60000) {
     await page.waitForTimeout(15000);
-    const st = await page.evaluate(() => { const G = HM.G, B = HM.BOT; return { say: B.say, goal: B.cur && (B.cur.k + (B.cur.id ? ':' + B.cur.id : '') + (B.cur.si !== undefined ? '#' + B.cur.si : '')), map: HM.M.id, pos: [HM.G.x | 0, HM.G.y | 0], lv: G.party.map(m => m.lvl).join('/'), hp: G.party.map(m => m.hp).join('/'), gold: G.gold, food: G.food, day: Math.floor(G.time / 1440) + 1, kills: G.kills, quests: Object.entries(G.quests).map(([k, v]) => k + ':' + v[0]).join(' '), mode: G.mode, wipes: B.wipes, done: B.done, screen: G.screen && G.screen.kind, pt: (G.playTime / 60).toFixed(1) }; });
+    const st = await page.evaluate(() => { const G = HM.G, B = HM.BOT; return { say: B.say, why: B.why, goal: B.cur && (B.cur.k + (B.cur.id ? ':' + B.cur.id : '') + (B.cur.si !== undefined ? '#' + B.cur.si : '')), map: HM.M.id, pos: [HM.G.x | 0, HM.G.y | 0], lv: G.party.map(m => m.lvl).join('/'), hp: G.party.map(m => m.hp).join('/'), gold: G.gold, food: G.food, day: Math.floor(G.time / 1440) + 1, kills: G.kills, quests: Object.entries(G.quests).map(([k, v]) => k + ':' + v[0]).join(' '), mode: G.mode, wipes: B.wipes, done: B.done, screen: G.screen && G.screen.kind, pt: (G.playTime / 60).toFixed(1) }; });
     const line = JSON.stringify(st); if (line !== last) { console.log(((Date.now() - t0) / 60000).toFixed(1) + 'm', line); last = line; }
     if (st.mode === 'ending' || st.done) break;
     if (errors.length) { console.log(errors.slice(0, 3).join('\n')); break; }

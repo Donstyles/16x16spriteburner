@@ -250,7 +250,7 @@ const MONSTERS = {
   mithril_construct: { name: 'Mithril Sentinel', spr: 'MithrilConstruct', hp: 320, acv: 26, atk: 14, dmg: [4, 10, 4], spd: 2.0, xp: 2500, gold: [300, 600], tier: 4, boss: true, size: 1.6, res: { mind: 100, poison: 100, cold: 100, fire: 50 } },
   efreeti: { name: 'Molten Efreeti', spr: 'MoltenEfreeti', hp: 360, acv: 24, atk: 15, dmg: [4, 10, 5], spd: 2.6, xp: 3000, gold: [400, 800], tier: 4, boss: true, size: 1.7, spell: 'fireball', res: { fire: 100, cold: -50, poison: 100 }, light: true },
   elder_treant: { name: 'Elder Barrow Treant', spr: 'GrizzledTreant', hp: 300, acv: 18, atk: 12, dmg: [4, 8, 4], spd: 1.5, xp: 1500, gold: [100, 300], tier: 3, boss: true, size: 1.7, res: { fire: -50, poison: 100, cold: 50 }, special: 'summon:treant' },
-  adamantium_golem: { name: 'The Hollow Regent', spr: 'AdamantiumGolem', hp: 650, acv: 30, atk: 18, dmg: [5, 10, 6], spd: 2.0, xp: 8000, gold: [1000, 2000], tier: 5, boss: true, size: 2.0, res: { mind: 100, poison: 100, fire: 50, cold: 50, elec: 50, phys: 25 }, special: 'summon:flesh_golem' },
+  adamantium_golem: { name: 'The Hollow Regent', spr: 'AdamantiumGolem', hp: 420, acv: 24, atk: 15, dmg: [4, 8, 4], spd: 2.0, xp: 8000, gold: [1000, 2000], tier: 5, boss: true, size: 2.0, res: { mind: 100, poison: 100, fire: 50, cold: 50, elec: -50, phys: 25 }, special: 'summon:gargoyle', summonMax: 2, summonCount: 1, summonEvery: 30 },
 };
 const MONSTER_SPELLS = {
   spark: { dmg: [1, 6, 0], elem: 'elec', range: 6, proj: 'spark' }, fire_bolt: { dmg: [2, 6, 0], elem: 'fire', range: 7, proj: 'fire' }, ice_bolt: { dmg: [2, 6, 0], elem: 'cold', range: 7, proj: 'ice', slow: true },
