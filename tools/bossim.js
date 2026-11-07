@@ -40,7 +40,7 @@ const { chromium } = require('playwright');
       const wait = ms => new Promise(r => setTimeout(r, ms));
       buildParty(L);
       G.x = 50.5; G.y = 60.5; G.camSet = false; G.monsters = []; G.drops = []; G.projs = []; G.fx = []; G.buffs = {}; G.trail = []; for (let i = 0; i < 24; i++) G.trail.push([G.x, G.y + i * 0.22]);
-      const mo = spawnMonster({ kind: boss, x: 54.5, y: 60.5, boss: true }, 900); mo.aware = true; G.monsters.push(mo);
+      const kinds = boss.split('+'); const mos = kinds.map((k, i) => { const mo = spawnMonster({ kind: k, x: 54.5 + (i % 2) * 1.2, y: 60.5 + (i - 1) * 1.1, boss: kinds.length === 1 }, 900 + i); mo.aware = true; G.monsters.push(mo); return mo; }); const mo = { get dead() { return mos.every(m => m.dead); }, get hp() { return mos.reduce((a, m) => a + Math.max(0, m.hp), 0); }, maxHp: mos.reduce((a, m) => a + m.maxHp, 0) };
       BOT.on = true; BOT.goals = [{ k: 'wander' }]; BOT.cur = null; BOT.done = false; BOT.flow = null; BOT.eng = null; BOT.flee = 0; BOT.path = null; BOT.skip = {}; BOT.lastRestT = 1e12; // no camping mid-test
       const t0 = G.playTime; const log0 = G.log.length; const pots = () => G.inv.filter(i => i.id.startsWith('potion_heal')).reduce((a, i) => a + (i.qty || 1), 0); const p0 = pots();
       while (G.playTime - t0 < window.MAXT) { await wait(40); if (mo.dead || G.mode === 'dead' || BOT.flee > G.playTime) break; }
@@ -52,7 +52,7 @@ const { chromium } = require('playwright');
     for (const L of levels) {
       const rs = []; for (let k = 0; k < trials; k++) rs.push(await page.evaluate(([b, l]) => fight(b, l), [boss, L]));
       const wins = rs.filter(r => r.win).length; const avgT = Math.round(rs.reduce((a, r) => a + r.t, 0) / rs.length);
-      console.log(`${boss.padEnd(18)} L${String(L).padStart(2)}  wins ${wins}/${trials}  avg t=${String(avgT).padStart(3)}s  ` + rs.map(r => `${r.win ? 'W' : r.dead ? 'X' : r.fled ? 'F' : 'T'}:${r.t}s/${r.bossHp}%/${r.hp}/p${r.pots}/h${r.hits}m${r.misses}`).join('  ') + (L === levels[0] ? '\n    ' + rs[0].party + '\n    ' + JSON.stringify(rs[0].sample) : ''));
+      console.log(`${boss.slice(0, 40).padEnd(40)} L${String(L).padStart(2)}  wins ${wins}/${trials}  avg t=${String(avgT).padStart(3)}s  ` + rs.map(r => `${r.win ? 'W' : r.dead ? 'X' : r.fled ? 'F' : 'T'}:${r.t}s/${r.bossHp}%/${r.hp}/p${r.pots}/h${r.hits}m${r.misses}`).join('  ') + (L === levels[0] ? '\n    ' + rs[0].party + '\n    ' + JSON.stringify(rs[0].sample) : ''));
       if (wins === trials && rs.every(r => r.hp.split('/').every(h => +h > 40))) { console.log('  (comfortable wins; skipping higher levels)'); break; }
     }
   }
