@@ -146,7 +146,7 @@ function drawRings(ctx) {
   }
   for (const c of FX.columns) {
     const u = c.t / c.life, a = u < 0.15 ? u / 0.15 : 1 - (u - 0.15) / 0.85, w = c.w * (1 + u * 0.4), gr = ctx.createLinearGradient(c.x - w, 0, c.x + w, 0), cc = COL[c.col];
-    gr.addColorStop(0, `rgba(${cc},0)`); gr.addColorStop(0.5, `rgba(255,255,255,${a})`); gr.addColorStop(1, `rgba(${cc[0]},${cc[1]},${cc[2]},0)`);
+    gr.addColorStop(0, `rgba(${cc},0)`); gr.addColorStop(0.5, `rgba(${(cc[0] + 255) >> 1},${(cc[1] + 255) >> 1},${(cc[2] + 255) >> 1},${a * 0.55})`); gr.addColorStop(1, `rgba(${cc},0)`);
     ctx.fillStyle = gr; ctx.fillRect(c.x - w, c.y - 260, w * 2, 262);
   }
   for (const c of FX.circles) { // summoning circles

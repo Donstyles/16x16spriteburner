@@ -2,8 +2,13 @@
 const F_DISP = '"Grenze Gotisch", "Palatino Linotype", Palatino, "Book Antiqua", serif', F_HUD = 'Teko, "Arial Narrow", "Avenir Next Condensed", sans-serif';
 const NUMCOL = { fire: '#ffb04a', bolt: '#b4d0ff', heal: '#7cff9c', red: '#ff5a46', earth: '#ffc27a', white: '#ffffff', phys: '#ffffff', gold: '#ffd860', arcane: '#d49cff', poison: '#a8ff60' };
 const UI = { soundRect: null, titleT: 0 };
-function banner(title, hero, sub, col) { G.banner = { t: 0, life: 1.7, a: title, b: hero ? hero.def.name + ' · ' + hero.def.title : (sub || ''), col: col || (hero ? hero.def.col : 'gold') }; }
-function textBanner(a, b, col = 'gold') { G.banner = { t: 0, life: 2.4, a, b, col }; }
+function pushBanner(b) { b.t = 0; b.at = performance.now() / 1000; b.life = b.life || 1.8; if (!G.banner) G.banner = b; else { G.bq.push(b); if (G.bq.length > 6) G.bq.shift(); } }
+function banner(title, hero, sub, col) { pushBanner({ a: title, b: hero ? hero.def.name + ' · ' + heroTitle(hero) : (sub || ''), col: col || (hero ? hero.def.col : 'gold'), life: 1.7 }); }
+function textBanner(a, b, col = 'gold') { pushBanner({ a, b, col, life: 2.4, keep: true }); }
+function nextBanner(rdt) {
+  if (G.banner) { G.banner.t += rdt; if (G.banner.t >= G.banner.life || (G.bq.length && G.banner.t > 1.2)) G.banner = null; }
+  if (!G.banner) { const now = performance.now() / 1000; while (G.bq.length) { const b = G.bq.shift(); if (b.keep || now - b.at < 1.2) { b.t = 0; G.banner = b; break; } } }
+}
 function font(c, w, size, fam) { c.font = `${w} ${size}px ${fam}`; }
 function label(c, s, x, y, col, o = {}) { c.textAlign = o.align || 'left'; c.textBaseline = o.base || 'alphabetic'; if (o.stroke) { c.lineWidth = o.stroke; c.strokeStyle = 'rgba(8,6,8,0.9)'; c.lineJoin = 'round'; c.strokeText(s, x, y); } c.fillStyle = col; c.fillText(s, x, y); }
 function spaced(c, s, x, y, sp, col, align = 'left') { let w = 0; for (const ch of s) w += c.measureText(ch).width + sp; w -= sp; let px = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x; c.textAlign = 'left'; c.fillStyle = col; for (const ch of s) { c.fillText(ch, px, y); px += c.measureText(ch).width + sp; } }
@@ -21,16 +26,19 @@ function drawHUD() {
   // floor and tally
   font(c, 900, 24, F_DISP); label(c, 'Floor ' + G.floor, L, T + 20, '#ecc878', { stroke: 4 });
   font(c, 500, 14, F_HUD); spaced(c, ARENA.name, L, T + 36, 1.6, '#bfae90');
-  spaced(c, G.kills.toLocaleString() + ' SLAIN  ·  RUN ' + G.run + (G.best > 1 ? '  ·  DEEPEST ' + G.best : ''), L, T + 50, 1.2, '#8f8472');
+  font(c, 600, 17, F_HUD); spaced(c, 'LEVEL ' + G.lvl, L, T + 55, 1.4, '#ffd860'); const lw = c.measureText('LEVEL ' + G.lvl).width + 8 * 1.4 + 6, xa = xpFor(G.lvl), xb = xpFor(G.lvl + 1), xf = clamp((G.xp - xa) / (xb - xa), 0, 1);
+  c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(L + lw, T + 47, 90, 5); c.fillStyle = '#ffd860'; c.fillRect(L + lw, T + 47, 90 * xf, 5); c.fillStyle = 'rgba(255,255,255,0.45)'; c.fillRect(L + lw, T + 47, 90 * xf, 1);
+  const nx = nextUnlocks(); font(c, 500, 13, F_HUD); if (nx) spaced(c, 'NEXT AT ' + nx.lvl + ':  ' + nx.names.join(' · '), L, T + 70, 1.1, '#c8a050');
+  spaced(c, G.kills.toLocaleString() + ' SLAIN  ·  RUN ' + G.run + (G.best > 1 ? '  ·  DEEPEST ' + G.best : ''), L, T + (nx ? 84 : 70), 1.1, '#8f8472');
   // party plates
-  const pw = 96, rows = W < 520 ? 2 : 1, per = rows === 2 ? 2 : 4;
+  const pw = 122, rows = W < 560 ? 2 : 1, per = rows === 2 ? 2 : 4;
   G.heroes.forEach((h, i) => {
     const col = i % per, row = (i / per) | 0, x = L + col * (pw + 8), y = B - (rows - row) * 34 + 2, m = MOBS[h.spr];
     c.fillStyle = 'rgba(10,8,12,0.62)'; c.fillRect(x - 4, y - 2, pw, 30);
     c.imageSmoothingEnabled = false; c.globalAlpha = h.dead ? 0.35 : 1; c.drawImage(IMG.mobs, 0, m[0], m[1], m[2], x - 2, y - 2, 28, 28 * m[2] / m[1]); c.globalAlpha = 1;
-    font(c, 500, 14, F_HUD); label(c, h.dead ? h.def.name + ' · FALLEN' : h.def.name, x + 28, y + 10, h.dead ? '#8a5048' : '#efe4cc');
+    font(c, 500, 14, F_HUD); label(c, h.def.name, x + 28, y + 10, h.dead ? '#8a5048' : '#efe4cc'); const nw = c.measureText(h.def.name).width; font(c, 500, 11, F_HUD); label(c, h.dead ? 'FALLEN' : heroTitle(h), x + 32 + nw, y + 10, h.dead ? '#8a5048' : `rgba(${COL[h.def.col]},0.9)`);
     const f = h.dead ? 0 : clamp(h.hp / h.maxHp, 0, 1); c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(x + 28, y + 14, 58, 5); c.fillStyle = f > 0.5 ? '#6cf08a' : f > 0.25 ? '#ffd24a' : '#ff4a3a'; c.fillRect(x + 28, y + 14, 58 * f, 5);
-    const ul = h.ult / 100, ready = ul >= 1; c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(x + 28, y + 21, 58, 3); c.fillStyle = ready ? `rgba(${COL[h.def.col]},${0.7 + 0.3 * Math.sin(G.time * 10)})` : `rgba(${COL[h.def.col]},0.7)`; c.fillRect(x + 28, y + 21, 58 * ul, 3);
+    const ul = h.ult / 100, ready = ul >= 1; c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(x + 28, y + 21, 58, 3); if (ultUnlocked(h)) { c.fillStyle = ready ? `rgba(${COL[h.def.col]},${0.7 + 0.3 * Math.sin(G.time * 10)})` : `rgba(${COL[h.def.col]},0.7)`; c.fillRect(x + 28, y + 21, 58 * ul, 3); } else { font(c, 500, 10, F_HUD); label(c, 'ULT ' + HERO_PROG[h.key].ult, x + 90, y + 25, '#6f6658'); }
   });
   // boss bar
   const b = G.boss; if (b && alive(b)) { const bw = Math.min(W * 0.5, 420), bx = W / 2 - bw / 2, by = T + 26; font(c, 900, 20, F_DISP); label(c, b.def.name, W / 2, by - 6, '#f4d8b0', { align: 'center', stroke: 4 }); c.fillStyle = 'rgba(0,0,0,0.7)'; c.fillRect(bx - 2, by - 2, bw + 4, 9); const f = clamp(b.hp / b.maxHp, 0, 1); c.fillStyle = '#5a0c10'; c.fillRect(bx, by, bw, 5); c.fillStyle = '#e8402e'; c.fillRect(bx, by, bw * f, 5); c.fillStyle = 'rgba(255,220,180,0.5)'; c.fillRect(bx, by, bw * f, 1); }

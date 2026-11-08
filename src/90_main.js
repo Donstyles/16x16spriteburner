@@ -24,7 +24,7 @@ function frame(t) {
     if (G.hitstop > 0) G.hitstop -= rdt;
     else { if (G.slowT > 0) G.slowT -= rdt; else G.ts = damp(G.ts, 1, 3, rdt); const dt = rdt * G.ts, n = window.CR_TURBO || 1; for (let i = 0; i < n; i++) update(dt); }
     G.flashA = damp(G.flashA, 0, 9, rdt); if (G.phase === 'fight') G.fade = Math.max(0, G.fade - rdt * 1.4);
-    if (G.banner) { G.banner.t += rdt; if (G.banner.t >= G.banner.life) G.banner = null; }
+    nextBanner(rdt);
     if (G.card) { G.card.t += rdt; if (G.card.t >= G.card.life) G.card = null; }
     if (G.callout) G.callout.t += rdt; UI.titleT += rdt;
     updateShake(rdt); updateCam(rdt); render();
@@ -41,7 +41,7 @@ async function boot() {
   await loadAssets(); resize(); addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
   addEventListener('pointerdown', onTap); document.addEventListener('visibilitychange', () => { if (SFX.ctx) { if (document.hidden) SFX.ctx.suspend(); else if (SFX.on) SFX.ctx.resume(); } });
   startRun(); G.mode = 'play'; const ld = document.getElementById('loading'); if (ld) ld.hidden = true;
-  window.CR = { G, FX, CAM, Q, SFX, VIEW, ARENA: () => ARENA, startRun, startFloor, spawnWave, spawnBoss, meteorStorm, thunderstorm, earthquake, cataclysm, explode, MON_DEFS, HERO_DEFS };
+  window.CR = { G, FX, CAM, Q, SFX, VIEW, ARENA: () => ARENA, startRun, startFloor, spawnWave, gainXp, levelUp, xpFor, spawnBoss, meteorStorm, thunderstorm, earthquake, cataclysm, explode, MON_DEFS, HERO_DEFS };
   requestAnimationFrame(frame);
 }
 boot().catch(e => { const ld = document.getElementById('loading'); if (ld) ld.textContent = 'Failed to start: ' + e.message; console.error(e); });

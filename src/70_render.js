@@ -85,7 +85,7 @@ function drawProjGlows(c) {
   }
 }
 function drawAuras(c) {
-  for (const h of G.heroes) { if (h.dead) continue; const k = h.def.col, ready = h.ult >= 100, s = 13 + (ready ? 3 * Math.sin(G.time * 8) : 0); c.globalAlpha = ready ? 0.75 : 0.32; c.drawImage(GLOW[k], h.x - s, h.y - s * 0.4, s * 2, s * 0.8); if (ready && chance(0.15)) part({ k: 'glow', x: h.x + rand(-6, 6), y: h.y, z: rand(0, 6), vz: rand(20, 40), life: 0.6, s0: 2, s1: 0, col: k }); }
+  for (const h of G.heroes) { if (h.dead) continue; const k = h.def.col, ready = h.ult >= 100, s = 9 + Math.min(8, G.lvl * 0.6) + (ready ? 3 * Math.sin(G.time * 8) : 0); c.globalAlpha = ready ? 0.75 : Math.min(0.45, 0.12 + G.lvl * 0.025); c.drawImage(GLOW[k], h.x - s, h.y - s * 0.4, s * 2, s * 0.8); if (ready && chance(0.15)) part({ k: 'glow', x: h.x + rand(-6, 6), y: h.y, z: rand(0, 6), vz: rand(20, 40), life: 0.6, s0: 2, s1: 0, col: k }); }
   for (const t of ARENA.torches) { const f = 0.8 + 0.2 * noise1(G.time * 9 + t.tx); c.globalAlpha = 0.55 * f; c.drawImage(GLOW.torch, t.x - 6, t.y - 13, 12, 12); }
   for (const p of ARENA.props) if (p.kind === 'brazier') { c.globalAlpha = 0.6; c.drawImage(GLOW.torch, p.x - 9, p.y - 22, 18, 16); }
   if (G.boss && alive(G.boss)) { const b = G.boss, s = 34 + 4 * Math.sin(G.time * 5); c.globalAlpha = 0.35; c.drawImage(GLOW[b.def.col || 'red'], b.x - s, b.y - s * 0.5, s * 2, s); }

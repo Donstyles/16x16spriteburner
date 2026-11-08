@@ -1,8 +1,8 @@
 // ===================== units: the party, the horde, damage and death =====================
 const HERO_DEFS = {
   warrior: { name: 'BRANDT', title: 'BATTLEMAGE', spr: 'SkilledBattlemage', hp: 560, spd: 56, r: 6, role: 'melee', col: 'gold', dmg: 24 },
-  pyro: { name: 'IGNIS', title: 'PYROMANCER', spr: 'FlameMagus', hp: 270, spd: 46, r: 5, role: 'caster', col: 'fire', dmg: 30 },
-  storm: { name: 'VOLTAIRE', title: 'STORMCALLER', spr: 'WiseWizard', hp: 270, spd: 46, r: 5, role: 'caster', col: 'bolt', dmg: 26 },
+  pyro: { name: 'IGNIS', title: 'PYROMANCER', spr: 'NovicePyromancer', hp: 270, spd: 46, r: 5, role: 'caster', col: 'fire', dmg: 30 },
+  storm: { name: 'VOLTAIRE', title: 'STORMCALLER', spr: 'CapableCryomancer', hp: 270, spd: 46, r: 5, role: 'caster', col: 'bolt', dmg: 26 },
   druid: { name: 'MOSSA', title: 'EARTHSHAPER', spr: 'ExpertDruid', hp: 330, spd: 46, r: 5, role: 'support', col: 'heal', dmg: 22 },
 };
 const MON_DEFS = {
@@ -59,8 +59,8 @@ function hurt(u, amt, src, o = {}) {
   if (o.stun) u.stun = Math.max(u.stun, o.stun * (u.boss ? 0.15 : u.scale > 1.2 ? 0.5 : 1));
   if (o.elem === 'bolt') u.shock = 0.9; if (o.elem === 'fire') u.burn = Math.max(u.burn, 1.6);
   number(u.x, u.y, u.z + 16 * u.scale, d, u.team === 'hero' ? 'red' : (o.elem || 'white'), o.crit || d > 90);
-  if (src && src.team === 'hero' && u.team === 'mon') src.ult = Math.min(100, src.ult + d * 0.05);
-  if (u.team === 'hero') { u.ult = Math.min(100, u.ult + d * 0.08); if (d > 20) shake(0.06); }
+  if (src && src.team === 'hero' && u.team === 'mon' && ultUnlocked(src)) src.ult = Math.min(100, src.ult + d * 0.05);
+  if (u.team === 'hero') { if (ultUnlocked(u)) u.ult = Math.min(100, u.ult + d * 0.08); if (d > 20) shake(0.06); }
   const bl = BLOOD[u.def.blood || 'red'];
   if (!o.quiet) { if (u.def.blood === 'metal' || (u.team === 'hero' && u.def.role === 'melee')) { sparks(u.x, u.y, 8 * u.scale, 6, 'white', 120, 90); SFX.clang(panOf(u.x)); } else { debris(u.x, u.y, 3, bl, 60, 90, 1.4); SFX.hit(panOf(u.x)); } }
   if (u.hp <= 0) kill(u, src, o.elem);
@@ -71,7 +71,8 @@ function kill(u, src, elem) {
   u.dead = true; u.hp = 0;
   if (u.team === 'mon') {
     G.kills++; G.combo++; G.comboT = 2.6; G.burst++; G.burstT = 0.7;
-    if (src && src.team === 'hero') src.ult = Math.min(100, src.ult + 4);
+    if (src && src.team === 'hero' && ultUnlocked(src)) src.ult = Math.min(100, src.ult + 4);
+    gainXp(u.boss ? 60 + 20 * Math.floor(G.floor / 4) : XP_TIER[u.def.tier] || 1);
     deathFx(u, elem);
     if (u.boss) bossDeath(u);
   } else { u.deadT = 0; u.vz = 120; smoke(u.x, u.y, 6, 'dark', 10, 20, 1.4); flashLight(u.x, u.y, 60, 'red', 1, 0.6); textPop(u.x, u.y, 26, u.def.name + ' FALLS', 'red'); SFX.boom(0.5, panOf(u.x)); shake(0.3); }

@@ -34,7 +34,7 @@ function flameNova(h) {
 }
 function meteorStorm(h) {
   banner('METEOR STORM', h); SFX.braam(); slowmo(0.5, 0.4); G.ambDark = Math.max(G.ambDark, 0.35);
-  const n = 9;
+  const n = PWR.meteors();
   for (let i = 0; i < n; i++) after(0.25 + i * 0.26, () => {
     const last = i === n - 1, d = last ? densest(G.mons, 40) : null, t = d || (G.mons.length ? pick(G.mons) : null);
     const tx = t ? t.x + rand(-14, 14) : rand(ARENA.x0, ARENA.x1), ty = t ? t.y + rand(-10, 10) : rand(ARENA.y0, ARENA.y1), H = 300, T = 0.9;
@@ -48,11 +48,11 @@ function zapHit(u, src, dmg, o = {}) {
   sparks(u.x, u.y, 8 * u.scale, 12, 'bolt', 170, 140); flashLight(u.x, u.y, 80, 'bolt', 1.4, 0.18); G.ambFlash = Math.min(0.35, G.ambFlash + 0.08); shake(0.08); SFX.zap(panOf(u.x));
 }
 function chainLightning(h, first) {
-  const hit = new Set(); let from = { x: h.x + h.face * 4, y: h.y - 12 }, tgt = first, delay = 0; const jumps = 5 + Math.min(4, G.floor >> 2);
+  const hit = new Set(); let from = { x: h.x + h.face * 4, y: h.y - 12 }, tgt = first, delay = 0; const jumps = PWR.chain(), weak = G.lvl < 2;
   h.lunge = 0.25; h.la = angTo(h.x, h.y, first.x, first.y);
   for (let i = 0; i < jumps && tgt; i++) {
     const a = from, b = tgt, dm = h.def.dmg * h.mul * (1.25 - i * 0.07); hit.add(b);
-    after(delay, () => { if (!alive(b)) return; bolt(a.x, a.y, b.x, b.y - 7 * b.scale, { life: 0.32, w: 1.15, branches: 2 }); zapHit(b, h, dm); });
+    after(delay, () => { if (!alive(b)) return; bolt(a.x, a.y, b.x, b.y - 7 * b.scale, { life: weak ? 0.2 : 0.32, w: weak ? 0.6 : 1.15, branches: weak ? 0 : 2 }); zapHit(b, h, dm); });
     from = { x: b.x, y: b.y - 7 * b.scale }; delay += 0.065;
     let best = null, bd = 85; for (const m of G.mons) { if (hit.has(m) || m.dead || m.spawnT > 0) continue; const d = dist(b.x, b.y, m.x, m.y); if (d < bd) { bd = d; best = m; } } tgt = best;
   }
@@ -68,7 +68,7 @@ function skyStrike(x, y, src, p = 1) {
   scorch(x, y, 18 * p, 0.8); cracks(x, y, 5, 32 * p, 520, 1.1, 'bolt'); debris(x, y, 10 * p, ['#5a5048', '#7d7064', '#3c342e'], 150, 200, 1.8); smoke(x, y, 2, 'dark', 10, 24, 1.2);
   shake(0.42 * p); hitstop(0.05 * p); kick(0.05 * p); SFX.thunder(panOf(x), Math.min(1.3, p)); buzz(Math.round(50 * p));
 }
-function thunderstorm(h) { banner('THUNDERSTORM', h); SFX.braam(); G.storm = { t: 0, dur: 3.6, next: 0.45, src: h, fin: false }; G.ambDark = Math.max(G.ambDark, 0.75); slowmo(0.55, 0.35); }
+function thunderstorm(h) { banner('THUNDERSTORM', h); SFX.braam(); G.storm = { t: 0, dur: PWR.storm(), next: 0.45, src: h, fin: false }; G.ambDark = Math.max(G.ambDark, 0.75); slowmo(0.55, 0.35); }
 function updateStorm(dt) {
   const s = G.storm; if (!s) return; s.t += dt; G.ambDark = Math.max(G.ambDark, 0.7);
   if (s.t >= s.next && s.t < s.dur - 0.4) { s.next += rand(0.17, 0.3); const t = G.mons.length && chance(0.8) ? pick(G.mons) : null; skyStrike(t ? t.x + rand(-6, 6) : rand(ARENA.x0, ARENA.x1), t ? t.y + rand(-4, 4) : rand(ARENA.y0, ARENA.y1), s.src, rand(0.8, 1.1)); }
@@ -78,9 +78,10 @@ function updateStorm(dt) {
 // ---------- EARTH ----------
 function stoneSpikes(h, t) {
   const a = angTo(h.x, h.y, t.x, t.y); h.lunge = 0.25; h.la = a; SFX.whoosh(panOf(h.x));
-  for (let i = 0; i < 8; i++) after(i * 0.05, () => {
+  const n = PWR.spikes(), small = G.lvl < 3;
+  for (let i = 0; i < n; i++) after(i * 0.05, () => {
     const x = h.x + Math.cos(a) * (14 + i * 11), y = h.y + Math.sin(a) * (14 + i * 11) * 0.85; if (!inArena(x, y)) return;
-    part({ k: 'spike', x, y, life: 0.7, s0: rand(6, 9) });
+    part({ k: 'spike', x, y, life: 0.7, s0: small ? rand(3, 5) : rand(6, 9) + Math.min(4, (G.lvl - 3) * 0.3) });
     debris(x, y, 5, ['#6b625a', '#8a8076', '#4a423c'], 70, 160, 1.6); smoke(x, y, 1, 'dust', 8, 14, 0.8);
     for (const u of within(x, y, 11, G.mons)) hurt(u, h.def.dmg * h.mul * 0.9, h, { elem: 'earth', up: 190, stun: 0.5, kx: Math.cos(a) * 60, ky: Math.sin(a) * 50 });
     shake(0.05); SFX.hit(panOf(x));
@@ -93,7 +94,7 @@ function slamFx(x, y, p, col = 'earth') {
   sparks(x, y, 3, 30 * p, 'fire', 220, 200); flashLight(x, y, 130 * p, 'earth', 1.6, 0.45); scorch(x, y, 22 * p, 0.6);
   shake(0.75 * p); quake(0.9 * p, 0.9); hitstop(0.08 * p); kick(0.1 * p); flash('earth', 0.2); SFX.boom(1.3 * p, panOf(x)); SFX.quake(1); buzz([70, 30, 50]);
 }
-function earthquake(h) { banner('EARTHQUAKE', h, null, 'earth'); SFX.braam(); SFX.quake(3.8); quake(3.8, 1.25); G.eq = { t: 0, dur: 3.8, src: h, rockT: 0.3, crackT: 0, tickT: 0.4 }; buzz([200, 80, 200, 80, 300, 80, 400]); }
+function earthquake(h) { const D = PWR.quake(); banner('EARTHQUAKE', h, null, 'earth'); SFX.braam(); SFX.quake(D); quake(D, 1.25); G.eq = { t: 0, dur: D, src: h, rockT: 0.3, crackT: 0, tickT: 0.4 }; buzz([200, 80, 200, 80, 300, 80, 400]); }
 function updateQuake(dt) {
   const e = G.eq; if (!e) return; e.t += dt; e.rockT -= dt; e.crackT -= dt; e.tickT -= dt; G.ambDark = Math.max(G.ambDark, 0.3);
   if (e.rockT <= 0 && e.t < e.dur - 0.3) { e.rockT = rand(0.08, 0.16); const t = G.mons.length && chance(0.75) ? pick(G.mons) : null, x = t ? t.x + rand(-10, 10) : rand(ARENA.x0, ARENA.x1), y = t ? t.y + rand(-8, 8) : rand(ARENA.y0, ARENA.y1), H = rand(200, 280); proj({ k: 'boulder', x, y, z: H, vz: -H / 0.75, team: 'hero', src: e.src, dmg: e.src.def.dmg * e.src.mul * 1.4, R: 16, life: 2, rk: randi(0, 5), sz: rand(0.8, 1.4) }); }
@@ -104,10 +105,11 @@ function updateQuake(dt) {
 // ---------- STEEL ----------
 function slash(h, t) {
   const a = angTo(h.x, h.y, t.x, t.y); h.lunge = 0.3; h.la = a; h.face = Math.cos(a) < 0 ? -1 : 1; h.combo = (h.combo || 0) + 1;
-  const fin = h.combo % 4 === 0; arcFx(h.x, h.y - 6, a, fin ? 3.4 : 2.2, fin ? 26 : 20, 'gold', 0.2, fin ? 5 : 3.5); SFX.slash(panOf(h.x));
+  const fin = has('CRUSHING BLOW') && h.combo % 4 === 0; arcFx(h.x, h.y - 6, a, fin ? 3.4 : 2.2, fin ? 26 : 20, 'gold', 0.2, fin ? 5 : 3.5); SFX.slash(panOf(h.x));
   let any = false;
   for (const u of within(h.x, h.y, fin ? 30 : 24, G.mons)) { let da = Math.abs(((angTo(h.x, h.y, u.x, u.y) - a) % TAU + TAU + Math.PI) % TAU - Math.PI); if (da > (fin ? 1.8 : 1.25)) continue; any = true; hurt(u, h.def.dmg * h.mul * (fin ? 1.9 : 1), h, { elem: 'phys', kx: Math.cos(a) * (fin ? 260 : 110), ky: Math.sin(a) * (fin ? 200 : 80), up: fin ? 120 : 0, crit: fin || chance(0.18), stun: 0.15 }); sparks(u.x, u.y, 8, fin ? 16 : 7, 'gold', 180, 100, a, 1.6); }
   if (any) { hitstop(fin ? 0.07 : 0.025); shake(fin ? 0.2 : 0.06); if (fin) kick(0.04); flashLight(h.x, h.y, 50, 'gold', 1, 0.12); }
+  if (fin && has('SHOCKWAVE BLOWS')) { const x = h.x + Math.cos(a) * 22, y = h.y + Math.sin(a) * 16; ring(x, y, 40, 'gold', 0.35, 4); cracks(x, y, 4, 30, 400, 1.2); debris(x, y, 10, ['#5a5048', '#7d7064'], 120, 160, 1.8); for (const u of within(x, y, 32, G.mons)) hurt(u, h.def.dmg * h.mul * 1.2, h, { elem: 'earth', up: 150, stun: 0.5 }); shake(0.25); SFX.boom(0.6, panOf(x)); }
 }
 function whirlwind(h) { h.state = { k: 'whirl', t: 0, dur: 1.15, tick: 0 }; SFX.whoosh(panOf(h.x)); }
 function cataclysm(h) {

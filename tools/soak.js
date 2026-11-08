@@ -12,7 +12,7 @@ const { chromium } = require('playwright');
   const t0 = Date.now(); let lastKey = '';
   while ((Date.now() - t0) / 1000 < secs) {
     await page.waitForTimeout(3000);
-    const st = await page.evaluate(() => { const G = CR.G, f = window.__f; window.__f = 0; return { simT: G.time.toFixed(0), fps: (f / 3).toFixed(0), floor: G.floor, run: G.run, phase: G.phase, wave: G.wave + '/' + G.waves, mons: G.mons.length, boss: G.boss ? (G.boss.dead ? 'dead' : Math.round(G.boss.hp) + '/' + G.boss.maxHp) : '-', kills: G.kills, heroes: G.heroes.map(h => h.dead ? 'X' : Math.round(h.hp / h.maxHp * 100) + '%').join(' '), parts: CR.FX.P.length, res: CR.Q.res, err: (window.CR_ERR || []).length }; });
+    const st = await page.evaluate(() => { const G = CR.G, f = window.__f; window.__f = 0; return { simT: G.time.toFixed(0), lvl: G.lvl, xp: Math.round(G.xp), fps: (f / 3).toFixed(0), floor: G.floor, run: G.run, phase: G.phase, wave: G.wave + '/' + G.waves, mons: G.mons.length, boss: G.boss ? (G.boss.dead ? 'dead' : Math.round(G.boss.hp) + '/' + G.boss.maxHp) : '-', kills: G.kills, heroes: G.heroes.map(h => h.dead ? 'X' : Math.round(h.hp / h.maxHp * 100) + '%').join(' '), parts: CR.FX.P.length, res: CR.Q.res, err: (window.CR_ERR || []).length }; });
     const key = st.floor + st.run + st.phase + st.wave + st.boss; if (key !== lastKey || st.err) { console.log(JSON.stringify(st)); lastKey = key; }
   }
   console.log('errors:', errs.length); errs.slice(0, 8).forEach(e => console.log(e));
