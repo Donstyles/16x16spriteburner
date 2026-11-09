@@ -24,7 +24,8 @@ function updateCam(dt) {
   const bw = x1 - x0 + 140, bh = y1 - y0 + 110;
   let zMin = Math.min(VIEW.w / ARENA.pw, VIEW.h / ARENA.ph) * 0.96; if (VIEW.h > VIEW.w) zMin = Math.max(zMin, VIEW.w / (ARENA.pw * 0.62)); const zMax = Math.max(zMin * 1.05, Math.min(VIEW.w, VIEW.h) / 115);
   const tz = clamp(Math.min(VIEW.w / bw, VIEW.h / bh), zMin, zMax);
-  CAM.z = damp(CAM.z, tz, 1.5, dt); CAM.x = damp(CAM.x, (x0 + x1) / 2, 2.4, dt); CAM.y = damp(CAM.y, (y0 + y1) / 2, 2.4, dt);
+  let fx = (x0 + x1) / 2, fy = (y0 + y1) / 2, fz = tz; if (G.focus && G.focus.t > 0) { G.focus.t -= dt; fx = lerp(fx, G.focus.x, G.focus.w); fy = lerp(fy, G.focus.y, G.focus.w); fz = Math.min(zMax, tz * (1 + G.focus.w * 0.35)); }
+  CAM.z = damp(CAM.z, fz, 1.5, dt); CAM.x = damp(CAM.x, fx, 2.4, dt); CAM.y = damp(CAM.y, fy, 2.4, dt);
   const hw = VIEW.w / (2 * CAM.z), hh = VIEW.h / (2 * CAM.z);
   CAM.x = ARENA.pw <= 2 * hw ? ARENA.pw / 2 : clamp(CAM.x, hw - 10, ARENA.pw - hw + 10);
   CAM.y = ARENA.ph <= 2 * hh ? ARENA.ph / 2 : clamp(CAM.y, hh - 10, ARENA.ph - hh + 10);
@@ -67,6 +68,7 @@ function drawProp(c, p) {
 }
 function drawProjBodies(c) {
   for (const p of G.proj) {
+    if (p.k === 'glob') { c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(p.x, p.y, 4, 1.6, 0, 0, TAU); c.fill(); }
     if (p.k === 'mshot' && (p.shot === 'arrow' || p.shot === 'stone')) { const a = Math.atan2(p.vy, p.vx); if (p.shot === 'arrow') { c.strokeStyle = '#d9c9a2'; c.lineWidth = 1; c.beginPath(); c.moveTo(p.x - Math.cos(a) * 7, p.y - p.z - Math.sin(a) * 7); c.lineTo(p.x, p.y - p.z); c.stroke(); c.fillStyle = '#fff'; c.fillRect(p.x - 0.5, p.y - p.z - 0.5, 1.4, 1.4); } else { c.fillStyle = '#8a8076'; c.fillRect(p.x - 1.5, p.y - p.z - 1.5, 3, 3); } }
     else if (p.k === 'meteor' || p.k === 'boulder') {
       const s = (p.k === 'meteor' ? 1.6 * p.big : p.sz) * (1 + p.z / 400), sh = Math.max(2, 10 * s * (1 - p.z / 400));
@@ -81,6 +83,7 @@ function drawProjGlows(c) {
     if (p.k === 'fireball') { const s = 13 * p.big * (0.9 + 0.1 * Math.sin(p.t * 40)); c.drawImage(GLOW.fire, p.x - s, y - s, s * 2, s * 2); c.drawImage(GLOW.hot, p.x - s * 0.4, y - s * 0.4, s * 0.8, s * 0.8); }
     else if (p.k === 'ball') { const s = 15 + Math.sin(p.t * 50) * 3; c.drawImage(GLOW.bolt, p.x - s, y - s, s * 2, s * 2); c.drawImage(GLOW.white, p.x - 5, y - 5, 10, 10); }
     else if (p.k === 'meteor') { const s = 24 * p.big; c.drawImage(GLOW.fire, p.x - s, y - s, s * 2, s * 2); c.drawImage(GLOW.hot, p.x - s * 0.35, y - s * 0.35, s * 0.7, s * 0.7); }
+    else if (p.k === 'glob') { c.drawImage(GLOW.fire, p.x - 8, y - 8, 16, 16); c.drawImage(GLOW.hot, p.x - 3, y - 3, 6, 6); }
     else if (p.k === 'mshot' && p.shot !== 'arrow' && p.shot !== 'stone') { c.drawImage(GLOW[p.col] || GLOW.arcane, p.x - 7, y - 7, 14, 14); c.drawImage(GLOW.white, p.x - 2, y - 2, 4, 4); }
   }
 }
@@ -123,11 +126,11 @@ function render() {
   for (const u of G.units) { if (u.dead && u.team === 'mon') continue; const s = u.r * 1.3 * (1 - Math.min(0.6, u.z / 160)); ctx.beginPath(); ctx.ellipse(u.x, u.y, s, s * 0.42, 0, 0, TAU); ctx.fill(); }
   const list = G.units.slice(); for (const p of ARENA.props) if (!p.dead) list.push(p); list.sort((a, b) => a.y - b.y);
   for (const o of list) o.team ? drawUnit(ctx, o) : drawProp(ctx, o);
-  drawProjBodies(ctx); drawWorldParts(ctx);
+  drawHazardsWorld(ctx); drawProjBodies(ctx); drawWorldParts(ctx);
   renderLight();
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = true; ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(lc, 0, 0, W, H);
   fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.globalCompositeOperation = 'source-over'; fctx.globalAlpha = 1; fctx.clearRect(0, 0, W, H); fctx.globalCompositeOperation = 'lighter'; fctx.imageSmoothingEnabled = true; worldXform(fctx, k);
-  drawAuras(fctx); drawCrackGlow(fctx); drawRings(fctx); drawFxParts(fctx); drawProjGlows(fctx); drawBolts(fctx);
+  drawAuras(fctx); drawHazardsFx(fctx); drawCrackGlow(fctx); drawGhosts(fctx); drawRings(fctx); drawFxParts(fctx); drawProjGlows(fctx); drawBolts(fctx);
   ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(fxc, 0, 0);
   if (Q.bloom > 0) { b1c.clearRect(0, 0, b1.width, b1.height); b1c.drawImage(fxc, 0, 0, b1.width, b1.height); b2c.clearRect(0, 0, b2.width, b2.height); b2c.drawImage(b1, 0, 0, b2.width, b2.height); ctx.globalAlpha = 0.6 * Q.bloom; ctx.drawImage(b1, 0, 0, W, H); ctx.globalAlpha = 0.7 * Q.bloom; ctx.drawImage(b2, 0, 0, W, H); ctx.globalAlpha = 1; }
   if (G.flashA > 0.01) { ctx.fillStyle = rgba(G.flashC, Math.min(0.9, G.flashA)); ctx.fillRect(0, 0, W, H); }

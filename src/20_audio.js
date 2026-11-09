@@ -63,6 +63,14 @@ const SFX = {
   pop(pan = 0) { if (!this.ok('pop', 0.025)) return; this.noise(this.white, 0.12, 'lowpass', 3000, 300, 0.7, 0.35, pan); this.tone('square', 220, 60, 0.1, 0.12, pan); },
   shatter(pan = 0) { if (!this.ok('shatter', 0.04)) return; this.noise(this.white, 0.28, 'highpass', 2500, 7000, 0.7, 0.28, pan); for (let i = 0; i < 4; i++) this.tone('triangle', rand(1800, 4200), 1500, 0.12, 0.05, pan, i * 0.03); },
   drum(inten = 0) { if (!this.ok('drum', 0.2)) return; const g = 0.35 + 0.45 * inten; this.tone('sine', 95, 38, 0.32, g, 0, 0, 0.002, true); this.noise(this.brown, 0.18, 'lowpass', 500, 120, 0.8, g * 0.6, 0); if (inten > 0.6) this.tone('sine', 70, 40, 0.25, g * 0.6, 0, 0.16, 0.002, true); },
+  beam(dur = 1.5, pitch = 1) {
+    if (!this.ok('beam', 0.3)) return; const c = this.ctx, t = c.currentTime, f = c.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 8; f.frequency.setValueAtTime(400, t); f.frequency.linearRampToValueAtTime(2400, t + 0.3);
+    const lfo = c.createOscillator(); lfo.frequency.value = 9; const lg = c.createGain(); lg.gain.value = 500; lfo.connect(lg); lg.connect(f.frequency);
+    const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.3, t + 0.08); g.gain.setValueAtTime(0.3, t + dur - 0.15); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); f.connect(g); g.connect(this.crunch);
+    for (const fr of [110 * pitch, 111.5 * pitch, 220 * pitch]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr; o.connect(f); o.start(t); o.stop(t + dur + 0.05); } lfo.start(t); lfo.stop(t + dur + 0.05);
+    this.noise(this.white, dur, 'bandpass', 3000, 5000, 2, 0.12, 0, 0, 0.05);
+  },
+  charge(tier = 2, wind = 0.5) { if (!this.ok('charge', 0.15)) return; this.tone('sine', 180, 180 * (2 + tier), Math.max(0.2, wind), 0.05 + tier * 0.03, 0, 0, Math.max(0.1, wind * 0.8)); this.noise(this.white, Math.max(0.2, wind), 'bandpass', 400, 3000, 3, 0.06 + tier * 0.03, 0, 0, Math.max(0.1, wind * 0.8)); },
   levelup() { if (!this.ok('levelup', 0.5)) return; [392, 523, 659, 784, 1046, 1318].forEach((f, i) => { this.tone('triangle', f, f, 0.5, 0.1, 0, i * 0.055); this.tone('sine', f * 2, f * 2, 0.3, 0.03, 0, i * 0.055 + 0.02); }); this.noise(this.white, 0.9, 'highpass', 2000, 9000, 0.7, 0.12, 0, 0.1, 0.3); },
   heal() { if (!this.ok('heal', 0.4)) return; [523, 659, 784, 1046].forEach((f, i) => this.tone('sine', f, f, 0.45, 0.08, 0, i * 0.07)); },
   braam() {

@@ -2,10 +2,14 @@
 
 A dungeon battle that plays itself. Four heroes fight their way down an endless cellar, floor by floor, while you watch.
 
-- **Brandt, Battlemage**: sword combos, whirlwind, and CATACLYSM, a leaping slam that splits the floor.
-- **Ignis, Pyromancer**: fireballs, flame nova, and METEOR STORM.
-- **Voltaire, Stormcaller**: chain lightning, ball lightning, and THUNDERSTORM.
-- **Mossa, Earthshaper**: stone spikes, heals, revives, and EARTHQUAKE.
+The party starts at level 1 and earns its spellbook: low spells first, then medium, then the high spells and ultimates. Spells take turns, each with a wind-up and its name over the caster.
+
+| Hero | Low (levels 1-4) | Medium (5-9) | High (10-15) |
+|---|---|---|---|
+| Brandt, melee | Slash, Shield Bash, Lunge, Rising Slash | Blade Flurry, Sword Wave, Ground Pound, Charge | Crushing Blow, Whirlwind, Shockwave Blows, Thousand Cuts, CATACLYSM |
+| Ignis, fire | Ember Bolt, Cinder Spray, Immolate, Blazing Darts | Flame Wall, Heat Ray (laser), Fire Serpents, Magma Pools | Fireball, Flame Nova, METEOR STORM |
+| Voltaire, storm | Spark, Static Charge, Shock Orb, Gust | Lightning Lance, Tesla Coil, Arc Field | Chain Lightning, Ball Lightning, Arc Cannon (laser), THUNDERSTORM |
+| Mossa, earth | Pebble, Mend, Thorn Lash, Rejuvenate, Entangle | Stone Fist, Insect Swarm, Boulder Roll | Stone Spikes, Mass Heal, Resurrection, EARTHQUAKE |
 
 Every fourth floor a boss rises. When a floor is cleared it collapses and the party drops to the next one. If the party falls, a new run starts.
 

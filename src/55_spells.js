@@ -21,9 +21,9 @@ function explode(x, y, R, dmg, src, o = {}) {
   scorch(x, y, R * 0.95, 0.75); if (big >= 0.95) cracks(x, y, randi(4, 7), R * 1.4, 320, 1.8);
   shake(0.32 * big); hitstop(0.04 * big); kick(0.05 * big); flash('fire', 0.1 * big); SFX.boom(big, panOf(x)); buzz(Math.round(30 * big));
 }
-function castFireball(h, tx, ty, big = 1) {
+function castFireball(h, tx, ty, big = 1, dm = 1.5) {
   const a = angTo(h.x, h.y, tx, ty), s = 200; h.lunge = 0.2; h.la = a;
-  proj({ k: 'fireball', x: h.x + Math.cos(a) * 6, y: h.y + Math.sin(a) * 3, z: 11, vx: Math.cos(a) * s, vy: Math.sin(a) * s, team: 'hero', src: h, dmg: h.def.dmg * h.mul * 1.5, R: 26 * big, big, tx, ty, life: 2.2, r: 4 * big });
+  proj({ k: 'fireball', x: h.x + Math.cos(a) * 6, y: h.y + Math.sin(a) * 3, z: 11, vx: Math.cos(a) * s, vy: Math.sin(a) * s, team: 'hero', src: h, dmg: h.def.dmg * h.mul * dm, R: 26 * big, big, tx, ty, life: 2.2, r: 4 * big });
   glows(h.x + Math.cos(a) * 8, h.y, 11, 8, 'fire', 60, 5, 0.3); SFX.fire(panOf(h.x));
 }
 function flameNova(h) {
@@ -44,11 +44,11 @@ function meteorStorm(h) {
 }
 // ---------- LIGHTNING ----------
 function zapHit(u, src, dmg, o = {}) {
-  if (!alive(u)) return; hurt(u, dmg, src, { elem: 'bolt', stun: o.stun || 0.35, kx: rand(-50, 50), ky: rand(-40, 40), crit: chance(0.2), up: o.up || 0 });
+  if (!alive(u) || u.spawnT > 0) return; hurt(u, dmg, src, { elem: 'bolt', stun: o.stun || 0.35, kx: rand(-50, 50), ky: rand(-40, 40), crit: chance(0.2), up: o.up || 0 });
   sparks(u.x, u.y, 8 * u.scale, 12, 'bolt', 170, 140); flashLight(u.x, u.y, 80, 'bolt', 1.4, 0.18); G.ambFlash = Math.min(0.35, G.ambFlash + 0.08); shake(0.08); SFX.zap(panOf(u.x));
 }
-function chainLightning(h, first) {
-  const hit = new Set(); let from = { x: h.x + h.face * 4, y: h.y - 12 }, tgt = first, delay = 0; const jumps = PWR.chain(), weak = G.lvl < 2;
+function chainLightning(h, first, nJumps) {
+  const hit = new Set(); let from = { x: h.x + h.face * 4, y: h.y - 12 }, tgt = first, delay = 0; const jumps = nJumps || PWR.chain(), weak = jumps === 1;
   h.lunge = 0.25; h.la = angTo(h.x, h.y, first.x, first.y);
   for (let i = 0; i < jumps && tgt; i++) {
     const a = from, b = tgt, dm = h.def.dmg * h.mul * (1.25 - i * 0.07); hit.add(b);
@@ -161,6 +161,8 @@ function updateProj(dt) {
       }
       continue;
     }
+    if (p.k === 'glob') { p.u += dt / p.T; p.x = lerp(p.x0, p.tx, Math.min(1, p.u)); p.y = lerp(p.y0, p.ty, Math.min(1, p.u)); p.z = 8 + Math.sin(Math.min(1, p.u) * Math.PI) * 44; if (chance(0.7)) part({ k: 'glow', x: p.x, y: p.y, z: p.z, life: 0.3, s0: 4, s1: 0, col: 'fire' }); light(p.x, p.y, 40, 'fire', 0.8); if (p.u >= 1) { p.dead = true; hazard({ k: 'lava', x: p.tx, y: p.ty, r: 13, life: 4.2, rate: 0.3, dmg: p.dmg, src: p.src }); scorch(p.tx, p.ty, 12, 0.6); glows(p.tx, p.ty, 4, 8, 'fire', 80, 5, 0.5); sparks(p.tx, p.ty, 4, 10, 'fire', 120, 100); SFX.hit(panOf(p.tx)); } continue; }
+    if (p.shot === 'serpent') { p.wob += dt * 9; const s = Math.hypot(p.vx, p.vy), ca = Math.atan2(p.vy, p.vx) + Math.sin(p.wob) * 2.2 * dt; p.vx = Math.cos(ca) * s; p.vy = Math.sin(ca) * s; for (let i = 0; i < 2; i++) part({ k: 'glow', x: p.x + rand(-1, 1), y: p.y, z: p.z, vx: -p.vx * 0.1, vy: -p.vy * 0.1, life: 0.35, s0: 4, s1: 0.5, col: i ? 'fire2' : 'fire' }); light(p.x, p.y, 40, 'fire', 0.8); }
     if (p.home && alive(p.home)) { const a = angTo(p.x, p.y, p.home.x, p.home.y), s = Math.hypot(p.vx, p.vy), ca = Math.atan2(p.vy, p.vx), na = ca + clamp(((a - ca + Math.PI * 3) % TAU) - Math.PI, -1.8 * dt, 1.8 * dt); p.vx = Math.cos(na) * s; p.vy = Math.sin(na) * s; }
     p.x += p.vx * dt; p.y += p.vy * dt;
     if (p.k === 'fireball') { for (let i = 0; i < 2; i++) part({ k: 'glow', x: p.x + rand(-2, 2), y: p.y + rand(-2, 2), z: p.z, vx: -p.vx * 0.15 + rand(-15, 15), vy: -p.vy * 0.15 + rand(-15, 15), drag: 2, life: rand(0.25, 0.45), s0: 6 * p.big, s1: 1, col: chance(0.5) ? 'fire' : 'fire2' }); if (chance(0.4)) embers(p.x, p.y, 1); if (chance(0.25)) smoke(p.x, p.y, 1, 'dark', 6, 6, 0.8, 4); light(p.x, p.y, 60 * p.big, 'fire', 1.1); }
@@ -174,6 +176,8 @@ function updateProj(dt) {
     if (hitU || wall || reached || p.t >= p.life) {
       p.dead = true;
       if (p.k === 'fireball') explode(p.x, p.y, p.R, p.dmg, p.src);
+      else if (p.shot === 'serpent') explode(p.x, p.y, 17, p.dmg, p.src);
+      else if (p.shot === 'sorb') { for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; bolt(p.x, p.y - p.z, p.x + Math.cos(a) * 20, p.y - p.z + Math.sin(a) * 15, { life: 0.16, w: 0.6, branches: 0 }); } for (const u of within(p.x, p.y, 20, G.mons)) zapHit(u, p.src, p.dmg * (u === hitU ? 1 : 0.5), { stun: 0.9 }); flashLight(p.x, p.y, 80, 'bolt2', 1.3, 0.2); }
       else if (p.k === 'mshot') { if (hitU) hurt(hitU, p.dmg, p.src, { elem: p.col === 'bolt' ? 'bolt' : undefined, kx: p.vx * 0.3, ky: p.vy * 0.3 }); if (p.shot === 'orb' || p.shot === 'fire') { glows(p.x, p.y, p.z, 6, p.col, 60, 5, 0.4); flashLight(p.x, p.y, 40, p.col, 1, 0.15); } else sparks(p.x, p.y, p.z, 4, p.col === 'white' ? 'white' : p.col, 70, 50); }
     }
   }

@@ -4,7 +4,7 @@ const NUMCOL = { fire: '#ffb04a', bolt: '#b4d0ff', heal: '#7cff9c', red: '#ff5a4
 const UI = { soundRect: null, titleT: 0 };
 function pushBanner(b) { b.t = 0; b.at = performance.now() / 1000; b.life = b.life || 1.8; if (!G.banner) G.banner = b; else { G.bq.push(b); if (G.bq.length > 6) G.bq.shift(); } }
 function banner(title, hero, sub, col) { pushBanner({ a: title, b: hero ? hero.def.name + ' · ' + heroTitle(hero) : (sub || ''), col: col || (hero ? hero.def.col : 'gold'), life: 1.7 }); }
-function textBanner(a, b, col = 'gold') { pushBanner({ a, b, col, life: 2.4, keep: true }); }
+function textBanner(a, b, col = 'gold', small = false) { pushBanner({ a, b, col, life: small ? 1.8 : 2.4, keep: true, small }); }
 function nextBanner(rdt) {
   if (G.banner) { G.banner.t += rdt; if (G.banner.t >= G.banner.life || (G.bq.length && G.banner.t > 1.2)) G.banner = null; }
   if (!G.banner) { const now = performance.now() / 1000; while (G.bq.length) { const b = G.bq.shift(); if (b.keep || now - b.at < 1.2) { b.t = 0; G.banner = b; break; } } }
@@ -19,8 +19,10 @@ function drawHUD() {
   // floating numbers
   const zf = clamp(CAM.z / 2.4, 0.8, 1.5);
   for (const n of FX.nums) {
-    const [sx, sy] = toScreen(n.x, n.y - n.z), u = n.t / n.life, pop = n.t < 0.08 ? 1 + (1 - n.t / 0.08) * 0.8 : 1, sz = (n.big ? 19 : 12) * zf * pop;
-    c.globalAlpha = u > 0.7 ? (1 - u) / 0.3 : 1; font(c, 600, sz, F_HUD); label(c, n.txt, sx, sy, NUMCOL[n.col] || '#fff', { align: 'center', stroke: n.big ? 4 : 3 });
+    const [sx, sy] = toScreen(n.x, n.y - n.z), u = n.t / n.life, pop = n.t < 0.08 ? 1 + (1 - n.t / 0.08) * 0.8 : 1;
+    c.globalAlpha = u > 0.7 ? (1 - u) / 0.3 : 1;
+    if (n.label !== undefined) { const tier = n.label, cc = COL[n.col] || COL.white, sz = [11, 12, 15, 19, 23][tier] * clamp(CAM.z / 2.4, 0.85, 1.3) * pop; if (tier >= 3) { font(c, 900, sz, F_DISP); c.shadowColor = `rgba(${cc},0.95)`; c.shadowBlur = 14; label(c, n.txt, sx, sy, '#fff4e0', { align: 'center' }); c.shadowBlur = 0; } else { font(c, 600, sz, F_HUD); label(c, n.txt, sx, sy, `rgb(${Math.min(255, cc[0] + 60)},${Math.min(255, cc[1] + 60)},${Math.min(255, cc[2] + 60)})`, { align: 'center', stroke: 3 }); } continue; }
+    const sz = (n.big ? 19 : 12) * zf * pop; font(c, 600, sz, F_HUD); label(c, n.txt, sx, sy, NUMCOL[n.col] || '#fff', { align: 'center', stroke: n.big ? 4 : 3 });
   }
   c.globalAlpha = 1;
   // floor and tally
@@ -51,10 +53,11 @@ function drawHUD() {
   if (G.callout && G.callout.t < 1.4) { const u = G.callout.t / 1.4; c.globalAlpha = u > 0.7 ? (1 - u) / 0.3 : 1; font(c, 900, 22 * (G.callout.t < 0.1 ? 1.6 - G.callout.t * 6 : 1), F_DISP); label(c, G.callout.txt, R, T + 70, '#ffffff', { align: 'right', stroke: 5 }); c.globalAlpha = 1; }
   // ultimate banner
   const bn = G.banner; if (bn) {
-    const u = bn.t / bn.life, a = u > 0.8 ? (1 - u) / 0.2 : 1, s = bn.t < 0.14 ? 2.2 - bn.t / 0.14 * 1.2 : 1, sz = clamp(big / 7, 28, 72) * s, jx = bn.t < 0.5 ? rand(-3, 3) * (1 - bn.t * 2) : 0, y = H * 0.27 + sz * 0.3, cc = COL[bn.col] || COL.gold;
-    const grad = c.createLinearGradient(0, 0, W, 0); grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(0.5, 'rgba(0,0,0,0.5)'); grad.addColorStop(1, 'rgba(0,0,0,0)'); c.globalAlpha = a; c.fillStyle = grad; c.fillRect(0, y - sz * 0.85, W, sz * 1.35);
+    const u = bn.t / bn.life, a = u > 0.8 ? (1 - u) / 0.2 : 1, s = bn.t < 0.14 ? 2.2 - bn.t / 0.14 * 1.2 : 1, sz = clamp(big / 7, 28, 72) * s * (bn.small ? 0.5 : 1), jx = bn.t < 0.5 ? rand(-3, 3) * (1 - bn.t * 2) : 0, y = bn.small ? T + 58 + sz * 0.3 : H * 0.27 + sz * 0.3, cc = COL[bn.col] || COL.gold;
+    const grad = c.createLinearGradient(0, 0, W, 0); grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(0.5, 'rgba(0,0,0,0.5)'); grad.addColorStop(1, 'rgba(0,0,0,0)'); c.globalAlpha = a * (bn.small ? 0.6 : 1); c.fillStyle = grad; c.fillRect(0, y - sz * 0.85, W, sz * (bn.small ? 1.9 : 1.35)); c.globalAlpha = a;
     font(c, 900, sz, F_DISP); c.shadowColor = `rgba(${cc},0.95)`; c.shadowBlur = 24; label(c, bn.a, W / 2 + jx, y, '#fff6e0', { align: 'center' }); c.shadowBlur = 0; label(c, bn.a, W / 2 + jx, y, `rgba(${cc},0.35)`, { align: 'center' });
-    if (bn.b) { font(c, 500, clamp(big / 26, 13, 22), F_HUD); spaced(c, bn.b, W / 2, y + sz * 0.42, 3, `rgb(${cc})`, 'center'); }
+    if (bn.b) { font(c, 500, clamp(big / 26, 13, 22) * (bn.small ? 0.75 : 1), F_HUD); spaced(c, bn.b, W / 2, y + sz * (bn.small ? 0.6 : 0.42), bn.small ? 2 : 3, `rgb(${cc})`, 'center'); }
+    if (bn.c) { font(c, 500, clamp(big / 34, 11, 16), F_HUD); spaced(c, bn.c, W / 2, y - sz * 0.72, 5, 'rgba(255,240,210,0.75)', 'center'); }
     c.globalAlpha = 1;
   }
   // floor card and fades

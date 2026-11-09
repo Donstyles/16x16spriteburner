@@ -1,6 +1,6 @@
 // ===================== FX engine: particles, lightning, shockwaves, cracks, light, shake =====================
 const Q = { pmax: 2600, bloom: 1, res: 1 };
-const FX = { P: [], bolts: [], rings: [], arcs: [], cracks: [], beams: [], lights: [], flights: [], nums: [], tele: [], columns: [], circles: [] };
+const FX = { P: [], bolts: [], rings: [], arcs: [], cracks: [], beams: [], lights: [], flights: [], nums: [], tele: [], columns: [], circles: [], ghosts: [], hz: [] };
 function part(o) {
   if (FX.P.length >= Q.pmax) return null;
   const p = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, g: 0, drag: 0, t: 0, life: 1, s0: 2, s1: 0, a0: 1, a1: 0, col: 'white', k: 'glow', bounce: 0, rot: 0, vr: 0 };
@@ -141,7 +141,8 @@ function drawRings(ctx) {
     ctx.lineWidth = s.w * 0.35; ctx.strokeStyle = `rgba(255,255,255,${al})`; ctx.beginPath(); ctx.ellipse(s.x, s.y, s.r * 0.94, s.r * 0.7, 0, a0 + s.spread * 0.15 * sweep, a1); ctx.stroke();
   }
   for (const b of FX.beams) {
-    const u = b.t / b.life, a = u < 0.1 ? u / 0.1 : 1 - Math.max(0, (u - 0.85) / 0.15); ctx.lineCap = 'round';
+    const u = b.t / b.life, a = b.steady ? 1 : u < 0.1 ? u / 0.1 : 1 - Math.max(0, (u - 0.85) / 0.15); ctx.lineCap = 'round';
+    if (b.cap) { const s0 = b.w * 5, s1 = b.w * 4.5 * (0.85 + 0.15 * Math.sin(b.t * 70 + b.x1)); ctx.globalAlpha = a; ctx.drawImage(GLOW[b.col], b.x0 - s0, b.y0 - s0, s0 * 2, s0 * 2); ctx.drawImage(GLOW.white, b.x0 - s0 * 0.35, b.y0 - s0 * 0.35, s0 * 0.7, s0 * 0.7); ctx.drawImage(GLOW[b.col], b.x1 - s1, b.y1 - s1, s1 * 2, s1 * 2); ctx.drawImage(GLOW.hot, b.x1 - s1 * 0.4, b.y1 - s1 * 0.4, s1 * 0.8, s1 * 0.8); ctx.globalAlpha = 1; }
     for (const [w, al, c] of [[b.w * 3.2, 0.12, b.col], [b.w * 1.6, 0.35, b.col], [b.w * 0.6, 1, 'white']]) { ctx.lineWidth = w * (0.85 + 0.15 * Math.sin(b.t * 60)); ctx.strokeStyle = rgba(c, al * a); ctx.beginPath(); ctx.moveTo(b.x0, b.y0); ctx.lineTo(b.x1, b.y1); ctx.stroke(); }
   }
   for (const c of FX.columns) {
