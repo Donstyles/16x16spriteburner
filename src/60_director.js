@@ -1,7 +1,7 @@
 // ===================== the director: floors, waves, and every mind in the room =====================
 const G = {
   mode: 'boot', floor: 1, run: 0, kills: 0, best: 1, units: [], heroes: [], mons: [], proj: [], sched: [], pending: 0, phase: 'fight', phaseT: 0,
-  lvl: 1, xp: 0, bestLvl: 1, bq: [], wave: 0, waves: 3, waveT: 0, trauma: 0, quakeT: 0, quakeP: 0, hitstop: 0, ts: 1, slowT: 0, flashA: 0, flashC: 'white', ambDark: 0, ambFlash: 0,
+  lvl: 1, xp: 0, bestLvl: 1, bq: [], spawnQ: [], inten: 0, champ: null, gapT: 0, waveSize: 0, packT: 0, wave: 0, waves: 3, waveT: 0, trauma: 0, quakeT: 0, quakeP: 0, hitstop: 0, ts: 1, slowT: 0, flashA: 0, flashC: 'white', ambDark: 0, ambFlash: 0,
   storm: null, eq: null, ultCd: 3, combo: 0, comboT: 0, burst: 0, burstT: 0, banner: null, card: null, fade: 1, time: 0, boss: null,
   monHp: 1, monDmg: 1, heroDmgTaken: 1,
 };
@@ -11,7 +11,7 @@ function makeParty() {
 }
 function scaleForFloor() {
   const f = G.floor - 1;
-  G.monHp = 1 + 0.3 * f; G.monDmg = 1 + 0.24 * f; scaleParty();
+  G.monHp = 1.5 + 0.38 * f; G.monDmg = 1 + 0.22 * f; scaleParty();
 }
 function startRun() {
   G.run++; G.floor = 1; G.lvl = 1; G.xp = 0; makeParty(); startFloor(true);
@@ -22,24 +22,48 @@ function startFloor(first) {
   scaleForFloor();
   const cx = ARENA.pw / 2, cy = ARENA.y1 - 30;
   G.heroes.forEach((h, i) => { h.dead = false; if (h.hp <= 0) h.hp = h.maxHp; h.x = cx + (i - 1.5) * 18; h.y = cy - (i % 2) * 10; h.z = 180 + i * 30; h.vz = 0; h.kx = h.ky = 0; h.state = null; h.stun = 0; h.cd = {}; G.units.push(h); });
-  G.bossFloor = G.floor % 4 === 0; G.waves = G.bossFloor ? 2 : Math.min(5, 2 + Math.floor(G.floor / 2)); G.wave = 0; G.waveT = first ? 4.4 : 2.2; G.phase = 'fight'; G.phaseT = 0;
+  G.bossFloor = G.floor % 4 === 0; G.waves = waveCount(); G.wave = 0; G.waveT = first ? 5 : 3.4; G.spawnQ = []; G.inten = 0; G.champ = null; G.addT = 8; G.phase = 'fight'; G.phaseT = 0;
   CAM.x = cx; CAM.y = ARENA.ph / 2; CAM.z = camFitZoom();
   G.card = { t: 0, life: 2.6, a: 'FLOOR ' + G.floor, b: G.bossFloor ? 'SOMETHING WAITS BELOW' : ARENA.name };
   G.fade = 1; SFX.boom(0.7, 0);
 }
-function spawnWave() {
-  G.wave++;
-  const last = G.wave === G.waves;
+const WARLORD_NAMES = ['GRIMFANG', 'SKARR', 'VORGATH', 'MULK', 'RAZZIK', 'OLD TUSK', 'BLOODEYE', 'THE BUTCHER', 'GNASH', 'IRONJAW', 'SKULLDRINKER', 'MOTHER ROT'];
+const WAVE_CALLS = ['THE RUNES AWAKEN', 'MORE COME', 'THE HORDE GROWS', 'THE WALLS SHAKE', 'THEY KEEP COMING', 'THE CELLAR BLEEDS', 'NO END TO THEM'];
+const MON_CAP = 50;
+function waveCount() { return G.bossFloor ? 6 : Math.min(9, 5 + Math.floor((G.floor - 1) / 2)); }
+// queue a wave: it pours out of the runes in packs, bigger and nastier toward the end of the floor
+function startWave() {
+  G.wave++; G.gapT = 0; const N = G.waves, i = G.wave - 1, last = G.wave === N, f = G.floor;
+  G.inten = G.wave / N;
   if (G.bossFloor && last) { spawnBoss(); return; }
-  const f = G.floor, maxTier = f <= 2 ? 1 : f <= 4 ? 2 : f <= 7 ? 3 : 4;
-  let budget = 8 + f * 3.8 + G.wave * 2.5; const pool = Object.values(MON_DEFS).filter(d => d.tier <= maxTier), list = [];
-  while (budget > 0 && list.length < 26) { const d = pick(pool); if (TIER_COST[d.tier] > budget + 2 && list.length) { if (pool.every(x => TIER_COST[x.tier] > budget)) break; continue; } list.push(d); budget -= TIER_COST[d.tier]; }
-  list.forEach((d, i) => {
-    let x, y, tries = 0; do { const r = chance(0.6) ? pick(ARENA.runes) : null; x = r ? r.x + rand(-10, 10) : rand(ARENA.x0 + 10, ARENA.x1 - 10); y = r ? r.y + rand(-8, 8) : rand(ARENA.y0 + 10, ARENA.y1 - 10); tries++; } while (tries < 12 && (G.heroes.some(h => !h.dead && dist(h.x, h.y, x, y) < 70) || nearestSolid(x, y, 8)));
-    summonMon(d, x, y, i * 0.09);
-  });
-  if (G.wave > 1) textBanner('WAVE ' + G.wave, '');
+  const maxTier = f <= 2 ? 1 : f <= 4 ? 2 : f <= 7 ? 3 : 4, prog = N > 1 ? i / (N - 1) : 1;
+  let budget = (17 + 6.5 * f) * (0.55 + 0.9 * prog);
+  const pool = Object.values(MON_DEFS).filter(d => d.tier <= (prog < 0.34 && maxTier > 1 ? maxTier - 1 : maxTier)), list = [];
+  let guard = 0; while (budget > 0 && guard++ < 400) { const d = pick(pool), c = TIER_COST[d.tier]; if (c > budget + 1.5 && list.length) continue; list.push({ def: d }); budget -= c; }
+  const top = Object.values(MON_DEFS).filter(d => d.tier === maxTier);
+  const fodder = Object.values(MON_DEFS).filter(d => d.tier <= Math.min(2, maxTier) && d.ai === 'melee'); for (let k = 0; k < Math.round((4 + f * 1.5) * (0.6 + 0.8 * prog)); k++) list.push({ def: pick(fodder) });
+  if (prog >= 0.5) for (let k = 0; k < 1 + (prog >= 0.8 ? 1 : 0) + Math.floor(f / 6); k++) list.push({ def: pick(top), elite: true });
+  if (last) list.push({ def: pick(top.filter(d => d.ai !== 'caster').length ? top.filter(d => d.ai !== 'caster') : top), warlord: true });
+  for (let k = list.length - 1; k > 0; k--) { const j = randi(0, k); [list[k], list[j]] = [list[j], list[k]]; }
+  if (last) { const w = list.findIndex(o => o.warlord); list.push(list.splice(w, 1)[0]); }
+  G.spawnQ = list; G.waveSize = list.length; G.packT = last ? 1.6 : 0.4;
+  if (last) { textBanner('FINAL WAVE', G.bossFloor ? '' : 'THE WARLORD OF ' + ARENA.name + ' COMES', 'red'); SFX.braam(); quake(1.2, 0.5); G.ambDark = Math.max(G.ambDark, 0.6); for (const r of ARENA.runes) r.glow = 1.5; }
+  else if (G.wave > 1) textBanner('WAVE ' + G.wave + ' OF ' + N, WAVE_CALLS[(G.wave - 2) % WAVE_CALLS.length], prog > 0.6 ? 'red' : 'gold');
+  else textBanner('WAVE 1 OF ' + N, 'THE RUNES AWAKEN', 'arcane');
 }
+function updateSpawner(dt) {
+  if (!G.spawnQ || !G.spawnQ.length) return;
+  G.packT -= dt; if (G.packT > 0 || G.mons.length + G.pending >= MON_CAP) return;
+  const f = G.floor, prog = G.inten || 0, n = Math.min(G.spawnQ.length, randi(4, 7) + Math.floor(f / 2) + Math.round(prog * 4));
+  const runes = ARENA.runes.slice().sort((a, b) => minHeroDist(b) - minHeroDist(a)), use = runes.slice(0, chance(0.5) ? 1 : 2);
+  for (let k = 0; k < n; k++) {
+    const o = G.spawnQ.shift(), r = use[k % use.length]; r.glow = 1.2; let x = r.x + rand(-14, 14), y = r.y + rand(-10, 10);
+    if (nearestSolid(x, y, 8)) { x = r.x; y = r.y; }
+    summonMon(o.def, x, y, k * 0.12, G.monHp, G.monDmg, o.elite ? 'elite' : o.warlord ? 'warlord' : null);
+  }
+  G.packT = rand(1.0, 1.8) * (1 - 0.35 * prog);
+}
+function minHeroDist(p) { let d = 1e9; for (const h of G.heroes) if (!h.dead) d = Math.min(d, dist(h.x, h.y, p.x, p.y)); return d; }
 function spawnBoss() {
   const def = BOSS_DEFS[(Math.floor(G.floor / 4) - 1) % BOSS_DEFS.length], x = ARENA.pw / 2, y = ARENA.y0 + (ARENA.y1 - ARENA.y0) * 0.38;
   G.ambDark = 1; SFX.braam(); SFX.quake(2.5); quake(2.4, 0.7);
@@ -47,13 +71,13 @@ function spawnBoss() {
   for (let i = 0; i < 40; i++) after(i * 0.05, () => { part({ k: 'glow', x: x + rand(-40, 40), y: y + rand(-28, 28), z: 0, vz: rand(40, 120), drag: 0.4, life: rand(0.6, 1.2), s0: rand(2, 4), s1: 0, col: def.col || 'arcane' }); });
   G.pending++;
   after(2.2, () => {
-    G.pending--; const b = mkUnit('mon', { ...def, ai: 'boss', scale: 3, r: 5, spd: 34, dmg: 30 }, x, y, G.monHp * (1.3 + 0.15 * Math.floor(G.floor / 4 - 1))); b.boss = true; b.mul = G.monDmg; b.moveT = 1.5; b.mi = 0; b.spawnT = 0.3; G.units.push(b); G.boss = b;
+    G.pending--; const b = mkUnit('mon', { ...def, ai: 'boss', scale: 3, r: 5, spd: 34, dmg: 30 }, x, y, G.monHp * 1.6 * (1.3 + 0.15 * Math.floor(G.floor / 4 - 1))); b.boss = true; b.mul = G.monDmg; b.moveT = 1.5; b.mi = 0; b.spawnT = 0.3; G.units.push(b); G.boss = b;
     part({ k: 'glow', x, y, z: 20, life: 0.3, s0: 40, s1: 90, col: 'hot' }); ring(x, y, 140, def.col || 'arcane', 0.7, 8); ring(x, y, 80, 'white', 0.4, 5); flash('white', 0.7); flashLight(x, y, 260, def.col || 'arcane', 2, 0.6);
     smoke(x, y, 16, 'dark', 22, 80, 2.4, 20); debris(x, y, 40, ['#5a5048', '#7d7064', '#3c342e'], 220, 280, 2.4); shake(1); hitstop(0.12); slowmo(0.35, 0.8); SFX.thunder(0, 1.3); buzz([300, 100, 300]);
     textBanner(def.name, def.sub, def.col || 'red');
   });
 }
-function canUlt(h) { return h.ult >= 100 && G.ultCd <= 0 && !G.storm && !G.eq && (G.mons.length >= 4 || (G.boss && alive(G.boss))); }
+function canUlt(h) { return h.ult >= 100 && G.ultCd <= 0 && !G.storm && !G.eq && (G.mons.length >= 7 || (G.boss && alive(G.boss)) || (G.champ && alive(G.champ) && G.mons.length >= 3)); }
 function useUlt(h, fn) { h.ult = 0; G.ultCd = 4.2; fn(h); }
 function heroAI(h, dt) {
   if (h.dead) { h.deadT += dt; return; }
@@ -138,7 +162,8 @@ function monAI(m, dt, heroes) {
 }
 function bossAI(b, dt, t) {
   b.moveT -= dt;
-  if (b.moveT <= 0) { const mv = b.def.moves[b.mi++ % b.def.moves.length]; b.moveT = rand(3, 4); bossMove(b, mv, t); return; }
+  if (!b.enraged && b.hp < b.maxHp * 0.5) { b.enraged = true; b.moveT = 0.8; textBanner('ENRAGED', b.def.name, 'red'); flash('red', 0.35); quake(1.4, 0.8); ring(b.x, b.y, 120, 'red', 0.6, 6); flashLight(b.x, b.y, 220, 'red', 2, 0.8); SFX.braam(); SFX.thunder(0, 1); slowmo(0.4, 0.5); }
+  if (b.moveT <= 0) { const mv = b.def.moves[b.mi++ % b.def.moves.length]; b.moveT = b.enraged ? rand(2, 2.8) : rand(3, 4); bossMove(b, mv, t); return; }
   const d = steer(b, t.x, t.y, b.def.spd || 34, dt, b.r + t.r + 4);
   if (d < b.r + t.r + 10 && !(b.cd.atk > 0)) { b.cd.atk = 1.3; b.lunge = 0.35; b.la = angTo(b.x, b.y, t.x, t.y); arcFx(b.x, b.y - 10, b.la, 2, 30, b.def.col || 'red', 0.22, 5); for (const h of within(b.x, b.y, b.r + 18, G.heroes)) hurt(h, 26 * b.mul, b, { kx: Math.cos(b.la) * 200, ky: Math.sin(b.la) * 150, up: 60 }); shake(0.15); SFX.slash(panOf(b.x)); }
 }
@@ -168,11 +193,16 @@ function monState(m, dt) {
 function updateDirector(dt) {
   G.phaseT += dt;
   if (G.phase === 'fight') {
-    if (!G.heroes.some(h => !h.dead)) { G.phase = 'wipe'; G.phaseT = 0; slowmo(0.3, 2); G.bestLvl = Math.max(G.bestLvl, G.lvl); textBanner('THE PARTY HAS FALLEN', 'FLOOR ' + G.floor + '  ·  LEVEL ' + G.lvl + '  ·  ' + G.kills.toLocaleString() + ' SLAIN', 'red'); pushBanner({ a: 'A NEW PARTY DESCENDS', b: 'BACK TO LEVEL 1', col: 'gold', keep: true, life: 2 }); SFX.braam(); return; }
-    if (!G.mons.length && !G.pending) {
-      if (G.wave < G.waves) { G.waveT -= dt; if (G.waveT <= 0) { spawnWave(); G.waveT = 1.6; } }
-      else { G.phase = 'clear'; G.phaseT = 0; }
+    if (!G.heroes.some(h => !h.dead)) { G.phase = 'wipe'; G.phaseT = 0; slowmo(0.3, 2); G.bestLvl = Math.max(G.bestLvl, G.lvl); textBanner('THE PARTY HAS FALLEN', 'FLOOR ' + G.floor + '  ·  LEVEL ' + G.lvl + '  ·  ' + G.kills.toLocaleString() + ' SLAIN', 'red'); pushBanner({ a: 'THEY RISE AGAIN', b: 'FLOOR ' + G.floor + ' MUST BE TAKEN', col: 'gold', keep: true, life: 2 }); SFX.braam(); return; }
+    updateSpawner(dt);
+    if (G.wave === 0) { G.waveT -= dt; if (G.waveT < 1.6) for (const r of ARENA.runes) r.glow = Math.max(r.glow, 0.6); if (G.waveT <= 0) startWave(); }
+    else if (!G.spawnQ.length && !G.pending) {
+      const nextIsLast = G.wave + 1 === G.waves, left = G.mons.length;
+      if (G.wave >= G.waves) { if (!left) { G.phase = 'clear'; G.phaseT = 0; } }
+      else if (nextIsLast ? left === 0 : left <= Math.max(3, Math.round(G.waveSize * 0.35))) { G.gapT += dt; if (nextIsLast && G.gapT > 1.2) { G.ambDark = Math.max(G.ambDark, Math.min(0.6, G.gapT * 0.25)); if (chance(dt * 4)) quake(0.3, 0.3); } if (G.gapT > (nextIsLast ? 3.2 : 1.8)) startWave(); }
     }
+    if (G.boss && alive(G.boss) && (G.addT = (G.addT || 8) - dt) <= 0) { G.addT = G.boss.enraged ? 7 : 11; if (G.mons.length < 24) { const pool = Object.values(MON_DEFS).filter(d => d.tier <= Math.min(3, 1 + (G.floor >> 2))); for (let k = 0; k < 4 + (G.boss.enraged ? 3 : 0); k++) G.spawnQ.push({ def: pick(pool) }); G.packT = 0; } }
+    if (SFX.on && G.wave > 0 && (G.drumT = (G.drumT || 0) - dt) <= 0) { G.drumT = lerp(1.0, 0.4, clamp(G.inten, 0, 1)); SFX.drum(G.inten); }
   } else if (G.phase === 'clear') {
     if (G.phaseT > 0.6 && !G.cleared) { G.cleared = true; textBanner('FLOOR ' + G.floor + ' CLEARED', G.combo > 5 ? 'BEST STREAK ' + G.combo : '', 'gold'); }
     if (G.phaseT > 1.6 && !G.revived) { G.revived = true; for (const h of G.heroes) { if (h.dead) { h.dead = false; h.hp = Math.round(h.maxHp * 0.6); column(h.x, h.y, 'gold', 1.4, 16); ring(h.x, h.y, 40, 'gold', 0.5, 4); flashLight(h.x, h.y, 120, 'gold', 1.6, 0.6); textPop(h.x, h.y, 24, h.def.name + ' RISES', 'gold'); } else heal(h, h.maxHp * 0.5); } SFX.heal(); }
@@ -181,7 +211,7 @@ function updateDirector(dt) {
     if (G.phaseT > 6.3) { G.cleared = G.revived = G.collapse = false; G.floor++; G.best = Math.max(G.best, G.floor); startFloor(false); }
   } else if (G.phase === 'wipe') {
     if (G.phaseT > 3.6) G.fade = Math.min(1, (G.phaseT - 3.6) / 0.6);
-    if (G.phaseT > 4.4) startRun();
+    if (G.phaseT > 4.4) { const a = xpFor(G.lvl), b = xpFor(G.lvl + 1); G.xp = Math.round(a + (G.xp - a) * 0.5); G.falls = (G.falls || 0) + 1; for (const h of G.heroes) { h.dead = false; h.hp = h.maxHp; h.ult = 0; } startFloor(false); }
   }
 }
 function collapseFloor() {

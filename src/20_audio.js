@@ -62,6 +62,7 @@ const SFX = {
   summon(pan = 0) { if (!this.ok('summon', 0.15)) return; this.noise(this.brown, 0.9, 'bandpass', 150, 900, 2, 0.5, pan, 0, 0.7); this.tone('sawtooth', 52, 48, 0.9, 0.08, pan, 0, 0.6); },
   pop(pan = 0) { if (!this.ok('pop', 0.025)) return; this.noise(this.white, 0.12, 'lowpass', 3000, 300, 0.7, 0.35, pan); this.tone('square', 220, 60, 0.1, 0.12, pan); },
   shatter(pan = 0) { if (!this.ok('shatter', 0.04)) return; this.noise(this.white, 0.28, 'highpass', 2500, 7000, 0.7, 0.28, pan); for (let i = 0; i < 4; i++) this.tone('triangle', rand(1800, 4200), 1500, 0.12, 0.05, pan, i * 0.03); },
+  drum(inten = 0) { if (!this.ok('drum', 0.2)) return; const g = 0.35 + 0.45 * inten; this.tone('sine', 95, 38, 0.32, g, 0, 0, 0.002, true); this.noise(this.brown, 0.18, 'lowpass', 500, 120, 0.8, g * 0.6, 0); if (inten > 0.6) this.tone('sine', 70, 40, 0.25, g * 0.6, 0, 0.16, 0.002, true); },
   levelup() { if (!this.ok('levelup', 0.5)) return; [392, 523, 659, 784, 1046, 1318].forEach((f, i) => { this.tone('triangle', f, f, 0.5, 0.1, 0, i * 0.055); this.tone('sine', f * 2, f * 2, 0.3, 0.03, 0, i * 0.055 + 0.02); }); this.noise(this.white, 0.9, 'highpass', 2000, 9000, 0.7, 0.12, 0, 0.1, 0.3); },
   heal() { if (!this.ok('heal', 0.4)) return; [523, 659, 784, 1046].forEach((f, i) => this.tone('sine', f, f, 0.45, 0.08, 0, i * 0.07)); },
   braam() {

@@ -1,6 +1,6 @@
 // ===================== progression: the party starts weak and earns every power =====================
 const XP_TIER = [0, 1, 2.5, 5, 8];
-const xpFor = L => Math.round(12 * (L - 1) ** 1.75); // total xp needed to reach level L
+const xpFor = L => Math.round(28 * (L - 1) ** 2); // total xp needed to reach level L
 const HERO_PROG = {
   warrior: { titles: [[1, 'SQUIRE'], [3, 'KNIGHT-ERRANT'], [6, 'BATTLEMAGE'], [10, 'WARLORD']], ult: 10 },
   pyro: { titles: [[1, 'APPRENTICE'], [4, 'PYROMANCER'], [7, 'FLAME MAGUS'], [13, 'ARCHMAGE OF CINDERS']], ult: 7, evolve: { lvl: 7, spr: 'FlameMagus' } },

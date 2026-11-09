@@ -88,11 +88,13 @@ function drawAuras(c) {
   for (const h of G.heroes) { if (h.dead) continue; const k = h.def.col, ready = h.ult >= 100, s = 9 + Math.min(8, G.lvl * 0.6) + (ready ? 3 * Math.sin(G.time * 8) : 0); c.globalAlpha = ready ? 0.75 : Math.min(0.45, 0.12 + G.lvl * 0.025); c.drawImage(GLOW[k], h.x - s, h.y - s * 0.4, s * 2, s * 0.8); if (ready && chance(0.15)) part({ k: 'glow', x: h.x + rand(-6, 6), y: h.y, z: rand(0, 6), vz: rand(20, 40), life: 0.6, s0: 2, s1: 0, col: k }); }
   for (const t of ARENA.torches) { const f = 0.8 + 0.2 * noise1(G.time * 9 + t.tx); c.globalAlpha = 0.55 * f; c.drawImage(GLOW.torch, t.x - 6, t.y - 13, 12, 12); }
   for (const p of ARENA.props) if (p.kind === 'brazier') { c.globalAlpha = 0.6; c.drawImage(GLOW.torch, p.x - 9, p.y - 22, 18, 16); }
+  for (const r of ARENA.runes) if (r.glow > 0.02) { const g = Math.min(1, r.glow), s = 12 + 3 * Math.sin(G.time * 9 + r.x); c.globalAlpha = g * 0.85; c.drawImage(GLOW.arcane, r.x - s, r.y - s * 0.6, s * 2, s * 1.2); if (chance(g * 0.3)) part({ k: 'glow', x: r.x + rand(-6, 6), y: r.y + rand(-4, 4), z: 0, vz: rand(20, 50), life: 0.6, s0: 1.8, s1: 0, col: 'arcane' }); }
+  for (const u of G.mons) if (u.rank && u.spawnT <= 0) { const s = 10 * u.scale + 2 * Math.sin(G.time * 7 + u.x); c.globalAlpha = u.rank === 'warlord' ? 0.7 : 0.5; c.drawImage(GLOW.red, u.x - s, u.y - s * 0.4, s * 2, s * 0.8); }
   if (G.boss && alive(G.boss)) { const b = G.boss, s = 34 + 4 * Math.sin(G.time * 5); c.globalAlpha = 0.35; c.drawImage(GLOW[b.def.col || 'red'], b.x - s, b.y - s * 0.5, s * 2, s); }
   c.globalAlpha = 1;
 }
 function renderLight() {
-  const th = ARENA.th.amb, d = clamp(G.ambDark, 0, 1), fl = clamp(G.ambFlash, 0, 0.6), mix = (v, w) => Math.round(clamp(v * (1 - d * 0.8) + w * fl * 0.75, 0, 255));
+  const th = ARENA.th.amb, d = clamp(Math.max(G.ambDark, G.phase === 'fight' ? (G.inten || 0) * 0.32 : 0), 0, 1), fl = clamp(G.ambFlash, 0, 0.6), mix = (v, w) => Math.round(clamp(v * (1 - d * 0.8) + w * fl * 0.75, 0, 255));
   lctx.setTransform(1, 0, 0, 1, 0, 0); lctx.globalCompositeOperation = 'source-over'; lctx.globalAlpha = 1; lctx.fillStyle = `rgb(${mix(th[0], 230)},${mix(th[1], 240)},${mix(th[2], 255)})`; lctx.fillRect(0, 0, lc.width, lc.height);
   lctx.globalCompositeOperation = 'lighter'; worldXform(lctx, lc.width / VIEW.w);
   const L = (x, y, r, k, a) => { if (a <= 0.01) return; const t = lightTex(k); for (let i = 0; i < 2 && a > 0.01; i++, a -= 1) { lctx.globalAlpha = Math.min(1, a); lctx.drawImage(t, x - r, y - r * 0.8, r * 2, r * 1.6); } };
@@ -101,6 +103,8 @@ function renderLight() {
   for (const h of G.heroes) if (!h.dead) { L(h.x, h.y - 6, 46, 'white', 0.45); L(h.x, h.y, 36, h.def.col, 0.35); }
   if (G.boss && alive(G.boss)) L(G.boss.x, G.boss.y - 20, 110, G.boss.def.col || 'red', 0.8);
   for (const c of FX.circles) L(c.x, c.y, c.r * 4, c.col, 0.9);
+  for (const r of ARENA.runes) if (r.glow > 0.02) L(r.x, r.y, 60, 'arcane', Math.min(1, r.glow) * 0.9);
+  for (const u of G.mons) if (u.rank) L(u.x, u.y - 8, 50 * u.scale / 1.5, 'red', 0.6);
   for (const c of FX.cracks) { const heat = clamp(1 - (c.t - 0.2) / c.hot, 0, 1); if (heat > 0 && c.segs.length) { const s = c.segs[(c.segs.length / 2) | 0]; L(s.x1, s.y1, 70, c.col === 'bolt' ? 'bolt' : 'magma', heat * 0.8); } }
   const A = FX.lights; for (let i = 0; i < A.length; i += 5) L(A[i], A[i + 1], A[i + 2], A[i + 3], A[i + 4]); A.length = 0;
   for (const f of FX.flights) { const u = f.t / f.life; L(f.x, f.y, f.r * (1 + u * 0.3), f.col, f.a * (1 - u) * (1 - u)); }

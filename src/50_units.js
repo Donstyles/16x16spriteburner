@@ -72,7 +72,9 @@ function kill(u, src, elem) {
   if (u.team === 'mon') {
     G.kills++; G.combo++; G.comboT = 2.6; G.burst++; G.burstT = 0.7;
     if (src && src.team === 'hero' && ultUnlocked(src)) src.ult = Math.min(100, src.ult + 4);
-    gainXp(u.boss ? 60 + 20 * Math.floor(G.floor / 4) : XP_TIER[u.def.tier] || 1);
+    gainXp(u.boss ? 80 + 30 * Math.floor(G.floor / 4) : (XP_TIER[u.def.tier] || 1) * (u.rank === 'warlord' ? 12 : u.rank === 'elite' ? 4 : 1));
+    if (u.rank === 'warlord') { slowmo(0.25, 1); flash('white', 0.5); ring(u.x, u.y, 120, 'red', 0.7, 7); slamFx(u.x, u.y, 1.3, 'red'); textBanner(u.title + ' IS SLAIN', '', 'gold'); }
+    else if (u.rank === 'elite') { ring(u.x, u.y, 60, 'red', 0.45, 5); shake(0.3); hitstop(0.06); }
     deathFx(u, elem);
     if (u.boss) bossDeath(u);
   } else { u.deadT = 0; u.vz = 120; smoke(u.x, u.y, 6, 'dark', 10, 20, 1.4); flashLight(u.x, u.y, 60, 'red', 1, 0.6); textPop(u.x, u.y, 26, u.def.name + ' FALLS', 'red'); SFX.boom(0.5, panOf(u.x)); shake(0.3); }

@@ -13,8 +13,9 @@ function update(dt) {
   removeIf(G.units, u => u.dead && u.team === 'mon');
   updateProj(dt); updateStorm(dt); updateQuake(dt); updateFx(dt); updateDirector(dt);
   G.ultCd -= dt; if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
-  if (G.burstT > 0) { G.burstT -= dt; if (G.burstT <= 0) { const n = G.burst; G.burst = 0; const t = n >= 25 ? 'GODLIKE' : n >= 18 ? 'MONSTER KILL' : n >= 12 ? 'ULTRA KILL' : n >= 8 ? 'MEGA KILL' : n >= 5 ? 'MULTI KILL' : null; if (t) G.callout = { txt: t + ' ×' + n, t: 0 }; } }
+  if (G.burstT > 0) { G.burstT -= dt; if (G.burstT <= 0) { const n = G.burst; G.burst = 0; const t = n >= 30 ? 'GODLIKE' : n >= 20 ? 'MONSTER KILL' : n >= 14 ? 'ULTRA KILL' : n >= 9 ? 'MEGA KILL' : n >= 6 ? 'MULTI KILL' : null; if (t) G.callout = { txt: t + ' ×' + n, t: 0 }; } }
   G.ambDark = damp(G.ambDark, 0, 1.4, dt); G.ambFlash = damp(G.ambFlash, 0, 10, dt);
+  if (ARENA) for (const r of ARENA.runes) if (r.glow > 0) r.glow = Math.max(0, r.glow - dt * 0.7);
 }
 function frame(t) {
   requestAnimationFrame(frame);
@@ -41,7 +42,7 @@ async function boot() {
   await loadAssets(); resize(); addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
   addEventListener('pointerdown', onTap); document.addEventListener('visibilitychange', () => { if (SFX.ctx) { if (document.hidden) SFX.ctx.suspend(); else if (SFX.on) SFX.ctx.resume(); } });
   startRun(); G.mode = 'play'; const ld = document.getElementById('loading'); if (ld) ld.hidden = true;
-  window.CR = { G, FX, CAM, Q, SFX, VIEW, ARENA: () => ARENA, startRun, startFloor, spawnWave, gainXp, levelUp, xpFor, spawnBoss, meteorStorm, thunderstorm, earthquake, cataclysm, explode, MON_DEFS, HERO_DEFS };
+  window.CR = { G, FX, CAM, Q, SFX, VIEW, ARENA: () => ARENA, startRun, startFloor, startWave, gainXp, levelUp, xpFor, spawnBoss, meteorStorm, thunderstorm, earthquake, cataclysm, explode, MON_DEFS, HERO_DEFS };
   requestAnimationFrame(frame);
 }
 boot().catch(e => { const ld = document.getElementById('loading'); if (ld) ld.textContent = 'Failed to start: ' + e.message; console.error(e); });

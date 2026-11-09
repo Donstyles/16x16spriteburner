@@ -137,12 +137,14 @@ function bossDeath(b) {
   for (let i = 0; i < 9; i++) after(i * 0.13, () => { const x = b.x + rand(-18, 18) * b.scale / 3, y = b.y + rand(-10, 6); part({ k: 'glow', x, y, z: rand(10, 40), life: 0.25, s0: 18, s1: 36, col: 'hot' }); glows(x, y, 20, 10, b.def.col || 'fire', 120, 8, 0.6); sparks(x, y, 20, 18, b.def.col === 'bolt' ? 'bolt' : 'fire', 220, 200); flashLight(x, y, 120, b.def.col || 'fire', 1.6, 0.25); shake(0.3); SFX.boom(0.8, panOf(x)); });
   after(1.2, () => { flash('white', 0.9); ring(b.x, b.y, 160, 'white', 0.8, 8); ring(b.x, b.y, 110, b.def.col || 'fire', 0.6, 6); slamFx(b.x, b.y, 1.8, b.def.col || 'earth'); scorch(b.x, b.y, 50, 0.8); quake(1.8, 1.3); SFX.thunder(0, 1.4); });
 }
-function summonMon(def, x, y, delay, hpMul = G.monHp, dmgMul = G.monDmg) {
+function summonMon(def, x, y, delay, hpMul = G.monHp, dmgMul = G.monDmg, rank = null) {
   x = clamp(x, ARENA.x0 + 8, ARENA.x1 - 8); y = clamp(y, ARENA.y0 + 6, ARENA.y1 - 4); G.pending++;
+  if (rank) { const war = rank === 'warlord'; def = { ...def, scale: (def.scale || 1) * (war ? 1.9 : 1.45), r: (def.r || 5), dmg: def.dmg * (war ? 1.7 : 1.35), hp: def.hp * (war ? 9 : 4), spd: def.spd * 0.9, rank }; }
   const sc = def.scale || 1;
   after(delay, () => { circleFx(x, y, 9 * sc + 5, 'arcane', 1.0); for (let i = 0; i < 10; i++) part({ k: 'glow', x: x + rand(-8, 8), y: y + rand(-5, 5), z: 0, vz: rand(30, 70), drag: 0.5, life: rand(0.5, 0.9), s0: rand(1.5, 3), s1: 0, col: 'arcane' }); SFX.summon(panOf(x)); });
   after(delay + 0.75, () => {
     G.pending--; const m = mkUnit('mon', def, x, y, hpMul); m.mul = dmgMul; m.spawnT = 0.35; G.units.push(m);
+    if (def.rank) { m.rank = def.rank; ring(x, y, 50 * sc, 'red', 0.5, 5); flashLight(x, y, 120, 'red', 1.6, 0.5); shake(0.25); SFX.summon(panOf(x)); if (def.rank === 'warlord') { m.title = pick(WARLORD_NAMES); G.champ = m; textBanner(m.title, 'WARLORD OF ' + ARENA.name, 'red'); quake(1, 0.7); slowmo(0.45, 0.5); smoke(x, y, 12, 'dark', 18, 60, 2, 16); debris(x, y, 30, ['#5a5048', '#7d7064', '#3c342e'], 200, 260, 2.2); } }
     ring(x, y, 22 * sc, 'arcane', 0.3, 3); sparks(x, y, 8, 12, 'arcane', 140, 120); smoke(x, y, 3, 'dark', 9 * sc, 20, 1); flashLight(x, y, 60, 'arcane', 1.2, 0.25); SFX.pop(panOf(x));
   });
 }

@@ -21,7 +21,7 @@ const { chromium } = require('playwright'); const path = require('path');
   // 5. cataclysm leap slam
   await setup(5); await page.waitForTimeout(4200); await page.evaluate(() => CR.cataclysm(CR.G.heroes[0])); await shot('s5_slam', 750);
   // 6. boss
-  await setup(4); await page.evaluate(() => { CR.G.wave = 1; CR.spawnWave(); }); await shot('s6_boss_intro', 2500); await shot('s7_boss_fight', 4000);
+  await setup(4); await page.evaluate(() => { CR.G.wave = CR.G.waves - 1; CR.startWave(); }); await shot('s6_boss_intro', 2500); await shot('s7_boss_fight', 4000);
   console.log('errors', errs.length, errs.slice(0, 5).join('\n'));
   await browser.close();
 })();

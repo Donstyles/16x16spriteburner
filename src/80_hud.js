@@ -29,7 +29,7 @@ function drawHUD() {
   font(c, 600, 17, F_HUD); spaced(c, 'LEVEL ' + G.lvl, L, T + 55, 1.4, '#ffd860'); const lw = c.measureText('LEVEL ' + G.lvl).width + 8 * 1.4 + 6, xa = xpFor(G.lvl), xb = xpFor(G.lvl + 1), xf = clamp((G.xp - xa) / (xb - xa), 0, 1);
   c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(L + lw, T + 47, 90, 5); c.fillStyle = '#ffd860'; c.fillRect(L + lw, T + 47, 90 * xf, 5); c.fillStyle = 'rgba(255,255,255,0.45)'; c.fillRect(L + lw, T + 47, 90 * xf, 1);
   const nx = nextUnlocks(); font(c, 500, 13, F_HUD); if (nx) spaced(c, 'NEXT AT ' + nx.lvl + ':  ' + nx.names.join(' · '), L, T + 70, 1.1, '#c8a050');
-  spaced(c, G.kills.toLocaleString() + ' SLAIN  ·  RUN ' + G.run + (G.best > 1 ? '  ·  DEEPEST ' + G.best : ''), L, T + (nx ? 84 : 70), 1.1, '#8f8472');
+  spaced(c, G.kills.toLocaleString() + ' SLAIN' + (G.falls ? '  ·  FALLEN ' + G.falls + '×' : ''), L, T + (nx ? 84 : 70), 1.1, '#8f8472');
   // party plates
   const pw = 122, rows = W < 560 ? 2 : 1, per = rows === 2 ? 2 : 4;
   G.heroes.forEach((h, i) => {
@@ -40,10 +40,14 @@ function drawHUD() {
     const f = h.dead ? 0 : clamp(h.hp / h.maxHp, 0, 1); c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(x + 28, y + 14, 58, 5); c.fillStyle = f > 0.5 ? '#6cf08a' : f > 0.25 ? '#ffd24a' : '#ff4a3a'; c.fillRect(x + 28, y + 14, 58 * f, 5);
     const ul = h.ult / 100, ready = ul >= 1; c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(x + 28, y + 21, 58, 3); if (ultUnlocked(h)) { c.fillStyle = ready ? `rgba(${COL[h.def.col]},${0.7 + 0.3 * Math.sin(G.time * 10)})` : `rgba(${COL[h.def.col]},0.7)`; c.fillRect(x + 28, y + 21, 58 * ul, 3); } else { font(c, 500, 10, F_HUD); label(c, 'ULT ' + HERO_PROG[h.key].ult, x + 90, y + 25, '#6f6658'); }
   });
+  // wave pips (top centre)
+  if (G.phase === 'fight' && G.wave > 0 && !(G.boss && alive(G.boss))) { const n = G.waves, gap = 13, x0 = W / 2 - (n - 1) * gap / 2, y = T + 8; for (let k = 0; k < n; k++) { const done = k < G.wave - 1, cur = k === G.wave - 1, s = cur ? 4.5 + Math.sin(G.time * 6) : 3.5; c.save(); c.translate(x0 + k * gap, y); c.rotate(Math.PI / 4); c.fillStyle = done ? '#ffd860' : cur ? '#ff7a4a' : 'rgba(255,255,255,0.18)'; c.fillRect(-s / 2, -s / 2, s, s); c.restore(); } font(c, 500, 13, F_HUD); spaced(c, (G.wave === n ? 'FINAL WAVE' : 'WAVE ' + G.wave + ' OF ' + n) + (G.spawnQ.length ? '  ·  ' + G.spawnQ.length + ' INBOUND' : ''), W / 2, y + 18, 1.6, G.wave === n ? '#ff7a4a' : '#bfae90', 'center'); }
+  // warlord bar
+  const ch = G.champ; if (ch && alive(ch) && !(G.boss && alive(G.boss))) { const bw = Math.min(W * 0.36, 300), bx = W / 2 - bw / 2, by = T + 50; font(c, 900, 17, F_DISP); label(c, ch.title, W / 2, by - 5, '#ffb8a0', { align: 'center', stroke: 4 }); c.fillStyle = 'rgba(0,0,0,0.7)'; c.fillRect(bx - 2, by - 2, bw + 4, 8); c.fillStyle = '#c8301e'; c.fillRect(bx, by, bw * clamp(ch.hp / ch.maxHp, 0, 1), 4); }
   // boss bar
   const b = G.boss; if (b && alive(b)) { const bw = Math.min(W * 0.5, 420), bx = W / 2 - bw / 2, by = T + 26; font(c, 900, 20, F_DISP); label(c, b.def.name, W / 2, by - 6, '#f4d8b0', { align: 'center', stroke: 4 }); c.fillStyle = 'rgba(0,0,0,0.7)'; c.fillRect(bx - 2, by - 2, bw + 4, 9); const f = clamp(b.hp / b.maxHp, 0, 1); c.fillStyle = '#5a0c10'; c.fillRect(bx, by, bw, 5); c.fillStyle = '#e8402e'; c.fillRect(bx, by, bw * f, 5); c.fillStyle = 'rgba(255,220,180,0.5)'; c.fillRect(bx, by, bw * f, 1); }
   // kill streak
-  if (G.combo >= 5) { const t = G.combo, lbl = t >= 50 ? 'APOCALYPSE' : t >= 35 ? 'ANNIHILATION' : t >= 20 ? 'MASSACRE' : t >= 10 ? 'RAMPAGE' : 'KILLING SPREE', pul = 1 + Math.max(0, 0.3 - (2.6 - G.comboT)) ; font(c, 900, 30 * pul, F_DISP); label(c, '×' + t, R, T + 26, '#ffcf6a', { align: 'right', stroke: 5 }); font(c, 500, 15, F_HUD); spaced(c, lbl, R, T + 42, 2, '#ff8a4a', 'right'); }
+  if (G.combo >= 10) { const t = G.combo, lbl = t >= 250 ? 'APOCALYPSE' : t >= 150 ? 'ANNIHILATION' : t >= 80 ? 'MASSACRE' : t >= 35 ? 'RAMPAGE' : 'KILLING SPREE', pul = 1 + Math.max(0, 0.3 - (2.6 - G.comboT)) ; font(c, 900, 30 * pul, F_DISP); label(c, '×' + t, R, T + 26, '#ffcf6a', { align: 'right', stroke: 5 }); font(c, 500, 15, F_HUD); spaced(c, lbl, R, T + 42, 2, '#ff8a4a', 'right'); }
   if (G.callout && G.callout.t < 1.4) { const u = G.callout.t / 1.4; c.globalAlpha = u > 0.7 ? (1 - u) / 0.3 : 1; font(c, 900, 22 * (G.callout.t < 0.1 ? 1.6 - G.callout.t * 6 : 1), F_DISP); label(c, G.callout.txt, R, T + 70, '#ffffff', { align: 'right', stroke: 5 }); c.globalAlpha = 1; }
   // ultimate banner
   const bn = G.banner; if (bn) {
