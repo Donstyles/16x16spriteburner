@@ -23,7 +23,9 @@ function frame(t) {
   const rdt = Math.min(0.05, (t - last) / 1000 || 0.016); last = t;
   PERF.acc += rdt; PERF.n++; if (PERF.n >= 90) { const avg = PERF.acc / PERF.n; PERF.acc = PERF.n = 0; if (avg > 0.026 && Q.res > 0.55) { Q.res = Math.max(0.55, Q.res - 0.15); Q.pmax = Math.max(1200, Q.pmax - 400); resize(); PERF.good = 0; } else if (avg > 0.034) Q.bloom = 0.5; else if (avg < 0.0175 && ++PERF.good > 3 && Q.res < 1) { Q.res = Math.min(1, Q.res + 0.1); resize(); PERF.good = 0; } }
   try {
-    if (G.hitstop > 0) G.hitstop -= rdt;
+    updateChoice(rdt); if (G.fightT > 0) G.fightT -= rdt;
+    if (G.choice) { /* the battle holds its breath while the player chooses */ }
+    else if (G.hitstop > 0) G.hitstop -= rdt;
     else { if (G.slowT > 0) G.slowT -= rdt; else G.ts = damp(G.ts, 1, 3, rdt); const dt = rdt * G.ts, n = window.CR_TURBO || 1; for (let i = 0; i < n; i++) update(dt); }
     G.flashA = damp(G.flashA, 0, 9, rdt); if (G.phase === 'fight') G.fade = Math.max(0, G.fade - rdt * 1.4);
     nextBanner(rdt);
@@ -33,7 +35,8 @@ function frame(t) {
   } catch (e) { console.error(e); window.CR_ERR = (window.CR_ERR || []).concat(String(e && e.stack || e)).slice(-5); }
 }
 function onTap(e) {
-  const r = UI.soundRect; const x = e.clientX, y = e.clientY;
+  const r = UI.soundRect; const x = e.clientX, y = e.clientY, hadSound = !!SFX.ctx;
+  if (G.choice && G.choice.picked < 0) { const i = choiceAt(x, y); if (i >= 0) { if (!hadSound) SFX.init(); pickChoice(i); return; } }
   if (!SFX.ctx) { SFX.init(); try { const el = document.documentElement; if (el.requestFullscreen && !/iPhone|iPad/.test(navigator.userAgent)) el.requestFullscreen().then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => { })).catch(() => { }); } catch (err) { } try { navigator.wakeLock && navigator.wakeLock.request('screen').catch(() => { }); } catch (err) { } return; }
   if (r && x >= r[0] && x <= r[0] + r[2] && y >= r[1] && y <= r[1] + r[3]) SFX.toggle();
 }
@@ -41,9 +44,9 @@ async function boot() {
   cvs = document.getElementById('c'); ctx = cvs.getContext('2d', { alpha: false }); fxc = mkCanvas(1, 1); fctx = fxc.getContext('2d'); lc = mkCanvas(1, 1); lctx = lc.getContext('2d'); b1 = mkCanvas(1, 1); b1c = b1.getContext('2d'); b2 = mkCanvas(1, 1); b2c = b2.getContext('2d');
   try { if (document.fonts) await Promise.race([Promise.all([document.fonts.load('900 40px "Grenze Gotisch"'), document.fonts.load('500 16px Teko'), document.fonts.load('600 16px Teko')]), new Promise(r => setTimeout(r, 2500))]); } catch (e) { }
   await loadAssets(); resize(); addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
-  addEventListener('pointerdown', onTap); document.addEventListener('visibilitychange', () => { if (SFX.ctx) { if (document.hidden) SFX.ctx.suspend(); else if (SFX.on) SFX.ctx.resume(); } });
+  addEventListener('pointerdown', onTap); addEventListener('pointermove', e => { if (G.choice) G.choice.hover = choiceAt(e.clientX, e.clientY); }); addEventListener('keydown', e => { if (G.choice && G.choice.picked < 0 && /^[1-3]$/.test(e.key)) pickChoice(+e.key - 1); }); document.addEventListener('visibilitychange', () => { if (SFX.ctx) { if (document.hidden) SFX.ctx.suspend(); else if (SFX.on) SFX.ctx.resume(); } });
   startRun(); G.mode = 'play'; const ld = document.getElementById('loading'); if (ld) ld.hidden = true;
-  window.CR = { G, FX, CAM, Q, SFX, VIEW, ARENA: () => ARENA, startRun, startFloor, startWave, beginCast, SPELLBOOK, live, gainXp, levelUp, xpFor, spawnBoss, meteorStorm, thunderstorm, earthquake, cataclysm, explode, MON_DEFS, HERO_DEFS };
+  window.CR = { G, FX, CAM, Q, SFX, VIEW, ARENA: () => ARENA, startRun, startFloor, startWave, beginCast, SPELLBOOK, live, pickChoice, md, MODS, gainXp, levelUp, xpFor, spawnBoss, meteorStorm, thunderstorm, earthquake, cataclysm, explode, MON_DEFS, HERO_DEFS };
   requestAnimationFrame(frame);
 }
 boot().catch(e => { const ld = document.getElementById('loading'); if (ld) ld.textContent = 'Failed to start: ' + e.message; console.error(e); });

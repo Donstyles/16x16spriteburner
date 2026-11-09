@@ -71,6 +71,7 @@ const SFX = {
     this.noise(this.white, dur, 'bandpass', 3000, 5000, 2, 0.12, 0, 0, 0.05);
   },
   charge(tier = 2, wind = 0.5) { if (!this.ok('charge', 0.15)) return; this.tone('sine', 180, 180 * (2 + tier), Math.max(0.2, wind), 0.05 + tier * 0.03, 0, 0, Math.max(0.1, wind * 0.8)); this.noise(this.white, Math.max(0.2, wind), 'bandpass', 400, 3000, 3, 0.06 + tier * 0.03, 0, 0, Math.max(0.1, wind * 0.8)); },
+  choice() { if (!this.ok('choice', 0.4)) return; this.noise(this.white, 0.6, 'bandpass', 300, 2400, 1.5, 0.25, 0, 0, 0.2); [523, 784, 1046].forEach((f, i) => this.tone('sine', f, f, 0.5, 0.06, 0, 0.15 + i * 0.08)); },
   levelup() { if (!this.ok('levelup', 0.5)) return; [392, 523, 659, 784, 1046, 1318].forEach((f, i) => { this.tone('triangle', f, f, 0.5, 0.1, 0, i * 0.055); this.tone('sine', f * 2, f * 2, 0.3, 0.03, 0, i * 0.055 + 0.02); }); this.noise(this.white, 0.9, 'highpass', 2000, 9000, 0.7, 0.12, 0, 0.1, 0.3); },
   heal() { if (!this.ok('heal', 0.4)) return; [523, 659, 784, 1046].forEach((f, i) => this.tone('sine', f, f, 0.45, 0.08, 0, i * 0.07)); },
   braam() {

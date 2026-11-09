@@ -33,76 +33,108 @@ function laser(h, t, o) {
   } };
 }
 // ---------- FIRE: Ignis ----------
-function emberBolt(h, t) { castFireball(h, t.x, t.y, 0.42, 1.1); }
+const fan = (n, spread) => Array.from({ length: n }, (_, i) => n === 1 ? 0 : (i / (n - 1) - 0.5) * spread);
+function emberBolt(h, t) { const m = md('EMBER BOLT'), a = angTo(h.x, h.y, t.x, t.y), d = dist(h.x, h.y, t.x, t.y); for (const o of fan(1 + m.count, 0.5)) castFireball(h, h.x + Math.cos(a + o) * d, h.y + Math.sin(a + o) * d, 0.42, 1.1 * m.dmg, { burn: m.f.burn }); }
 function cinderSpray(h, t) {
-  const a = angTo(h.x, h.y, t.x, t.y); SFX.fire(panOf(h.x));
-  h.state = { k: 'channel', t: 0, dur: 0.8, tick: 0, fn: (h, s, dt) => {
-    for (let i = 0; i < 3; i++) { const aa = a + rand(-0.4, 0.4), sp = rand(120, 200); part({ k: 'glow', x: h.x + Math.cos(a) * 6, y: h.y + Math.sin(a) * 4, z: 8, vx: Math.cos(aa) * sp, vy: Math.sin(aa) * sp * 0.8, drag: 2.6, life: rand(0.3, 0.5), s0: rand(2.5, 4), s1: 7, col: chance(0.5) ? 'fire' : 'fire2', a0: 0.9, a1: 0 }); }
+  const m = md('CINDER SPRAY'), a = angTo(h.x, h.y, t.x, t.y), cone = 0.4 * m.size, R = 72 * m.size; SFX.fire(panOf(h.x));
+  h.state = { k: 'channel', t: 0, dur: 0.8 * m.dur, tick: 0, fn: (h, s, dt) => {
+    for (let i = 0; i < 3; i++) { const aa = a + rand(-cone, cone), sp = rand(120, 200) * Math.sqrt(m.size); part({ k: 'glow', x: h.x + Math.cos(a) * 6, y: h.y + Math.sin(a) * 4, z: 8, vx: Math.cos(aa) * sp, vy: Math.sin(aa) * sp * 0.8, drag: 2.6, life: rand(0.3, 0.5), s0: rand(2.5, 4), s1: 7, col: chance(0.5) ? 'fire' : 'fire2', a0: 0.9, a1: 0 }); }
     light(h.x + Math.cos(a) * 30, h.y + Math.sin(a) * 22, 60, 'fire', 1);
-    s.tick -= dt; if (s.tick <= 0) { s.tick = 0.15; for (const m of live(G.mons)) { if (dist(h.x, h.y, m.x, m.y) < 72 && Math.abs(angDiff(angTo(h.x, h.y, m.x, m.y), a)) < 0.5) { hurt(m, D(h) * 0.3, h, { elem: 'fire', quiet: true }); m.burn = Math.max(m.burn, 1); } } }
+    s.tick -= dt; if (s.tick <= 0) { s.tick = 0.15; for (const u of live(G.mons)) { if (dist(h.x, h.y, u.x, u.y) < R && Math.abs(angDiff(angTo(h.x, h.y, u.x, u.y), a)) < cone + 0.1) { hurt(u, D(h) * 0.3 * m.dmg, h, { elem: 'fire', quiet: true }); u.burn = Math.max(u.burn, 1); } } }
   } };
 }
-function immolate(h, t) { t.burn = 4.5; t.burnDmg = D(h) * 0.3; t.immo = h; hurt(t, D(h) * 0.7, h, { elem: 'fire' }); column(t.x, t.y, 'fire', 0.8, 7); glows(t.x, t.y, 10, 10, 'fire', 50, 5, 0.6); ring(t.x, t.y, 22, 'fire', 0.3, 3); SFX.fire(panOf(t.x)); }
-function blazingDarts(h) { const ts = live(G.mons).sort((a, b) => dist(h.x, h.y, a.x, a.y) - dist(h.x, h.y, b.x, b.y)).slice(0, 3); ts.forEach((t, i) => after(i * 0.09, () => { if (alive(h)) castFireball(h, t.x + rand(-4, 4), t.y + rand(-3, 3), 0.5, 1.2); })); }
+function immolate(h, t) { const m = md('IMMOLATE'), ts = [t, ...live(G.mons).filter(x => x !== t).sort((a, b) => b.hp - a.hp).slice(0, m.count)]; for (const u of ts) { u.burn = 4.5; u.burnDmg = D(h) * 0.3 * m.dmg; u.immo = h; u.immoR = 34 * m.size; u.immoD = m.dmg; hurt(u, D(h) * 0.7 * m.dmg, h, { elem: 'fire' }); column(u.x, u.y, 'fire', 0.8, 7); glows(u.x, u.y, 10, 10, 'fire', 50, 5, 0.6); ring(u.x, u.y, 22, 'fire', 0.3, 3); } SFX.fire(panOf(t.x)); }
+function blazingDarts(h) { const m = md('BLAZING DARTS'), ts = live(G.mons).sort((a, b) => dist(h.x, h.y, a.x, a.y) - dist(h.x, h.y, b.x, b.y)).slice(0, 3 + m.count); for (let i = 0; i < 3 + m.count && ts.length; i++) { const t = ts[i % ts.length]; after(i * 0.08, () => { if (alive(h)) castFireball(h, t.x + rand(-4, 4), t.y + rand(-3, 3), 0.5 * m.size, 1.2 * m.dmg); }); } }
 function flameWall(h, p) {
-  const a = angTo(h.x, h.y, p.x, p.y), px = -Math.sin(a), py = Math.cos(a), cx = p.x - Math.cos(a) * 10, cy = p.y - Math.sin(a) * 8;
-  for (let i = -4; i <= 4; i++) { const x = cx + px * i * 9, y = cy + py * i * 7; if (!inArena(x, y)) continue; after((i + 4) * 0.04, () => { hazard({ k: 'flame', x, y, r: 8, life: 3.4, rate: 0.3, dmg: D(h) * 0.35, src: h }); debris(x, y, 3, ['#3c342e', '#241c18'], 60, 100, 1.4); glows(x, y, 4, 4, 'fire', 60, 6, 0.4); }); }
-  SFX.boom(0.5, panOf(cx)); shake(0.12);
+  const m = md('FLAME WALL'), a0 = angTo(h.x, h.y, p.x, p.y), half = Math.round(4 * m.size);
+  for (const a of m.count ? [a0, a0 + Math.PI / 2] : [a0]) {
+    const px = -Math.sin(a), py = Math.cos(a), cx = p.x - Math.cos(a0) * 10, cy = p.y - Math.sin(a0) * 8;
+    for (let i = -half; i <= half; i++) { const x = cx + px * i * 9, y = cy + py * i * 7; if (!inArena(x, y)) continue; after((i + half) * 0.035, () => { hazard({ k: 'flame', x, y, r: 8, life: 3.4 * m.dur, rate: 0.3, dmg: D(h) * 0.35 * m.dmg, src: h }); debris(x, y, 3, ['#3c342e', '#241c18'], 60, 100, 1.4); glows(x, y, 4, 4, 'fire', 60, 6, 0.4); }); }
+  }
+  SFX.boom(0.5, panOf(p.x)); shake(0.12);
 }
 function fireSerpents(h) {
-  const ts = live(G.mons).sort((a, b) => dist(h.x, h.y, a.x, a.y) - dist(h.x, h.y, b.x, b.y)).slice(0, 3); if (!ts.length) return;
-  for (let i = 0; i < 3; i++) { const t = ts[i % ts.length], a = angTo(h.x, h.y, t.x, t.y) + (i - 1) * 0.8; proj({ k: 'mshot', shot: 'serpent', x: h.x, y: h.y, z: 9, vx: Math.cos(a) * 115, vy: Math.sin(a) * 100, team: 'hero', src: h, dmg: D(h) * 1.4, col: 'fire', life: 3, r: 3, home: t, wob: rand(TAU) }); }
+  const m = md('FIRE SERPENTS'), n = 3 + m.count, ts = live(G.mons).sort((a, b) => dist(h.x, h.y, a.x, a.y) - dist(h.x, h.y, b.x, b.y)).slice(0, n); if (!ts.length) return;
+  for (let i = 0; i < n; i++) { const t = ts[i % ts.length], a = angTo(h.x, h.y, t.x, t.y) + (i - (n - 1) / 2) * 0.6; after(i * 0.05, () => proj({ k: 'mshot', shot: 'serpent', x: h.x, y: h.y, z: 9, vx: Math.cos(a) * 115, vy: Math.sin(a) * 100, team: 'hero', src: h, dmg: D(h) * 1.4 * m.dmg, col: 'fire', life: 3, r: 3, home: t, wob: rand(TAU), ER: 17 * m.size })); }
   SFX.whoosh(panOf(h.x));
 }
-function magmaPools(h, p) { for (let i = 0; i < 3; i++) { const tx = p.x + rand(-22, 22), ty = p.y + rand(-14, 14); proj({ k: 'glob', x: h.x, y: h.y, x0: h.x, y0: h.y, tx, ty, z: 8, u: 0, T: 0.5 + i * 0.12, team: 'hero', src: h, dmg: D(h) * 0.3, life: 2 }); } SFX.fire(panOf(h.x)); }
-function heatRay(h, t) { laser(h, t, { dur: 1.4, w: 2.2, sweep: 0.5, dps: 1.6, col: 'fire' }); }
+function magmaPools(h, p) { const m = md('MAGMA POOLS'); for (let i = 0; i < 3 + m.count; i++) { const tx = p.x + rand(-26, 26), ty = p.y + rand(-16, 16); proj({ k: 'glob', x: h.x, y: h.y, x0: h.x, y0: h.y, tx, ty, z: 8, u: 0, T: 0.5 + i * 0.1, team: 'hero', src: h, dmg: D(h) * 0.3 * m.dmg, life: 3, PR: 13 * m.size, PL: 4.2 * m.dur }); } SFX.fire(panOf(h.x)); }
+function heatRay(h, t) { const m = md('HEAT RAY'); laser(h, t, { dur: 1.4 * m.dur, w: 2.2 * m.size, sweep: 0.5, dps: 1.6 * m.dmg, col: 'fire' }); }
 // ---------- STORM: Voltaire ----------
-function spark(h, t) { chainLightning(h, t, 1); }
-function staticCharge(h) { const ts = live(G.mons).filter(m => dist(h.x, h.y, m.x, m.y) < 85).slice(0, 3); for (const m of ts) { bolt(h.x, h.y - 10, m.x, m.y - 6, { life: 0.16, w: 0.6, branches: 0 }); zapHit(m, h, D(h) * 0.7, { stun: 0.3 }); } ring(h.x, h.y, 26, 'bolt', 0.25, 2); }
-function shockOrb(h, t) { const a = angTo(h.x, h.y, t.x, t.y); proj({ k: 'mshot', shot: 'sorb', x: h.x, y: h.y, z: 10, vx: Math.cos(a) * 120, vy: Math.sin(a) * 100, team: 'hero', src: h, dmg: D(h) * 1.3, col: 'bolt', life: 2.5, r: 4, home: t }); SFX.zap(panOf(h.x)); }
+function spark(h, t) { const m = md('SPARK'); chainLightning(h, t, 1 + m.count, m.dmg); }
+function staticCharge(h) { const m = md('STATIC CHARGE'), ts = live(G.mons).filter(u => dist(h.x, h.y, u.x, u.y) < 85 * m.size).slice(0, 3 + m.count); for (const u of ts) { bolt(h.x, h.y - 10, u.x, u.y - 6, { life: 0.16, w: 0.6, branches: 0 }); zapHit(u, h, D(h) * 0.7 * m.dmg, { stun: 0.3 }); } ring(h.x, h.y, 26 * m.size, 'bolt', 0.25, 2); }
+function shockOrb(h, t) { const m = md('SHOCK ORB'), ts = [t, ...live(G.mons).filter(x => x !== t).slice(0, m.count)]; ts.forEach((u, i) => { const a = angTo(h.x, h.y, u.x, u.y); proj({ k: 'mshot', shot: 'sorb', x: h.x, y: h.y, z: 10, vx: Math.cos(a) * 120, vy: Math.sin(a) * 100, team: 'hero', src: h, dmg: D(h) * 1.3 * m.dmg, col: 'bolt', life: 2.5, r: 4, home: u, BR: 20 * m.size, ST: 0.9 * m.dur }); }); SFX.zap(panOf(h.x)); }
 function gust(h, t) {
-  const a = angTo(h.x, h.y, t.x, t.y); SFX.whoosh(panOf(h.x));
-  for (let i = 0; i < 28; i++) { const aa = a + rand(-0.5, 0.5), sp = rand(160, 280); part({ k: 'spark', x: h.x + Math.cos(aa) * 8, y: h.y + Math.sin(aa) * 6, z: rand(2, 14), vx: Math.cos(aa) * sp, vy: Math.sin(aa) * sp * 0.8, drag: 2.2, life: rand(0.3, 0.5), col: 'white' }); }
-  smoke(h.x + Math.cos(a) * 20, h.y + Math.sin(a) * 15, 4, 'dust', 8, 50, 0.8, 4);
-  for (const m of live(G.mons)) if (dist(h.x, h.y, m.x, m.y) < 64 && Math.abs(angDiff(angTo(h.x, h.y, m.x, m.y), a)) < 0.65) hurt(m, D(h) * 0.4, h, { kx: Math.cos(a) * 280, ky: Math.sin(a) * 220, stun: 0.5, up: 40 });
+  const m = md('GUST'), a0 = angTo(h.x, h.y, t.x, t.y), R = 64 * m.size, cone = 0.65 * Math.sqrt(m.size); SFX.whoosh(panOf(h.x));
+  for (const a of m.count ? [a0, a0 + Math.PI] : [a0]) {
+    for (let i = 0; i < 28; i++) { const aa = a + rand(-cone * 0.8, cone * 0.8), sp = rand(160, 280) * m.size; part({ k: 'spark', x: h.x + Math.cos(aa) * 8, y: h.y + Math.sin(aa) * 6, z: rand(2, 14), vx: Math.cos(aa) * sp, vy: Math.sin(aa) * sp * 0.8, drag: 2.2, life: rand(0.3, 0.5), col: 'white' }); }
+    smoke(h.x + Math.cos(a) * 20, h.y + Math.sin(a) * 15, 4, 'dust', 8, 50, 0.8, 4);
+    for (const u of live(G.mons)) if (dist(h.x, h.y, u.x, u.y) < R && Math.abs(angDiff(angTo(h.x, h.y, u.x, u.y), a)) < cone) hurt(u, D(h) * 0.4 * m.dmg, h, { kx: Math.cos(a) * 280, ky: Math.sin(a) * 220, stun: 0.5, up: 40 });
+  }
 }
 function lightningLance(h, t) {
-  const a = angTo(h.x, h.y, t.x, t.y), ex = h.x, ey = h.y - 10, [x1, y1] = rayEnd(ex, ey, a);
-  FX.beams.push({ x0: ex, y0: ey, x1, y1, w: 3.2, col: 'bolt', t: 0, life: 0.32, cap: true }); bolt(ex, ey, x1, y1, { life: 0.3, w: 1, branches: 3, jag: 0.35 });
-  for (let k = 0; k <= 8; k++) flashLight(lerp(ex, x1, k / 8), lerp(ey, y1, k / 8) + 8, 50, 'bolt2', 1.2, 0.3);
-  for (const m of live(G.mons)) if (segDist(m.x, m.y - 6, ex, ey, x1, y1) < 9 + m.r) { hurt(m, D(h) * 2.2, h, { elem: 'bolt', stun: 0.5, kx: Math.cos(a) * 90, ky: Math.sin(a) * 70, crit: chance(0.3) }); sparks(m.x, m.y, 8, 8, 'bolt', 160, 120); }
-  sparks(x1, y1 + 10, 6, 20, 'bolt', 240, 180); scorch(x1, y1 + 12, 10, 0.6); flash('bolt2', 0.12); shake(0.22); hitstop(0.04); SFX.thunder(panOf(h.x), 0.6);
+  const m = md('LIGHTNING LANCE'), a0 = angTo(h.x, h.y, t.x, t.y), ex = h.x, ey = h.y - 10, W = 3.2 * m.size;
+  fan(1 + m.count, 0.5 * Math.min(1, m.count)).forEach((o, i) => after(i * 0.07, () => {
+    const a = a0 + o, [x1, y1] = rayEnd(ex, ey, a);
+    FX.beams.push({ x0: ex, y0: ey, x1, y1, w: W, col: 'bolt', t: 0, life: 0.32, cap: true }); bolt(ex, ey, x1, y1, { life: 0.3, w: 1, branches: 3, jag: 0.35 });
+    for (let k = 0; k <= 8; k++) flashLight(lerp(ex, x1, k / 8), lerp(ey, y1, k / 8) + 8, 50, 'bolt2', 1.2, 0.3);
+    for (const u of live(G.mons)) if (segDist(u.x, u.y - 6, ex, ey, x1, y1) < 9 * m.size + u.r) { hurt(u, D(h) * 2.2 * m.dmg, h, { elem: 'bolt', stun: 0.5, kx: Math.cos(a) * 90, ky: Math.sin(a) * 70, crit: chance(0.3) }); sparks(u.x, u.y, 8, 8, 'bolt', 160, 120); }
+    sparks(x1, y1 + 10, 6, 20, 'bolt', 240, 180); scorch(x1, y1 + 12, 10, 0.6); flash('bolt2', 0.12); shake(0.22); hitstop(0.04); SFX.thunder(panOf(h.x), 0.6);
+  }));
 }
-function teslaCoil(h, p) { const x = clamp(p.x + rand(-10, 10), ARENA.x0 + 10, ARENA.x1 - 10), y = clamp(p.y + rand(-8, 8), ARENA.y0 + 10, ARENA.y1 - 6); hazard({ k: 'coil', x, y, r: 72, life: 5.5, rate: 0.28, dmg: D(h) * 0.75, src: h }); ring(x, y, 30, 'bolt', 0.35, 3); debris(x, y, 8, ['#5a5048', '#7d7064'], 80, 120, 1.6); SFX.zap(panOf(x)); }
-function arcField(h, p) { hazard({ k: 'arc', x: p.x, y: p.y, r: 40, life: 3.4, rate: 0.22, dmg: D(h) * 0.4, src: h }); ring(p.x, p.y, 44, 'bolt', 0.4, 4); SFX.thunder(panOf(p.x), 0.4); }
-function arcCannon(h, t) { banner('ARC CANNON', h); laser(h, t, { dur: 2.8, w: 6, sweep: 1.1, dps: 3.2, col: 'bolt', big: true }); }
+function teslaCoil(h, p) { const m = md('TESLA COIL'); for (let i = 0; i <= m.count; i++) { const x = clamp(p.x + rand(-14, 14) + (i ? rand(-40, 40) : 0), ARENA.x0 + 10, ARENA.x1 - 10), y = clamp(p.y + rand(-10, 10) + (i ? rand(-24, 24) : 0), ARENA.y0 + 10, ARENA.y1 - 6); hazard({ k: 'coil', x, y, r: 72 * m.size, life: 5.5 * m.dur, rate: 0.28, dmg: D(h) * 0.75 * m.dmg, src: h }); ring(x, y, 30, 'bolt', 0.35, 3); debris(x, y, 8, ['#5a5048', '#7d7064'], 80, 120, 1.6); } SFX.zap(panOf(p.x)); }
+function arcField(h, p) { const m = md('ARC FIELD'); hazard({ k: 'arc', x: p.x, y: p.y, r: 40 * m.size, life: 3.4 * m.dur, rate: 0.22, dmg: D(h) * 0.4 * m.dmg, src: h }); ring(p.x, p.y, 44 * m.size, 'bolt', 0.4, 4); SFX.thunder(panOf(p.x), 0.4); }
+function arcCannon(h, t) { const m = md('ARC CANNON'); banner('ARC CANNON', h); laser(h, t, { dur: 2.8 * m.dur, w: 6 * m.size, sweep: m.f.sweep ? 2 : 1.1, dps: 3.2 * m.dmg, col: 'bolt', big: true }); }
 // ---------- EARTH: Mossa ----------
-function pebble(h, t) { const a = angTo(h.x, h.y, t.x, t.y); proj({ k: 'mshot', shot: 'stone', x: h.x, y: h.y, z: 8, vx: Math.cos(a) * 190, vy: Math.sin(a) * 160, team: 'hero', src: h, dmg: D(h) * 0.9, col: 'white', life: 1.6, r: 3 }); }
-function mend(h, t) { heal(t, t.maxHp * 0.3); column(t.x, t.y, 'heal', 0.9, 9); ring(t.x, t.y, 26, 'heal', 0.35, 3); SFX.heal(); }
-function thornLash(h, t) { FX.beams.push({ x0: h.x, y0: h.y - 8, x1: t.x, y1: t.y - 6, w: 1.3, col: 'heal', t: 0, life: 0.28 }); for (let k = 0; k < 8; k++) { const u = k / 8; part({ k: 'pix', x: lerp(h.x, t.x, u) + rand(-2, 2), y: lerp(h.y, t.y, u), z: lerp(8, 6, u) + rand(-2, 2), vx: rand(-20, 20), vy: rand(-10, 10), vz: rand(20, 60), g: 300, life: 0.6, s0: 1.2, col: '#3a8a30' }); } hurt(t, D(h) * 1.2, h, { elem: 'earth', stun: 0.8 }); SFX.slash(panOf(t.x)); }
-function rejuvenate(h, t) { t.regen = { t: 4.5, per: t.maxHp * 0.045, tick: 0 }; ring(t.x, t.y, 30, 'heal', 0.5, 3); SFX.heal(); }
-function entangle(h, p) { for (const m of within(p.x, p.y, 34, G.mons)) { m.stun = Math.max(m.stun, m.scale > 1.2 ? 1 : 2); hazard({ k: 'roots', m, x: m.x, y: m.y, life: m.scale > 1.2 ? 1 : 2, seed: rand(100) }); hurt(m, D(h) * 0.5, h, { elem: 'earth', quiet: true }); } debris(p.x, p.y, 12, ['#3a8a30', '#6a4a2a', '#2a5a20'], 70, 120, 1.6); ring(p.x, p.y, 36, 'heal', 0.4, 3); SFX.hit(panOf(p.x)); }
-function stoneFist(h, t) { const x = t.x, y = t.y; teleg(x, y, 16, 0.3, 'earth'); after(0.3, () => { hazard({ k: 'fist', x, y, life: 0.9, r: 15, dmg: D(h) * 2.4, src: h }); debris(x, y, 16, ['#5a5048', '#7d7064', '#3c342e'], 120, 220, 2); smoke(x, y, 4, 'dust', 10, 40, 1); shake(0.25); SFX.boom(0.6, panOf(x)); }); }
-function insectSwarm(h, p) { hazard({ k: 'swarm', x: p.x, y: p.y, tgt: p.u, life: 4.5, rate: 0.3, r: 18, dmg: D(h) * 0.35, src: h, dots: Array.from({ length: 22 }, () => [rand(TAU), rand(4, 12), rand(6, 14)]) }); SFX.whoosh(panOf(p.x)); }
-function boulderRoll(h, p) { const a = angTo(h.x, h.y, p.x, p.y); hazard({ k: 'boulder', x: h.x + Math.cos(a) * 12, y: h.y + Math.sin(a) * 10, vx: Math.cos(a) * 155, vy: Math.sin(a) * 130, a, r: 11, life: 3.2, dmg: D(h) * 2.2, src: h, rot: 0 }); SFX.hit(panOf(h.x)); }
-function massHeal(h) { const hl = G.heroes.filter(x => !x.dead && x.hp < x.maxHp * 0.8); for (const x of hl) { heal(x, x.maxHp * 0.28); column(x.x, x.y, 'heal', 1, 10); } ring(h.x, h.y, 70, 'heal', 0.6, 4); SFX.heal(); }
-function resurrect(h, f) { f = f && f.dead ? f : G.heroes.find(x => x.dead); if (!f) return; f.dead = false; f.hp = Math.round(f.maxHp * 0.5); f.stun = 0.6; f.vz = 90; column(f.x, f.y, 'heal', 1.6, 18); ring(f.x, f.y, 60, 'heal', 0.6, 5); flashLight(f.x, f.y, 150, 'heal', 1.8, 0.7); for (let i = 0; i < 30; i++) part({ k: 'glow', x: f.x + rand(-10, 10), y: f.y + rand(-5, 5), z: rand(0, 30), vz: rand(30, 90), drag: 0.6, life: rand(0.8, 1.6), s0: rand(2, 4), s1: 0, col: chance(0.5) ? 'heal' : 'gold' }); textBanner(f.def.name + ' RISES', 'PULLED FROM THE DARK BY ' + h.def.name, 'heal'); SFX.heal(); slowmo(0.5, 0.4); }
+function pebble(h, t) { const m = md('PEBBLE'), a0 = angTo(h.x, h.y, t.x, t.y); for (const o of fan(1 + m.count, 0.45)) { const a = a0 + o; proj({ k: 'mshot', shot: 'stone', x: h.x, y: h.y, z: 8, vx: Math.cos(a) * 190, vy: Math.sin(a) * 160, team: 'hero', src: h, dmg: D(h) * 0.9 * m.dmg, col: 'white', life: 1.6, r: 3 }); } }
+function mend(h, t) { const m = md('MEND'), ts = [t, ...G.heroes.filter(x => !x.dead && x !== t && x.hp < x.maxHp).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp).slice(0, m.count)]; for (const u of ts) { heal(u, u.maxHp * 0.3 * m.dmg); column(u.x, u.y, 'heal', 0.9, 9); ring(u.x, u.y, 26, 'heal', 0.35, 3); } SFX.heal(); }
+function thornLash(h, t) { const m = md('THORN LASH'), ts = [t, ...live(G.mons).filter(x => x !== t && dist(h.x, h.y, x.x, x.y) < 120).slice(0, m.count)]; for (const u of ts) { FX.beams.push({ x0: h.x, y0: h.y - 8, x1: u.x, y1: u.y - 6, w: 1.3, col: 'heal', t: 0, life: 0.28 }); for (let k = 0; k < 8; k++) { const f = k / 8; part({ k: 'pix', x: lerp(h.x, u.x, f) + rand(-2, 2), y: lerp(h.y, u.y, f), z: lerp(8, 6, f) + rand(-2, 2), vx: rand(-20, 20), vy: rand(-10, 10), vz: rand(20, 60), g: 300, life: 0.6, s0: 1.2, col: '#3a8a30' }); } hurt(u, D(h) * 1.2 * m.dmg, h, { elem: 'earth', stun: 0.8 * m.size }); } SFX.slash(panOf(t.x)); }
+function rejuvenate(h, t) { const m = md('REJUVENATE'), ts = [t, ...G.heroes.filter(x => !x.dead && x !== t).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp).slice(0, m.count)]; for (const u of ts) { u.regen = { t: 4.5 * m.dur, per: u.maxHp * 0.045 * m.dmg, tick: 0 }; ring(u.x, u.y, 30, 'heal', 0.5, 3); } SFX.heal(); }
+function entangle(h, p) { const m = md('ENTANGLE'), R = 34 * m.size; for (const u of within(p.x, p.y, R, G.mons)) { const T = (u.scale > 1.2 ? 1 : 2) * m.dur; u.stun = Math.max(u.stun, T); hazard({ k: 'roots', m: u, x: u.x, y: u.y, life: T, seed: rand(100) }); hurt(u, D(h) * 0.5 * m.dmg, h, { elem: 'earth', quiet: true }); } debris(p.x, p.y, 12, ['#3a8a30', '#6a4a2a', '#2a5a20'], 70, 120, 1.6); ring(p.x, p.y, R + 2, 'heal', 0.4, 3); SFX.hit(panOf(p.x)); }
+function stoneFist(h, t) { const m = md('STONE FIST'), ts = [t, ...live(G.mons).filter(x => x !== t).sort((a, b) => b.hp - a.hp).slice(0, m.count)]; ts.forEach((u, i) => { const x = u.x, y = u.y; teleg(x, y, 16 * m.size, 0.3, 'earth'); after(0.3 + i * 0.12, () => { hazard({ k: 'fist', x, y, life: 0.9, r: 15 * m.size, sz: m.size, dmg: D(h) * 2.4 * m.dmg, src: h }); debris(x, y, 16, ['#5a5048', '#7d7064', '#3c342e'], 120, 220, 2); smoke(x, y, 4, 'dust', 10, 40, 1); shake(0.25); SFX.boom(0.6, panOf(x)); }); }); }
+function insectSwarm(h, p) { const m = md('INSECT SWARM'); for (let i = 0; i <= m.count; i++) { const tg = i ? pick(live(G.mons)) || p.u : p.u; hazard({ k: 'swarm', x: tg ? tg.x : p.x, y: tg ? tg.y : p.y, tgt: tg, life: 4.5 * m.dur, rate: 0.3, r: 18, dmg: D(h) * 0.35 * m.dmg, src: h, dots: Array.from({ length: 22 }, () => [rand(TAU), rand(4, 12), rand(6, 14)]) }); } SFX.whoosh(panOf(p.x)); }
+function boulderRoll(h, p) { const m = md('BOULDER ROLL'), a0 = angTo(h.x, h.y, p.x, p.y); for (const o of fan(1 + m.count, 0.6)) { const a = a0 + o; hazard({ k: 'boulder', x: h.x + Math.cos(a) * 12, y: h.y + Math.sin(a) * 10, vx: Math.cos(a) * 155, vy: Math.sin(a) * 130, a, r: 11 * m.size, sz: m.size, life: 3.2 * m.dur, dmg: D(h) * 2.2 * m.dmg, src: h, rot: 0 }); } SFX.hit(panOf(h.x)); }
+function massHeal(h) { const m = md('MASS HEAL'), hl = G.heroes.filter(x => !x.dead && x.hp < x.maxHp * 0.8); for (const x of hl) { heal(x, x.maxHp * 0.28 * m.dmg); column(x.x, x.y, 'heal', 1, 10); if (m.f.regen) x.regen = { t: 4, per: x.maxHp * 0.04, tick: 0 }; } ring(h.x, h.y, 70, 'heal', 0.6, 4); SFX.heal(); }
+function resurrect(h, f) {
+  const m = md('RESURRECTION'); f = f && f.dead ? f : G.heroes.find(x => x.dead); if (!f) return; f.dead = false; f.hp = Math.round(f.maxHp * Math.min(1, 0.5 * m.dmg)); f.stun = 0.6; f.vz = 90;
+  column(f.x, f.y, 'heal', 1.6, 18); ring(f.x, f.y, 60, 'heal', 0.6, 5); flashLight(f.x, f.y, 150, 'heal', 1.8, 0.7); for (let i = 0; i < 30; i++) part({ k: 'glow', x: f.x + rand(-10, 10), y: f.y + rand(-5, 5), z: rand(0, 30), vz: rand(30, 90), drag: 0.6, life: rand(0.8, 1.6), s0: rand(2, 4), s1: 0, col: chance(0.5) ? 'heal' : 'gold' });
+  if (m.f.blast) { ring(f.x, f.y, 90, 'gold', 0.5, 6); for (const u of within(f.x, f.y, 60, G.mons)) { const a = angTo(f.x, f.y, u.x, u.y); hurt(u, D(h) * 2, h, { elem: 'earth', kx: Math.cos(a) * 300, ky: Math.sin(a) * 240, up: 200, stun: 1 }); } shake(0.4); }
+  textBanner(f.def.name + ' RISES', 'PULLED FROM THE DARK BY ' + h.def.name, 'heal'); SFX.heal(); slowmo(0.5, 0.4);
+}
 // ---------- STEEL: Brandt ----------
 function dash(h, tx, ty, dur, o = {}) { tx = clamp(tx, ARENA.x0 + 6, ARENA.x1 - 6); ty = clamp(ty, ARENA.y0 + 4, ARENA.y1 - 2); h.state = { k: 'dash', t: 0, dur, x0: h.x, y0: h.y, x1: tx, y1: ty, hit: new Set(), r: o.r || 12, onHit: o.onHit, onEnd: o.onEnd, col: o.col || 'gold', gT: 0 }; h.face = tx < h.x ? -1 : 1; }
-function shieldBash(h, t) { const a = angTo(h.x, h.y, t.x, t.y); dash(h, t.x - Math.cos(a) * 9, t.y - Math.sin(a) * 7, 0.12, { r: 10, onHit: m => { hurt(m, D(h) * 1.1, h, { kx: Math.cos(a) * 230, ky: Math.sin(a) * 180, stun: 1.1, crit: true }); for (let i = 0; i < 12; i++) { const b = i / 12 * TAU; part({ k: 'spark', x: m.x, y: m.y, z: 8, vx: Math.cos(b) * 200, vy: Math.sin(b) * 160, drag: 5, life: 0.25, col: 'white' }); } ring(m.x, m.y, 18, 'white', 0.2, 3); hitstop(0.05); SFX.clang(panOf(m.x)); } }); }
-function lunge(h, t) { const a = angTo(h.x, h.y, t.x, t.y), tx = t.x + Math.cos(a) * 14, ty = t.y + Math.sin(a) * 11; FX.beams.push({ x0: h.x, y0: h.y - 6, x1: tx, y1: ty - 6, w: 0.9, col: 'gold', t: 0, life: 0.22 }); dash(h, tx, ty, 0.16, { r: 11, onHit: m => { hurt(m, D(h) * 1.5, h, { kx: Math.cos(a) * 160, ky: Math.sin(a) * 120, crit: chance(0.4) }); sparks(m.x, m.y, 8, 10, 'gold', 200, 100, a, 1); } }); SFX.slash(panOf(h.x)); }
-function risingSlash(h, t) { arcFx(h.x, h.y - 6, -Math.PI / 2, 2.6, 18, 'gold', 0.22, 4); hurt(t, D(h) * 1.2, h, { up: 320, stun: 1, crit: true }); sparks(t.x, t.y, 6, 10, 'gold', 120, 220, -Math.PI / 2, 1.2); SFX.slash(panOf(h.x)); h.lunge = 0.3; h.la = -Math.PI / 2; after(0.32, () => { if (!alive(t) || !alive(h)) return; arcFx(t.x, t.y - t.z - 4, rand(TAU), 3, 14, 'gold', 0.18, 3.5); hurt(t, D(h) * 0.9, h, { kx: h.face * 220, ky: rand(-60, 60), crit: true }); sparks(t.x, t.y, t.z + 4, 12, 'gold', 180, 60); hitstop(0.05); SFX.clang(panOf(t.x)); }); }
-function bladeFlurry(h, t) {
-  h.state = { k: 'hold', t: 0, dur: 0.62 }; SFX.whoosh(panOf(h.x));
-  for (let i = 0; i < 7; i++) after(i * 0.075, () => { if (!alive(t) || !alive(h)) return; const last = i === 6, a = rand(TAU); arcFx(t.x, t.y - 6, a, last ? 3.6 : 2.2, last ? 22 : 14, 'gold', 0.14, last ? 5 : 2.5); ghost(h, 'gold', 0.18); h.face = t.x < h.x ? -1 : 1; hurt(t, D(h) * (last ? 1.8 : 0.45), h, { elem: 'phys', kx: last ? h.face * 260 : 0, crit: last, quiet: !last && i % 2 === 0 }); sparks(t.x, t.y, 8, last ? 16 : 4, 'gold', 170, 90); SFX.slash(panOf(t.x)); if (last) { hitstop(0.07); shake(0.2); kick(0.03); } });
+function shieldBash(h, t) {
+  const m = md('SHIELD BASH'), a = angTo(h.x, h.y, t.x, t.y);
+  const hit = u => { hurt(u, D(h) * 1.1 * m.dmg, h, { kx: Math.cos(a) * 230, ky: Math.sin(a) * 180, stun: 1.1, crit: true }); for (let i = 0; i < 12; i++) { const b = i / 12 * TAU; part({ k: 'spark', x: u.x, y: u.y, z: 8, vx: Math.cos(b) * 200, vy: Math.sin(b) * 160, drag: 5, life: 0.25, col: 'white' }); } ring(u.x, u.y, 18, 'white', 0.2, 3); hitstop(0.05); SFX.clang(panOf(u.x)); };
+  dash(h, t.x - Math.cos(a) * 9, t.y - Math.sin(a) * 7, 0.12, { r: 10, onHit: hit, onEnd: () => { if (m.f.wide) { ring(h.x, h.y, 44, 'white', 0.3, 4); for (const u of within(h.x, h.y, 30, G.mons)) hurt(u, D(h) * 0.7 * m.dmg, h, { stun: 0.9, kx: Math.cos(angTo(h.x, h.y, u.x, u.y)) * 200, ky: Math.sin(angTo(h.x, h.y, u.x, u.y)) * 160 }); shake(0.2); } } });
 }
-function swordWave(h, t) { const a = angTo(h.x, h.y, t.x, t.y); arcFx(h.x, h.y - 6, a, 2.4, 22, 'gold', 0.18, 4); hazard({ k: 'wave', x: h.x + Math.cos(a) * 10, y: h.y + Math.sin(a) * 8, vx: Math.cos(a) * 230, vy: Math.sin(a) * 190, a, r: 15, life: 0.95, dmg: D(h) * 1.7, src: h }); SFX.slash(panOf(h.x)); SFX.whoosh(panOf(h.x)); }
-function groundPound(h) { h.state = { k: 'leap', t: 0, dur: 0.34, x0: h.x, y0: h.y, x1: h.x, y1: h.y, pow: 0.6, R: 42, dm: 1.6, hgt: 34 }; }
-function charge(h, t) { const a = angTo(h.x, h.y, t.x, t.y), L = 130, px = -Math.sin(a), py = Math.cos(a); dash(h, h.x + Math.cos(a) * L, h.y + Math.sin(a) * L * 0.85, 0.5, { r: 13, onHit: m => { const side = ((m.x - h.x) * px + (m.y - h.y) * py) > 0 ? 1 : -1; hurt(m, D(h) * 1.4, h, { kx: px * side * 280 + Math.cos(a) * 80, ky: py * side * 220, up: 170, stun: 0.7 }); debris(m.x, m.y, 4, ['#5a5048', '#7d7064'], 80, 100, 1.4); hitstop(0.02); SFX.hit(panOf(m.x)); }, onEnd: () => { ring(h.x, h.y, 40, 'gold', 0.3, 4); smoke(h.x, h.y, 5, 'dust', 10, 40, 1); shake(0.2); } }); SFX.whoosh(panOf(h.x)); }
+function lunge(h, t, left) {
+  const m = md('LUNGE'); left = left === undefined ? m.count : left; const a = angTo(h.x, h.y, t.x, t.y), tx = t.x + Math.cos(a) * 14, ty = t.y + Math.sin(a) * 11;
+  FX.beams.push({ x0: h.x, y0: h.y - 6, x1: tx, y1: ty - 6, w: 0.9 * m.size, col: 'gold', t: 0, life: 0.22 });
+  dash(h, tx, ty, 0.16, { r: 11 * m.size, onHit: u => { hurt(u, D(h) * 1.5 * m.dmg, h, { kx: Math.cos(a) * 160, ky: Math.sin(a) * 120, crit: chance(0.4) }); sparks(u.x, u.y, 8, 10, 'gold', 200, 100, a, 1); }, onEnd: () => { if (left > 0) { const n = farFoe(h, live(G.mons), 30, 110 * m.size); if (n) after(0.06, () => { if (alive(h) && !h.state) lunge(h, n, left - 1); }); } } });
+  SFX.slash(panOf(h.x));
+}
+function risingSlash(h, t) {
+  const m = md('RISING SLASH'), ts = m.f.wide ? within(h.x, h.y, 26, G.mons) : [t];
+  arcFx(h.x, h.y - 6, -Math.PI / 2, 2.6, 18, 'gold', 0.22, 4); h.lunge = 0.3; h.la = -Math.PI / 2; SFX.slash(panOf(h.x));
+  for (const u of ts) { hurt(u, D(h) * 1.2 * m.dmg, h, { up: 320 * m.size, stun: 1, crit: true }); sparks(u.x, u.y, 6, 10, 'gold', 120, 220, -Math.PI / 2, 1.2); }
+  for (let k = 0; k <= m.count; k++) after(0.3 + k * 0.14, () => { for (const u of ts) { if (!alive(u) || !alive(h)) continue; arcFx(u.x, u.y - u.z - 4, rand(TAU), 3, 14, 'gold', 0.18, 3.5); hurt(u, D(h) * 0.9 * m.dmg, h, { kx: k === m.count ? h.face * 220 : 0, ky: rand(-60, 60), up: k < m.count ? 120 : 0, crit: true }); sparks(u.x, u.y, u.z + 4, 12, 'gold', 180, 60); } hitstop(0.05); SFX.clang(panOf(t.x)); });
+}
+function bladeFlurry(h, t) {
+  const m = md('BLADE FLURRY'), n = 7 + m.count; h.state = { k: 'hold', t: 0, dur: 0.1 + n * 0.075 }; SFX.whoosh(panOf(h.x));
+  for (let i = 0; i < n; i++) after(i * 0.075, () => { if (!alive(t) || !alive(h)) return; const last = i === n - 1, a = rand(TAU); arcFx(t.x, t.y - 6, a, last ? 3.6 : 2.2, last ? 22 : 14, 'gold', 0.14, last ? 5 : 2.5); ghost(h, 'gold', 0.18); h.face = t.x < h.x ? -1 : 1; hurt(t, D(h) * (last ? 1.8 * m.dmg : 0.45), h, { elem: 'phys', kx: last ? h.face * 260 : 0, crit: last, quiet: !last && i % 2 === 0 }); sparks(t.x, t.y, 8, last ? 16 : 4, 'gold', 170, 90); SFX.slash(panOf(t.x)); if (last) { hitstop(0.07); shake(0.2); kick(0.03); } });
+}
+function swordWave(h, t) { const m = md('SWORD WAVE'), a0 = angTo(h.x, h.y, t.x, t.y); arcFx(h.x, h.y - 6, a0, 2.4, 22, 'gold', 0.18, 4); for (const o of fan(1 + m.count, 0.5)) { const a = a0 + o; hazard({ k: 'wave', x: h.x + Math.cos(a) * 10, y: h.y + Math.sin(a) * 8, vx: Math.cos(a) * 230, vy: Math.sin(a) * 190, a, r: 15 * m.size, sz: m.size, life: 0.95 * m.dur, dmg: D(h) * 1.7 * m.dmg, src: h }); } SFX.slash(panOf(h.x)); SFX.whoosh(panOf(h.x)); }
+function groundPound(h) { const m = md('GROUND POUND'); h.state = { k: 'leap', t: 0, dur: 0.34, x0: h.x, y0: h.y, x1: h.x, y1: h.y, pow: 0.6 * m.size, R: 42 * m.size, dm: 1.6 * m.dmg, hgt: 34 }; if (m.count) after(0.75, () => { if (alive(h) && !h.state) h.state = { k: 'leap', t: 0, dur: 0.3, x0: h.x, y0: h.y, x1: h.x, y1: h.y, pow: 0.7 * m.size, R: 48 * m.size, dm: 1.4 * m.dmg, hgt: 40 }; }); }
+function charge(h, t, back) {
+  const m = md('CHARGE'), a = angTo(h.x, h.y, t.x, t.y), L = 130 * m.dur, px = -Math.sin(a), py = Math.cos(a);
+  dash(h, h.x + Math.cos(a) * L, h.y + Math.sin(a) * L * 0.85, 0.5 * Math.sqrt(m.dur), { r: 13, onHit: u => { const side = ((u.x - h.x) * px + (u.y - h.y) * py) > 0 ? 1 : -1; hurt(u, D(h) * 1.4 * m.dmg, h, { kx: px * side * 280 + Math.cos(a) * 80, ky: py * side * 220, up: 170, stun: 0.7 }); debris(u.x, u.y, 4, ['#5a5048', '#7d7064'], 80, 100, 1.4); hitstop(0.02); SFX.hit(panOf(u.x)); }, onEnd: () => { ring(h.x, h.y, 40, 'gold', 0.3, 4); smoke(h.x, h.y, 5, 'dust', 10, 40, 1); shake(0.2); if (m.count && !back) { const n = nearest(h, live(G.mons), 160); if (n) after(0.15, () => { if (alive(h) && !h.state) charge(h, n, true); }); } } });
+  SFX.whoosh(panOf(h.x));
+}
 function thousandCuts(h) {
-  const list = live(G.mons).sort((a, b) => dist(h.x, h.y, a.x, a.y) - dist(h.x, h.y, b.x, b.y)).slice(0, 10 + Math.min(8, G.lvl - 13)); if (!list.length) return;
+  const m = md('THOUSAND CUTS'), list = live(G.mons).sort((a, b) => dist(h.x, h.y, a.x, a.y) - dist(h.x, h.y, b.x, b.y)).slice(0, 10 + Math.min(8, G.lvl - 13) + m.count); if (!list.length) return;
   banner('THOUSAND CUTS', h); slowmo(0.4, 1.4); G.ambDark = Math.max(G.ambDark, 0.65); flash('white', 0.25); SFX.braam();
-  h.state = { k: 'cuts', t: 0, i: 0, list, step: 0.1, marked: [] };
+  h.state = { k: 'cuts', t: 0, i: 0, list, step: 0.1, marked: [], dm: m.dmg };
 }
 // ---------- the book ----------
 const SPELLBOOK = {
@@ -115,9 +147,7 @@ const SPELLBOOK = {
     { name: 'SWORD WAVE', lvl: 6, tier: 2, cd: 6, wind: 0.3, pick: (h, f) => lineTarget(h, f, 140), cast: swordWave },
     { name: 'GROUND POUND', lvl: 8, tier: 2, cd: 8, wind: 0.22, pick: (h, f) => within(h.x, h.y, 38, f).length >= 4 ? true : null, cast: groundPound },
     { name: 'CHARGE', lvl: 9, tier: 2, cd: 9, wind: 0.3, pick: (h, f) => lineTarget(h, f, 150, 3), cast: charge },
-    { name: 'CRUSHING BLOW', lvl: 10, tier: 3, passive: true },
     { name: 'WHIRLWIND', lvl: 11, tier: 3, cd: 7, wind: 0.3, pick: (h, f) => within(h.x, h.y, 30, f).length >= 3 ? true : null, cast: whirlwind },
-    { name: 'SHOCKWAVE BLOWS', lvl: 12, tier: 3, passive: true },
     { name: 'THOUSAND CUTS', lvl: 13, tier: 3, cd: 16, wind: 0.5, pick: (h, f) => f.length >= 6 ? true : null, cast: thousandCuts },
     { name: 'CATACLYSM', lvl: 15, tier: 4, wind: 0.5, pick: (h, f) => { const d = densest(f, 50, h, 200); return d && (d.n >= 4 || G.boss) ? d : null; }, cast: cataclysm },
   ],
@@ -173,11 +203,11 @@ function beginCast(h, sp, t) {
 function heroBrain(h, foes) {
   const book = SPELLBOOK[h.key];
   for (let i = book.length - 1; i >= 0; i--) {
-    const sp = book[i]; if (!sp.tier || sp.passive || G.lvl < sp.lvl) continue;
+    const sp = book[i]; if (!sp.tier || !G.known.has(sp.name)) continue;
     if (sp.tier === 4) { if (!canUlt(h)) continue; } else if ((h.cd[sp.name] || 0) > 0) continue;
     if (!sp.free && (G.castLock > 0 || (sp.tier >= 3 && G.majorLock > 0))) continue;
     const t = sp.pick(h, foes); if (!t) continue;
-    if (sp.tier === 4) { h.ult = 0; G.ultCd = 4.2; } else h.cd[sp.name] = sp.cd * rand(0.9, 1.2);
+    if (sp.tier === 4) { h.ult = 0; G.ultCd = 4.2; } else h.cd[sp.name] = sp.cd * md(sp.name).cd * rand(0.9, 1.2);
     beginCast(h, sp, t === true ? null : t); return true;
   }
   return false;
@@ -198,11 +228,11 @@ function heroAI(h, dt) {
     const others = G.heroes.filter(x => x !== h && !x.dead), cx = others.length ? others.reduce((a, c) => a + c.x, 0) / others.length : h.x, cy = others.length ? others.reduce((a, c) => a + c.y, 0) / others.length : h.y;
     let t = nearest({ x: cx, y: cy }, foes, 70) || nearest(h, foes); if (G.boss && alive(G.boss) && G.boss.spawnT <= 0 && chance(0.02)) t = G.boss; if (h.target && alive(h.target) && dist(h.x, h.y, h.target.x, h.target.y) < 40) t = h.target; h.target = t;
     const d = steer(h, t.x, t.y, h.def.spd, dt, h.r + t.r + 8);
-    if (d < h.r + t.r + 14 && !(h.cd.slash > 0)) { h.cd.slash = 0.5; slash(h, t); }
+    if (d < h.r + t.r + 14 && !(h.cd.slash > 0)) { h.cd.slash = 0.5 * md('SLASH').cd; slash(h, t); }
     if (h.moving && chance(dt * 6) && G.lvl >= 5) ghost(h, 'gold', 0.2);
   } else {
     kite(h, foes, dt, h.key === 'druid' ? 85 : 100);
-    if (!(h.cd.basic > 0)) { const t = basic.pick(h, foes); if (t) { h.cd.basic = basic.cd; basic.cast(h, t); } }
+    if (!(h.cd.basic > 0)) { const t = basic.pick(h, foes); if (t) { h.cd.basic = basic.cd * md(basic.name).cd; basic.cast(h, t); } }
   }
 }
 // spell states that heroState hands over to
@@ -229,7 +259,7 @@ function spellState(h, s, dt) {
     }
     if (s.i >= s.list.length && s.t > s.list.length * s.step + 0.45) {
       h.state = null; flash('white', 0.45); shake(0.7); kick(0.08); hitstop(0.1); SFX.boom(1.2, panOf(h.x)); ring(h.x, h.y, 90, 'gold', 0.5, 5);
-      for (const m of s.marked) if (alive(m)) { arcFx(m.x, m.y - 6, rand(TAU), 3.5, 18, 'gold', 0.3, 4); hurt(m, D(h) * 4.2, h, { elem: 'phys', crit: true, up: 160, kx: rand(-120, 120), ky: rand(-80, 80) }); }
+      for (const m of s.marked) if (alive(m)) { arcFx(m.x, m.y - 6, rand(TAU), 3.5, 18, 'gold', 0.3, 4); hurt(m, D(h) * 4.2 * (s.dm || 1), h, { elem: 'phys', crit: true, up: 160, kx: rand(-120, 120), ky: rand(-80, 80) }); }
     }
   }
 }
@@ -258,8 +288,8 @@ function updateHazards(dt) {
 function drawHazardsWorld(c) { // normal blend, lit
   for (const z of FX.hz) {
     if (z.k === 'coil') { c.fillStyle = 'rgba(0,0,0,0.35)'; c.beginPath(); c.ellipse(z.x, z.y, 5, 2, 0, 0, TAU); c.fill(); c.fillStyle = '#3a3f4a'; c.fillRect(z.x - 1.5, z.y - 14, 3, 14); c.fillStyle = '#7a8aa0'; c.fillRect(z.x - 3, z.y - 4, 6, 2); c.fillRect(z.x - 2.5, z.y - 9, 5, 1.5); }
-    else if (z.k === 'boulder') { c.fillStyle = 'rgba(0,0,0,0.35)'; c.beginPath(); c.ellipse(z.x, z.y + 2, 10, 4, 0, 0, TAU); c.fill(); c.save(); c.translate(z.x, z.y - 8); c.rotate(z.rot); c.scale(1.2, 1.2); c.drawImage(ROCKS[1], -10, -10); c.restore(); }
-    else if (z.k === 'fist') { const u = z.t / z.life, h = (u < 0.15 ? u / 0.15 : u > 0.7 ? (1 - u) / 0.3 : 1) * 22; c.save(); c.beginPath(); c.rect(z.x - 16, z.y - 40, 32, 40); c.clip(); c.drawImage(ROCKS[2], z.x - 12, z.y - h - 6, 24, 24); c.fillStyle = '#4a423c'; c.fillRect(z.x - 6, z.y - h + 12, 12, Math.max(0, h - 10)); c.restore(); }
+    else if (z.k === 'boulder') { c.fillStyle = 'rgba(0,0,0,0.35)'; c.beginPath(); c.ellipse(z.x, z.y + 2, 10, 4, 0, 0, TAU); c.fill(); c.save(); c.translate(z.x, z.y - 8 * (z.sz || 1)); c.rotate(z.rot); c.scale(1.2 * (z.sz || 1), 1.2 * (z.sz || 1)); c.drawImage(ROCKS[1], -10, -10); c.restore(); }
+    else if (z.k === 'fist') { const u = z.t / z.life, S = z.sz || 1, h = (u < 0.15 ? u / 0.15 : u > 0.7 ? (1 - u) / 0.3 : 1) * 22 * S; c.save(); c.beginPath(); c.rect(z.x - 16 * S, z.y - 40 * S, 32 * S, 40 * S); c.clip(); c.drawImage(ROCKS[2], z.x - 12 * S, z.y - h - 6 * S, 24 * S, 24 * S); c.fillStyle = '#4a423c'; c.fillRect(z.x - 6, z.y - h + 12, 12, Math.max(0, h - 10)); c.restore(); }
     else if (z.k === 'roots') { const s = z.seed; c.strokeStyle = '#2a5a20'; c.lineWidth = 1.3; for (let i = 0; i < 5; i++) { const a = s + i * 1.3, r = 6 + (i % 2) * 2, up = 8 + Math.sin(G.time * 4 + i) * 2; c.beginPath(); c.moveTo(z.x + Math.cos(a) * r, z.y + Math.sin(a) * r * 0.5); c.quadraticCurveTo(z.x + Math.cos(a) * r * 0.4, z.y - up, z.x + Math.cos(a + 1) * 3, z.y - up * 0.6); c.stroke(); } c.strokeStyle = '#6a4a2a'; c.lineWidth = 0.8; c.beginPath(); c.ellipse(z.x, z.y - 4, 6, 3, 0, 0, TAU); c.stroke(); }
     else if (z.k === 'swarm') { c.fillStyle = '#1e2a14'; for (const d of z.dots) { const a = d[0] + G.time * d[2] * 0.5; c.fillRect(z.x + Math.cos(a) * d[1] - 0.6, z.y - 8 + Math.sin(a * 1.3) * d[1] * 0.6 - 0.6, 1.3, 1.3); } }
   }
@@ -270,7 +300,7 @@ function drawHazardsFx(c) { // additive glow
     if (z.k === 'lava') { const s = z.r * (1 + 0.08 * Math.sin(G.time * 5 + z.x)), a = Math.min(1, live2 * 3); c.globalAlpha = 0.8 * a; c.drawImage(GLOW.magma, z.x - s * 1.4, z.y - s, s * 2.8, s * 2); c.globalAlpha = 0.5 * a; c.drawImage(GLOW.fire2, z.x - s * 0.7, z.y - s * 0.45, s * 1.4, s * 0.9); }
     else if (z.k === 'coil') { const s = 7 + Math.sin(G.time * 30) * 1.5; c.globalAlpha = 1; c.drawImage(GLOW.bolt, z.x - s, z.y - 14 - s, s * 2, s * 2); c.drawImage(GLOW.white, z.x - 2, z.y - 16, 4, 4); }
     else if (z.k === 'arc') { c.globalAlpha = 0.55 * live2 + 0.2; c.strokeStyle = rgba('bolt', 0.7); c.lineWidth = 1.2; c.beginPath(); c.ellipse(z.x, z.y, z.r, z.r * 0.72, 0, 0, TAU); c.stroke(); c.globalAlpha = 0.25; c.drawImage(GLOW.bolt, z.x - z.r, z.y - z.r * 0.72, z.r * 2, z.r * 1.44); }
-    else if (z.k === 'wave') { c.globalAlpha = Math.min(1, live2 * 2); c.lineCap = 'round'; for (const [w, col] of [[6, rgba('gold', 0.35)], [2.2, rgba('fire2', 0.9)], [0.9, 'rgba(255,255,255,1)']]) { c.strokeStyle = col; c.lineWidth = w; c.beginPath(); c.ellipse(z.x, z.y - 6, 13, 10, 0, z.a - 1.3, z.a + 1.3); c.stroke(); } }
+    else if (z.k === 'wave') { c.globalAlpha = Math.min(1, live2 * 2); c.lineCap = 'round'; for (const [w, col] of [[6, rgba('gold', 0.35)], [2.2, rgba('fire2', 0.9)], [0.9, 'rgba(255,255,255,1)']]) { c.strokeStyle = col; c.lineWidth = w; c.beginPath(); c.ellipse(z.x, z.y - 6, 13 * (z.sz || 1), 10 * (z.sz || 1), 0, z.a - 1.3, z.a + 1.3); c.stroke(); } }
     else if (z.k === 'swarm') { c.globalAlpha = 0.35; c.drawImage(GLOW.poison, z.x - 14, z.y - 18, 28, 20); }
   }
   c.globalAlpha = 1;

@@ -1,16 +1,13 @@
-// ===================== progression: the party starts weak and earns every power =====================
+// ===================== progression: levels, titles, ascensions =====================
 const XP_TIER = [0, 1, 2.5, 5, 8];
 const xpFor = L => Math.round(16 * (L - 1) ** 2.15); // total xp needed to reach level L
 const HERO_PROG = {
-  warrior: { titles: [[1, 'SQUIRE'], [4, 'KNIGHT-ERRANT'], [8, 'BATTLEMAGE'], [13, 'BLADEMASTER'], [15, 'WARLORD']], ult: 15 },
-  pyro: { titles: [[1, 'APPRENTICE'], [5, 'PYROMANCER'], [10, 'FLAME MAGUS'], [14, 'ARCHMAGE OF CINDERS']], ult: 13, evolve: { lvl: 10, spr: 'FlameMagus' } },
-  storm: { titles: [[1, 'HEDGE MAGE'], [6, 'STORMCALLER'], [12, 'THUNDERLORD']], ult: 14, evolve: { lvl: 12, spr: 'WiseWizard' } },
-  druid: { titles: [[1, 'HERBALIST'], [5, 'DRUID'], [10, 'EARTHSHAPER'], [15, 'WORLDROOT']], ult: 15 },
+  warrior: { titles: [[1, 'SQUIRE'], [4, 'KNIGHT-ERRANT'], [8, 'BATTLEMAGE'], [13, 'BLADEMASTER'], [16, 'WARLORD']], ult: 'CATACLYSM' },
+  pyro: { titles: [[1, 'APPRENTICE'], [5, 'PYROMANCER'], [10, 'FLAME MAGUS'], [15, 'ARCHMAGE OF CINDERS']], ult: 'METEOR STORM', evolve: { lvl: 10, spr: 'FlameMagus' } },
+  storm: { titles: [[1, 'HEDGE MAGE'], [6, 'STORMCALLER'], [12, 'THUNDERLORD']], ult: 'THUNDERSTORM', evolve: { lvl: 12, spr: 'WiseWizard' } },
+  druid: { titles: [[1, 'HERBALIST'], [5, 'DRUID'], [10, 'EARTHSHAPER'], [15, 'WORLDROOT']], ult: 'EARTHQUAKE' },
 };
-const UNLOCKS = []; for (const k in SPELLBOOK) for (const sp of SPELLBOOK[k]) if (sp.lvl > 1) UNLOCKS.push([sp.lvl, k, sp.name]); UNLOCKS.sort((a, b) => a[0] - b[0]);
-const UNLOCK_LV = {}; for (const [l, , n] of UNLOCKS) UNLOCK_LV[n] = l;
-const has = n => G.lvl >= UNLOCK_LV[n];
-const ultUnlocked = h => h && h.team === 'hero' && G.lvl >= HERO_PROG[h.key].ult;
+const ultUnlocked = h => h && h.team === 'hero' && G.known && G.known.has(HERO_PROG[h.key].ult);
 function heroTitle(h) { let t = ''; for (const [l, n] of HERO_PROG[h.key].titles) if (G.lvl >= l) t = n; return t; }
 function scaleParty() {
   const L = G.lvl;
@@ -25,11 +22,10 @@ function levelUp() {
     const ev = HERO_PROG[h.key].evolve; if (ev && ev.lvl === L) ascend(h, ev.spr);
   }
   flash('gold', 0.22); slowmo(0.45, 0.45); kick(0.05); SFX.levelup();
-  const news = UNLOCKS.filter(u => u[0] === L).map(([, k, n]) => HERO_DEFS[k].name + ' LEARNS ' + n);
+  const tierNow = TIER_MIN.indexOf(L); if (tierNow > 0) pushBanner({ a: TIER_LABEL[tierNow] + ' MAGIC', b: 'NEW ' + TIER_LABEL[tierNow] + ' SPELLS CAN NOW BE LEARNED', col: 'gold', keep: true, life: 2.2 });
   const asc = G.heroes.find(h => HERO_PROG[h.key].evolve && HERO_PROG[h.key].evolve.lvl === L);
-  const tierOf = n => { for (const k in SPELLBOOK) for (const sp of SPELLBOOK[k]) if (sp.name === n) return sp.tier; return 1; }, tiers = UNLOCKS.filter(u => u[0] === L).map(u => tierOf(u[2])), top = Math.max(0, ...tiers);
-  pushBanner({ a: 'LEVEL ' + L, b: news.length ? news.join('   ·   ') : 'EVERY POWER GROWS STRONGER', c: top >= 3 ? 'HIGH MAGIC' : top === 2 ? 'MEDIUM MAGIC' : top === 1 ? 'LOW MAGIC' : '', col: 'gold', keep: true, life: 2.8 });
   if (asc) pushBanner({ a: asc.def.name + ' ASCENDS', b: heroTitle(asc), col: asc.def.col, keep: true, life: 2.4 });
+  queueChoice('level');
 }
 function ascend(h, spr) {
   h.spr = spr; h.flash = 0.6; h.squash = 0.4;
@@ -37,12 +33,11 @@ function ascend(h, spr) {
   sparks(h.x, h.y, 10, 40, h.def.col === 'bolt' ? 'bolt' : 'fire', 200, 220); glows(h.x, h.y, 10, 30, h.def.col, 120, 6, 1);
   flash('white', 0.35); shake(0.4); hitstop(0.1); SFX.braam();
 }
-// how strong each ability is right now
-function nextUnlocks() { const l = UNLOCKS.find(u => u[0] > G.lvl); if (!l) return null; return { lvl: l[0], names: UNLOCKS.filter(u => u[0] === l[0]).map(u => u[2]) }; }
+function nextUnlocks() { const t = TIER_MIN.findIndex((l, i) => i > 0 && l > G.lvl); return t > 0 ? { lvl: TIER_MIN[t], names: [TIER_LABEL[t] + ' SPELLS'] } : null; }
 const PWR = {
-  fireball: () => Math.min(1.6, 1 + 0.06 * (G.lvl - 10)),
-  chain: () => Math.min(9, 4 + ((G.lvl - 10) >> 1)),
-  spikes: () => Math.min(12, 6 + ((G.lvl - 10) >> 1)),
+  fireball: () => Math.min(1.6, 1 + 0.06 * Math.max(0, G.lvl - 10)),
+  chain: () => Math.min(9, 4 + (Math.max(0, G.lvl - 10) >> 1)),
+  spikes: () => Math.min(12, 6 + (Math.max(0, G.lvl - 10) >> 1)),
   meteors: () => clamp(6 + (G.lvl - 13), 6, 12),
   storm: () => clamp(3 + 0.3 * (G.lvl - 14), 3, 5),
   slam: () => clamp(1 + 0.06 * (G.lvl - 15), 1, 1.6),

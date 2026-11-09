@@ -76,7 +76,7 @@ function kill(u, src, elem) {
     if (u.rank === 'warlord') { slowmo(0.25, 1); flash('white', 0.5); ring(u.x, u.y, 120, 'red', 0.7, 7); slamFx(u.x, u.y, 1.3, 'red'); textBanner(u.title + ' IS SLAIN', '', 'gold'); }
     else if (u.rank === 'elite') { ring(u.x, u.y, 60, 'red', 0.45, 5); shake(0.3); hitstop(0.06); }
     deathFx(u, elem);
-    if (u.immo && u.burn > 0) { const src = u.immo; after(0.05, () => { explode(u.x, u.y, 20, src.def.dmg * src.mul * 0.9, src); for (const m of within(u.x, u.y, 34, G.mons)) { m.burn = 3; m.burnDmg = src.def.dmg * src.mul * 0.2; m.immo = src; } }); }
+    if (u.immo && u.burn > 0) { const src = u.immo, R = u.immoR || 34, dm = u.immoD || 1; after(0.05, () => { explode(u.x, u.y, 20 * Math.sqrt(R / 34), src.def.dmg * src.mul * 0.9 * dm, src); for (const m of within(u.x, u.y, R, G.mons)) { m.burn = 3; m.burnDmg = src.def.dmg * src.mul * 0.2; m.immo = src; } }); }
     if (u.boss) bossDeath(u);
   } else { u.deadT = 0; u.vz = 120; smoke(u.x, u.y, 6, 'dark', 10, 20, 1.4); flashLight(u.x, u.y, 60, 'red', 1, 0.6); textPop(u.x, u.y, 26, u.def.name + ' FALLS', 'red'); SFX.boom(0.5, panOf(u.x)); shake(0.3); }
 }
