@@ -6,7 +6,8 @@ function update(dt) {
   G.mons = G.units.filter(u => u.team === 'mon' && !u.dead);
   const heroes = G.heroes.filter(alive);
   for (const u of G.units) { u.anim += dt; if (u.flash > 0) u.flash -= dt; if (u.lunge > 0) u.lunge -= dt * 1.8; }
-  for (const h of G.heroes) heroAI(h, dt);
+  const al = autoLevel(); if (al === 2) INPUT.castQ.length = 0;
+  for (const h of G.heroes) (h.ctrl === 'player' && al < 2 ? playerHero : heroAI)(h, dt);
   for (const m of G.mons) monAI(m, dt, heroes);
   for (const u of G.units) { if (u.state && u.state.k === 'leap') continue; const wasAir = u.z > 0, vz = u.vz; moveUnit(u, dt); if (wasAir && u.z === 0 && u.team === 'hero' && vz < -300) { ring(u.x, u.y, 30, 'white', 0.3, 3); smoke(u.x, u.y, 5, 'dust', 9, 40, 1); debris(u.x, u.y, 8, ['#5a5048', '#7d7064'], 80, 100, 1.6); shake(0.15); SFX.hit(panOf(u.x)); } }
   separate(G.units, dt);
@@ -23,7 +24,7 @@ function frame(t) {
   const rdt = Math.min(0.05, (t - last) / 1000 || 0.016); last = t;
   PERF.acc += rdt; PERF.n++; if (PERF.n >= 90) { const avg = PERF.acc / PERF.n; PERF.acc = PERF.n = 0; if (avg > 0.026 && Q.res > 0.55) { Q.res = Math.max(0.55, Q.res - 0.15); Q.pmax = Math.max(1200, Q.pmax - 400); resize(); PERF.good = 0; } else if (avg > 0.034) Q.bloom = 0.5; else if (avg < 0.0175 && ++PERF.good > 3 && Q.res < 1) { Q.res = Math.min(1, Q.res + 0.1); resize(); PERF.good = 0; } }
   try {
-    if (!UI.bookOpen) updateChoice(rdt); if (G.fightT > 0) G.fightT -= rdt;
+    pollPad(); if (!UI.bookOpen) updateChoice(rdt); if (G.fightT > 0) G.fightT -= rdt;
     if (G.choice || UI.bookOpen) { /* the battle holds its breath while the player chooses or reads */ }
     else if (G.hitstop > 0) G.hitstop -= rdt;
     else { if (G.slowT > 0) G.slowT -= rdt; else G.ts = damp(G.ts, 1, 3, rdt); const dt = rdt * G.ts, n = window.CR_TURBO || 1; for (let i = 0; i < n; i++) update(dt); }
@@ -34,22 +35,13 @@ function frame(t) {
     updateShake(rdt); updateCam(rdt); render();
   } catch (e) { console.error(e); window.CR_ERR = (window.CR_ERR || []).concat(String(e && e.stack || e)).slice(-5); }
 }
-function onTap(e) {
-  const r = UI.soundRect; const x = e.clientX, y = e.clientY, hadSound = !!SFX.ctx, hit = q => q && x >= q[0] && x <= q[0] + q[2] && y >= q[1] && y <= q[1] + q[3];
-  if (UI.bookOpen) { UI.bookOpen = false; return; }
-  if (hit(UI.bookRect)) { if (!hadSound) SFX.init(); UI.bookOpen = true; UI.bookFocus = null; return; }
-  if (G.choice && G.choice.picked < 0) { if (G.choice.kind === 'draft' && hit(UI.draftRect)) { if (!hadSound) SFX.init(); G.acted = true; autoDraft(); return; } const i = choiceAt(x, y); if (i >= 0) { if (!hadSound) SFX.init(); pickChoice(i, true); return; } }
-  if (!G.choice) for (let i = 0; i < UI.plateRects.length; i++) if (hit(UI.plateRects[i])) { if (!hadSound) SFX.init(); UI.bookOpen = true; UI.bookFocus = G.heroes[i].key; return; }
-  if (!SFX.ctx) { SFX.init(); try { const el = document.documentElement; if (el.requestFullscreen && !/iPhone|iPad/.test(navigator.userAgent)) el.requestFullscreen().then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => { })).catch(() => { }); } catch (err) { } try { navigator.wakeLock && navigator.wakeLock.request('screen').catch(() => { }); } catch (err) { } return; }
-  if (r && x >= r[0] && x <= r[0] + r[2] && y >= r[1] && y <= r[1] + r[3]) SFX.toggle();
-}
 async function boot() {
   cvs = document.getElementById('c'); ctx = cvs.getContext('2d', { alpha: false }); fxc = mkCanvas(1, 1); fctx = fxc.getContext('2d'); lc = mkCanvas(1, 1); lctx = lc.getContext('2d'); b1 = mkCanvas(1, 1); b1c = b1.getContext('2d'); b2 = mkCanvas(1, 1); b2c = b2.getContext('2d');
   try { if (document.fonts) await Promise.race([Promise.all([document.fonts.load('900 40px "Grenze Gotisch"'), document.fonts.load('500 16px Teko'), document.fonts.load('600 16px Teko')]), new Promise(r => setTimeout(r, 2500))]); } catch (e) { }
   await loadAssets(); resize(); addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
-  addEventListener('pointerdown', onTap); addEventListener('pointermove', e => { if (G.choice) G.choice.hover = choiceAt(e.clientX, e.clientY); }); addEventListener('keydown', e => { if (e.key === 'b' || e.key === 'B') { UI.bookOpen = !UI.bookOpen; UI.bookFocus = null; return; } if (e.key === 'Escape') { UI.bookOpen = false; return; } if (!UI.bookOpen && G.choice && G.choice.picked < 0 && /^[1-3]$/.test(e.key)) pickChoice(+e.key - 1, true); }); document.addEventListener('visibilitychange', () => { if (SFX.ctx) { if (document.hidden) SFX.ctx.suspend(); else if (SFX.on) SFX.ctx.resume(); } });
+  setupControls();
   startRun(); G.mode = 'play'; const ld = document.getElementById('loading'); if (ld) ld.hidden = true;
-  window.CR = { G, FX, CAM, Q, SFX, VIEW, ARENA: () => ARENA, startRun, startFloor, startWave, beginCast, SPELLBOOK, live, pickChoice, md, MODS, UI, autoDraft, gainXp, levelUp, xpFor, spawnBoss, meteorStorm, thunderstorm, earthquake, cataclysm, explode, MON_DEFS, HERO_DEFS };
+  window.CR = { G, FX, CAM, Q, SFX, VIEW, ARENA: () => ARENA, startRun, startFloor, startWave, beginCast, SPELLBOOK, live, pickChoice, md, MODS, UI, autoDraft, INPUT, CTRL, tryCast, autoLevel, selectHero, gainXp, levelUp, xpFor, spawnBoss, meteorStorm, thunderstorm, earthquake, cataclysm, explode, MON_DEFS, HERO_DEFS };
   requestAnimationFrame(frame);
 }
 boot().catch(e => { const ld = document.getElementById('loading'); if (ld) ld.textContent = 'Failed to start: ' + e.message; console.error(e); });

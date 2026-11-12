@@ -6,13 +6,17 @@ let cvs, ctx, fxc, fctx, lc, lctx, b1, b1c, b2, b2c, vign;
 const LIGHTTEX = {};
 function lightTex(k) { if (LIGHTTEX[k]) return LIGHTTEX[k]; const c = COL[k] || COL.white, s = 64, cv = mkCanvas(s, s), x = cv.getContext('2d'), g = x.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); g.addColorStop(0, `rgba(${c},1)`); g.addColorStop(0.35, `rgba(${c},0.55)`); g.addColorStop(1, `rgba(${c},0)`); x.fillStyle = g; x.fillRect(0, 0, s, s); return (LIGHTTEX[k] = cv); }
 function resize() {
-  let dpr = Math.min(window.devicePixelRatio || 1, 2) * Q.res; const w = Math.max(1, innerWidth), h = Math.max(1, innerHeight);
+  // phones held upright still get the landscape game: the canvas is turned 90° clockwise, so it reads correctly once the phone is turned (even with rotation lock on)
+  const iw = Math.max(1, innerWidth), ih = Math.max(1, innerHeight), rot = ih > iw && matchMedia('(pointer: coarse)').matches;
+  VIEW.rot = rot; VIEW.iw = iw; const w = rot ? ih : iw, h = rot ? iw : ih;
+  cvs.style.width = w + 'px'; cvs.style.height = h + 'px'; cvs.style.transformOrigin = '0 0'; cvs.style.transform = rot ? `translateX(${iw}px) rotate(90deg)` : '';
+  let dpr = Math.min(window.devicePixelRatio || 1, 2) * Q.res;
   if (w * h * dpr * dpr > 2.6e6) dpr = Math.sqrt(2.6e6 / (w * h));
   VIEW.w = w; VIEW.h = h; VIEW.dpr = dpr;
   cvs.width = Math.round(w * dpr); cvs.height = Math.round(h * dpr); fxc.width = cvs.width; fxc.height = cvs.height;
   lc.width = Math.ceil(cvs.width / 4); lc.height = Math.ceil(cvs.height / 4); b1.width = Math.ceil(cvs.width / 8); b1.height = Math.ceil(cvs.height / 8); b2.width = Math.ceil(cvs.width / 24); b2.height = Math.ceil(cvs.height / 24);
   vign = mkCanvas(256, 256); const v = vign.getContext('2d'), g = v.createRadialGradient(128, 128, 60, 128, 128, 182); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.62)'); v.fillStyle = g; v.fillRect(0, 0, 256, 256);
-  const pr = document.getElementById('safe'); if (pr) { const cs = getComputedStyle(pr); VIEW.safe = { l: parseFloat(cs.paddingLeft) || 0, r: parseFloat(cs.paddingRight) || 0, t: parseFloat(cs.paddingTop) || 0, b: parseFloat(cs.paddingBottom) || 0 }; }
+  const pr = document.getElementById('safe'); if (pr) { const cs = getComputedStyle(pr); const sl = parseFloat(cs.paddingLeft) || 0, sr = parseFloat(cs.paddingRight) || 0, st = parseFloat(cs.paddingTop) || 0, sb = parseFloat(cs.paddingBottom) || 0; VIEW.safe = rot ? { l: st, r: sb, t: sr, b: sl } : { l: sl, r: sr, t: st, b: sb }; }
 }
 function camFitZoom() { return clamp(Math.min(VIEW.w / (ARENA.pw * 0.85), VIEW.h / (ARENA.ph * 0.75)), 1, 6); }
 function updateCam(dt) {
@@ -25,7 +29,9 @@ function updateCam(dt) {
   let zMin = Math.min(VIEW.w / ARENA.pw, VIEW.h / ARENA.ph) * 0.96; if (VIEW.h > VIEW.w) zMin = Math.max(zMin, VIEW.w / (ARENA.pw * 0.62)); const zMax = Math.max(zMin * 1.05, Math.min(VIEW.w, VIEW.h) / 115);
   const tz = clamp(Math.min(VIEW.w / bw, VIEW.h / bh), zMin, zMax);
   let fx = (x0 + x1) / 2, fy = (y0 + y1) / 2, fz = tz; if (G.focus && G.focus.t > 0) { G.focus.t -= dt; fx = lerp(fx, G.focus.x, G.focus.w); fy = lerp(fy, G.focus.y, G.focus.w); fz = Math.min(zMax, tz * (1 + G.focus.w * 0.35)); }
-  CAM.z = damp(CAM.z, fz, 1.5, dt); CAM.x = damp(CAM.x, fx, 2.4, dt); CAM.y = damp(CAM.y, fy, 2.4, dt);
+  const me = G.heroes.length === 1 && G.heroes[0], follow = me && !me.dead && G.phase !== 'wipe' && !G.eq;
+  if (follow) { fx = lerp(me.x + me.vx * 0.3, fx, 0.15); fy = lerp(me.y + me.vy * 0.25 - 8, fy, 0.15); fz = clamp(Math.min(VIEW.w / 330, VIEW.h / 200), zMin, zMax * 1.2); if (G.boss && alive(G.boss)) { fx = lerp(fx, G.boss.x, 0.25); fy = lerp(fy, G.boss.y - 20, 0.25); fz *= 0.85; } if (G.focus && G.focus.t > 0) fz *= 1 + G.focus.w * 0.15; }
+  const cr = follow ? 5 : 2.4; CAM.z = damp(CAM.z, fz, 1.5, dt); CAM.x = damp(CAM.x, fx, cr, dt); CAM.y = damp(CAM.y, fy, cr, dt);
   const hw = VIEW.w / (2 * CAM.z), hh = VIEW.h / (2 * CAM.z);
   CAM.x = ARENA.pw <= 2 * hw ? ARENA.pw / 2 : clamp(CAM.x, hw - 10, ARENA.pw - hw + 10);
   CAM.y = ARENA.ph <= 2 * hh ? ARENA.ph / 2 : clamp(CAM.y, hh - 10, ARENA.ph - hh + 10);

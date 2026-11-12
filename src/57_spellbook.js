@@ -21,7 +21,9 @@ function laser(h, t, o) {
   const a0 = angTo(h.x, h.y, t.x, t.y), dir = chance(0.5) ? 1 : -1; SFX.beam(o.dur, o.col === 'fire' ? 0.7 : 1);
   if (o.big) { G.ambDark = Math.max(G.ambDark, 0.45); slowmo(0.6, 0.3); }
   h.state = { k: 'channel', t: 0, dur: o.dur, tick: 0, fn: (h, s, dt) => {
-    const u = s.t / s.dur, a = a0 + (u - 0.5) * o.sweep * dir, ex = h.x + Math.cos(a) * 7, ey = h.y - 10, [x1, y1] = rayEnd(ex, ey, a);
+    const u = s.t / s.dur; let a = a0 + (u - 0.5) * o.sweep * dir;
+    if (h.ctrl === 'player' && autoLevel() < 2) { const [ix, iy] = inputVec(); if (s.aim === undefined) s.aim = a0; if (ix || iy) s.aim += clamp(angDiff(Math.atan2(iy, ix), s.aim), -3 * dt, 3 * dt); a = s.aim; }
+    const ex = h.x + Math.cos(a) * 7, ey = h.y - 10, [x1, y1] = rayEnd(ex, ey, a);
     const w = o.w * Math.min(1, u * 8, (1 - u) * 8) * (0.88 + 0.12 * Math.sin(s.t * 55));
     h.face = Math.cos(a) < 0 ? -1 : 1; h.vx = damp(h.vx, -Math.cos(a) * 6, 4, dt); h.vy = damp(h.vy, -Math.sin(a) * 4, 4, dt);
     if (!s.beam || !FX.beams.includes(s.beam)) { s.beam = { col: o.col, steady: true, cap: true }; FX.beams.push(s.beam); } Object.assign(s.beam, { x0: ex, y0: ey, x1, y1, w, t: 0, life: 0.2 });
@@ -219,7 +221,7 @@ const SPELLBOOK = {
     { name: 'INSECT SWARM', lvl: 7, tier: 2, cd: 9, wind: 0.4, pick: (h, f) => cluster(h, f, 24, 3, 170), cast: insectSwarm },
     { name: 'BOULDER ROLL', lvl: 8, tier: 2, cd: 10, wind: 0.5, pick: (h, f) => cluster(h, f, 30, 4, 200), cast: boulderRoll },
     { name: 'STONE SPIKES', lvl: 10, tier: 3, cd: 4, wind: 0.5, pick: (h, f) => nearestFoe(h, f, 150), cast: stoneSpikes },
-    { name: 'MASS HEAL', lvl: 11, tier: 3, free: true, cd: 9, wind: 0.5, pick: () => G.heroes.filter(x => !x.dead && x.hp < x.maxHp * 0.7).length >= 2 ? true : null, cast: massHeal },
+    { name: 'MASS HEAL', lvl: 11, tier: 3, free: true, cd: 9, wind: 0.5, pick: () => G.heroes.filter(x => !x.dead && x.hp < x.maxHp * 0.7).length >= Math.min(2, G.heroes.filter(x => !x.dead).length) ? true : null, cast: massHeal },
     { name: 'RESURRECTION', lvl: 12, tier: 3, free: true, cd: 18, wind: 0.8, pick: () => G.heroes.find(x => x.dead && x.deadT > 2.5) || null, cast: resurrect },
     { name: 'EARTHQUAKE', lvl: 15, tier: 4, wind: 1, pick: () => true, cast: earthquake },
   ],
@@ -239,7 +241,7 @@ function heroBrain(h, foes) {
     if (sp.tier === 4) { if (!canUlt(h)) continue; } else if ((h.cd[sp.name] || 0) > 0) continue;
     if (!sp.free && (G.castLock > 0 || (sp.tier >= 3 && G.majorLock > 0))) continue;
     const t = sp.pick(h, foes); if (!t) continue;
-    if (sp.tier === 4) { h.ult = 0; G.ultCd = 4.2; } else h.cd[sp.name] = sp.cd * md(sp.name).cd * rand(0.9, 1.2);
+    if (sp.tier === 4) { h.ult = 0; G.ultCd = 4.2; } else setCd(h, sp.name, sp.cd * md(sp.name).cd * rand(0.9, 1.2));
     beginCast(h, sp, t === true ? null : t); return true;
   }
   return false;

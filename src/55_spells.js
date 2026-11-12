@@ -141,7 +141,7 @@ function bossDeath(b) {
 }
 function summonMon(def, x, y, delay, hpMul = G.monHp, dmgMul = G.monDmg, rank = null) {
   x = clamp(x, ARENA.x0 + 8, ARENA.x1 - 8); y = clamp(y, ARENA.y0 + 6, ARENA.y1 - 4); G.pending++;
-  if (rank) { const war = rank === 'warlord'; def = { ...def, scale: (def.scale || 1) * (war ? 1.9 : 1.45), r: (def.r || 5), dmg: def.dmg * (war ? 1.7 : 1.35), hp: def.hp * (war ? 9 : 4), spd: def.spd * 0.9, rank }; }
+  if (rank) { const war = rank === 'warlord'; def = { ...def, scale: (def.scale || 1) * (war ? 1.9 : 1.45), r: (def.r || 5), dmg: def.dmg * (war ? 1.7 : 1.35), hp: def.hp * (war ? 9 : 4) * (G.solo ? 0.6 : 1), spd: def.spd * 0.9, rank }; }
   const sc = def.scale || 1;
   after(delay, () => { circleFx(x, y, 9 * sc + 5, 'arcane', 1.0); for (let i = 0; i < 10; i++) part({ k: 'glow', x: x + rand(-8, 8), y: y + rand(-5, 5), z: 0, vz: rand(30, 70), drag: 0.5, life: rand(0.5, 0.9), s0: rand(1.5, 3), s1: 0, col: 'arcane' }); SFX.summon(panOf(x)); });
   after(delay + 0.75, () => {

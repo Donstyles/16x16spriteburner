@@ -6,4 +6,5 @@ body { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: m
 #safe { position: fixed; inset: 0; visibility: hidden; pointer-events: none; padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
 [hidden] { display: none !important; }
 #loading { position: fixed; inset: 0; display: grid; place-items: center; color: var(--ember); font: 900 2.4rem "Grenze Gotisch", "Palatino Linotype", Palatino, serif; letter-spacing: 0.04em; background: var(--void); }
+@media (orientation: portrait) and (pointer: coarse) { #loading { transform: rotate(90deg); } }
 @media (prefers-reduced-motion: reduce) { #loading { letter-spacing: 0.02em; } }

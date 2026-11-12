@@ -51,6 +51,7 @@ const alive = u => u && !u.dead;
 function foesOf(u) { return u.team === 'hero' ? G.mons : G.heroes.filter(alive); }
 function hurt(u, amt, src, o = {}) {
   if (!u || u.dead || u.spawnT > 0) return 0;
+  if (u.iframe > 0 && u.team === 'hero') { if (chance(0.2)) textPop(u.x, u.y, 18, 'DODGE', 'gold', false); return 0; }
   let d = amt * rand(0.88, 1.12) * (o.crit ? 2 : 1);
   if (u.team === 'hero') { d *= G.heroDmgTaken; if (u.def.role === 'melee') d *= 0.72; }
   d = Math.max(1, Math.round(d)); u.hp -= d; u.flash = 0.12;

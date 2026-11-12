@@ -1,14 +1,15 @@
 // Fast-forward soak test: runs the battle at N sim steps per frame and logs floors, wipes, bosses, errors, frame rate.
 const { chromium } = require('playwright');
 (async () => {
-  const secs = +(process.argv[2] || 60), turbo = +(process.argv[3] || 6);
+  const secs = +(process.argv[2] || 60), turbo = +(process.argv[3] || 6), pilot = process.argv[4] !== 'manual';
   const browser = await chromium.launch({ args: ['--no-sandbox'] });
   const page = await (await browser.newContext({ viewport: { width: 932, height: 430 } })).newPage(); const errs = [];
   page.on('pageerror', e => errs.push('PAGEERROR ' + e.message + ' ' + (e.stack || '').split('\n')[1]));
   page.on('console', m => { if (m.type() === 'error') errs.push('CONSOLE ' + m.text().slice(0, 300)); });
   await page.goto('http://127.0.0.1:8787/index.html');
   await page.waitForFunction(() => window.CR && window.CR.G.mode === 'play', null, { timeout: 30000 });
-  await page.evaluate(t => { window.CR_AUTO = 0.4; window.CR_TURBO = t; window.__f = 0; const tick = () => { window.__f++; requestAnimationFrame(tick); }; requestAnimationFrame(tick); }, turbo);
+  await page.evaluate(t => { window.CR_AUTO = 0.4; window.CR_TURBO = t; window.__pilot = setInterval(() => { if (CR.G) CR.G.autoMode = 2; }, 200); window.__f = 0; const tick = () => { window.__f++; requestAnimationFrame(tick); }; requestAnimationFrame(tick); }, turbo);
+  if (!pilot) await page.evaluate(() => clearInterval(window.__pilot));
   const t0 = Date.now(); let lastKey = '';
   while ((Date.now() - t0) / 1000 < secs) {
     await page.waitForTimeout(3000);
