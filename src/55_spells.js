@@ -22,7 +22,7 @@ function explode(x, y, R, dmg, src, o = {}) {
   shake(0.32 * big); hitstop(0.04 * big); kick(0.05 * big); flash('fire', 0.1 * big); SFX.boom(big, panOf(x)); buzz(Math.round(30 * big));
 }
 function castFireball(h, tx, ty, big = 1, dm = 1.5, o = {}) {
-  const a = angTo(h.x, h.y, tx, ty), s = 200; h.lunge = 0.2; h.la = a;
+  const a = angTo(h.x, h.y, tx, ty), s = o.speed || 200; h.lunge = 0.2; h.la = a;
   proj({ k: 'fireball', x: h.x + Math.cos(a) * 6, y: h.y + Math.sin(a) * 3, z: 11, vx: Math.cos(a) * s, vy: Math.sin(a) * s, team: 'hero', src: h, dmg: h.def.dmg * h.mul * dm, R: 26 * big, big, tx, ty, life: 2.2, r: 4 * big, burn: o.burn, cluster: o.cluster });
   glows(h.x + Math.cos(a) * 8, h.y, 11, 8, 'fire', 60, 5, 0.3); SFX.fire(panOf(h.x));
 }
@@ -163,7 +163,7 @@ function updateProj(dt) {
       }
       continue;
     }
-    if (p.k === 'glob') { p.u += dt / p.T; p.x = lerp(p.x0, p.tx, Math.min(1, p.u)); p.y = lerp(p.y0, p.ty, Math.min(1, p.u)); p.z = 8 + Math.sin(Math.min(1, p.u) * Math.PI) * 44; if (chance(0.7)) part({ k: 'glow', x: p.x, y: p.y, z: p.z, life: 0.3, s0: 4, s1: 0, col: 'fire' }); light(p.x, p.y, 40, 'fire', 0.8); if (p.u >= 1) { p.dead = true; hazard({ k: 'lava', x: p.tx, y: p.ty, r: p.PR || 13, life: p.PL || 4.2, rate: 0.3, dmg: p.dmg, src: p.src }); scorch(p.tx, p.ty, 12, 0.6); glows(p.tx, p.ty, 4, 8, 'fire', 80, 5, 0.5); sparks(p.tx, p.ty, 4, 10, 'fire', 120, 100); SFX.hit(panOf(p.tx)); } continue; }
+    if (p.k === 'glob') { p.u += dt / p.T; p.x = lerp(p.x0, p.tx, Math.min(1, p.u)); p.y = lerp(p.y0, p.ty, Math.min(1, p.u)); p.z = 8 + Math.sin(Math.min(1, p.u) * Math.PI) * 44; if (!p.mud) { if (chance(0.7)) part({ k: 'glow', x: p.x, y: p.y, z: p.z, life: 0.3, s0: 4, s1: 0, col: 'fire' }); light(p.x, p.y, 40, 'fire', 0.8); } if (p.u >= 1 && p.mud) { p.dead = true; const R = p.PR || 18; for (const u of within(p.tx, p.ty, R, G.mons)) { hurt(u, p.dmg, p.src, { elem: 'earth', kx: rand(-40, 40), ky: rand(-30, 30) }); u.slow = Math.max(u.slow, p.SL || 1.6); } debris(p.tx, p.ty, 12, ['#5a4028', '#7a5a38', '#3a2818'], 90, 120, 1.8); smoke(p.tx, p.ty, 3, 'dust', 10, 30, 1); ring(p.tx, p.ty, R * 1.3, 'earth', 0.3, 3); splat(p.tx, p.ty, '#3a2818', 8, R * 0.6); SFX.hit(panOf(p.tx)); continue; } if (p.u >= 1) { p.dead = true; hazard({ k: 'lava', x: p.tx, y: p.ty, r: p.PR || 13, life: p.PL || 4.2, rate: 0.3, dmg: p.dmg, src: p.src }); scorch(p.tx, p.ty, 12, 0.6); glows(p.tx, p.ty, 4, 8, 'fire', 80, 5, 0.5); sparks(p.tx, p.ty, 4, 10, 'fire', 120, 100); SFX.hit(panOf(p.tx)); } continue; }
     if (p.shot === 'serpent') { p.wob += dt * 9; const s = Math.hypot(p.vx, p.vy), ca = Math.atan2(p.vy, p.vx) + Math.sin(p.wob) * 2.2 * dt; p.vx = Math.cos(ca) * s; p.vy = Math.sin(ca) * s; for (let i = 0; i < 2; i++) part({ k: 'glow', x: p.x + rand(-1, 1), y: p.y, z: p.z, vx: -p.vx * 0.1, vy: -p.vy * 0.1, life: 0.35, s0: 4, s1: 0.5, col: i ? 'fire2' : 'fire' }); light(p.x, p.y, 40, 'fire', 0.8); }
     if (p.home && alive(p.home)) { const a = angTo(p.x, p.y, p.home.x, p.home.y), s = Math.hypot(p.vx, p.vy), ca = Math.atan2(p.vy, p.vx), na = ca + clamp(((a - ca + Math.PI * 3) % TAU) - Math.PI, -1.8 * dt, 1.8 * dt); p.vx = Math.cos(na) * s; p.vy = Math.sin(na) * s; }
     p.x += p.vx * dt; p.y += p.vy * dt;

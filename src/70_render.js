@@ -68,8 +68,8 @@ function drawProp(c, p) {
 }
 function drawProjBodies(c) {
   for (const p of G.proj) {
-    if (p.k === 'glob') { c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(p.x, p.y, 4, 1.6, 0, 0, TAU); c.fill(); }
-    if (p.k === 'mshot' && (p.shot === 'arrow' || p.shot === 'stone')) { const a = Math.atan2(p.vy, p.vx); if (p.shot === 'arrow') { c.strokeStyle = '#d9c9a2'; c.lineWidth = 1; c.beginPath(); c.moveTo(p.x - Math.cos(a) * 7, p.y - p.z - Math.sin(a) * 7); c.lineTo(p.x, p.y - p.z); c.stroke(); c.fillStyle = '#fff'; c.fillRect(p.x - 0.5, p.y - p.z - 0.5, 1.4, 1.4); } else { c.fillStyle = '#8a8076'; c.fillRect(p.x - 1.5, p.y - p.z - 1.5, 3, 3); } }
+    if (p.k === 'glob') { c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(p.x, p.y, 4, 1.6, 0, 0, TAU); c.fill(); if (p.mud) { c.fillStyle = '#5a4028'; c.beginPath(); c.arc(p.x, p.y - p.z, 3, 0, TAU); c.fill(); c.fillStyle = '#8a6a48'; c.fillRect(p.x - 1.5, p.y - p.z - 2, 1.5, 1.5); } }
+    if (p.k === 'mshot' && (p.shot === 'arrow' || p.shot === 'stone')) { const a = Math.atan2(p.vy, p.vx); if (p.shot === 'arrow') { c.strokeStyle = p.tint || '#d9c9a2'; c.lineWidth = 1; c.beginPath(); c.moveTo(p.x - Math.cos(a) * 7, p.y - p.z - Math.sin(a) * 7); c.lineTo(p.x, p.y - p.z); c.stroke(); c.fillStyle = '#fff'; c.fillRect(p.x - 0.5, p.y - p.z - 0.5, 1.4, 1.4); } else { c.fillStyle = '#8a8076'; c.fillRect(p.x - 1.5, p.y - p.z - 1.5, 3, 3); } }
     else if (p.k === 'meteor' || p.k === 'boulder') {
       const s = (p.k === 'meteor' ? 1.6 * p.big : p.sz) * (1 + p.z / 400), sh = Math.max(2, 10 * s * (1 - p.z / 400));
       c.fillStyle = `rgba(0,0,0,${0.25 + 0.3 * (1 - p.z / 300)})`; c.beginPath(); c.ellipse(p.x, p.y, sh, sh * 0.45, 0, 0, TAU); c.fill();
@@ -83,7 +83,7 @@ function drawProjGlows(c) {
     if (p.k === 'fireball') { const s = 13 * p.big * (0.9 + 0.1 * Math.sin(p.t * 40)); c.drawImage(GLOW.fire, p.x - s, y - s, s * 2, s * 2); c.drawImage(GLOW.hot, p.x - s * 0.4, y - s * 0.4, s * 0.8, s * 0.8); }
     else if (p.k === 'ball') { const s = 15 + Math.sin(p.t * 50) * 3; c.drawImage(GLOW.bolt, p.x - s, y - s, s * 2, s * 2); c.drawImage(GLOW.white, p.x - 5, y - 5, 10, 10); }
     else if (p.k === 'meteor') { const s = 24 * p.big; c.drawImage(GLOW.fire, p.x - s, y - s, s * 2, s * 2); c.drawImage(GLOW.hot, p.x - s * 0.35, y - s * 0.35, s * 0.7, s * 0.7); }
-    else if (p.k === 'glob') { c.drawImage(GLOW.fire, p.x - 8, y - 8, 16, 16); c.drawImage(GLOW.hot, p.x - 3, y - 3, 6, 6); }
+    else if (p.k === 'glob' && !p.mud) { c.drawImage(GLOW.fire, p.x - 8, y - 8, 16, 16); c.drawImage(GLOW.hot, p.x - 3, y - 3, 6, 6); }
     else if (p.k === 'mshot' && p.shot !== 'arrow' && p.shot !== 'stone') { c.drawImage(GLOW[p.col] || GLOW.arcane, p.x - 7, y - 7, 14, 14); c.drawImage(GLOW.white, p.x - 2, y - 2, 4, 4); }
   }
 }

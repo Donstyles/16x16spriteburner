@@ -136,10 +136,36 @@ function thousandCuts(h) {
   banner('THOUSAND CUTS', h); slowmo(0.4, 1.4); G.ambDark = Math.max(G.ambDark, 0.65); flash('white', 0.25); SFX.braam();
   h.state = { k: 'cuts', t: 0, i: 0, list, step: 0.1, marked: [], dm: m.dmg };
 }
+// ---------- alternative basic attacks ----------
+function cleave(h, t) {
+  const m = md('CLEAVE'), a = angTo(h.x, h.y, t.x, t.y), R = 28 * m.size; h.lunge = 0.35; h.la = a; h.face = Math.cos(a) < 0 ? -1 : 1;
+  arcFx(h.x, h.y - 6, a, 3 * Math.min(1.3, m.size), R, 'gold', 0.24, 5); SFX.slash(panOf(h.x)); let any = false;
+  for (const u of within(h.x, h.y, R + 4, G.mons)) { if (Math.abs(angDiff(angTo(h.x, h.y, u.x, u.y), a)) > 1.6) continue; any = true; hurt(u, D(h) * 2 * m.dmg, h, { elem: 'phys', kx: Math.cos(a) * 220, ky: Math.sin(a) * 170, up: 80, crit: chance(0.15), stun: 0.3 }); sparks(u.x, u.y, 8, 8, 'gold', 190, 110, a, 1.4); }
+  if (any) { hitstop(0.05); shake(0.14); SFX.hit(panOf(h.x)); }
+}
+function quickStab(h, t) {
+  const m = md('QUICK STAB'), a = angTo(h.x, h.y, t.x, t.y); h.lunge = 0.25; h.la = a; h.face = Math.cos(a) < 0 ? -1 : 1;
+  const stab = () => { if (!alive(t) || !alive(h)) return; FX.beams.push({ x0: h.x + Math.cos(a) * 4, y0: h.y - 6, x1: t.x, y1: t.y - 6, w: 0.5, col: 'gold', t: 0, life: 0.1 }); const crit = chance(m.f.crit ? 0.6 : 0.35); hurt(t, D(h) * 0.7 * m.dmg, h, { elem: 'phys', crit, kx: Math.cos(a) * 50, ky: Math.sin(a) * 40 }); sparks(t.x, t.y, 8, crit ? 8 : 3, 'gold', 150, 80, a, 0.8); if (crit) hitstop(0.03); };
+  stab(); for (let i = 1; i <= m.count; i++) after(i * 0.08, stab); SFX.slash(panOf(h.x));
+}
+function fireOrb(h, t) { const m = md('FIRE ORB'), a0 = angTo(h.x, h.y, t.x, t.y), d = dist(h.x, h.y, t.x, t.y); for (const o of fan(1 + m.count, 0.45)) castFireball(h, h.x + Math.cos(a0 + o) * d, h.y + Math.sin(a0 + o) * d, 0.75 * m.size, 1.9 * m.dmg, { speed: 120 }); }
+function flameJet(h, t) {
+  const m = md('FLAME JET'), a = angTo(h.x, h.y, t.x, t.y), R = 66 * m.size; h.lunge = 0.15; h.la = a;
+  for (let i = 0; i < 7; i++) { const aa = a + rand(-0.2, 0.2), sp = rand(170, 240) * Math.sqrt(m.size); part({ k: 'glow', x: h.x + Math.cos(a) * 6, y: h.y + Math.sin(a) * 4, z: 8, vx: Math.cos(aa) * sp, vy: Math.sin(aa) * sp * 0.8, drag: 3, life: rand(0.25, 0.4), s0: rand(2, 3.5), s1: 5.5, col: chance(0.5) ? 'fire' : 'fire2', a0: 0.9, a1: 0 }); }
+  light(h.x + Math.cos(a) * 26, h.y + Math.sin(a) * 20, 50, 'fire', 0.9);
+  for (const u of live(G.mons)) if (dist(h.x, h.y, u.x, u.y) < R && Math.abs(angDiff(angTo(h.x, h.y, u.x, u.y), a)) < 0.32) { hurt(u, D(h) * 0.45 * m.dmg, h, { elem: 'fire', quiet: true }); if (m.f.burn) { u.burn = Math.max(u.burn, 2); u.burnDmg = Math.max(u.burnDmg || 0, D(h) * 0.12); } }
+  if (chance(0.3)) SFX.fire(panOf(h.x));
+}
+function arcWhip(h) { const m = md('ARC WHIP'), ts = live(G.mons).filter(u => dist(h.x, h.y, u.x, u.y) < 72 * m.size).sort((a, b) => dist(h.x, h.y, a.x, a.y) - dist(h.x, h.y, b.x, b.y)).slice(0, 2 + m.count); for (const u of ts) { bolt(h.x, h.y - 10, u.x, u.y - 6, { life: 0.14, w: 0.55, branches: 0 }); zapHit(u, h, D(h) * 0.8 * m.dmg, { stun: 0.15 }); } }
+function stormBolt(h, t) { const m = md('STORM BOLT'), ts = [t, ...live(G.mons).filter(x => x !== t).slice(0, m.count)]; for (const u of ts) { const a = angTo(h.x, h.y, u.x, u.y); proj({ k: 'mshot', shot: 'sorb', x: h.x, y: h.y, z: 10, vx: Math.cos(a) * 150, vy: Math.sin(a) * 125, team: 'hero', src: h, dmg: D(h) * 2.2 * m.dmg, col: 'bolt', life: 2, r: 4, home: u, BR: 13 * m.size, ST: 0.6 }); } SFX.zap(panOf(h.x)); }
+function thornDart(h, t) { const m = md('THORN DART'), a0 = angTo(h.x, h.y, t.x, t.y); fan(2 + m.count, 0.3).forEach((o, i) => after(i * 0.06, () => { if (!alive(h)) return; const a = a0 + o; proj({ k: 'mshot', shot: 'arrow', tint: '#8ce070', x: h.x, y: h.y, z: 8, vx: Math.cos(a) * 230, vy: Math.sin(a) * 190, team: 'hero', src: h, dmg: D(h) * 0.55 * m.dmg, col: 'heal', life: 1.4, r: 3 }); })); }
+function mudBall(h, t) { const m = md('MUD BALL'); for (let i = 0; i <= m.count; i++) { const tx = t.x + (i ? rand(-22, 22) : 0), ty = t.y + (i ? rand(-15, 15) : 0); proj({ k: 'glob', mud: true, x: h.x, y: h.y, x0: h.x, y0: h.y, tx, ty, z: 8, u: 0, T: 0.55 + i * 0.1, team: 'hero', src: h, dmg: D(h) * 1.3 * m.dmg, life: 3, PR: 18 * m.size, SL: 1.6 * m.dur }); } }
 // ---------- the book ----------
 const SPELLBOOK = {
   warrior: [
-    { name: 'SLASH', lvl: 1, tier: 0 },
+    { name: 'SLASH', lvl: 1, tier: 0, basic: true, cd: 0.5, reach: 14, cast: slash },
+    { name: 'CLEAVE', lvl: 1, tier: 0, basic: true, cd: 0.95, reach: 16, cast: cleave },
+    { name: 'QUICK STAB', lvl: 1, tier: 0, basic: true, cd: 0.3, reach: 14, cast: quickStab },
     { name: 'SHIELD BASH', lvl: 2, tier: 1, cd: 4.5, wind: 0.12, pick: (h, f) => nearestFoe(h, f, 42), cast: shieldBash },
     { name: 'LUNGE', lvl: 3, tier: 1, cd: 5, wind: 0.14, pick: (h, f) => farFoe(h, f, 40, 110), cast: lunge },
     { name: 'RISING SLASH', lvl: 4, tier: 1, cd: 5.5, wind: 0.12, pick: (h, f) => nearestFoe(h, f, 26), cast: risingSlash },
@@ -152,7 +178,9 @@ const SPELLBOOK = {
     { name: 'CATACLYSM', lvl: 15, tier: 4, wind: 0.5, pick: (h, f) => { const d = densest(f, 50, h, 200); return d && (d.n >= 4 || G.boss) ? d : null; }, cast: cataclysm },
   ],
   pyro: [
-    { name: 'EMBER BOLT', lvl: 1, tier: 0, cd: 1.15, pick: (h, f) => nearestFoe(h, f, 170), cast: emberBolt },
+    { name: 'EMBER BOLT', lvl: 1, tier: 0, basic: true, cd: 1.15, pick: (h, f) => nearestFoe(h, f, 170), cast: emberBolt },
+    { name: 'FIRE ORB', lvl: 1, tier: 0, basic: true, cd: 1.8, pick: (h, f) => nearestFoe(h, f, 170), cast: fireOrb },
+    { name: 'FLAME JET', lvl: 1, tier: 0, basic: true, cd: 0.3, range: 60, pick: (h, f) => nearestFoe(h, f, 75 * md('FLAME JET').size), cast: flameJet },
     { name: 'CINDER SPRAY', lvl: 2, tier: 1, cd: 5, wind: 0.25, pick: (h, f) => nearestFoe(h, f, 70), cast: cinderSpray },
     { name: 'IMMOLATE', lvl: 3, tier: 1, cd: 6, wind: 0.3, pick: (h, f) => toughest(h, f, 160), cast: immolate },
     { name: 'BLAZING DARTS', lvl: 4, tier: 1, cd: 4.5, wind: 0.25, pick: (h, f) => nearestFoe(h, f, 170), cast: blazingDarts },
@@ -165,7 +193,9 @@ const SPELLBOOK = {
     { name: 'METEOR STORM', lvl: 13, tier: 4, wind: 0.9, pick: () => true, cast: meteorStorm },
   ],
   storm: [
-    { name: 'SPARK', lvl: 1, tier: 0, cd: 1.25, pick: (h, f) => nearestFoe(h, f, 160), cast: spark },
+    { name: 'SPARK', lvl: 1, tier: 0, basic: true, cd: 1.25, pick: (h, f) => nearestFoe(h, f, 160), cast: spark },
+    { name: 'ARC WHIP', lvl: 1, tier: 0, basic: true, cd: 1, range: 62, pick: (h, f) => nearestFoe(h, f, 72 * md('ARC WHIP').size), cast: arcWhip },
+    { name: 'STORM BOLT', lvl: 1, tier: 0, basic: true, cd: 2, pick: (h, f) => nearestFoe(h, f, 170), cast: stormBolt },
     { name: 'STATIC CHARGE', lvl: 2, tier: 1, cd: 4, wind: 0.2, pick: (h, f) => nearestFoe(h, f, 80), cast: staticCharge },
     { name: 'SHOCK ORB', lvl: 3, tier: 1, cd: 5, wind: 0.3, pick: (h, f) => nearestFoe(h, f, 170), cast: shockOrb },
     { name: 'GUST', lvl: 4, tier: 1, cd: 6, wind: 0.25, pick: (h, f) => within(h.x, h.y, 55, f).length >= 2 ? nearestFoe(h, f, 55) : null, cast: gust },
@@ -178,7 +208,9 @@ const SPELLBOOK = {
     { name: 'THUNDERSTORM', lvl: 14, tier: 4, wind: 1, pick: () => true, cast: thunderstorm },
   ],
   druid: [
-    { name: 'PEBBLE', lvl: 1, tier: 0, cd: 1.3, pick: (h, f) => nearestFoe(h, f, 150), cast: pebble },
+    { name: 'PEBBLE', lvl: 1, tier: 0, basic: true, cd: 1.3, pick: (h, f) => nearestFoe(h, f, 150), cast: pebble },
+    { name: 'THORN DART', lvl: 1, tier: 0, basic: true, cd: 1, pick: (h, f) => nearestFoe(h, f, 160), cast: thornDart },
+    { name: 'MUD BALL', lvl: 1, tier: 0, basic: true, cd: 1.8, pick: (h, f) => nearestFoe(h, f, 160), cast: mudBall },
     { name: 'MEND', lvl: 1, tier: 1, free: true, cd: 5, wind: 0.25, pick: () => lowestHero(0.7), cast: mend },
     { name: 'THORN LASH', lvl: 2, tier: 1, cd: 4, wind: 0.2, pick: (h, f) => nearestFoe(h, f, 110), cast: thornLash },
     { name: 'REJUVENATE', lvl: 3, tier: 1, free: true, cd: 7, wind: 0.3, pick: () => lowestHero(0.85), cast: rejuvenate },
@@ -212,6 +244,8 @@ function heroBrain(h, foes) {
   }
   return false;
 }
+const DEFAULT_BASIC = { warrior: 'SLASH', pyro: 'EMBER BOLT', storm: 'SPARK', druid: 'PEBBLE' };
+function basicOf(h) { const n = (G.basic && G.basic[h.key]) || DEFAULT_BASIC[h.key]; return SPELLBOOK[h.key].find(s => s.name === n); }
 function heroAI(h, dt) {
   if (h.dead) { h.deadT += dt; return; }
   for (const k in h.cd) h.cd[k] -= dt;
@@ -223,15 +257,15 @@ function heroAI(h, dt) {
   const foes = live(G.mons);
   if (!foes.length || G.phase !== 'fight') { const i = G.heroes.indexOf(h), tx = (ARENA.pw / 2) + (i - 1.5) * 20, ty = ARENA.y0 + (ARENA.y1 - ARENA.y0) * 0.6 + (i % 2) * 10; steer(h, tx, ty, h.def.spd * 0.7, dt, 4); return; }
   if (heroBrain(h, foes)) return;
-  const basic = SPELLBOOK[h.key][0];
+  const basic = basicOf(h);
   if (h.key === 'warrior') {
     const others = G.heroes.filter(x => x !== h && !x.dead), cx = others.length ? others.reduce((a, c) => a + c.x, 0) / others.length : h.x, cy = others.length ? others.reduce((a, c) => a + c.y, 0) / others.length : h.y;
     let t = nearest({ x: cx, y: cy }, foes, 70) || nearest(h, foes); if (G.boss && alive(G.boss) && G.boss.spawnT <= 0 && chance(0.02)) t = G.boss; if (h.target && alive(h.target) && dist(h.x, h.y, h.target.x, h.target.y) < 40) t = h.target; h.target = t;
     const d = steer(h, t.x, t.y, h.def.spd, dt, h.r + t.r + 8);
-    if (d < h.r + t.r + 14 && !(h.cd.slash > 0)) { h.cd.slash = 0.5 * md('SLASH').cd; slash(h, t); }
+    if (d < h.r + t.r + (basic.reach || 14) && !(h.cd.slash > 0)) { h.cd.slash = basic.cd * md(basic.name).cd; basic.cast(h, t); }
     if (h.moving && chance(dt * 6) && G.lvl >= 5) ghost(h, 'gold', 0.2);
   } else {
-    kite(h, foes, dt, h.key === 'druid' ? 85 : 100);
+    kite(h, foes, dt, basic.range || (h.key === 'druid' ? 85 : 100));
     if (!(h.cd.basic > 0)) { const t = basic.pick(h, foes); if (t) { h.cd.basic = basic.cd * md(basic.name).cd; basic.cast(h, t); } }
   }
 }

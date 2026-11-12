@@ -14,7 +14,7 @@ function scaleForFloor() {
   const pity = Math.pow(0.85, G.floorFalls || 0); G.monHp = (1.4 + 0.32 * f) * pity; G.monDmg = (1 + 0.16 * f) * pity; scaleParty();
 }
 function startRun() {
-  G.run++; G.floor = 1; G.lvl = 1; G.xp = 0; resetSpells(); makeParty(); startFloor(true);
+  G.run++; G.floor = 1; G.lvl = 1; G.xp = 0; resetSpells(); makeParty(); startFloor(true); queueDraft();
 }
 function startFloor(first) {
   buildArena(G.floor); G.units = []; G.proj = []; G.sched = []; G.pending = 0; G.storm = null; G.eq = null; G.boss = null;
@@ -162,7 +162,7 @@ function updateDirector(dt) {
   if (G.phase === 'fight') {
     if (!G.heroes.some(h => !h.dead)) { G.phase = 'wipe'; G.phaseT = 0; slowmo(0.3, 2); G.bestLvl = Math.max(G.bestLvl, G.lvl); textBanner('THE PARTY HAS FALLEN', 'FLOOR ' + G.floor + '  ·  LEVEL ' + G.lvl + '  ·  ' + G.kills.toLocaleString() + ' SLAIN', 'red'); pushBanner({ a: 'THEY RISE AGAIN', b: 'FLOOR ' + G.floor + ' MUST BE TAKEN', col: 'gold', keep: true, life: 2 }); SFX.braam(); return; }
     updateSpawner(dt);
-    if (G.wave === 0) { G.waveT -= dt; if (G.waveT < 1.6) for (const r of ARENA.runes) r.glow = Math.max(r.glow, 0.6); if (G.waveT <= 0) { if (G.cdn > 0) { const before = Math.ceil(G.cdn); if (G.cdn === 3) countTick(3); G.cdn -= dt; if (G.cdn > 0 && Math.ceil(G.cdn) !== before) countTick(Math.ceil(G.cdn)); if (G.cdn <= 0) { G.cdn = 0; G.fightT = 1.1; flash('red', 0.25); shake(0.5); SFX.boom(1.2, 0); SFX.braam(); buzz([120]); for (const r of ARENA.runes) { r.glow = 1.6; ring(r.x, r.y, 30, 'arcane', 0.5, 4); } startWave(); } } else startWave(); } }
+    if (G.wave === 0) { if (!G.choiceQ.some(q => q.kind === 'draft')) G.waveT -= dt; if (G.waveT < 1.6) for (const r of ARENA.runes) r.glow = Math.max(r.glow, 0.6); if (G.waveT <= 0) { if (G.cdn > 0) { const before = Math.ceil(G.cdn); if (G.cdn === 3) countTick(3); G.cdn -= dt; if (G.cdn > 0 && Math.ceil(G.cdn) !== before) countTick(Math.ceil(G.cdn)); if (G.cdn <= 0) { G.cdn = 0; G.fightT = 1.1; flash('red', 0.25); shake(0.5); SFX.boom(1.2, 0); SFX.braam(); buzz([120]); for (const r of ARENA.runes) { r.glow = 1.6; ring(r.x, r.y, 30, 'arcane', 0.5, 4); } startWave(); } } else startWave(); } }
     else if (!G.spawnQ.length && !G.pending) {
       const nextIsLast = G.wave + 1 === G.waves, left = G.mons.length;
       if (G.wave >= G.waves) { if (!left) { G.phase = 'clear'; G.phaseT = 0; } }

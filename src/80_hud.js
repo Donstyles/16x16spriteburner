@@ -1,7 +1,7 @@
 // ===================== HUD: spectator overlay, banners, numbers =====================
 const F_DISP = '"Grenze Gotisch", "Palatino Linotype", Palatino, "Book Antiqua", serif', F_HUD = 'Teko, "Arial Narrow", "Avenir Next Condensed", sans-serif';
 const NUMCOL = { fire: '#ffb04a', bolt: '#b4d0ff', heal: '#7cff9c', red: '#ff5a46', earth: '#ffc27a', white: '#ffffff', phys: '#ffffff', gold: '#ffd860', arcane: '#d49cff', poison: '#a8ff60' };
-const UI = { soundRect: null, titleT: 0 };
+const UI = { soundRect: null, titleT: 0, bookOpen: false, bookFocus: null, bookRect: null, plateRects: [], draftRect: null };
 function pushBanner(b) { b.t = 0; b.at = performance.now() / 1000; b.life = b.life || 1.8; if (!G.banner) G.banner = b; else { G.bq.push(b); if (G.bq.length > 6) G.bq.shift(); } }
 function banner(title, hero, sub, col) { pushBanner({ a: title, b: hero ? hero.def.name + ' · ' + heroTitle(hero) : (sub || ''), col: col || (hero ? hero.def.col : 'gold'), life: 1.7 }); }
 function textBanner(a, b, col = 'gold', small = false) { pushBanner({ a, b, col, life: small ? 1.8 : 2.4, keep: true, small }); }
@@ -35,8 +35,9 @@ function drawHUD() {
   // party plates
   const pw = 122, rows = W < 560 ? 2 : 1, per = rows === 2 ? 2 : 4;
   G.heroes.forEach((h, i) => {
-    const col = i % per, row = (i / per) | 0, x = L + col * (pw + 8), y = B - (rows - row) * 34 + 2, m = MOBS[h.spr];
-    c.fillStyle = 'rgba(10,8,12,0.62)'; c.fillRect(x - 4, y - 2, pw, 30);
+    const col = i % per, row = (i / per) | 0, x = L + col * (pw + 8), y = B - (rows - row) * 40 + 2, m = MOBS[h.spr];
+    c.fillStyle = 'rgba(10,8,12,0.62)'; c.fillRect(x - 4, y - 2, pw, 36); UI.plateRects[i] = [x - 4, y - 2, pw, 36];
+    if (G.known) { let px = x + 28; for (const sp of SPELLBOOK[h.key]) { if (!sp.tier || !G.known.has(sp.name) || px > x + pw - 10) continue; c.fillStyle = TIER_HEX[sp.tier]; c.fillRect(px, y + 28, 5, 3); const n = (G.modsTaken[sp.name] || []).length; c.fillStyle = '#ffffff'; for (let k = 0; k < n; k++) c.fillRect(px + k * 2, y + 26, 1, 1); px += 7; } }
     c.imageSmoothingEnabled = false; c.globalAlpha = h.dead ? 0.35 : 1; c.drawImage(IMG.mobs, 0, m[0], m[1], m[2], x - 2, y - 2, 28, 28 * m[2] / m[1]); c.globalAlpha = 1;
     font(c, 500, 14, F_HUD); label(c, h.def.name, x + 28, y + 10, h.dead ? '#8a5048' : '#efe4cc'); const nw = c.measureText(h.def.name).width; font(c, 500, 11, F_HUD); label(c, h.dead ? 'FALLEN' : heroTitle(h), x + 32 + nw, y + 10, h.dead ? '#8a5048' : `rgba(${COL[h.def.col]},0.9)`);
     const f = h.dead ? 0 : clamp(h.hp / h.maxHp, 0, 1); c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(x + 28, y + 14, 58, 5); c.fillStyle = f > 0.5 ? '#6cf08a' : f > 0.25 ? '#ffd24a' : '#ff4a3a'; c.fillRect(x + 28, y + 14, 58 * f, 5);
@@ -73,4 +74,6 @@ function drawHUD() {
   c.globalAlpha = !SFX.ctx ? 0.6 + 0.4 * Math.sin(performance.now() / 300) : 0.55; spaced(c, st, R, B - 4, 1.2, '#f0e0c0', 'right'); c.globalAlpha = 1;
   UI.soundRect = [R - tw - 12, B - 26, tw + 24, 34];
   drawChoice(c);
+  if (!UI.bookOpen) { font(c, 600, 14, F_HUD); const bt = 'SPELLBOOK', bw = c.measureText(bt).width + 26, bx = R - bw, by = B - 58; c.globalAlpha = 0.85; c.fillStyle = 'rgba(10,8,12,0.7)'; c.fillRect(bx, by, bw, 24); c.strokeStyle = '#c8a050'; c.lineWidth = 1; c.strokeRect(bx + 0.5, by + 0.5, bw - 1, 23); spaced(c, bt, bx + 13, by + 17, 1.2, '#ffd860'); c.globalAlpha = 1; UI.bookRect = [bx - 4, by - 4, bw + 8, 32]; }
+  drawBook(c);
 }

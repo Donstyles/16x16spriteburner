@@ -98,7 +98,7 @@ function deathFx(u, elem) {
 }
 // physics: knockback, knock-up and collisions with walls, pillars and each other
 function moveUnit(u, dt) {
-  const sl = u.slow > 0 ? 0.5 : 1; u.x += (u.vx * sl + u.kx) * dt; u.y += (u.vy * sl + u.ky) * dt; const f = Math.exp(-5 * dt); u.kx *= f; u.ky *= f;
+  const sl = u.slow > 0 ? 0.5 : 1; if (u.slow > 0) u.slow -= dt; u.x += (u.vx * sl + u.kx) * dt; u.y += (u.vy * sl + u.ky) * dt; const f = Math.exp(-5 * dt); u.kx *= f; u.ky *= f;
   if (u.z > 0 || u.vz > 0) { u.vz -= 560 * dt; u.z += u.vz * dt; if (u.z <= 0) { if (u.vz < -150) { u.squash = 0.35; debris(u.x, u.y, 3, ['#5a5048', '#7d7064'], 50, 60, 1.2); smoke(u.x, u.y, 2, 'dust', 6, 14, 0.8); if (u.vz < -260 && !u.dead) hurt(u, 6, null, { quiet: true }); } u.z = 0; u.vz = 0; } }
   const A = ARENA; if (u.x < A.x0 + u.r) { u.x = A.x0 + u.r; u.kx = Math.abs(u.kx) * 0.3; } if (u.x > A.x1 - u.r) { u.x = A.x1 - u.r; u.kx = -Math.abs(u.kx) * 0.3; }
   if (u.y < A.y0 + u.r * 0.4) { u.y = A.y0 + u.r * 0.4; u.ky = Math.abs(u.ky) * 0.3; } if (u.y > A.y1) { u.y = A.y1; u.ky = -Math.abs(u.ky) * 0.3; }
