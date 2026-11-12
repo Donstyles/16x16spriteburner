@@ -8,16 +8,30 @@ const { chromium } = require('playwright'); const path = require('path');
   const browser = await chromium.launch({ args: ['--no-sandbox', '--disable-features=WebRtcHideLocalIpsWithMdns,CalculateNativeWinOcclusion', '--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows'] });
   const mk = async (tag) => { const p = await (await browser.newContext({ viewport: { width: 932, height: 430 } })).newPage(); p.errs = []; p.on('pageerror', e => p.errs.push(tag + ' PAGEERROR ' + e.message + ' ' + (e.stack || '').split('\n')[1])); p.on('console', m => { if (m.type() === 'error') p.errs.push(tag + ' CONSOLE ' + m.text().slice(0, 200)); }); return p; };
   const host = await mk('host'), guest = await mk('guest');
+  const tap = async (p, r) => { await p.mouse.click(r[0] + r[2] / 2, r[1] + r[3] / 2); };
+  const tapCard = async (p, k) => { await p.waitForFunction(k => CR.G.choice && CR.G.choice.kind === 'draft' && CR.G.choice.step === k && CR.G.choice.t > 0.4, k, { timeout: 20000 }); await tap(p, await p.evaluate(() => CR.G.choice.rects[2] || CR.G.choice.rects[0])); };
   await host.goto('http://127.0.0.1:8787/index.html' + q);
-  await host.waitForFunction(() => window.CR && CR.G.mode === 'play' && CR.G.choice && CR.G.choice.kind === 'draft', null, { timeout: 30000 });
-  await host.evaluate(() => { CR.G.acted = true; CR.autoDraft(); CR.hostOpen(); });
-  await host.waitForFunction(() => CR.NET.on && CR.NET.code, null, { timeout: 30000 });
-  const code = await host.evaluate(() => CR.NET.code); console.log('room', code, 'host hero', await host.evaluate(() => CR.G.me.key));
+  await host.waitForFunction(() => window.CR && CR.G.mode === 'menu', null, { timeout: 30000 });
+  await tap(host, await host.evaluate(() => CR.MENU.rects[2].r)); // HOST CO-OP
+  await host.waitForFunction(() => CR.G.mode === 'lobby' && CR.NET.on && CR.NET.code, null, { timeout: 30000 });
+  const code = await host.evaluate(() => CR.NET.code); console.log('room', code);
+  await host.evaluate(() => CR.lobbyPick('warrior'));
+  await host.waitForTimeout(600); await host.screenshot({ path: path.join(out, 'lobby_host_alone.png') });
   await guest.goto('http://127.0.0.1:8787/index.html' + (q ? q + '&' : '?') + 'room=' + code);
-  await guest.waitForFunction(() => window.CR && CR.NET.on && CR.G.choice && CR.G.choice.kind === 'draft', null, { timeout: 30000 });
-  await guest.waitForTimeout(500); await guest.screenshot({ path: path.join(out, 'guest_draft.png') });
-  // guest picks by tapping cards like a player would
-  for (let k = 0; k < 3; k++) { await guest.waitForFunction(k => CR.G.choice && CR.G.choice.kind === 'draft' && CR.G.choice.step === k + 1 && CR.G.choice.t > 0.4, k, { timeout: 15000 }); const r = await guest.evaluate(() => CR.G.choice.rects[2] || CR.G.choice.rects[0]); await guest.mouse.click(r[0] + r[2] / 2, r[1] + r[3] / 2); }
+  await guest.waitForFunction(() => window.CR && CR.NET.on && CR.G.mode === 'lobby' && CR.NET.seats, null, { timeout: 30000 });
+  await guest.waitForTimeout(400);
+  // the guest taps the stormcaller in the lobby hero row (rects: invite, 4 heroes, leave)
+  const heroRects = await guest.evaluate(() => CR.MENU.rects.map(b => b.r)); await tap(guest, heroRects[heroRects.length - 4]);
+  await host.waitForFunction(() => Object.keys(CR.NET.lobby.picks).length === 2, null, { timeout: 10000 });
+  await host.waitForTimeout(500); await host.screenshot({ path: path.join(out, 'lobby_host_two.png') }); await guest.screenshot({ path: path.join(out, 'lobby_guest.png') });
+  console.log('lobby picks', JSON.stringify(await host.evaluate(() => CR.NET.lobby.picks)));
+  const desc = await host.evaluate(() => CR.MENU.rects[CR.MENU.rects.length - 1].r); await tap(host, desc); // DESCEND
+  await host.waitForFunction(() => CR.G.mode === 'play', null, { timeout: 5000 });
+  await guest.waitForFunction(() => CR.G.mode === 'play', null, { timeout: 8000 });
+  await host.evaluate(() => { CR.G.acted = true; });
+  await tapCard(host, 2); await tapCard(host, 3);
+  await guest.waitForTimeout(400); await guest.screenshot({ path: path.join(out, 'guest_draft.png') });
+  await tapCard(guest, 2); await tapCard(guest, 3);
   await guest.waitForFunction(() => CR.G.me, null, { timeout: 15000 }); await guest.waitForTimeout(3500); await host.evaluate(() => { window.CR_PROF = {}; });
   console.log('guest hero', await guest.evaluate(() => CR.G.me.key + ' pid ' + CR.G.me.pid + ' slots ' + JSON.stringify(CR.G.slots)));
   await guest.evaluate(() => { window.__rx = 0; window.__n = 0; CR.NET.host.on('data', m => { window.__rx += JSON.stringify(m).length; window.__n++; }); });
@@ -43,6 +57,12 @@ const { chromium } = require('playwright'); const path = require('path');
   console.log('guest', JSON.stringify(gs)); console.log('host', JSON.stringify(hs)); console.log('guest picks', picks, 'avg KB/s', (gs.rx / 1024 / (secs + 2)).toFixed(1), 'avg msg bytes', Math.round(gs.rx / Math.max(1, gs.msgs)));
   await guest.screenshot({ path: path.join(out, 'guest_end.png') }); await host.screenshot({ path: path.join(out, 'host_end.png') });
   const prof = await host.evaluate(() => window.CR_PROF); const n = prof.n; console.log('per-snapshot bytes:', Object.entries(prof).filter(([k]) => k !== 'n').sort((a, b) => b[1] - a[1]).slice(0, 18).map(([k, v]) => k + ' ' + Math.round(v / n)).join(', '));
+  const late = await mk('late'); await late.goto('http://127.0.0.1:8787/index.html' + (q ? q + '&' : '?') + 'room=' + code);
+  await late.waitForFunction(() => window.CR && CR.NET.on && CR.G.mode === 'play', null, { timeout: 30000 });
+  await tapCard(late, 1); await tapCard(late, 2); await tapCard(late, 3);
+  await late.waitForFunction(() => CR.G.me, null, { timeout: 15000 }).then(async () => console.log('late joiner in as', await late.evaluate(() => CR.G.me.pname + ' ' + CR.G.me.key))).catch(() => console.log('late joiner never got a hero'));
+  await late.waitForTimeout(2500); await late.screenshot({ path: path.join(out, 'late_fight.png') }); await host.evaluate(() => { CR.NET.panel = true; }); await host.waitForTimeout(400); await host.screenshot({ path: path.join(out, 'room_panel.png') }); await host.evaluate(() => { CR.NET.panel = false; });
+  host.errs.push(...late.errs);
   // drop the guest's connection (like a screen lock) and check it rejoins as the same hero
   const before = await host.evaluate(() => CR.G.heroes.find(x => x.pid === 1).id);
   await guest.evaluate(() => CR.NET.host.close());

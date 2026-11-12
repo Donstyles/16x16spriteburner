@@ -1,10 +1,11 @@
 {
   "name": "Cellar of Ruin",
   "short_name": "Cellar",
-  "description": "A dungeon battle that plays itself.",
+  "description": "Fight down an endless cellar alone or with up to three friends.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
   "orientation": "landscape",
   "background_color": "#0b0c0f",
   "theme_color": "#0b0c0f",

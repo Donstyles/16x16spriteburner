@@ -1,8 +1,10 @@
 # Cellar of Ruin
 
-One hero fights down an endless cellar, floor by floor. Steer it yourself, or leave it on autopilot and watch.
+One hero fights down an endless cellar, floor by floor. Steer it yourself, leave it on autopilot and watch, or bring up to three friends.
 
-Before the first wave you pick a hero (Brandt the battlemage, Ignis the pyromancer, Voltaire the stormcaller or Mossa the druid), its basic attack and a first skill (or press AUTO-DRAFT). Every level-up, cleared floor and boss then offers three cards: a new spell or an upgrade. Each spell has three upgrades. You hold four skills plus an ultimate; once all four buttons are full, a new spell replaces the weakest one (the card says which). Open the SPELLBOOK (button, the hero frame, or B) to see every skill and upgrade; the battle pauses while it is open.
+The main menu offers PLAY SOLO, WATCH (autopilot from the first wave), HOST CO-OP and JOIN CO-OP.
+
+Before the first wave you pick a hero (Brandt the battlemage, Ignis the pyromancer, Voltaire the stormcaller or Mossa the druid), its basic attack and a first skill (or press AUTO-DRAFT). After that, every cleared floor (or slain boss) offers three cards: a new spell or an upgrade. Level-ups make the hero stronger and unlock the next tier of spells. Each spell has three upgrades. You hold four skills plus an ultimate; once all four buttons are full, a new spell replaces the weakest one (the card says which). Open the SPELLBOOK (button, the hero frame, or B) to see every skill and upgrade; the battle pauses while it is open.
 
 The hero starts at level 1 and earns its spellbook: low spells first, then medium, then the high spells and the ultimate.
 
@@ -11,7 +13,7 @@ The game is always landscape. On a phone held upright it is drawn sideways, so j
 
 | | Touch | Keyboard | Gamepad |
 |---|---|---|---|
-| Move | thumb-stick anywhere on the left half | WASD / arrows | left stick |
+| Move | touch anywhere and drag (the stick is invisible) | WASD / arrows | left stick |
 | Dash (dodges damage) | » button | Space / Shift | A |
 | Skills 1-4 | the four round buttons | 1-4 | X, Y, B, RB |
 | Ultimate (when the ring is full) | big corner button | R or Q | RT / LB |
@@ -32,7 +34,7 @@ Every fourth floor a boss rises. When a floor is cleared it collapses and the he
 Tap once for sound. On Android the game also goes fullscreen and big hits vibrate.
 
 ## Co-op (up to 4 heroes)
-Tap **CO-OP** → **HOST A ROOM**. You get a 4-letter room code; **SEND INVITE LINK** shares a link that opens the game straight into your room. Friends can also tap **CO-OP** → **JOIN A ROOM** and type the code. Each guest picks a hero (the same hero twice is fine), a basic attack and a first skill, and drops in next to the host.
+Choose **HOST CO-OP** on the menu to open **The Cellar Door**, the lobby: a 4-letter room code, **SEND INVITE LINK**, and four seats that fill as friends arrive, each showing the hero that player picked. Friends tap the invite link, or **JOIN CO-OP** and type the code on the letter pad. When everyone is ready the host taps **DESCEND**; each player then picks a basic attack and a first spell. Friends who arrive later drop straight into the fight. A room can also be opened mid-run from the **CO-OP** button.
 
 - Levels are shared; each player gets their own three cards every level-up, floor and boss, and picking never pauses the fight.
 - A fallen hero comes back after 9 seconds while anyone is still standing.

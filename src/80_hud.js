@@ -15,6 +15,7 @@ function spaced(c, s, x, y, sp, col, align = 'left') { let w = 0; for (const ch 
 function drawHUD() {
   const c = ctx, d = VIEW.dpr, W = VIEW.w, H = VIEW.h, S = VIEW.safe, L = Math.max(12, S.l + 10), R = W - Math.max(12, S.r + 10), T = Math.max(10, S.t + 8), B = H - Math.max(10, S.b + 8);
   c.setTransform(d, 0, 0, d, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+  if (G.mode !== 'play') { drawMenus(c); return; }
   const big = Math.min(W, H);
   // floating numbers
   const zf = clamp(CAM.z / 2.4, 0.8, 1.5);
@@ -47,7 +48,7 @@ function drawHUD() {
   }
   // floor card and fades
   if (G.fade > 0.001) { c.fillStyle = `rgba(4,3,5,${G.fade})`; c.fillRect(0, 0, W, H); }
-  const cd = G.card; if (cd) { const u = cd.t / cd.life, a = u < 0.15 ? u / 0.15 : u > 0.75 ? (1 - u) / 0.25 : 1; c.globalAlpha = a; font(c, 900, clamp(big / 5, 34, 90), F_DISP); c.shadowColor = 'rgba(255,140,40,0.8)'; c.shadowBlur = 30; label(c, cd.a, W / 2, H / 2, '#f6e2bc', { align: 'center' }); c.shadowBlur = 0; font(c, 500, clamp(big / 24, 14, 24), F_HUD); spaced(c, cd.b, W / 2, H / 2 + clamp(big / 14, 22, 40), 4, '#c8a878', 'center'); c.globalAlpha = 1; }
+  const cd = G.card; if (cd) { const u = cd.t / cd.life, a = u < 0.15 ? u / 0.15 : u > 0.75 ? (1 - u) / 0.25 : 1; c.globalAlpha = a; font(c, 900, clamp(big / 5, 34, 90), F_DISP); c.shadowColor = 'rgba(255,140,40,0.8)'; c.shadowBlur = 30; label(c, cd.a, W / 2, H / 2, '#f6e2bc', { align: 'center' }); c.shadowBlur = 0; font(c, 500, clamp(big / 24, 14, 24), F_HUD); spaced(c, cd.b, W / 2, H / 2 + clamp(big / 14, 22, 40), 4, '#c8a878', 'center'); if (cd.c) { font(c, 500, clamp(big / 30, 13, 19), F_HUD); label(c, cd.c, W / 2, H / 2 + clamp(big / 14, 22, 40) + clamp(big / 18, 20, 32), '#a8987e', { align: 'center' }); } c.globalAlpha = 1; }
   if (UI.titleT < 3.8) { const u = UI.titleT / 3.8, a = u < 0.1 ? u / 0.1 : u > 0.7 ? (1 - u) / 0.3 : 1; c.globalAlpha = a; c.fillStyle = 'rgba(4,3,5,0.55)'; c.fillRect(0, 0, W, H); font(c, 900, clamp(big / 4.2, 40, 120), F_DISP); c.shadowColor = 'rgba(120,160,255,0.9)'; c.shadowBlur = 36; label(c, 'Cellar of Ruin', W / 2, H * 0.47, '#f8f0e0', { align: 'center' }); c.shadowBlur = 0; font(c, 500, clamp(big / 22, 14, 26), F_HUD); spaced(c, 'THE BATTLE FIGHTS ITSELF  ·  YOU WATCH', W / 2, H * 0.47 + clamp(big / 10, 30, 60), 4, '#c8b48c', 'center'); c.globalAlpha = 1; }
   // countdown before the very first wave
   if (G.cdn > 0 && G.waveT <= 0 && G.phase === 'fight') { const n = Math.ceil(G.cdn), f = n - G.cdn, sz = clamp(big / 2.6, 70, 190) * (f < 0.18 ? 1.45 - f / 0.18 * 0.45 : 1); c.globalAlpha = Math.min(1, (1 - f) * 6); font(c, 900, sz, F_DISP); c.shadowColor = 'rgba(255,170,60,0.95)'; c.shadowBlur = 40; label(c, String(n), W / 2, H / 2 + sz * 0.33, '#fff4dc', { align: 'center' }); c.shadowBlur = 0; c.globalAlpha = 1; }

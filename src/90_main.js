@@ -33,6 +33,7 @@ function frame(t) {
     NET.rec = NET.role === 'host' && NET.conns.size > 0;
     pollPad(); if (!UI.bookOpen) updateChoice(rdt); if (G.fightT > 0) G.fightT -= rdt;
     if (NET.role === 'client') guestFrame(rdt);
+    else if (G.mode !== 'play') { G.time += rdt; for (const u of G.units) u.anim += rdt * 0.7; if (ARENA && chance(rdt * 5)) embers(rand(ARENA.x0, ARENA.x1), rand(ARENA.y0, ARENA.y1), 1); updateFx(rdt); }
     else if ((G.choice || UI.bookOpen) && !(NET.role === 'host' && NET.conns.size)) { /* the battle holds its breath while the player chooses or reads */ }
     else if (G.hitstop > 0) G.hitstop -= rdt;
     else { if (G.slowT > 0) G.slowT -= rdt; else G.ts = damp(G.ts, 1, 3, rdt); const dt = rdt * G.ts, n = window.CR_TURBO || 1; for (let i = 0; i < n; i++) update(dt); }
@@ -49,9 +50,9 @@ async function boot() {
   try { if (document.fonts) await Promise.race([Promise.all([document.fonts.load('900 40px "Grenze Gotisch"'), document.fonts.load('500 16px Teko'), document.fonts.load('600 16px Teko')]), new Promise(r => setTimeout(r, 2500))]); } catch (e) { }
   await loadAssets(); resize(); addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
   setupControls(); netWrap();
-  startRun(); G.mode = 'play'; const ld = document.getElementById('loading'); if (ld) ld.hidden = true;
+  startRun(true); G.mode = 'menu'; G.card = null; UI.titleT = 99; const ld = document.getElementById('loading'); if (ld) ld.hidden = true;
   const rq = new URLSearchParams(location.search).get('room'); if (rq) setTimeout(() => netJoin(rq), 400);
-  window.CR = { G, FX, CAM, Q, SFX, VIEW, ARENA: () => ARENA, startRun, startFloor, startWave, beginCast, SPELLBOOK, live, pickChoice, md, MODS, UI, autoDraft, INPUT, CTRL, NET, netJoin, hostOpen, netCloseRoom, tryCast, autoLevel, selectHero, gainXp, levelUp, xpFor, spawnBoss, meteorStorm, thunderstorm, earthquake, cataclysm, explode, MON_DEFS, HERO_DEFS };
+  window.CR = { G, FX, CAM, Q, SFX, VIEW, ARENA: () => ARENA, startRun, startFloor, startWave, beginCast, SPELLBOOK, live, pickChoice, md, MODS, UI, autoDraft, INPUT, CTRL, NET, MENU, startSolo, startWatch, startHost, startJoin, lobbyPick, lobbyStart, netJoin, hostOpen, netCloseRoom, tryCast, autoLevel, selectHero, gainXp, levelUp, xpFor, spawnBoss, meteorStorm, thunderstorm, earthquake, cataclysm, explode, MON_DEFS, HERO_DEFS };
   requestAnimationFrame(frame);
 }
 boot().catch(e => { const ld = document.getElementById('loading'); if (ld) ld.textContent = 'Failed to start: ' + e.message; console.error(e); });

@@ -7,7 +7,8 @@ const { chromium } = require('playwright'); const path = require('path');
   const page = await (await browser.newContext({ viewport: { width: W, height: H }, hasTouch: touch, isMobile: touch })).newPage(); const errs = [];
   page.on('pageerror', e => errs.push('PAGEERROR ' + e.message + ' ' + (e.stack || '').split('\n')[1]));
   await page.goto('http://127.0.0.1:8787/index.html');
-  await page.waitForFunction(() => window.CR && window.CR.G.mode === 'play', null, { timeout: 30000 });
+  await page.waitForFunction(() => window.CR && window.CR.G.mode === 'menu', null, { timeout: 30000 }); await page.waitForTimeout(1200); await page.screenshot({ path: path.join(out, tag + '_menu.png') });
+  { const r = await page.evaluate(() => CR.MENU.rects[0].r), V0 = await page.evaluate(() => ({ rot: CR.VIEW.rot, iw: CR.VIEW.iw })), [x, y] = V0.rot ? [V0.iw - (r[1] + r[3] / 2), r[0] + r[2] / 2] : [r[0] + r[2] / 2, r[1] + r[3] / 2]; if (touch) await page.touchscreen.tap(x, y); else await page.mouse.click(x, y); }
   await page.waitForFunction(() => CR.G.choice && CR.G.choice.kind === 'draft', null, { timeout: 15000 });
   await page.waitForTimeout(600); await page.screenshot({ path: path.join(out, tag + '_hero.png') });
   const V = await page.evaluate(() => ({ rot: CR.VIEW.rot, iw: CR.VIEW.iw, w: CR.VIEW.w, h: CR.VIEW.h })); console.log('view', JSON.stringify(V));

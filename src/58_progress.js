@@ -23,10 +23,11 @@ function levelUp() {
     const ev = HERO_PROG[h.key].evolve; if (ev && ev.lvl === L) ascend(h, ev.spr);
   }
   flash('gold', 0.22); slowmo(0.45, 0.45); kick(0.05); SFX.levelup();
-  const tierNow = TIER_MIN.indexOf(L); if (tierNow > 0) pushBanner({ a: TIER_LABEL[tierNow] + ' MAGIC', b: 'NEW ' + TIER_LABEL[tierNow] + ' SPELLS CAN NOW BE LEARNED', col: 'gold', keep: true, life: 2.2 });
+  const tierNow = TIER_MIN.indexOf(L); if (tierNow > 0) pushBanner({ a: TIER_LABEL[tierNow] + ' MAGIC', b: 'NEW ' + TIER_LABEL[tierNow] + ' SPELLS AWAIT AT THE END OF THIS FLOOR', col: 'gold', keep: true, life: 2.2 });
+  else pushBanner({ a: 'LEVEL ' + L, b: 'STRONGER · TOUGHER · HEALED', col: 'gold', small: true, life: 1.5 });
   const asc = G.heroes.find(h => HERO_PROG[h.key].evolve && HERO_PROG[h.key].evolve.lvl === L);
   if (asc) pushBanner({ a: asc.def.name + ' ASCENDS', b: heroTitle(asc), col: asc.def.col, keep: true, life: 2.4 });
-  queueChoice('level');
+  // spells are chosen once per floor (and from boss spoils), not on every level
 }
 function ascend(h, spr) {
   h.spr = spr; h.flash = 0.6; h.squash = 0.4;

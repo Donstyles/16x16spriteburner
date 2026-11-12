@@ -1120,10 +1120,11 @@ function levelUp() {
     const ev = HERO_PROG[h.key].evolve; if (ev && ev.lvl === L) ascend(h, ev.spr);
   }
   flash('gold', 0.22); slowmo(0.45, 0.45); kick(0.05); SFX.levelup();
-  const tierNow = TIER_MIN.indexOf(L); if (tierNow > 0) pushBanner({ a: TIER_LABEL[tierNow] + ' MAGIC', b: 'NEW ' + TIER_LABEL[tierNow] + ' SPELLS CAN NOW BE LEARNED', col: 'gold', keep: true, life: 2.2 });
+  const tierNow = TIER_MIN.indexOf(L); if (tierNow > 0) pushBanner({ a: TIER_LABEL[tierNow] + ' MAGIC', b: 'NEW ' + TIER_LABEL[tierNow] + ' SPELLS AWAIT AT THE END OF THIS FLOOR', col: 'gold', keep: true, life: 2.2 });
+  else pushBanner({ a: 'LEVEL ' + L, b: 'STRONGER · TOUGHER · HEALED', col: 'gold', small: true, life: 1.5 });
   const asc = G.heroes.find(h => HERO_PROG[h.key].evolve && HERO_PROG[h.key].evolve.lvl === L);
   if (asc) pushBanner({ a: asc.def.name + ' ASCENDS', b: heroTitle(asc), col: asc.def.col, keep: true, life: 2.4 });
-  queueChoice('level');
+  // spells are chosen once per floor (and from boss spoils), not on every level
 }
 function ascend(h, spr) {
   h.spr = spr; h.flash = 0.6; h.squash = 0.4;
@@ -1218,10 +1219,10 @@ const MODS = {
 function resetSpells() { G.sb0 = newSB(); G.me = null; G.draftKey = null; G.choice = null; G.choiceQ = []; G.autoStreak = 0; G.acted = false; }
 const HERO_CLASS = { warrior: 'THE BATTLEMAGE', pyro: 'THE PYROMANCER', storm: 'THE STORMCALLER', druid: 'THE DRUID' };
 // before the first wave: pick a hero, then that hero's basic attack and first skill
-function queueDraft() {
-  G.choiceQ.push({ kind: 'draft', step: 1, title: 'CHOOSE YOUR HERO', opts: ['warrior', 'pyro', 'storm', 'druid'].map(k => ({ type: 'hero', hero: k, sp: { name: HERO_CLASS[k], tier: 3 } })) });
-  G.choiceQ.push({ kind: 'draft', step: 2, title: 'BASIC ATTACK', optsFn: () => SPELLBOOK[G.heroKey].filter(s => s.basic).map(sp => ({ type: 'basic', hero: G.heroKey, sp })) });
-  G.choiceQ.push({ kind: 'draft', step: 3, title: 'FIRST SKILL', optsFn: () => shuffle(SPELLBOOK[G.heroKey].filter(s => s.tier === 1 && !s.free)).slice(0, 3).map(sp => ({ type: 'spell', hero: G.heroKey, sp })) });
+function queueDraft(skipHero) {
+  if (!skipHero) G.choiceQ.push({ kind: 'draft', step: 1, title: 'CHOOSE YOUR HERO', opts: ['warrior', 'pyro', 'storm', 'druid'].map(k => ({ type: 'hero', hero: k, sp: { name: HERO_CLASS[k], tier: 3 } })) });
+  G.choiceQ.push({ kind: 'draft', step: 2, title: 'CHOOSE A BASIC ATTACK', optsFn: () => SPELLBOOK[G.heroKey].filter(s => s.basic).map(sp => ({ type: 'basic', hero: G.heroKey, sp })) });
+  G.choiceQ.push({ kind: 'draft', step: 3, title: 'CHOOSE YOUR FIRST SPELL', optsFn: () => shuffle(SPELLBOOK[G.heroKey].filter(s => s.tier === 1 && !s.free)).slice(0, 3).map(sp => ({ type: 'spell', hero: G.heroKey, sp })) });
 }
 function applyPick(o) {
   if (NET.role === 'client' && !G.me) return guestDraftPick(o);
@@ -1286,8 +1287,8 @@ function drawChoice(c) {
   const ch = G.choice; if (!ch) return; const W = VIEW.w, H = VIEW.h, S = VIEW.safe, fade = Math.min(1, ch.t * 4) * (ch.picked >= 0 ? 1 - Math.min(1, ch.pickT / 0.6) : 1);
   c.globalAlpha = fade; c.fillStyle = 'rgba(6,4,10,0.78)'; c.fillRect(0, 0, W, H);
   const wide = W >= 620, top = Math.max(14, S.t + 8);
-  font(c, 900, wide ? 34 : 26, F_DISP); c.shadowColor = 'rgba(255,200,90,0.8)'; c.shadowBlur = 18; label(c, ch.kind === 'level' ? 'LEVEL ' + G.lvl : ch.kind === 'draft' ? 'PREPARE YOUR HERO' : ch.title, W / 2, top + (wide ? 30 : 24), '#fff1d0', { align: 'center' }); c.shadowBlur = 0;
-  font(c, 500, 15, F_HUD); spaced(c, ch.kind === 'level' ? 'CHOOSE A POWER' : ch.kind === 'draft' ? ch.title + '   ·   ' + ch.step + ' OF 3' : 'CLAIM ONE REWARD', W / 2, top + (wide ? 50 : 42), 3, '#c8a878', 'center');
+  font(c, 900, wide ? 34 : 26, F_DISP); c.shadowColor = 'rgba(255,200,90,0.8)'; c.shadowBlur = 18; label(c, ch.kind === 'level' ? 'LEVEL ' + G.lvl : ch.kind === 'draft' ? ['', 'WHO GOES DOWN?', 'YOUR FIRST BLOW', 'A SPARK OF POWER'][ch.step] : ch.kind === 'floor' ? 'SPOILS OF THE DEEP' : ch.title, W / 2, top + (wide ? 30 : 24), '#fff1d0', { align: 'center' }); c.shadowBlur = 0;
+  font(c, 500, 15, F_HUD); spaced(c, ch.kind === 'level' ? 'CHOOSE A POWER' : ch.kind === 'draft' ? ch.title + '   ·   ' + ch.step + ' OF 3' : ch.kind === 'floor' ? (ch.title || 'FLOOR CLEARED') + '   ·   CLAIM ONE GIFT' : 'THE BEAST IS SLAIN   ·   CLAIM ONE GIFT', W / 2, top + (wide ? 50 : 42), 3, '#c8a878', 'center');
   const n = ch.opts.length, gap = 12, areaTop = top + (wide ? 62 : 52), areaH = H - areaTop - Math.max(40, S.b + 34) - (!wide && ch.kind === 'draft' ? 34 : 0);
   const cw = wide ? Math.min(230, (W - 2 * Math.max(16, S.l + 8) - gap * (n - 1)) / n) : Math.min(W - 32, 460), chh = wide ? Math.min(areaH, 250) : (areaH - gap * (n - 1)) / n;
   const x0 = wide ? W / 2 - (cw * n + gap * (n - 1)) / 2 : W / 2 - cw / 2;
@@ -1309,6 +1310,7 @@ function drawChoice(c) {
     const title = o.type === 'mod' ? o.mod.name : o.sp.name; font(c, 900, wide ? 21 : 18, F_DISP); for (const ln of wrapText(c, title, tw).slice(0, 2)) { label(c, ln, tx, ty, '#fff4e0'); ty += wide ? 21 : 18; }
     font(c, 500, wide ? 15 : 14, F_HUD); const desc = o.type === 'hero' ? HERO_BLURB[o.hero][1] : o.type === 'mod' ? o.sp.name + ': ' + o.mod.desc : (SPELL_INFO[o.sp.name] || '');
     for (const ln of wrapText(c, desc, tw).slice(0, wide ? 4 : 2)) { label(c, ln, tx, ty + 2, '#cbbd9f'); ty += wide ? 16 : 15; }
+    if (o.type === 'hero') { font(c, 500, wide ? 14 : 13, F_HUD); label(c, HERO_QUOTE[o.hero], tx, ty + 6, '#d8b06a'); ty += 14; }
     if (o.replace) { ty += 4; font(c, 600, 13, F_HUD); label(c, 'REPLACES ' + o.replace, tx, ty + 12, '#ff8a6a'); ty += 14; }
     const ups = o.type === 'hero' ? HERO_BLURB[o.hero][2].map(n => [n]) : MODS[o.sp.name] || [], taken = G.modsTaken[o.sp.name] || [], room = (y + chh - 8) - (ty + 10);
     if (ups.length && room > 30) { ty += 10; font(c, 600, 11, F_HUD); spaced(c, o.type === 'hero' ? 'SIGNATURE SPELLS' : o.type === 'mod' ? 'ALL UPGRADES' : 'POSSIBLE UPGRADES', tx, ty, 1.5, '#7f7466'); ty += 4; for (const [mn] of ups) { if (ty + 14 > y + chh - 6) break; ty += 14; const got = taken.includes(mn), now = o.type === 'mod' && o.mod.name === mn; font(c, 500, 13, F_HUD); label(c, (got ? '✓ ' : now ? '▸ ' : '· ') + mn, tx, ty, now ? hex : got ? '#9fd8a0' : '#a89a84'); } }
@@ -1379,8 +1381,8 @@ function scaleForFloor() {
   const f = G.floor - 1;
   const pity = Math.pow(0.85, G.floorFalls || 0); G.monHp = (1.4 + 0.32 * f) * pity; G.monDmg = (1 + 0.16 * f) * pity; scaleParty();
 }
-function startRun() {
-  G.run++; G.floor = 1; G.lvl = 1; G.xp = 0; G.autoMode = G.autoMode || 0; resetSpells(); makeParty(); startFloor(true); queueDraft();
+function startRun(noDraft) {
+  G.run++; G.floor = 1; G.lvl = 1; G.xp = 0; G.autoMode = G.autoMode || 0; resetSpells(); makeParty(); startFloor(true); if (!noDraft) queueDraft();
 }
 function startFloor(first) {
   buildArena(G.floor); G.units = []; G.proj = []; G.sched = []; G.pending = 0; G.storm = null; G.eq = null; G.boss = null;
@@ -1390,7 +1392,7 @@ function startFloor(first) {
   G.heroes.forEach((h, i) => { h.dead = false; if (h.hp <= 0) h.hp = h.maxHp; h.x = cx + (i - 1.5) * 18; h.y = cy - (i % 2) * 10; h.z = 180 + i * 30; h.vz = 0; h.kx = h.ky = 0; h.state = null; h.stun = 0; h.cd = {}; G.units.push(h); });
   G.bossFloor = G.floor % 4 === 0; G.waves = waveCount(); G.wave = 0; G.waveT = first ? 4 : 3.4; G.cdn = first ? 3 : 0; G.fightT = 0; G.spawnQ = []; G.inten = 0; G.champ = null; G.addT = 8; G.phase = 'fight'; G.phaseT = 0;
   CAM.x = cx; CAM.y = ARENA.ph / 2; CAM.z = camFitZoom();
-  G.card = { t: 0, life: 2.6, a: 'FLOOR ' + G.floor, b: G.bossFloor ? 'SOMETHING WAITS BELOW' : ARENA.name };
+  G.card = { t: 0, life: 2.6, a: 'FLOOR ' + G.floor, b: G.bossFloor ? 'SOMETHING WAITS BELOW' : ARENA.name, c: floorLine(G.floor) };
   G.fade = 1; SFX.boom(0.7, 0);
 }
 const WARLORD_NAMES = ['GRIMFANG', 'SKARR', 'VORGATH', 'MULK', 'RAZZIK', 'OLD TUSK', 'BLOODEYE', 'THE BUTCHER', 'GNASH', 'IRONJAW', 'SKULLDRINKER', 'MOTHER ROT'];
@@ -1541,7 +1543,7 @@ function updateDirector(dt) {
     if (G.phaseT > 1.6 && !G.revived) { G.revived = true; for (const h of G.heroes) { if (h.dead) { h.dead = false; h.hp = Math.round(h.maxHp * 0.6); column(h.x, h.y, 'gold', 1.4, 16); ring(h.x, h.y, 40, 'gold', 0.5, 4); flashLight(h.x, h.y, 120, 'gold', 1.6, 0.6); textPop(h.x, h.y, 24, h.def.name + ' RISES', 'gold'); } else heal(h, h.maxHp * 0.5); } SFX.heal(); }
     if (G.phaseT > 3.4 && !G.collapse) { G.collapse = true; collapseFloor(); }
     if (G.phaseT > 5.6) G.fade = Math.min(1, (G.phaseT - 5.6) / 0.6);
-    if (G.phaseT > 6.3) { G.cleared = G.revived = G.collapse = false; G.floorFalls = 0; G.floor++; G.best = Math.max(G.best, G.floor); startFloor(false); }
+    if (G.phaseT > 6.3) { G.cleared = G.revived = G.collapse = false; G.floorFalls = 0; G.floor++; G.best = Math.max(G.best, G.floor); saveBest(); startFloor(false); }
   } else if (G.phase === 'wipe') {
     if (G.phaseT > 3.6) G.fade = Math.min(1, (G.phaseT - 3.6) / 0.6);
     if (G.phaseT > 4.4) { const a = xpFor(G.lvl), b = xpFor(G.lvl + 1); G.xp = Math.round(a + (G.xp - a) * 0.5); G.falls = (G.falls || 0) + 1; G.floorFalls = (G.floorFalls || 0) + 1; for (const h of G.heroes) { h.dead = false; h.hp = h.maxHp; h.ult = 0; } startFloor(false); }
@@ -1585,25 +1587,28 @@ function setupControls() {
   const inRect = (q, x, y) => q && x >= q[0] && x <= q[0] + q[2] && y >= q[1] && y <= q[1] + q[3];
   addEventListener('pointerdown', e => {
     const [x, y] = ptr(e); touched(); first();
+    if (G.mode !== 'play') { menuTap(x, y); return; }
     if (NET.panel) { netPanelTap(x, y); return; }
     if (UI.bookOpen) { UI.bookOpen = false; return; }
     for (const b of CTRL.top) if (inRect(b.r, x, y)) { b.fn(); return; }
     if (G.choice) { if (G.choice.picked < 0) { if (G.choice.kind === 'draft' && inRect(UI.draftRect, x, y)) { G.acted = true; autoDraft(); return; } const i = choiceAt(x, y); if (i >= 0) pickChoice(i, true); } return; }
     for (const b of CTRL.buttons) if (Math.hypot(x - b.x, y - b.y) <= b.r + 10) { b.press(); (CTRL.fx[b.id] = CTRL.fx[b.id] || {}).flash = 0.15; return; }
     if (inRect(UI.frameRect, x, y)) { UI.bookOpen = true; return; }
-    if (x < VIEW.w * 0.55 && !INPUT.stick) INPUT.stick = { id: e.pointerId, ox: x, oy: y, x, y, vx: 0, vy: 0 };
+    if (!INPUT.stick) INPUT.stick = { id: e.pointerId, ox: x, oy: y, x, y, vx: 0, vy: 0 };
   });
   addEventListener('pointermove', e => {
     if (G.choice) G.choice.hover = choiceAt(...ptr(e));
     const s = INPUT.stick; if (!s || e.pointerId !== s.id) return; touched();
     const R = 48 * ctrlScale(), [px, py] = ptr(e); let dx = px - s.ox, dy = py - s.oy, d = Math.hypot(dx, dy);
     if (d > R * 1.5) { s.ox += dx / d * (d - R * 1.5); s.oy += dy / d * (d - R * 1.5); dx = px - s.ox; dy = py - s.oy; d = Math.hypot(dx, dy); }
-    const k = Math.min(d, R) / R; s.vx = d > 5 ? dx / d * k : 0; s.vy = d > 5 ? dy / d * k : 0; s.x = px; s.y = py;
+    const k = Math.min(d, R) / R; s.vx = d > 5 ? dx / d * k : 0; s.vy = d > 5 ? dy / d * k : 0; s.x = px; s.y = py; if (k > 0.4) INPUT.moved = true;
   });
   const up = e => { if (INPUT.stick && e.pointerId === INPUT.stick.id) INPUT.stick = null; };
   addEventListener('pointerup', up); addEventListener('pointercancel', up); addEventListener('contextmenu', e => e.preventDefault());
   addEventListener('keydown', e => {
     const c = e.code; touched(); first();
+    if (G.mode === 'join') { if (/^Key[A-Z]$/.test(c)) codeKey(c.slice(3)); else if (c === 'Backspace') codeKey('DEL'); else if (c === 'Enter' && MENU.code.length === 4) netJoin(MENU.code); else if (c === 'Escape') G.mode = MENU.back; return; }
+    if (G.mode === 'menu') { if (c === 'Enter') startSolo(); return; } if (G.mode !== 'play') return;
     if (c === 'KeyB') { UI.bookOpen = !UI.bookOpen; return; } if (c === 'Escape') { UI.bookOpen = false; return; } if (UI.bookOpen) return;
     if (G.choice) { if (G.choice.picked < 0 && /^Digit[1-3]$/.test(c)) pickChoice(+c.slice(5) - 1, true); return; }
     if (c === 'Space' || c === 'ShiftLeft' || c === 'ShiftRight') { INPUT.dashQ = true; e.preventDefault(); }
@@ -1727,9 +1732,8 @@ function drawControls(c) {
   [180, 210, 240, 270].forEach((a, i) => { const t = a * Math.PI / 180; list.push({ id: i, slot: i, x: ux + Math.cos(t) * rad, y: uy + Math.sin(t) * rad, r: 23 * sc, sp: slotSpell(h, i), key: String(i + 1), press: () => INPUT.castQ.push(i) }); });
   list.push({ id: 'dash', slot: 'dash', x: ux - rad - 62 * sc, y: uy + 6 * sc, r: 24 * sc, sp: { name: 'DASH', tier: 0 }, key: 'SPACE', press: () => { INPUT.dashQ = true; } });
   const al = autoLevel(); c.globalAlpha = al === 2 ? 0.45 : 1; for (const b of list) drawSkillBtn(c, b, h); c.globalAlpha = 1; CTRL.buttons = list;
-  const s = INPUT.stick, JR = 48 * sc;
-  if (s) { c.strokeStyle = 'rgba(255,255,255,0.3)'; c.lineWidth = 2; c.beginPath(); c.arc(s.ox, s.oy, JR, 0, TAU); c.stroke(); c.fillStyle = 'rgba(255,255,255,0.08)'; c.fill(); c.fillStyle = 'rgba(255,240,210,0.45)'; c.beginPath(); c.arc(s.ox + s.vx * JR, s.oy + s.vy * JR, 20 * sc, 0, TAU); c.fill(); }
-  else if (INPUT.touch && G.phase === 'fight') { const gx = L + 64 * sc, gy = B - 60 * sc; c.globalAlpha = 0.35 + 0.15 * Math.sin(performance.now() / 500); c.strokeStyle = 'rgba(255,255,255,0.35)'; c.lineWidth = 1.5; c.beginPath(); c.arc(gx, gy, JR, 0, TAU); c.stroke(); font(c, 600, 13, F_HUD); spaced(c, 'MOVE', gx, gy + 4, 2, '#e8d8b8', 'center'); c.globalAlpha = 1; }
+  // the stick is invisible: touch anywhere that isn't a button and drag; a hint shows until the first real move
+  if (INPUT.touch && !INPUT.moved && G.phase === 'fight' && !G.choice) { font(c, 600, 15, F_HUD); c.globalAlpha = 0.45 + 0.25 * Math.sin(performance.now() / 400); spaced(c, 'TOUCH ANYWHERE AND DRAG TO MOVE', VIEW.w / 2, B - 8, 3, '#f0e0c0', 'center'); c.globalAlpha = 1; }
   else if (!INPUT.touch && G.phase === 'fight') { font(c, 500, 12, F_HUD); c.globalAlpha = 0.6; spaced(c, 'WASD MOVE  ·  SPACE DASH  ·  1-4 SKILLS  ·  R ULTIMATE  ·  T AUTO  ·  B BOOK', L, B - 4, 1, '#c8b48c'); c.globalAlpha = 1; }
 }
 
@@ -1829,13 +1833,13 @@ function hostTick(rdt) {
 }
 function hostOpen(tries = 0) {
   const code = Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[randi(0, 23)]).join(''), peer = new Peer(NET_PREFIX + code, peerOpts());
-  NET.role = 'host'; netSay('OPENING A ROOM…', 30);
+  NET.role = 'host'; netSay('OPENING A ROOM…', 30); if (!NET.lobby) NET.lobby = { started: true, picks: {} };
   peer.on('open', () => { NET.peer = peer; NET.code = code; NET.on = true; netSay('ROOM ' + code + ' IS OPEN', 4); pushBanner({ a: 'ROOM ' + code, b: 'SEND THE INVITE · UP TO 3 FRIENDS CAN JOIN', col: 'gold', keep: true, life: 2.4 }); });
   peer.on('connection', conn => hostConn(conn));
   peer.on('disconnected', () => { if (NET.role === 'host') setTimeout(() => { try { peer.reconnect(); } catch (e) { } }, 1500); });
   peer.on('error', e => { if (e.type === 'unavailable-id' && tries < 4) { peer.destroy(); hostOpen(tries + 1); } else if (!NET.on) { netSay('COULD NOT OPEN A ROOM (' + e.type + ')', 5); NET.role = null; try { peer.destroy(); } catch (x) { } } });
 }
-function freeSlot() { const used = new Set(G.heroes.map(h => h.pid)); for (let i = 1; i < 4; i++) if (!used.has(i)) return i; return -1; }
+function freeSlot() { const used = new Set([...G.heroes.map(h => h.pid), ...NET.conns.keys()]); for (let i = 1; i < 4; i++) if (!used.has(i)) return i; return -1; }
 function hostConn(conn) {
   const c = { conn, pid: -1, h: null, ok: false, token: conn.metadata && conn.metadata.token };
   conn.on('open', () => {
@@ -1843,7 +1847,8 @@ function hostConn(conn) {
     if (!h && freeSlot() < 0) { const away = G.heroes.find(x => x.away); if (away) dropHero(away); }
     const pid = h ? h.pid : freeSlot(); if (pid < 0) { netSend(conn, { t: 'full' }); setTimeout(() => conn.close(), 800); return; }
     c.pid = pid; c.ok = true; NET.conns.set(pid, c);
-    const s = snapshot(true); s.t = 'w'; s.pid = pid; s.code = NET.code; s.draft = !h; netSend(conn, s);
+    const lob = !NET.lobby.started, s = snapshot(true); s.t = 'w'; s.pid = pid; s.code = NET.code; s.lobby = lob; s.draft = !h && !lob; netSend(conn, s);
+    if (lob) { MENU.flash[pid] = 1; if (SFX.ctx) SFX.summon(); lobbySync(); } else if (!h) netSay('P' + (pid + 1) + ' IS JOINING…', 3);
     if (h) { c.h = h; h.away = false; h.inp.auto = 0; pushBanner({ a: h.pname + ' IS BACK', b: h.def.name + ' RETURNS TO THEIR CONTROL', col: h.def.col, keep: true, life: 1.8 }); }
   });
   conn.on('data', d => { try { netRecv(conn, d, m => hostMsg(c, m)); } catch (e) { console.error(e); } });
@@ -1853,6 +1858,7 @@ function hostMsg(c, m) {
   if (!m || !c.ok) return;
   if (m.t === 'in') { const h = c.h; if (!h || !h.inp) return; const I = h.inp; I.mx = clamp(+m.mx || 0, -1, 1); I.my = clamp(+m.my || 0, -1, 1); I.auto = clamp(m.auto | 0, 0, 2); if (m.d) I.dashQ = true; if (Array.isArray(m.c)) for (const s of m.c.slice(0, 6)) if (s === 'ult' || (s >= 0 && s < 4)) I.castQ.push(s); }
   else if (m.t === 'join') hostJoin(c, m);
+  else if (m.t === 'lh') { if (NET.lobby && !NET.lobby.started && HERO_DEFS[m.hero]) { NET.lobby.picks[c.pid] = m.hero; MENU.flash[c.pid] = 1; lobbySync(); } }
   else if (m.t === 'pick') { const p = NET.pend.get(m.id); if (p && p.pid === c.pid && p.opts[m.i]) { NET.pend.delete(m.id); choiceEffect(p.h, p.opts[m.i]); } }
 }
 function hostJoin(c, m) {
@@ -1868,6 +1874,7 @@ function hostJoin(c, m) {
 function dropHero(h) { removeIf(G.heroes, x => x === h); removeIf(G.units, x => x === h); smoke(h.x, h.y, 6, 'dark', 10, 30, 1.2); scaleParty(); }
 function hostDrop(c) {
   if (!c.ok) return; c.ok = false; NET.conns.delete(c.pid); const h = c.h;
+  if (NET.lobby && !NET.lobby.started) { delete NET.lobby.picks[c.pid]; lobbySync(); }
   if (h) { h.away = true; h.inp.auto = 2; h.inp.castQ.length = 0; h.inp.mx = h.inp.my = 0; pushBanner({ a: h.pname + ' LOST CONNECTION', b: h.def.name + ' FIGHTS ON BY ITSELF', col: h.def.col, keep: true, life: 2 }); }
 }
 // per-player cards: the host deals each guest their own three cards; they never pause the fight
@@ -1892,7 +1899,7 @@ function netCloseRoom() {
   for (const c of NET.conns.values()) { try { netSend(c.conn, { t: 'bye' }); setTimeout(() => c.conn.close(), 300); } catch (e) { } }
   NET.conns.clear(); NET.pend.clear(); try { NET.peer && NET.peer.destroy(); } catch (e) { }
   for (const h of G.heroes.slice()) if (h.pid > 0) dropHero(h);
-  Object.assign(NET, { role: null, on: false, peer: null, code: '' }); netSay('ROOM CLOSED', 3);
+  Object.assign(NET, { role: null, on: false, peer: null, code: '', lobby: null, panel: false }); netSay('ROOM CLOSED', 3);
 }
 // ---------- guest ----------
 function peerOpts() {
@@ -1904,7 +1911,7 @@ function netToken(code) { const k = 'cor-token-' + code; let t = null; try { t =
 function netJoin(raw) {
   const code = String(raw || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4); if (code.length !== 4) { netSay('ROOM CODES HAVE 4 LETTERS', 3); return; }
   if (NET.role === 'host') netCloseRoom();
-  NET.role = 'client'; NET.code = code; netSay('JOINING ROOM ' + code + '…', 60);
+  NET.role = 'client'; NET.code = code; NET.seats = null; NET.lobbyPick = null; MENU.seatsKey = ''; G.mode = 'lobby'; NET.panel = false; netSay('JOINING ROOM ' + code + '…', 60);
   G.sched = []; G.proj = []; G.choice = null; G.choiceQ = []; UI.bookOpen = false; G.me = null; G.draftKey = null; NET.draft = {}; NET.mir.clear(); NET.stat.clear(); for (const k in FX) FX[k].length = 0;
   const peer = new Peer(peerOpts()); NET.peer = peer;
   peer.on('open', () => {
@@ -1924,7 +1931,9 @@ function guestLost(why, retry) {
 function peerQuery() { const q = new URLSearchParams(location.search); return q.get('peerhost') ? '&peerhost=' + q.get('peerhost') + '&peerport=' + (q.get('peerport') || 9000) : ''; }
 function guestMsg(m) {
   if (m.t === 's') applySnap(m);
-  else if (m.t === 'w') { NET.myPid = m.pid; NET.code = m.code; applySnap(m); if (m.draft) { G.choiceQ = []; G.choice = null; queueDraft(); UI.titleT = 4; } }
+  else if (m.t === 'w') { NET.myPid = m.pid; NET.code = m.code; applySnap(m); G.choiceQ = []; G.choice = null; if (m.lobby) G.mode = 'lobby'; else { G.mode = 'play'; UI.titleT = 99; if (m.draft) queueDraft(); } }
+  else if (m.t === 'lb') { NET.seats = m.seats; const s = m.seats.find(x => x.pid === NET.myPid); if (s && NET.lobbyPick && !s.hero) s.hero = NET.lobbyPick; }
+  else if (m.t === 'go') { G.mode = 'play'; UI.titleT = 99; G.choiceQ = []; G.choice = null; NET.draft = {}; if (NET.lobbyPick) { NET.draft.hero = { type: 'hero', hero: NET.lobbyPick }; G.draftKey = NET.lobbyPick; queueDraft(true); } else queueDraft(); }
   else if (m.t === 'ch') G.choiceQ.push({ kind: m.kind, title: m.title || undefined, netId: m.id, opts: m.opts.map(decOpt).filter(Boolean) });
   else if (m.t === 'full') guestLost('ROOM ' + NET.code + ' IS FULL');
   else if (m.t === 'bye') guestLost('THE HOST CLOSED THE ROOM');
@@ -2003,25 +2012,18 @@ function netPanelTap(x, y) {
   NET.panel = false;
 }
 function drawNetPanel(c) {
-  NET.panelRects = []; if (!NET.panel) return;
-  const W = VIEW.w, H = VIEW.h, pw = Math.min(W - 32, 420), ph = Math.min(H - 40, 250), x = W / 2 - pw / 2, y = H / 2 - ph / 2;
-  c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(0, 0, W, H); c.fillStyle = 'rgba(22,16,24,0.97)'; c.fillRect(x, y, pw, ph); c.strokeStyle = '#c8a050'; c.lineWidth = 1.5; c.strokeRect(x + 0.5, y + 0.5, pw - 1, ph - 1);
-  font(c, 900, 26, F_DISP); label(c, 'Play Together', W / 2, y + 36, '#fff1d0', { align: 'center' });
-  const btn = (t, bx, by, bw, fn, hot) => { font(c, 600, 16, F_HUD); c.fillStyle = hot ? 'rgba(255,216,96,0.16)' : 'rgba(255,255,255,0.05)'; c.fillRect(bx, by, bw, 36); c.strokeStyle = hot ? '#ffd860' : 'rgba(200,160,80,0.7)'; c.strokeRect(bx + 0.5, by + 0.5, bw - 1, 35); spaced(c, t, bx + bw / 2, by + 24, 1.5, hot ? '#ffd860' : '#f0e0c0', 'center'); NET.panelRects.push({ r: [bx, by, bw, 36], fn }); };
-  font(c, 500, 14, F_HUD);
-  if (NET.role === 'host' && NET.on) {
-    font(c, 900, 40, F_DISP); label(c, NET.code, W / 2, y + 86, '#ffd860', { align: 'center' });
-    font(c, 500, 14, F_HUD); const names = G.heroes.filter(h => h.pid !== undefined).map(h => (h.pname || 'P1') + ' ' + h.def.name + (h.away ? ' (AWAY)' : '')).join('  ·  '); spaced(c, names, W / 2, y + 112, 1, '#bfae90', 'center');
-    btn('SEND INVITE LINK', x + 20, y + 130, pw - 40, netInvite, true); btn('CLOSE ROOM', x + 20, y + 176, (pw - 50) / 2, netCloseRoom); btn('BACK TO THE FIGHT', x + 30 + (pw - 50) / 2, y + 176, (pw - 50) / 2, () => { NET.panel = false; });
-  } else if (NET.role === 'client') {
-    spaced(c, 'IN ROOM ' + NET.code + (NET.on ? '' : ' · CONNECTING…'), W / 2, y + 80, 2, '#bfae90', 'center');
-    btn('LEAVE ROOM', x + 20, y + 130, pw - 40, () => { location.href = location.pathname + peerQuery().replace('&', '?'); }); btn('BACK TO THE FIGHT', x + 20, y + 176, pw - 40, () => { NET.panel = false; });
-  } else {
-    for (const [i, t] of ['One phone hosts the room; friends join with its 4-letter code or invite link.', 'Up to 4 heroes. Shared levels, your own spells and cards.'].entries()) label(c, t, W / 2, y + 66 + i * 18, '#cbbd9f', { align: 'center' });
-    btn(NET.role === 'host' ? 'OPENING…' : 'HOST A ROOM', x + 20, y + 112, pw - 40, () => { if (!NET.role) hostOpen(); }, true);
-    btn('JOIN A ROOM', x + 20, y + 158, pw - 40, () => { const code = prompt('Room code (4 letters)'); if (code) { NET.panel = false; netJoin(code); } });
-    btn('CANCEL', x + 20, y + 204, pw - 40, () => { NET.panel = false; });
+  NET.panelRects = []; if (!NET.panel || G.mode !== 'play') return;
+  MENU.rects = []; const k = vbox(); shade(c, 0.82); c.save(); c.translate(MENU.ox, MENU.oy); c.scale(k, k);
+  if (NET.role) drawRoom(c, true);
+  else {
+    font(c, 900, 46, F_DISP); c.shadowColor = 'rgba(255,140,50,0.7)'; c.shadowBlur = 20; label(c, 'Play Together', 450, 80, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0;
+    font(c, 500, 18, F_HUD); label(c, 'Open a room and friends drop straight into this fight, or join someone else’s.', 450, 116, '#cbbd9f', { align: 'center' });
+    label(c, 'Up to four heroes. Levels are shared; every player chooses their own spells.', 450, 140, '#9a8c78', { align: 'center' });
+    mbtn(c, 150, 180, 290, 90, 'HOST A ROOM', 'Friends join this fight', () => { NET.lobby = { started: true, picks: {} }; hostOpen(); }, { hot: true });
+    mbtn(c, 460, 180, 290, 90, 'JOIN A ROOM', 'Leave this run for theirs', startJoin);
+    mbtn(c, 300, 300, 300, 48, 'BACK TO THE FIGHT', '', () => { NET.panel = false; }, { size: 18 });
   }
+  c.restore(); NET.panelRects = MENU.rects.slice();
 }
 function drawNetHud(c, R, T) {
   if (G.heroes.length > 1) for (const h of G.heroes) {
@@ -2029,7 +2031,134 @@ function drawNetHud(c, R, T) {
     label(c, (h.pname || '') + (h.away ? ' · AWAY' : ''), sx, sy, PCOL[h.pid % 4], { align: 'center', stroke: 3 });
   }
   if (NET.statusT > 0) { NET.statusT -= 1 / 60; font(c, 600, 15, F_HUD); c.globalAlpha = Math.min(1, NET.statusT * 2); spaced(c, NET.status, VIEW.w / 2, VIEW.h * 0.3, 2, '#ffd860', 'center'); c.globalAlpha = 1; }
-  if (NET.on) { font(c, 500, 12, F_HUD); c.globalAlpha = 0.8; spaced(c, (NET.role === 'host' ? 'ROOM ' : 'IN ROOM ') + NET.code + ' · ' + G.heroes.filter(h => h.pid !== undefined).length + ' HEROES', R, T + 32, 1.2, '#bfae90', 'right'); c.globalAlpha = 1; }
+  if (NET.on) { font(c, 500, 12, F_HUD); c.globalAlpha = 0.8; spaced(c, (NET.role === 'host' ? 'ROOM ' : 'IN ROOM ') + NET.code + ' · ' + ((n) => n + (n === 1 ? ' HERO' : ' HEROES'))(G.heroes.filter(h => h.pid !== undefined).length), R, T + 32, 1.2, '#bfae90', 'right'); c.globalAlpha = 1; }
+}
+
+// ---- 63_menu.js ----
+// ===================== main menu, room-code keypad and the co-op lobby =====================
+// All three screens are laid out on a 900×420 board scaled into the safe area, so they look the same on every phone.
+const MENU = { rects: [], k: 1, ox: 0, oy: 0, code: '', back: 'menu', flash: {}, best: 0, seatsKey: '' };
+try { MENU.best = +localStorage.getItem('cor-best') || 0; } catch (e) { }
+function saveBest() { if (G.best > MENU.best) { MENU.best = G.best; try { localStorage.setItem('cor-best', String(G.best)); } catch (e) { } } }
+const HERO_QUOTE = { warrior: '“Steel first. Questions never.”', pyro: '“Everything burns, if you are patient.”', storm: '“The sky owes me a favour.”', druid: '“The roots remember every grave.”' };
+const FLOOR_LINES = ['The roots down here drink more than water.', 'Salt keeps meat fresh. It keeps other things too.', 'The water rose once. Something swam in with it.', 'Every bone is labelled. Someone keeps the ledger.',
+  'The kiln sat cold for a hundred years. It is warm now.', 'The wine went bad. So did the ones who drank it.', 'Listen. The walls are breathing.', 'No lantern ever reached this far before.',
+  'The farmhouse is only a lid. You are under it.', 'Old tallies scratched in the stone. All of them stop.', 'Even the rats have stopped running.', 'Deeper still. The dark has a heartbeat.'];
+const floorLine = f => f % 4 === 0 ? 'Its breathing shakes the dust from the ceiling.' : FLOOR_LINES[(f - 1) % FLOOR_LINES.length];
+const CODE_ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+function vbox() { const S = VIEW.safe, W = VIEW.w - S.l - S.r, H = VIEW.h - S.t - S.b, k = Math.min(W / 900, H / 420); MENU.k = k; MENU.ox = S.l + (W - 900 * k) / 2; MENU.oy = S.t + (H - 420 * k) / 2; return k; }
+function vbtn(x, y, w, h, fn) { MENU.rects.push({ r: [MENU.ox + x * MENU.k, MENU.oy + y * MENU.k, w * MENU.k, h * MENU.k], fn }); }
+function menuTap(x, y) { for (const b of MENU.rects) if (x >= b.r[0] && x <= b.r[0] + b.r[2] && y >= b.r[1] && y <= b.r[1] + b.r[3]) { if (SFX.ctx) SFX.choice(); b.fn(); return true; } return false; }
+function mbtn(c, x, y, w, h, title, sub, fn, o = {}) {
+  const hot = o.hot && !o.off, off = o.off;
+  c.fillStyle = hot ? 'rgba(58,38,16,0.94)' : 'rgba(18,13,20,0.92)'; c.fillRect(x, y, w, h);
+  c.strokeStyle = off ? 'rgba(200,160,80,0.22)' : hot ? '#ffd860' : 'rgba(200,160,80,0.65)'; c.lineWidth = hot ? 2 : 1.2; c.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  if (hot) { c.shadowColor = 'rgba(255,190,80,0.7)'; c.shadowBlur = 18; c.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1); c.shadowBlur = 0; }
+  font(c, 600, o.size || 22, F_HUD); spaced(c, title, x + w / 2, y + (sub ? h * 0.48 : h / 2 + (o.size || 22) * 0.34), 2, off ? '#6a6054' : hot ? '#ffe08a' : '#f2e4c6', 'center');
+  if (sub) { font(c, 500, 15, F_HUD); label(c, sub, x + w / 2, y + h * 0.8, off ? '#575048' : '#a8987e', { align: 'center' }); }
+  if (!off) vbtn(x, y, w, h, fn);
+}
+function shade(c, a = 0.72) { const W = VIEW.w, H = VIEW.h, g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, `rgba(4,3,6,${a})`); g.addColorStop(0.5, `rgba(4,3,6,${a * 0.6})`); g.addColorStop(1, `rgba(4,3,6,${Math.min(0.95, a + 0.15)})`); c.fillStyle = g; c.fillRect(0, 0, W, H); }
+function sprite(c, spr, x, y, s, a = 1) { const m = MOBS[spr]; if (!m) return; c.imageSmoothingEnabled = false; c.globalAlpha = a; c.drawImage(IMG.mobs, ((performance.now() / 180) | 0) % 4 * m[1], m[0], m[1], m[2], x, y, s, s * m[2] / m[1]); c.globalAlpha = 1; }
+// ---------- start buttons ----------
+function beginPlay() { G.mode = 'play'; UI.titleT = 99; G.fade = 1; G.card = { t: 0, life: 2.8, a: 'FLOOR ' + G.floor, b: ARENA.name, c: floorLine(G.floor) }; }
+function startSolo() { beginPlay(); queueDraft(); }
+function startWatch() { beginPlay(); G.autoMode = 2; queueDraft(); G.acted = true; autoDraft(); }
+function startHost() { G.mode = 'lobby'; NET.lobby = { started: false, picks: {} }; MENU.flash = {}; hostOpen(); }
+function startJoin() { MENU.back = G.mode === 'play' ? 'play' : 'menu'; MENU.code = ''; G.mode = 'join'; NET.panel = false; }
+function codeKey(ch) { if (ch === 'DEL') MENU.code = MENU.code.slice(0, -1); else if (CODE_ABC.includes(ch) && MENU.code.length < 4) MENU.code += ch; if (MENU.code.length === 4 && ch !== 'DEL') setTimeout(() => { if (G.mode === 'join' && MENU.code.length === 4) netJoin(MENU.code); }, 250); }
+function leaveLobby() { if (NET.role === 'host') { netCloseRoom(); G.mode = 'menu'; } else location.href = location.pathname + peerQuery().replace('&', '?'); }
+// ---------- seats: who is in the room ----------
+function seatsNow() {
+  if (NET.role === 'client' && G.mode === 'lobby') return NET.seats || [];
+  const out = [];
+  for (let pid = 0; pid < 4; pid++) {
+    const h = G.heroes.find(x => x.pid === pid), here = pid === 0 || (NET.role === 'host' ? NET.conns.has(pid) : false) || !!h;
+    out.push({ pid, here, hero: h ? h.key : (NET.lobby && NET.lobby.picks[pid]) || null, away: !!(h && h.away), dead: !!(h && h.dead), lvl: G.lvl });
+  }
+  return out;
+}
+function lobbySync() { if (NET.role !== 'host' || !NET.lobby || NET.lobby.started) return; const seats = seatsNow(); for (const c of NET.conns.values()) if (c.ok) netSend(c.conn, { t: 'lb', seats }); }
+function lobbyPick(k) {
+  if (NET.role === 'host') { NET.lobby.picks[0] = k; lobbySync(); }
+  else if (NET.role === 'client') { NET.lobbyPick = k; netSend(NET.host, { t: 'lh', hero: k }); const s = (NET.seats || []).find(x => x.pid === NET.myPid); if (s) s.hero = k; }
+  const d = HERO_DEFS[k]; if (SFX.ctx) SFX.summon(); MENU.flash[NET.role === 'host' ? 0 : NET.myPid] = 1; void d;
+}
+function lobbyStart() {
+  const k = NET.lobby.picks[0]; if (!k) return;
+  NET.lobby.started = true; beginPlay(); selectHero(k); G.choiceQ = []; G.choice = null; queueDraft(true);
+  for (const c of NET.conns.values()) if (c.ok) netSend(c.conn, { t: 'go' });
+}
+function drawSeat(c, s, x, y, w, h, mine) {
+  const col = PCOL[s.pid % 4], fl = MENU.flash[s.pid] || 0, t = performance.now() / 1000;
+  if (!s.here) {
+    c.setLineDash([6, 6]); c.strokeStyle = 'rgba(200,170,120,0.35)'; c.lineWidth = 1.5; c.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1); c.setLineDash([]);
+    font(c, 600, 20, F_HUD); spaced(c, 'OPEN SEAT', x + w / 2, y + h / 2 - 2, 3, 'rgba(240,228,204,0.45)', 'center');
+    font(c, 500, 15, F_HUD); label(c, 'waiting for a friend' + '.'.repeat(1 + ((t * 2) | 0) % 3), x + w / 2, y + h / 2 + 22, 'rgba(200,180,150,0.45)', { align: 'center' }); return;
+  }
+  c.fillStyle = 'rgba(20,14,22,0.94)'; c.fillRect(x, y, w, h); c.fillStyle = col; c.fillRect(x, y, w, 22);
+  c.strokeStyle = mine ? '#ffffff' : col; c.lineWidth = mine ? 2 : 1.4; c.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  if (fl > 0) { c.shadowColor = col; c.shadowBlur = 30 * fl; c.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1); c.shadowBlur = 0; MENU.flash[s.pid] = Math.max(0, fl - 1 / 60 / 1.2); }
+  font(c, 600, 15, F_HUD); c.fillStyle = '#16101a'; c.textAlign = 'left'; c.fillText('P' + (s.pid + 1) + (s.pid === 0 ? ' · HOST' : '') + (mine ? ' · YOU' : ''), x + 8, y + 16);
+  if (s.away) { c.textAlign = 'right'; c.fillText('AWAY', x + w - 8, y + 16); }
+  if (s.hero) {
+    const d = HERO_DEFS[s.hero]; sprite(c, d.spr, x + 10, y + 30, 58, s.dead ? 0.4 : 1);
+    font(c, 900, 22, F_DISP); label(c, d.name, x + 76, y + 52, `rgb(${COL[d.col]})`); font(c, 500, 14, F_HUD); label(c, HERO_CLASS[s.hero], x + 76, y + 70, '#bfae90');
+    font(c, 500, 14, F_HUD); label(c, G.mode === 'lobby' ? 'READY' : s.dead ? 'DOWN · RETURNS SOON' : 'IN THE FIGHT', x + 76, y + 88, G.mode === 'lobby' ? '#9fe0a0' : '#a8987e');
+    font(c, 500, 13, F_HUD); label(c, HERO_QUOTE[s.hero], x + w / 2, y + h - 10, '#8f7f66', { align: 'center' });
+  } else { font(c, 900, 48, F_DISP); label(c, '?', x + 38, y + 84, 'rgba(240,228,204,0.35)', { align: 'center' }); font(c, 500, 17, F_HUD); label(c, 'choosing a hero' + '.'.repeat(1 + ((t * 2) | 0) % 3), x + 76, y + 66, '#bfae90'); }
+}
+// ---------- screens ----------
+function drawMenus(c) {
+  MENU.rects = []; const k = vbox(), t = performance.now() / 1000;
+  shade(c, G.mode === 'menu' ? 0.62 : 0.8); c.save(); c.translate(MENU.ox, MENU.oy); c.scale(k, k);
+  if (G.mode === 'menu') {
+    font(c, 900, 96, F_DISP); c.shadowColor = 'rgba(255,140,50,0.9)'; c.shadowBlur = 30 + 10 * Math.sin(t * 1.7); label(c, 'Cellar of Ruin', 450, 122, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0;
+    font(c, 500, 20, F_HUD); spaced(c, 'SOMETHING OLD IS WAKING UNDER THE FARMHOUSE', 450, 158, 3, '#d8b888', 'center');
+    font(c, 500, 17, F_HUD); label(c, 'Go down. Put it back to sleep. Try not to count the floors.', 450, 182, '#9a8c78', { align: 'center' });
+    const bw = 202, gap = 12, x0 = 450 - (bw * 4 + gap * 3) / 2, y = 222, bh = 88;
+    mbtn(c, x0, y, bw, bh, 'PLAY SOLO', 'One hero. Your hands.', startSolo, { hot: true });
+    mbtn(c, x0 + (bw + gap), y, bw, bh, 'WATCH', 'The cellar plays itself', startWatch);
+    mbtn(c, x0 + 2 * (bw + gap), y, bw, bh, 'HOST CO-OP', 'Open a room for 3 friends', startHost);
+    mbtn(c, x0 + 3 * (bw + gap), y, bw, bh, 'JOIN CO-OP', 'Type a friend’s room code', startJoin);
+    font(c, 500, 15, F_HUD); c.globalAlpha = 0.8;
+    spaced(c, [MENU.best > 1 ? 'DEEPEST FLOOR REACHED · ' + MENU.best : '', SFX.ctx ? '' : 'TAP FOR SOUND'].filter(Boolean).join('   ·   '), 450, 348, 2, '#cdb890', 'center');
+    font(c, 500, 14, F_HUD); spaced(c, INPUT.touch ? 'DRAG ANYWHERE TO MOVE  ·  SPELLS ON THE RIGHT  ·  BEST ON THE HOME SCREEN' : 'WASD MOVE  ·  SPACE DASH  ·  1-4 SPELLS  ·  R ULTIMATE', 450, 374, 2, '#8a7c66', 'center'); c.globalAlpha = 1;
+  } else if (G.mode === 'join') {
+    font(c, 900, 46, F_DISP); label(c, 'Join a Room', 450, 58, '#f8ecd6', { align: 'center' });
+    font(c, 500, 16, F_HUD); spaced(c, 'TYPE THE 4 LETTERS ON YOUR FRIEND’S SCREEN', 450, 84, 2, '#bfae90', 'center');
+    for (let i = 0; i < 4; i++) { const x = 450 - 2 * 74 + i * 74 + 5, ch = MENU.code[i]; c.fillStyle = 'rgba(20,14,22,0.94)'; c.fillRect(x, 98, 64, 64); c.strokeStyle = i === MENU.code.length ? '#ffd860' : 'rgba(200,160,80,0.6)'; c.lineWidth = i === MENU.code.length ? 2 : 1.2; c.strokeRect(x + 0.5, 98.5, 63, 63); if (ch) { font(c, 900, 44, F_DISP); label(c, ch, x + 32, 145, '#ffe08a', { align: 'center' }); } }
+    for (let i = 0; i < CODE_ABC.length; i++) { const r = (i / 8) | 0, col = i % 8, x = 450 - (8 * 66 + 7 * 8) / 2 + col * 74, y = 178 + r * 58, ch = CODE_ABC[i]; mbtn(c, x, y, 66, 50, ch, '', () => codeKey(ch), { size: 26 }); }
+    mbtn(c, 450 - 296, 360, 150, 46, 'BACK', '', () => { G.mode = MENU.back; }, { size: 18 });
+    mbtn(c, 450 - 75, 360, 150, 46, 'DELETE', '', () => codeKey('DEL'), { size: 18 });
+    mbtn(c, 450 + 146, 360, 150, 46, 'JOIN', '', () => netJoin(MENU.code), { size: 20, hot: MENU.code.length === 4, off: MENU.code.length < 4 });
+  } else drawRoom(c, false);
+  c.restore();
+  if (NET.statusT > 0) { NET.statusT -= 1 / 60; font(c, 600, 16, F_HUD); c.globalAlpha = Math.min(1, NET.statusT * 2); spaced(c, NET.status, VIEW.w / 2, MENU.oy + (G.mode === 'lobby' ? 291 : G.mode === 'join' ? 173 : 334) * MENU.k, 2, '#ffd860', 'center'); c.globalAlpha = 1; }
+}
+function drawRoom(c, inGame) { // the lobby before the descent, and the same room view over a running fight
+  const seats = seatsNow(), host = NET.role === 'host', me = host ? 0 : NET.myPid, lobby = G.mode === 'lobby', n = seats.filter(s => s.here).length;
+  const sk = seats.map(s => +s.here).join(''); if (sk !== MENU.seatsKey) { if (MENU.seatsKey && sk.split('1').length > MENU.seatsKey.split('1').length) { if (SFX.ctx) SFX.summon(); seats.forEach((s, i) => { if (s.here && MENU.seatsKey[i] === '0') MENU.flash[s.pid] = 1; }); } MENU.seatsKey = sk; }
+  font(c, 900, 42, F_DISP); c.shadowColor = 'rgba(255,140,50,0.7)'; c.shadowBlur = 20; label(c, lobby ? 'The Cellar Door' : 'Your Room', 450, 46, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0;
+  font(c, 500, 15, F_HUD); spaced(c, lobby ? 'GATHER YOUR PARTY BEFORE THE DESCENT  ·  UP TO FOUR HEROES' : 'FRIENDS CAN DROP IN AT ANY TIME', 450, 70, 2, '#bfae90', 'center');
+  if (NET.code) {
+    font(c, 500, 14, F_HUD); spaced(c, 'ROOM CODE', 300, 104, 3, '#a8987e', 'center'); font(c, 900, 40, F_DISP); c.shadowColor = 'rgba(255,200,90,0.6)'; c.shadowBlur = 14; spaced(c, NET.code, 300, 134, 10, '#ffd860', 'center'); c.shadowBlur = 0;
+    mbtn(c, 470, 92, 220, 48, 'SEND INVITE LINK', '', netInvite, { size: 18, hot: n < 2 });
+  } else { font(c, 600, 20, F_HUD); spaced(c, NET.role === 'client' ? 'CONNECTING TO THE ROOM…' : 'OPENING A ROOM…', 450, 124, 3, '#ffd860', 'center'); }
+  const sw = 205, gap = 10, x0 = 450 - (sw * 4 + gap * 3) / 2, sy = 152, sh = 124;
+  seats.forEach((s, i) => drawSeat(c, s, x0 + i * (sw + gap), sy, sw, sh, s.pid === me));
+  if (lobby) {
+    const mine = (seats.find(s => s.pid === me) || {}).hero; font(c, 500, 13, F_HUD); spaced(c, 'YOUR HERO', x0, 296, 2, '#a8987e');
+    ['warrior', 'pyro', 'storm', 'druid'].forEach((k, i) => { const x = x0 + i * (sw + gap), y = 302, d = HERO_DEFS[k], on = mine === k;
+      c.fillStyle = on ? 'rgba(58,38,16,0.94)' : 'rgba(18,13,20,0.9)'; c.fillRect(x, y, sw, 48); c.strokeStyle = on ? '#ffd860' : `rgba(${COL[d.col]},0.6)`; c.lineWidth = on ? 2 : 1.2; c.strokeRect(x + 0.5, y + 0.5, sw - 1, 47);
+      sprite(c, d.spr, x + 6, y + 4, 40); font(c, 900, 18, F_DISP); label(c, d.name, x + 52, y + 22, `rgb(${COL[d.col]})`); font(c, 500, 13, F_HUD); label(c, HERO_BLURB[k][0], x + 52, y + 40, '#a8987e'); vbtn(x, y, sw, 48, () => lobbyPick(k)); });
+    mbtn(c, x0, 362, 130, 46, 'LEAVE', '', leaveLobby, { size: 18 });
+    if (host) { const ready = !!NET.lobby.picks[0]; mbtn(c, 450 - 170, 360, 340, 50, ready ? 'DESCEND WITH ' + n + (n > 1 ? ' HEROES' : ' HERO') : 'CHOOSE YOUR HERO FIRST', ready ? 'late friends can still drop in' : '', lobbyStart, { size: 22, hot: ready, off: !ready }); }
+    else { font(c, 600, 18, F_HUD); spaced(c, mine ? 'READY  ·  WAITING FOR THE HOST TO DESCEND' : 'PICK YOUR HERO WHILE YOU WAIT', 450 + 40, 390, 2, mine ? '#9fe0a0' : '#ffd860', 'center'); }
+  } else {
+    mbtn(c, 130, 300, 300, 48, host ? 'CLOSE ROOM' : 'LEAVE ROOM', '', host ? netCloseRoom : leaveLobby, { size: 18 });
+    mbtn(c, 470, 300, 300, 48, 'BACK TO THE FIGHT', '', () => { NET.panel = false; }, { size: 18, hot: true });
+  }
 }
 
 // ---- 70_render.js ----
@@ -2197,6 +2326,7 @@ function spaced(c, s, x, y, sp, col, align = 'left') { let w = 0; for (const ch 
 function drawHUD() {
   const c = ctx, d = VIEW.dpr, W = VIEW.w, H = VIEW.h, S = VIEW.safe, L = Math.max(12, S.l + 10), R = W - Math.max(12, S.r + 10), T = Math.max(10, S.t + 8), B = H - Math.max(10, S.b + 8);
   c.setTransform(d, 0, 0, d, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+  if (G.mode !== 'play') { drawMenus(c); return; }
   const big = Math.min(W, H);
   // floating numbers
   const zf = clamp(CAM.z / 2.4, 0.8, 1.5);
@@ -2229,7 +2359,7 @@ function drawHUD() {
   }
   // floor card and fades
   if (G.fade > 0.001) { c.fillStyle = `rgba(4,3,5,${G.fade})`; c.fillRect(0, 0, W, H); }
-  const cd = G.card; if (cd) { const u = cd.t / cd.life, a = u < 0.15 ? u / 0.15 : u > 0.75 ? (1 - u) / 0.25 : 1; c.globalAlpha = a; font(c, 900, clamp(big / 5, 34, 90), F_DISP); c.shadowColor = 'rgba(255,140,40,0.8)'; c.shadowBlur = 30; label(c, cd.a, W / 2, H / 2, '#f6e2bc', { align: 'center' }); c.shadowBlur = 0; font(c, 500, clamp(big / 24, 14, 24), F_HUD); spaced(c, cd.b, W / 2, H / 2 + clamp(big / 14, 22, 40), 4, '#c8a878', 'center'); c.globalAlpha = 1; }
+  const cd = G.card; if (cd) { const u = cd.t / cd.life, a = u < 0.15 ? u / 0.15 : u > 0.75 ? (1 - u) / 0.25 : 1; c.globalAlpha = a; font(c, 900, clamp(big / 5, 34, 90), F_DISP); c.shadowColor = 'rgba(255,140,40,0.8)'; c.shadowBlur = 30; label(c, cd.a, W / 2, H / 2, '#f6e2bc', { align: 'center' }); c.shadowBlur = 0; font(c, 500, clamp(big / 24, 14, 24), F_HUD); spaced(c, cd.b, W / 2, H / 2 + clamp(big / 14, 22, 40), 4, '#c8a878', 'center'); if (cd.c) { font(c, 500, clamp(big / 30, 13, 19), F_HUD); label(c, cd.c, W / 2, H / 2 + clamp(big / 14, 22, 40) + clamp(big / 18, 20, 32), '#a8987e', { align: 'center' }); } c.globalAlpha = 1; }
   if (UI.titleT < 3.8) { const u = UI.titleT / 3.8, a = u < 0.1 ? u / 0.1 : u > 0.7 ? (1 - u) / 0.3 : 1; c.globalAlpha = a; c.fillStyle = 'rgba(4,3,5,0.55)'; c.fillRect(0, 0, W, H); font(c, 900, clamp(big / 4.2, 40, 120), F_DISP); c.shadowColor = 'rgba(120,160,255,0.9)'; c.shadowBlur = 36; label(c, 'Cellar of Ruin', W / 2, H * 0.47, '#f8f0e0', { align: 'center' }); c.shadowBlur = 0; font(c, 500, clamp(big / 22, 14, 26), F_HUD); spaced(c, 'THE BATTLE FIGHTS ITSELF  ·  YOU WATCH', W / 2, H * 0.47 + clamp(big / 10, 30, 60), 4, '#c8b48c', 'center'); c.globalAlpha = 1; }
   // countdown before the very first wave
   if (G.cdn > 0 && G.waveT <= 0 && G.phase === 'fight') { const n = Math.ceil(G.cdn), f = n - G.cdn, sz = clamp(big / 2.6, 70, 190) * (f < 0.18 ? 1.45 - f / 0.18 * 0.45 : 1); c.globalAlpha = Math.min(1, (1 - f) * 6); font(c, 900, sz, F_DISP); c.shadowColor = 'rgba(255,170,60,0.95)'; c.shadowBlur = 40; label(c, String(n), W / 2, H / 2 + sz * 0.33, '#fff4dc', { align: 'center' }); c.shadowBlur = 0; c.globalAlpha = 1; }
@@ -2278,6 +2408,7 @@ function frame(t) {
     NET.rec = NET.role === 'host' && NET.conns.size > 0;
     pollPad(); if (!UI.bookOpen) updateChoice(rdt); if (G.fightT > 0) G.fightT -= rdt;
     if (NET.role === 'client') guestFrame(rdt);
+    else if (G.mode !== 'play') { G.time += rdt; for (const u of G.units) u.anim += rdt * 0.7; if (ARENA && chance(rdt * 5)) embers(rand(ARENA.x0, ARENA.x1), rand(ARENA.y0, ARENA.y1), 1); updateFx(rdt); }
     else if ((G.choice || UI.bookOpen) && !(NET.role === 'host' && NET.conns.size)) { /* the battle holds its breath while the player chooses or reads */ }
     else if (G.hitstop > 0) G.hitstop -= rdt;
     else { if (G.slowT > 0) G.slowT -= rdt; else G.ts = damp(G.ts, 1, 3, rdt); const dt = rdt * G.ts, n = window.CR_TURBO || 1; for (let i = 0; i < n; i++) update(dt); }
@@ -2294,9 +2425,9 @@ async function boot() {
   try { if (document.fonts) await Promise.race([Promise.all([document.fonts.load('900 40px "Grenze Gotisch"'), document.fonts.load('500 16px Teko'), document.fonts.load('600 16px Teko')]), new Promise(r => setTimeout(r, 2500))]); } catch (e) { }
   await loadAssets(); resize(); addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
   setupControls(); netWrap();
-  startRun(); G.mode = 'play'; const ld = document.getElementById('loading'); if (ld) ld.hidden = true;
+  startRun(true); G.mode = 'menu'; G.card = null; UI.titleT = 99; const ld = document.getElementById('loading'); if (ld) ld.hidden = true;
   const rq = new URLSearchParams(location.search).get('room'); if (rq) setTimeout(() => netJoin(rq), 400);
-  window.CR = { G, FX, CAM, Q, SFX, VIEW, ARENA: () => ARENA, startRun, startFloor, startWave, beginCast, SPELLBOOK, live, pickChoice, md, MODS, UI, autoDraft, INPUT, CTRL, NET, netJoin, hostOpen, netCloseRoom, tryCast, autoLevel, selectHero, gainXp, levelUp, xpFor, spawnBoss, meteorStorm, thunderstorm, earthquake, cataclysm, explode, MON_DEFS, HERO_DEFS };
+  window.CR = { G, FX, CAM, Q, SFX, VIEW, ARENA: () => ARENA, startRun, startFloor, startWave, beginCast, SPELLBOOK, live, pickChoice, md, MODS, UI, autoDraft, INPUT, CTRL, NET, MENU, startSolo, startWatch, startHost, startJoin, lobbyPick, lobbyStart, netJoin, hostOpen, netCloseRoom, tryCast, autoLevel, selectHero, gainXp, levelUp, xpFor, spawnBoss, meteorStorm, thunderstorm, earthquake, cataclysm, explode, MON_DEFS, HERO_DEFS };
   requestAnimationFrame(frame);
 }
 boot().catch(e => { const ld = document.getElementById('loading'); if (ld) ld.textContent = 'Failed to start: ' + e.message; console.error(e); });

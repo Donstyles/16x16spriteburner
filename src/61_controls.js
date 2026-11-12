@@ -27,25 +27,28 @@ function setupControls() {
   const inRect = (q, x, y) => q && x >= q[0] && x <= q[0] + q[2] && y >= q[1] && y <= q[1] + q[3];
   addEventListener('pointerdown', e => {
     const [x, y] = ptr(e); touched(); first();
+    if (G.mode !== 'play') { menuTap(x, y); return; }
     if (NET.panel) { netPanelTap(x, y); return; }
     if (UI.bookOpen) { UI.bookOpen = false; return; }
     for (const b of CTRL.top) if (inRect(b.r, x, y)) { b.fn(); return; }
     if (G.choice) { if (G.choice.picked < 0) { if (G.choice.kind === 'draft' && inRect(UI.draftRect, x, y)) { G.acted = true; autoDraft(); return; } const i = choiceAt(x, y); if (i >= 0) pickChoice(i, true); } return; }
     for (const b of CTRL.buttons) if (Math.hypot(x - b.x, y - b.y) <= b.r + 10) { b.press(); (CTRL.fx[b.id] = CTRL.fx[b.id] || {}).flash = 0.15; return; }
     if (inRect(UI.frameRect, x, y)) { UI.bookOpen = true; return; }
-    if (x < VIEW.w * 0.55 && !INPUT.stick) INPUT.stick = { id: e.pointerId, ox: x, oy: y, x, y, vx: 0, vy: 0 };
+    if (!INPUT.stick) INPUT.stick = { id: e.pointerId, ox: x, oy: y, x, y, vx: 0, vy: 0 };
   });
   addEventListener('pointermove', e => {
     if (G.choice) G.choice.hover = choiceAt(...ptr(e));
     const s = INPUT.stick; if (!s || e.pointerId !== s.id) return; touched();
     const R = 48 * ctrlScale(), [px, py] = ptr(e); let dx = px - s.ox, dy = py - s.oy, d = Math.hypot(dx, dy);
     if (d > R * 1.5) { s.ox += dx / d * (d - R * 1.5); s.oy += dy / d * (d - R * 1.5); dx = px - s.ox; dy = py - s.oy; d = Math.hypot(dx, dy); }
-    const k = Math.min(d, R) / R; s.vx = d > 5 ? dx / d * k : 0; s.vy = d > 5 ? dy / d * k : 0; s.x = px; s.y = py;
+    const k = Math.min(d, R) / R; s.vx = d > 5 ? dx / d * k : 0; s.vy = d > 5 ? dy / d * k : 0; s.x = px; s.y = py; if (k > 0.4) INPUT.moved = true;
   });
   const up = e => { if (INPUT.stick && e.pointerId === INPUT.stick.id) INPUT.stick = null; };
   addEventListener('pointerup', up); addEventListener('pointercancel', up); addEventListener('contextmenu', e => e.preventDefault());
   addEventListener('keydown', e => {
     const c = e.code; touched(); first();
+    if (G.mode === 'join') { if (/^Key[A-Z]$/.test(c)) codeKey(c.slice(3)); else if (c === 'Backspace') codeKey('DEL'); else if (c === 'Enter' && MENU.code.length === 4) netJoin(MENU.code); else if (c === 'Escape') G.mode = MENU.back; return; }
+    if (G.mode === 'menu') { if (c === 'Enter') startSolo(); return; } if (G.mode !== 'play') return;
     if (c === 'KeyB') { UI.bookOpen = !UI.bookOpen; return; } if (c === 'Escape') { UI.bookOpen = false; return; } if (UI.bookOpen) return;
     if (G.choice) { if (G.choice.picked < 0 && /^Digit[1-3]$/.test(c)) pickChoice(+c.slice(5) - 1, true); return; }
     if (c === 'Space' || c === 'ShiftLeft' || c === 'ShiftRight') { INPUT.dashQ = true; e.preventDefault(); }
@@ -169,8 +172,7 @@ function drawControls(c) {
   [180, 210, 240, 270].forEach((a, i) => { const t = a * Math.PI / 180; list.push({ id: i, slot: i, x: ux + Math.cos(t) * rad, y: uy + Math.sin(t) * rad, r: 23 * sc, sp: slotSpell(h, i), key: String(i + 1), press: () => INPUT.castQ.push(i) }); });
   list.push({ id: 'dash', slot: 'dash', x: ux - rad - 62 * sc, y: uy + 6 * sc, r: 24 * sc, sp: { name: 'DASH', tier: 0 }, key: 'SPACE', press: () => { INPUT.dashQ = true; } });
   const al = autoLevel(); c.globalAlpha = al === 2 ? 0.45 : 1; for (const b of list) drawSkillBtn(c, b, h); c.globalAlpha = 1; CTRL.buttons = list;
-  const s = INPUT.stick, JR = 48 * sc;
-  if (s) { c.strokeStyle = 'rgba(255,255,255,0.3)'; c.lineWidth = 2; c.beginPath(); c.arc(s.ox, s.oy, JR, 0, TAU); c.stroke(); c.fillStyle = 'rgba(255,255,255,0.08)'; c.fill(); c.fillStyle = 'rgba(255,240,210,0.45)'; c.beginPath(); c.arc(s.ox + s.vx * JR, s.oy + s.vy * JR, 20 * sc, 0, TAU); c.fill(); }
-  else if (INPUT.touch && G.phase === 'fight') { const gx = L + 64 * sc, gy = B - 60 * sc; c.globalAlpha = 0.35 + 0.15 * Math.sin(performance.now() / 500); c.strokeStyle = 'rgba(255,255,255,0.35)'; c.lineWidth = 1.5; c.beginPath(); c.arc(gx, gy, JR, 0, TAU); c.stroke(); font(c, 600, 13, F_HUD); spaced(c, 'MOVE', gx, gy + 4, 2, '#e8d8b8', 'center'); c.globalAlpha = 1; }
+  // the stick is invisible: touch anywhere that isn't a button and drag; a hint shows until the first real move
+  if (INPUT.touch && !INPUT.moved && G.phase === 'fight' && !G.choice) { font(c, 600, 15, F_HUD); c.globalAlpha = 0.45 + 0.25 * Math.sin(performance.now() / 400); spaced(c, 'TOUCH ANYWHERE AND DRAG TO MOVE', VIEW.w / 2, B - 8, 3, '#f0e0c0', 'center'); c.globalAlpha = 1; }
   else if (!INPUT.touch && G.phase === 'fight') { font(c, 500, 12, F_HUD); c.globalAlpha = 0.6; spaced(c, 'WASD MOVE  ·  SPACE DASH  ·  1-4 SKILLS  ·  R ULTIMATE  ·  T AUTO  ·  B BOOK', L, B - 4, 1, '#c8b48c'); c.globalAlpha = 1; }
 }

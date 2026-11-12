@@ -93,13 +93,13 @@ function hostTick(rdt) {
 }
 function hostOpen(tries = 0) {
   const code = Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[randi(0, 23)]).join(''), peer = new Peer(NET_PREFIX + code, peerOpts());
-  NET.role = 'host'; netSay('OPENING A ROOM…', 30);
+  NET.role = 'host'; netSay('OPENING A ROOM…', 30); if (!NET.lobby) NET.lobby = { started: true, picks: {} };
   peer.on('open', () => { NET.peer = peer; NET.code = code; NET.on = true; netSay('ROOM ' + code + ' IS OPEN', 4); pushBanner({ a: 'ROOM ' + code, b: 'SEND THE INVITE · UP TO 3 FRIENDS CAN JOIN', col: 'gold', keep: true, life: 2.4 }); });
   peer.on('connection', conn => hostConn(conn));
   peer.on('disconnected', () => { if (NET.role === 'host') setTimeout(() => { try { peer.reconnect(); } catch (e) { } }, 1500); });
   peer.on('error', e => { if (e.type === 'unavailable-id' && tries < 4) { peer.destroy(); hostOpen(tries + 1); } else if (!NET.on) { netSay('COULD NOT OPEN A ROOM (' + e.type + ')', 5); NET.role = null; try { peer.destroy(); } catch (x) { } } });
 }
-function freeSlot() { const used = new Set(G.heroes.map(h => h.pid)); for (let i = 1; i < 4; i++) if (!used.has(i)) return i; return -1; }
+function freeSlot() { const used = new Set([...G.heroes.map(h => h.pid), ...NET.conns.keys()]); for (let i = 1; i < 4; i++) if (!used.has(i)) return i; return -1; }
 function hostConn(conn) {
   const c = { conn, pid: -1, h: null, ok: false, token: conn.metadata && conn.metadata.token };
   conn.on('open', () => {
@@ -107,7 +107,8 @@ function hostConn(conn) {
     if (!h && freeSlot() < 0) { const away = G.heroes.find(x => x.away); if (away) dropHero(away); }
     const pid = h ? h.pid : freeSlot(); if (pid < 0) { netSend(conn, { t: 'full' }); setTimeout(() => conn.close(), 800); return; }
     c.pid = pid; c.ok = true; NET.conns.set(pid, c);
-    const s = snapshot(true); s.t = 'w'; s.pid = pid; s.code = NET.code; s.draft = !h; netSend(conn, s);
+    const lob = !NET.lobby.started, s = snapshot(true); s.t = 'w'; s.pid = pid; s.code = NET.code; s.lobby = lob; s.draft = !h && !lob; netSend(conn, s);
+    if (lob) { MENU.flash[pid] = 1; if (SFX.ctx) SFX.summon(); lobbySync(); } else if (!h) netSay('P' + (pid + 1) + ' IS JOINING…', 3);
     if (h) { c.h = h; h.away = false; h.inp.auto = 0; pushBanner({ a: h.pname + ' IS BACK', b: h.def.name + ' RETURNS TO THEIR CONTROL', col: h.def.col, keep: true, life: 1.8 }); }
   });
   conn.on('data', d => { try { netRecv(conn, d, m => hostMsg(c, m)); } catch (e) { console.error(e); } });
@@ -117,6 +118,7 @@ function hostMsg(c, m) {
   if (!m || !c.ok) return;
   if (m.t === 'in') { const h = c.h; if (!h || !h.inp) return; const I = h.inp; I.mx = clamp(+m.mx || 0, -1, 1); I.my = clamp(+m.my || 0, -1, 1); I.auto = clamp(m.auto | 0, 0, 2); if (m.d) I.dashQ = true; if (Array.isArray(m.c)) for (const s of m.c.slice(0, 6)) if (s === 'ult' || (s >= 0 && s < 4)) I.castQ.push(s); }
   else if (m.t === 'join') hostJoin(c, m);
+  else if (m.t === 'lh') { if (NET.lobby && !NET.lobby.started && HERO_DEFS[m.hero]) { NET.lobby.picks[c.pid] = m.hero; MENU.flash[c.pid] = 1; lobbySync(); } }
   else if (m.t === 'pick') { const p = NET.pend.get(m.id); if (p && p.pid === c.pid && p.opts[m.i]) { NET.pend.delete(m.id); choiceEffect(p.h, p.opts[m.i]); } }
 }
 function hostJoin(c, m) {
@@ -132,6 +134,7 @@ function hostJoin(c, m) {
 function dropHero(h) { removeIf(G.heroes, x => x === h); removeIf(G.units, x => x === h); smoke(h.x, h.y, 6, 'dark', 10, 30, 1.2); scaleParty(); }
 function hostDrop(c) {
   if (!c.ok) return; c.ok = false; NET.conns.delete(c.pid); const h = c.h;
+  if (NET.lobby && !NET.lobby.started) { delete NET.lobby.picks[c.pid]; lobbySync(); }
   if (h) { h.away = true; h.inp.auto = 2; h.inp.castQ.length = 0; h.inp.mx = h.inp.my = 0; pushBanner({ a: h.pname + ' LOST CONNECTION', b: h.def.name + ' FIGHTS ON BY ITSELF', col: h.def.col, keep: true, life: 2 }); }
 }
 // per-player cards: the host deals each guest their own three cards; they never pause the fight
@@ -156,7 +159,7 @@ function netCloseRoom() {
   for (const c of NET.conns.values()) { try { netSend(c.conn, { t: 'bye' }); setTimeout(() => c.conn.close(), 300); } catch (e) { } }
   NET.conns.clear(); NET.pend.clear(); try { NET.peer && NET.peer.destroy(); } catch (e) { }
   for (const h of G.heroes.slice()) if (h.pid > 0) dropHero(h);
-  Object.assign(NET, { role: null, on: false, peer: null, code: '' }); netSay('ROOM CLOSED', 3);
+  Object.assign(NET, { role: null, on: false, peer: null, code: '', lobby: null, panel: false }); netSay('ROOM CLOSED', 3);
 }
 // ---------- guest ----------
 function peerOpts() {
@@ -168,7 +171,7 @@ function netToken(code) { const k = 'cor-token-' + code; let t = null; try { t =
 function netJoin(raw) {
   const code = String(raw || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4); if (code.length !== 4) { netSay('ROOM CODES HAVE 4 LETTERS', 3); return; }
   if (NET.role === 'host') netCloseRoom();
-  NET.role = 'client'; NET.code = code; netSay('JOINING ROOM ' + code + '…', 60);
+  NET.role = 'client'; NET.code = code; NET.seats = null; NET.lobbyPick = null; MENU.seatsKey = ''; G.mode = 'lobby'; NET.panel = false; netSay('JOINING ROOM ' + code + '…', 60);
   G.sched = []; G.proj = []; G.choice = null; G.choiceQ = []; UI.bookOpen = false; G.me = null; G.draftKey = null; NET.draft = {}; NET.mir.clear(); NET.stat.clear(); for (const k in FX) FX[k].length = 0;
   const peer = new Peer(peerOpts()); NET.peer = peer;
   peer.on('open', () => {
@@ -188,7 +191,9 @@ function guestLost(why, retry) {
 function peerQuery() { const q = new URLSearchParams(location.search); return q.get('peerhost') ? '&peerhost=' + q.get('peerhost') + '&peerport=' + (q.get('peerport') || 9000) : ''; }
 function guestMsg(m) {
   if (m.t === 's') applySnap(m);
-  else if (m.t === 'w') { NET.myPid = m.pid; NET.code = m.code; applySnap(m); if (m.draft) { G.choiceQ = []; G.choice = null; queueDraft(); UI.titleT = 4; } }
+  else if (m.t === 'w') { NET.myPid = m.pid; NET.code = m.code; applySnap(m); G.choiceQ = []; G.choice = null; if (m.lobby) G.mode = 'lobby'; else { G.mode = 'play'; UI.titleT = 99; if (m.draft) queueDraft(); } }
+  else if (m.t === 'lb') { NET.seats = m.seats; const s = m.seats.find(x => x.pid === NET.myPid); if (s && NET.lobbyPick && !s.hero) s.hero = NET.lobbyPick; }
+  else if (m.t === 'go') { G.mode = 'play'; UI.titleT = 99; G.choiceQ = []; G.choice = null; NET.draft = {}; if (NET.lobbyPick) { NET.draft.hero = { type: 'hero', hero: NET.lobbyPick }; G.draftKey = NET.lobbyPick; queueDraft(true); } else queueDraft(); }
   else if (m.t === 'ch') G.choiceQ.push({ kind: m.kind, title: m.title || undefined, netId: m.id, opts: m.opts.map(decOpt).filter(Boolean) });
   else if (m.t === 'full') guestLost('ROOM ' + NET.code + ' IS FULL');
   else if (m.t === 'bye') guestLost('THE HOST CLOSED THE ROOM');
@@ -267,25 +272,18 @@ function netPanelTap(x, y) {
   NET.panel = false;
 }
 function drawNetPanel(c) {
-  NET.panelRects = []; if (!NET.panel) return;
-  const W = VIEW.w, H = VIEW.h, pw = Math.min(W - 32, 420), ph = Math.min(H - 40, 250), x = W / 2 - pw / 2, y = H / 2 - ph / 2;
-  c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(0, 0, W, H); c.fillStyle = 'rgba(22,16,24,0.97)'; c.fillRect(x, y, pw, ph); c.strokeStyle = '#c8a050'; c.lineWidth = 1.5; c.strokeRect(x + 0.5, y + 0.5, pw - 1, ph - 1);
-  font(c, 900, 26, F_DISP); label(c, 'Play Together', W / 2, y + 36, '#fff1d0', { align: 'center' });
-  const btn = (t, bx, by, bw, fn, hot) => { font(c, 600, 16, F_HUD); c.fillStyle = hot ? 'rgba(255,216,96,0.16)' : 'rgba(255,255,255,0.05)'; c.fillRect(bx, by, bw, 36); c.strokeStyle = hot ? '#ffd860' : 'rgba(200,160,80,0.7)'; c.strokeRect(bx + 0.5, by + 0.5, bw - 1, 35); spaced(c, t, bx + bw / 2, by + 24, 1.5, hot ? '#ffd860' : '#f0e0c0', 'center'); NET.panelRects.push({ r: [bx, by, bw, 36], fn }); };
-  font(c, 500, 14, F_HUD);
-  if (NET.role === 'host' && NET.on) {
-    font(c, 900, 40, F_DISP); label(c, NET.code, W / 2, y + 86, '#ffd860', { align: 'center' });
-    font(c, 500, 14, F_HUD); const names = G.heroes.filter(h => h.pid !== undefined).map(h => (h.pname || 'P1') + ' ' + h.def.name + (h.away ? ' (AWAY)' : '')).join('  ·  '); spaced(c, names, W / 2, y + 112, 1, '#bfae90', 'center');
-    btn('SEND INVITE LINK', x + 20, y + 130, pw - 40, netInvite, true); btn('CLOSE ROOM', x + 20, y + 176, (pw - 50) / 2, netCloseRoom); btn('BACK TO THE FIGHT', x + 30 + (pw - 50) / 2, y + 176, (pw - 50) / 2, () => { NET.panel = false; });
-  } else if (NET.role === 'client') {
-    spaced(c, 'IN ROOM ' + NET.code + (NET.on ? '' : ' · CONNECTING…'), W / 2, y + 80, 2, '#bfae90', 'center');
-    btn('LEAVE ROOM', x + 20, y + 130, pw - 40, () => { location.href = location.pathname + peerQuery().replace('&', '?'); }); btn('BACK TO THE FIGHT', x + 20, y + 176, pw - 40, () => { NET.panel = false; });
-  } else {
-    for (const [i, t] of ['One phone hosts the room; friends join with its 4-letter code or invite link.', 'Up to 4 heroes. Shared levels, your own spells and cards.'].entries()) label(c, t, W / 2, y + 66 + i * 18, '#cbbd9f', { align: 'center' });
-    btn(NET.role === 'host' ? 'OPENING…' : 'HOST A ROOM', x + 20, y + 112, pw - 40, () => { if (!NET.role) hostOpen(); }, true);
-    btn('JOIN A ROOM', x + 20, y + 158, pw - 40, () => { const code = prompt('Room code (4 letters)'); if (code) { NET.panel = false; netJoin(code); } });
-    btn('CANCEL', x + 20, y + 204, pw - 40, () => { NET.panel = false; });
+  NET.panelRects = []; if (!NET.panel || G.mode !== 'play') return;
+  MENU.rects = []; const k = vbox(); shade(c, 0.82); c.save(); c.translate(MENU.ox, MENU.oy); c.scale(k, k);
+  if (NET.role) drawRoom(c, true);
+  else {
+    font(c, 900, 46, F_DISP); c.shadowColor = 'rgba(255,140,50,0.7)'; c.shadowBlur = 20; label(c, 'Play Together', 450, 80, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0;
+    font(c, 500, 18, F_HUD); label(c, 'Open a room and friends drop straight into this fight, or join someone else’s.', 450, 116, '#cbbd9f', { align: 'center' });
+    label(c, 'Up to four heroes. Levels are shared; every player chooses their own spells.', 450, 140, '#9a8c78', { align: 'center' });
+    mbtn(c, 150, 180, 290, 90, 'HOST A ROOM', 'Friends join this fight', () => { NET.lobby = { started: true, picks: {} }; hostOpen(); }, { hot: true });
+    mbtn(c, 460, 180, 290, 90, 'JOIN A ROOM', 'Leave this run for theirs', startJoin);
+    mbtn(c, 300, 300, 300, 48, 'BACK TO THE FIGHT', '', () => { NET.panel = false; }, { size: 18 });
   }
+  c.restore(); NET.panelRects = MENU.rects.slice();
 }
 function drawNetHud(c, R, T) {
   if (G.heroes.length > 1) for (const h of G.heroes) {
@@ -293,5 +291,5 @@ function drawNetHud(c, R, T) {
     label(c, (h.pname || '') + (h.away ? ' · AWAY' : ''), sx, sy, PCOL[h.pid % 4], { align: 'center', stroke: 3 });
   }
   if (NET.statusT > 0) { NET.statusT -= 1 / 60; font(c, 600, 15, F_HUD); c.globalAlpha = Math.min(1, NET.statusT * 2); spaced(c, NET.status, VIEW.w / 2, VIEW.h * 0.3, 2, '#ffd860', 'center'); c.globalAlpha = 1; }
-  if (NET.on) { font(c, 500, 12, F_HUD); c.globalAlpha = 0.8; spaced(c, (NET.role === 'host' ? 'ROOM ' : 'IN ROOM ') + NET.code + ' · ' + G.heroes.filter(h => h.pid !== undefined).length + ' HEROES', R, T + 32, 1.2, '#bfae90', 'right'); c.globalAlpha = 1; }
+  if (NET.on) { font(c, 500, 12, F_HUD); c.globalAlpha = 0.8; spaced(c, (NET.role === 'host' ? 'ROOM ' : 'IN ROOM ') + NET.code + ' · ' + ((n) => n + (n === 1 ? ' HERO' : ' HEROES'))(G.heroes.filter(h => h.pid !== undefined).length), R, T + 32, 1.2, '#bfae90', 'right'); c.globalAlpha = 1; }
 }

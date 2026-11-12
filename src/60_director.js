@@ -21,8 +21,8 @@ function scaleForFloor() {
   const f = G.floor - 1;
   const pity = Math.pow(0.85, G.floorFalls || 0); G.monHp = (1.4 + 0.32 * f) * pity; G.monDmg = (1 + 0.16 * f) * pity; scaleParty();
 }
-function startRun() {
-  G.run++; G.floor = 1; G.lvl = 1; G.xp = 0; G.autoMode = G.autoMode || 0; resetSpells(); makeParty(); startFloor(true); queueDraft();
+function startRun(noDraft) {
+  G.run++; G.floor = 1; G.lvl = 1; G.xp = 0; G.autoMode = G.autoMode || 0; resetSpells(); makeParty(); startFloor(true); if (!noDraft) queueDraft();
 }
 function startFloor(first) {
   buildArena(G.floor); G.units = []; G.proj = []; G.sched = []; G.pending = 0; G.storm = null; G.eq = null; G.boss = null;
@@ -32,7 +32,7 @@ function startFloor(first) {
   G.heroes.forEach((h, i) => { h.dead = false; if (h.hp <= 0) h.hp = h.maxHp; h.x = cx + (i - 1.5) * 18; h.y = cy - (i % 2) * 10; h.z = 180 + i * 30; h.vz = 0; h.kx = h.ky = 0; h.state = null; h.stun = 0; h.cd = {}; G.units.push(h); });
   G.bossFloor = G.floor % 4 === 0; G.waves = waveCount(); G.wave = 0; G.waveT = first ? 4 : 3.4; G.cdn = first ? 3 : 0; G.fightT = 0; G.spawnQ = []; G.inten = 0; G.champ = null; G.addT = 8; G.phase = 'fight'; G.phaseT = 0;
   CAM.x = cx; CAM.y = ARENA.ph / 2; CAM.z = camFitZoom();
-  G.card = { t: 0, life: 2.6, a: 'FLOOR ' + G.floor, b: G.bossFloor ? 'SOMETHING WAITS BELOW' : ARENA.name };
+  G.card = { t: 0, life: 2.6, a: 'FLOOR ' + G.floor, b: G.bossFloor ? 'SOMETHING WAITS BELOW' : ARENA.name, c: floorLine(G.floor) };
   G.fade = 1; SFX.boom(0.7, 0);
 }
 const WARLORD_NAMES = ['GRIMFANG', 'SKARR', 'VORGATH', 'MULK', 'RAZZIK', 'OLD TUSK', 'BLOODEYE', 'THE BUTCHER', 'GNASH', 'IRONJAW', 'SKULLDRINKER', 'MOTHER ROT'];
@@ -183,7 +183,7 @@ function updateDirector(dt) {
     if (G.phaseT > 1.6 && !G.revived) { G.revived = true; for (const h of G.heroes) { if (h.dead) { h.dead = false; h.hp = Math.round(h.maxHp * 0.6); column(h.x, h.y, 'gold', 1.4, 16); ring(h.x, h.y, 40, 'gold', 0.5, 4); flashLight(h.x, h.y, 120, 'gold', 1.6, 0.6); textPop(h.x, h.y, 24, h.def.name + ' RISES', 'gold'); } else heal(h, h.maxHp * 0.5); } SFX.heal(); }
     if (G.phaseT > 3.4 && !G.collapse) { G.collapse = true; collapseFloor(); }
     if (G.phaseT > 5.6) G.fade = Math.min(1, (G.phaseT - 5.6) / 0.6);
-    if (G.phaseT > 6.3) { G.cleared = G.revived = G.collapse = false; G.floorFalls = 0; G.floor++; G.best = Math.max(G.best, G.floor); startFloor(false); }
+    if (G.phaseT > 6.3) { G.cleared = G.revived = G.collapse = false; G.floorFalls = 0; G.floor++; G.best = Math.max(G.best, G.floor); saveBest(); startFloor(false); }
   } else if (G.phase === 'wipe') {
     if (G.phaseT > 3.6) G.fade = Math.min(1, (G.phaseT - 3.6) / 0.6);
     if (G.phaseT > 4.4) { const a = xpFor(G.lvl), b = xpFor(G.lvl + 1); G.xp = Math.round(a + (G.xp - a) * 0.5); G.falls = (G.falls || 0) + 1; G.floorFalls = (G.floorFalls || 0) + 1; for (const h of G.heroes) { h.dead = false; h.hp = h.maxHp; h.ult = 0; } startFloor(false); }
