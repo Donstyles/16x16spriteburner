@@ -31,6 +31,14 @@ Every fourth floor a boss rises. When a floor is cleared it collapses and the he
 
 Tap once for sound. On Android the game also goes fullscreen and big hits vibrate.
 
+## Co-op (up to 4 heroes)
+Tap **CO-OP** → **HOST A ROOM**. You get a 4-letter room code; **SEND INVITE LINK** shares a link that opens the game straight into your room. Friends can also tap **CO-OP** → **JOIN A ROOM** and type the code. Each guest picks a hero (the same hero twice is fine), a basic attack and a first skill, and drops in next to the host.
+
+- Levels are shared; each player gets their own three cards every level-up, floor and boss, and picking never pauses the fight.
+- A fallen hero comes back after 9 seconds while anyone is still standing.
+- If a guest's connection drops, their hero fights on by itself and they get it back when the page reconnects. The host's phone runs the game, so it must stay open in the foreground.
+- Matchmaking uses the free public PeerJS server; phones then talk directly (or through PeerJS's public relay when a network blocks direct connections). Co-op runs on the GitHub Pages / Home Screen version, not inside claude.ai.
+
 ## Run it
 Open `index.html` (it is self-contained), or add the GitHub Pages site to your Home Screen.
 
