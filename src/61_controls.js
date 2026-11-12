@@ -27,6 +27,7 @@ function setupControls() {
   const inRect = (q, x, y) => q && x >= q[0] && x <= q[0] + q[2] && y >= q[1] && y <= q[1] + q[3];
   addEventListener('pointerdown', e => {
     const [x, y] = ptr(e); touched(); first();
+    if (NET.panel) { netPanelTap(x, y); return; }
     if (UI.bookOpen) { UI.bookOpen = false; return; }
     for (const b of CTRL.top) if (inRect(b.r, x, y)) { b.fn(); return; }
     if (G.choice) { if (G.choice.picked < 0) { if (G.choice.kind === 'draft' && inRect(UI.draftRect, x, y)) { G.acted = true; autoDraft(); return; } const i = choiceAt(x, y); if (i >= 0) pickChoice(i, true); } return; }
@@ -69,10 +70,10 @@ function pollPad() {
   INPUT.padPrev = gp.buttons.map(b => b.pressed);
 }
 // ---------- the hero, driven by the player ----------
-function slotSpell(h, slot) { const name = slot === 'ult' ? HERO_PROG[h.key].ult : G.slots[slot]; if (!name || !G.known.has(name)) return null; return SPELLBOOK[h.key].find(s => s.name === name); }
+function slotSpell(h, slot) { const sb = sbOf(h), name = slot === 'ult' ? HERO_PROG[h.key].ult : (sb.slots || [])[slot]; if (!name || !sb.known.has(name)) return null; return SPELLBOOK[h.key].find(s => s.name === name); }
 function setCd(h, name, v) { h.cd[name] = v; (h.cdMax || (h.cdMax = {}))[name] = v; }
 function tryCast(h, slot, foes) {
-  const sp = slotSpell(h, slot), fail = () => { (CTRL.fx[slot] = CTRL.fx[slot] || {}).shake = 0.3; };
+  const sp = slotSpell(h, slot), fail = () => { if (h === G.me) (CTRL.fx[slot] = CTRL.fx[slot] || {}).shake = 0.3; };
   if (!sp) return fail();
   if (sp.tier === 4) { if (h.ult < 100) return fail(); } else if ((h.cd[sp.name] || 0) > 0) return fail();
   let t = sp.pick(h, foes); if (!t) t = HEALS.has(sp.name) ? h : nearest(h, foes, 260); if (!t) return fail();
@@ -81,23 +82,24 @@ function tryCast(h, slot, foes) {
 }
 function doDash(h, ix, iy) {
   let dx = ix, dy = iy; if (!dx && !dy) { dx = h.face; dy = 0; } const l = Math.hypot(dx, dy); dx /= l; dy /= l;
-  h.iframe = 0.35; G.dashCd = 2.2; G.dashMax = 2.2; h.face = dx < 0 ? -1 : 1;
+  h.iframe = 0.35; h.dashCd = 2.2; h.dashMax = 2.2; h.face = dx < 0 ? -1 : 1;
   smoke(h.x, h.y, 4, 'dust', 8, 30, 0.7); ring(h.x, h.y, 16, h.def.col, 0.25, 2); SFX.whoosh(panOf(h.x));
   dash(h, h.x + dx * 62, h.y + dy * 50, 0.17, { r: 0, col: h.def.col });
 }
 function playerHero(h, dt) {
-  if (h.dead) { h.deadT += dt; INPUT.castQ.length = 0; return; }
-  for (const k in h.cd) h.cd[k] -= dt; G.dashCd -= dt; if (h.iframe > 0) h.iframe -= dt;
+  const I = h.inp;
+  if (h.dead) { h.deadT += dt; I.castQ.length = 0; return; }
+  for (const k in h.cd) h.cd[k] -= dt;
   h.ult = ultUnlocked(h) ? Math.min(100, h.ult + dt * 2.6) : 0;
   if (h.regen && (h.regen.t -= dt) > 0) { if ((h.regen.tick -= dt) <= 0) { h.regen.tick = 0.5; heal(h, h.regen.per); } } else h.regen = null;
   if (h.z > 0 && G.phase !== 'fight') return;
-  const [ix, iy] = inputVec(), foes = live(G.mons), st = h.state;
-  if (INPUT.dashQ) { INPUT.dashQ = false; if (G.dashCd <= 0 && h.stun <= 0 && !(st && (st.k === 'cuts' || st.k === 'leap' || st.k === 'dash' || (st.k === 'cast' && st.sp.tier >= 4)))) { h.state = null; doDash(h, ix, iy); } }
+  const ix = I.mx, iy = I.my, foes = live(G.mons), st = h.state;
+  if (I.dashQ) { I.dashQ = false; if (h.dashCd <= 0 && h.stun <= 0 && !(st && (st.k === 'cuts' || st.k === 'leap' || st.k === 'dash' || (st.k === 'cast' && st.sp.tier >= 4)))) { h.state = null; doDash(h, ix, iy); } }
   if (h.stun > 0) { h.stun -= dt; h.vx = damp(h.vx, 0, 8, dt); h.vy = damp(h.vy, 0, 8, dt); return; }
   if (h.state) { heroState(h, dt); return; }
   const spd = h.def.spd * 1.3; h.vx = damp(h.vx, ix * spd, 12, dt); h.vy = damp(h.vy, iy * spd, 12, dt); h.moving = !!(ix || iy); if (Math.abs(ix) > 0.15) h.face = ix < 0 ? -1 : 1;
-  if (G.autoMode === 1 && G.phase === 'fight') heroBrain(h, foes);
-  while (INPUT.castQ.length && !h.state) tryCast(h, INPUT.castQ.shift(), foes);
+  if (I.auto === 1 && G.phase === 'fight') heroBrain(h, foes);
+  while (I.castQ.length && !h.state) tryCast(h, I.castQ.shift(), foes);
   if (h.state || !foes.length) return;
   const basic = basicOf(h);
   if (h.key === 'warrior') { const t = nearest(h, foes, h.r + (basic.reach || 14) + 10); if (t && !(h.cd.slash > 0)) { h.cd.slash = basic.cd * md(basic.name).cd; basic.cast(h, t); } }
@@ -105,12 +107,11 @@ function playerHero(h, dt) {
 }
 // ---------- hero select and skill slots ----------
 function selectHero(k) {
-  G.heroKey = k; const keep = G.heroes.find(h => h.key === k);
-  for (const h of G.heroes) if (h !== keep) { smoke(h.x, h.y, 6, 'dark', 10, 30, 1.2); ring(h.x, h.y, 22, h.def.col, 0.4, 3); glows(h.x, h.y, 8, 8, h.def.col, 60, 4, 0.6); }
-  G.heroes = [keep]; removeIf(G.units, u => u.team === 'hero' && u !== keep); keep.ctrl = 'player';
+  const keep = G.heroes.find(h => h.key === k);
+  for (const h of G.heroes) if (h !== keep && !(h.pid > 0)) { smoke(h.x, h.y, 6, 'dark', 10, 30, 1.2); ring(h.x, h.y, 22, h.def.col, 0.4, 3); glows(h.x, h.y, 8, 8, h.def.col, 60, 4, 0.6); }
+  G.heroes = [keep, ...G.heroes.filter(h => h.pid > 0)]; removeIf(G.units, u => u.team === 'hero' && u !== keep && !(u.pid > 0)); keep.ctrl = 'player';
   keep.x = ARENA.pw / 2; keep.y = ARENA.y1 - 34; keep.vx = keep.vy = 0; column(keep.x, keep.y, keep.def.col, 1.4, 14); ring(keep.x, keep.y, 40, keep.def.col, 0.5, 4);
-  G.basic = { [k]: DEFAULT_BASIC[k] }; G.known = new Set([DEFAULT_BASIC[k]]); G.slots = [null, null, null, null];
-  if (k === 'druid') { G.known.add('MEND'); G.slots[0] = 'MEND'; }
+  keep.pid = 0; keep.pname = 'P1'; keep.inp = newInp(); keep.sb = newSB(k); keep.dashCd = 0; G.me = keep;
   scaleParty(); keep.hp = keep.maxHp;
 }
 function weakestSlot() { let best = 0, bs = 1e9; G.slots.forEach((n, i) => { const sp = n && SPELLBOOK[G.heroKey].find(s => s.name === n), s = sp ? sp.tier * 10 + (G.modsTaken[n] || []).length * 3 + i * 0.1 : -1; if (s < bs) { bs = s; best = i; } }); return G.slots[best]; }
@@ -122,7 +123,7 @@ function learnSpell(o) {
 function ctrlScale() { return clamp(Math.min(VIEW.w, VIEW.h) / 430, 0.85, 1.35); }
 const initials = n => n.split(' ').length > 1 ? n.split(' ').map(w => w[0]).join('').slice(0, 3) : n.slice(0, 2);
 function drawHeroFrame(c, L, T) {
-  const h = G.heroes[0]; if (!h) return; const m = MOBS[h.spr], col = COL[h.def.col], solo = G.heroes.length === 1;
+  const h = G.me; const m = h && MOBS[h.spr], col = h && COL[h.def.col], solo = !!h;
   if (!solo) { font(c, 900, 24, F_DISP); label(c, 'Floor ' + G.floor, L, T + 20, '#ecc878', { stroke: 4 }); font(c, 500, 14, F_HUD); spaced(c, ARENA.name, L, T + 36, 1.6, '#bfae90'); UI.frameRect = null; return; }
   c.fillStyle = 'rgba(10,8,12,0.62)'; c.fillRect(L - 6, T - 6, 204, 58); UI.frameRect = [L - 6, T - 6, 204, 58];
   c.imageSmoothingEnabled = false; c.fillStyle = `rgba(${col},0.18)`; c.fillRect(L - 2, T - 2, 42, 42); c.globalAlpha = h.dead ? 0.4 : 1; c.drawImage(IMG.mobs, 0, m[0], m[1], m[2], L, T, 38, 38 * m[2] / m[1]); c.globalAlpha = 1;
@@ -139,6 +140,7 @@ function drawTopButtons(c, R, T) {
   const al = autoLevel(), idleAuto = al === 2 && G.autoMode < 2;
   items.push({ t: idleAuto ? 'AUTOPILOT · IDLE' : AUTO_LABEL[G.autoMode], hot: G.autoMode > 0 || idleAuto, fn: cycleAuto });
   items.push({ t: 'SPELLBOOK', fn: () => { UI.bookOpen = true; } });
+  items.push({ t: NET.on ? 'ROOM ' + NET.code : 'CO-OP', hot: NET.on, fn: () => { NET.panel = true; } });
   items.push({ t: !SFX.ctx ? 'TAP FOR SOUND' : SFX.on ? 'SOUND ON' : 'SOUND OFF', pulse: !SFX.ctx, fn: () => { if (SFX.ctx) SFX.toggle(); } });
   font(c, 600, 13, F_HUD); let x = R;
   for (const it of items) { const w = c.measureText(it.t).width + it.t.length * 1 + 18; x -= w; c.globalAlpha = it.pulse ? 0.65 + 0.35 * Math.sin(performance.now() / 300) : 0.9; c.fillStyle = 'rgba(10,8,12,0.7)'; c.fillRect(x, T - 4, w, 22); c.strokeStyle = it.hot ? '#ffd860' : 'rgba(200,160,80,0.6)'; c.lineWidth = 1; c.strokeRect(x + 0.5, T - 3.5, w - 1, 21); spaced(c, it.t, x + 9, T + 12, 1, it.hot ? '#ffd860' : '#e8d8b8'); c.globalAlpha = 1; CTRL.top.push({ r: [x - 2, T - 8, w + 4, 30], fn: it.fn }); x -= 6; }
@@ -148,7 +150,7 @@ function drawSkillBtn(c, b, h) {
   if (fx.shake > 0) fx.shake -= 1 / 60; if (fx.flash > 0) fx.flash -= 1 / 60;
   c.fillStyle = 'rgba(14,10,18,0.66)'; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
   if (!sp) { c.setLineDash([3, 4]); c.strokeStyle = 'rgba(255,255,255,0.22)'; c.lineWidth = 1.5; c.beginPath(); c.arc(x, y, r - 1, 0, TAU); c.stroke(); c.setLineDash([]); font(c, 500, 11 * ctrlScale(), F_HUD); label(c, b.slot === 'ult' ? 'LV ' + TIER_MIN[4] : 'EMPTY', x, y + 4, 'rgba(255,255,255,0.3)', { align: 'center' }); return; }
-  const hex = b.id === 'dash' ? '#e8d8b8' : TIER_HEX[sp.tier], cdLeft = b.id === 'dash' ? G.dashCd : sp.tier === 4 ? 0 : (h.cd[sp.name] || 0), cdMax = b.id === 'dash' ? (G.dashMax || 2.2) : (h.cdMax && h.cdMax[sp.name]) || sp.cd || 1;
+  const hex = b.id === 'dash' ? '#e8d8b8' : TIER_HEX[sp.tier], cdLeft = b.id === 'dash' ? (h.dashCd || 0) : sp.tier === 4 ? 0 : (h.cd[sp.name] || 0), cdMax = b.id === 'dash' ? (h.dashMax || 2.2) : (h.cdMax && h.cdMax[sp.name]) || sp.cd || 1;
   const ready = b.slot === 'ult' ? h.ult >= 100 : cdLeft <= 0;
   if (b.slot === 'ult') { c.strokeStyle = 'rgba(255,255,255,0.15)'; c.lineWidth = 4; c.beginPath(); c.arc(x, y, r - 2, 0, TAU); c.stroke(); c.strokeStyle = hex; c.beginPath(); c.arc(x, y, r - 2, -Math.PI / 2, -Math.PI / 2 + TAU * h.ult / 100); c.stroke(); if (ready) { c.shadowColor = hex; c.shadowBlur = 18 + 8 * Math.sin(performance.now() / 150); c.stroke(); c.shadowBlur = 0; } }
   else { c.strokeStyle = ready ? hex : 'rgba(255,255,255,0.25)'; c.lineWidth = 2; c.beginPath(); c.arc(x, y, r - 1, 0, TAU); c.stroke(); }
@@ -160,7 +162,7 @@ function drawSkillBtn(c, b, h) {
   if (!INPUT.touch && b.key) { font(c, 600, 11, F_HUD); label(c, b.key, x + r * 0.72, y - r * 0.62, '#ffd860', { align: 'center', stroke: 3 }); }
 }
 function drawControls(c) {
-  CTRL.buttons = []; const h = G.heroes[0]; if (!h || G.heroes.length !== 1 || !G.slots) return;
+  CTRL.buttons = []; const h = G.me; if (!h || !G.slots) return;
   const W = VIEW.w, H = VIEW.h, S = VIEW.safe, sc = ctrlScale(), R = W - Math.max(14, S.r + 10), B = H - Math.max(12, S.b + 8), L = Math.max(14, S.l + 10);
   const ux = R - 38 * sc, uy = B - 38 * sc, rad = 96 * sc, list = [];
   list.push({ id: 'ult', slot: 'ult', x: ux, y: uy, r: 30 * sc, sp: slotSpell(h, 'ult'), key: 'R', press: () => INPUT.castQ.push('ult') });

@@ -22,7 +22,7 @@ function laser(h, t, o) {
   if (o.big) { G.ambDark = Math.max(G.ambDark, 0.45); slowmo(0.6, 0.3); }
   h.state = { k: 'channel', t: 0, dur: o.dur, tick: 0, fn: (h, s, dt) => {
     const u = s.t / s.dur; let a = a0 + (u - 0.5) * o.sweep * dir;
-    if (h.ctrl === 'player' && autoLevel() < 2) { const [ix, iy] = inputVec(); if (s.aim === undefined) s.aim = a0; if (ix || iy) s.aim += clamp(angDiff(Math.atan2(iy, ix), s.aim), -3 * dt, 3 * dt); a = s.aim; }
+    if (h.ctrl === 'player' && h.inp && h.inp.auto < 2) { const ix = h.inp.mx, iy = h.inp.my; if (s.aim === undefined) s.aim = a0; if (ix || iy) s.aim += clamp(angDiff(Math.atan2(iy, ix), s.aim), -3 * dt, 3 * dt); a = s.aim; }
     const ex = h.x + Math.cos(a) * 7, ey = h.y - 10, [x1, y1] = rayEnd(ex, ey, a);
     const w = o.w * Math.min(1, u * 8, (1 - u) * 8) * (0.88 + 0.12 * Math.sin(s.t * 55));
     h.face = Math.cos(a) < 0 ? -1 : 1; h.vx = damp(h.vx, -Math.cos(a) * 6, 4, dt); h.vy = damp(h.vy, -Math.sin(a) * 4, 4, dt);
@@ -237,7 +237,7 @@ function beginCast(h, sp, t) {
 function heroBrain(h, foes) {
   const book = SPELLBOOK[h.key];
   for (let i = book.length - 1; i >= 0; i--) {
-    const sp = book[i]; if (!sp.tier || !G.known.has(sp.name)) continue;
+    const sp = book[i]; if (!sp.tier || !sbOf(h).known.has(sp.name)) continue;
     if (sp.tier === 4) { if (!canUlt(h)) continue; } else if ((h.cd[sp.name] || 0) > 0) continue;
     if (!sp.free && (G.castLock > 0 || (sp.tier >= 3 && G.majorLock > 0))) continue;
     const t = sp.pick(h, foes); if (!t) continue;
@@ -247,7 +247,7 @@ function heroBrain(h, foes) {
   return false;
 }
 const DEFAULT_BASIC = { warrior: 'SLASH', pyro: 'EMBER BOLT', storm: 'SPARK', druid: 'PEBBLE' };
-function basicOf(h) { const n = (G.basic && G.basic[h.key]) || DEFAULT_BASIC[h.key]; return SPELLBOOK[h.key].find(s => s.name === n); }
+function basicOf(h) { const n = sbOf(h).basic[h.key] || DEFAULT_BASIC[h.key]; return SPELLBOOK[h.key].find(s => s.name === n); }
 function heroAI(h, dt) {
   if (h.dead) { h.deadT += dt; return; }
   for (const k in h.cd) h.cd[k] -= dt;

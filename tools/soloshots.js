@@ -24,7 +24,7 @@ const { chromium } = require('playwright'); const path = require('path');
   if (!touch) { await page.keyboard.down('KeyA'); await page.waitForTimeout(900); await page.keyboard.up('KeyA'); }
   const p1 = await page.evaluate(() => [CR.G.heroes[0].x, CR.G.heroes[0].y]);
   console.log('moved', (p1[0] - p0[0]).toFixed(1), (p1[1] - p0[1]).toFixed(1));
-  if (!touch) { await page.keyboard.press('Space'); await page.waitForTimeout(250); console.log('dash cd', await page.evaluate(() => CR.G.dashCd.toFixed(2))); await page.keyboard.press('Digit1'); }
+  if (!touch) { await page.keyboard.press('Space'); await page.waitForTimeout(250); console.log('dash cd', await page.evaluate(() => CR.G.heroes[0].dashCd.toFixed(2))); await page.keyboard.press('Digit1'); }
   else { const b = await page.evaluate(() => CR.CTRL.buttons.find(b => b.slot === 0)); if (b) await page.touchscreen.tap(...scr(b.x, b.y)); }
   await page.waitForTimeout(450); await page.screenshot({ path: path.join(out, tag + '_cast.png') });
   console.log('slot1 cd', await page.evaluate(() => { const h = CR.G.heroes[0], n = CR.G.slots[0]; return n + ' ' + (h.cd[n] || 0).toFixed(2); }));

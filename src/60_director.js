@@ -3,8 +3,16 @@ const G = {
   mode: 'boot', floor: 1, run: 0, kills: 0, best: 1, units: [], heroes: [], mons: [], proj: [], sched: [], pending: 0, phase: 'fight', phaseT: 0,
   lvl: 1, xp: 0, bestLvl: 1, castLock: 0, majorLock: 0, focus: null, bq: [], spawnQ: [], inten: 0, champ: null, gapT: 0, waveSize: 0, packT: 0, wave: 0, waves: 3, waveT: 0, trauma: 0, quakeT: 0, quakeP: 0, hitstop: 0, ts: 1, slowT: 0, flashA: 0, flashC: 'white', ambDark: 0, ambFlash: 0,
   storm: null, eq: null, ultCd: 3, combo: 0, comboT: 0, burst: 0, burstT: 0, banner: null, card: null, fade: 1, time: 0, boss: null,
-  monHp: 1, monDmg: 1, heroDmgTaken: 1,
+  monHp: 1, monDmg: 1, heroDmgTaken: 1, me: null, sb0: null, draftKey: null,
 };
+// spell state lives on each hero; G.known etc. read the local player's hero (or the shared profile before a hero is chosen)
+const SBP = () => (G.me && G.me.sb) || G.sb0;
+const sbOf = h => (h && h.sb) || G.sb0;
+[['known', 'known'], ['slots', 'slots'], ['basic', 'basic'], ['modsTaken', 'mods'], ['modv', 'modv']].forEach(([k, f]) => Object.defineProperty(G, k, { get: () => SBP()[f], set: v => { SBP()[f] = v; } }));
+Object.defineProperty(G, 'heroKey', { get: () => G.me ? G.me.key : G.draftKey, set: v => { G.draftKey = v; } });
+function asHero(h, fn) { const m = G.me; G.me = h; try { return fn(); } finally { G.me = m; } }
+const NP = () => Math.max(1, Math.min(4, G.heroes.length)); // heroes in the fight, 1-4
+const newInp = () => ({ mx: 0, my: 0, castQ: [], dashQ: false, auto: 0 });
 function makeParty() {
   const keys = ['warrior', 'pyro', 'storm', 'druid'];
   G.heroes = keys.map((k, i) => { const h = mkUnit('hero', HERO_DEFS[k], 0, 0); h.key = k; h.strafe = i % 2 ? 1 : -1; h.ult = 0; return h; });
@@ -14,7 +22,7 @@ function scaleForFloor() {
   const pity = Math.pow(0.85, G.floorFalls || 0); G.monHp = (1.4 + 0.32 * f) * pity; G.monDmg = (1 + 0.16 * f) * pity; scaleParty();
 }
 function startRun() {
-  G.run++; G.floor = 1; G.lvl = 1; G.xp = 0; G.solo = true; G.autoMode = G.autoMode || 0; G.dashCd = 0; resetSpells(); makeParty(); startFloor(true); queueDraft();
+  G.run++; G.floor = 1; G.lvl = 1; G.xp = 0; G.autoMode = G.autoMode || 0; resetSpells(); makeParty(); startFloor(true); queueDraft();
 }
 function startFloor(first) {
   buildArena(G.floor); G.units = []; G.proj = []; G.sched = []; G.pending = 0; G.storm = null; G.eq = null; G.boss = null;
@@ -37,11 +45,11 @@ function startWave() {
   G.inten = G.wave / N;
   if (G.bossFloor && last) { spawnBoss(); return; }
   const maxTier = f <= 2 ? 1 : f <= 4 ? 2 : f <= 7 ? 3 : 4, prog = N > 1 ? i / (N - 1) : 1;
-  let budget = (17 + 6.5 * f) * (0.55 + 0.9 * prog) * (G.solo ? 0.5 : 1);
+  let budget = (17 + 6.5 * f) * (0.55 + 0.9 * prog) * [0.5, 0.7, 0.85, 1][NP() - 1];
   const pool = Object.values(MON_DEFS).filter(d => d.tier <= (prog < 0.34 && maxTier > 1 ? maxTier - 1 : maxTier)), list = [];
   let guard = 0; while (budget > 0 && guard++ < 400) { const d = pick(pool), c = TIER_COST[d.tier]; if (c > budget + 1.5 && list.length) continue; list.push({ def: d }); budget -= c; }
   const top = Object.values(MON_DEFS).filter(d => d.tier === maxTier);
-  const fodder = Object.values(MON_DEFS).filter(d => d.tier <= Math.min(2, maxTier) && d.ai === 'melee'); for (let k = 0; k < Math.round((4 + f * 1.5) * (0.6 + 0.8 * prog) * (G.solo ? 0.5 : 1)); k++) list.push({ def: pick(fodder) });
+  const fodder = Object.values(MON_DEFS).filter(d => d.tier <= Math.min(2, maxTier) && d.ai === 'melee'); for (let k = 0; k < Math.round((4 + f * 1.5) * (0.6 + 0.8 * prog) * [0.5, 0.7, 0.85, 1][NP() - 1]); k++) list.push({ def: pick(fodder) });
   if (prog >= 0.5) for (let k = 0; k < 1 + (prog >= 0.8 ? 1 : 0) + Math.floor(f / 6); k++) list.push({ def: pick(top), elite: true });
   if (last) list.push({ def: pick(top.filter(d => d.ai !== 'caster').length ? top.filter(d => d.ai !== 'caster') : top), warlord: true });
   for (let k = list.length - 1; k > 0; k--) { const j = randi(0, k); [list[k], list[j]] = [list[j], list[k]]; }
@@ -53,7 +61,7 @@ function startWave() {
 }
 function updateSpawner(dt) {
   if (!G.spawnQ || !G.spawnQ.length) return;
-  G.packT -= dt; if (G.packT > 0 || G.mons.length + G.pending >= (G.solo ? 32 : MON_CAP)) return;
+  G.packT -= dt; if (G.packT > 0 || G.mons.length + G.pending >= [32, 40, 46, MON_CAP][NP() - 1]) return;
   const f = G.floor, prog = G.inten || 0, n = Math.min(G.spawnQ.length, randi(4, 7) + Math.floor(f / 2) + Math.round(prog * 4));
   const runes = ARENA.runes.slice().sort((a, b) => minHeroDist(b) - minHeroDist(a)), use = runes.slice(0, chance(0.5) ? 1 : 2);
   for (let k = 0; k < n; k++) {
@@ -72,7 +80,7 @@ function spawnBoss() {
   for (let i = 0; i < 40; i++) after(i * 0.05, () => { part({ k: 'glow', x: x + rand(-40, 40), y: y + rand(-28, 28), z: 0, vz: rand(40, 120), drag: 0.4, life: rand(0.6, 1.2), s0: rand(2, 4), s1: 0, col: def.col || 'arcane' }); });
   G.pending++;
   after(2.2, () => {
-    G.pending--; const b = mkUnit('mon', { ...def, ai: 'boss', scale: 3, r: 5, spd: 34, dmg: 30 }, x, y, G.monHp * 1.6 * (1.3 + 0.15 * Math.floor(G.floor / 4 - 1)) * (G.solo ? 0.55 : 1)); b.boss = true; b.mul = G.monDmg; b.moveT = 1.5; b.mi = 0; b.spawnT = 0.3; G.units.push(b); G.boss = b;
+    G.pending--; const b = mkUnit('mon', { ...def, ai: 'boss', scale: 3, r: 5, spd: 34, dmg: 30 }, x, y, G.monHp * 1.6 * (1.3 + 0.15 * Math.floor(G.floor / 4 - 1)) * [0.55, 0.72, 0.87, 1][NP() - 1]); b.boss = true; b.mul = G.monDmg; b.moveT = 1.5; b.mi = 0; b.spawnT = 0.3; G.units.push(b); G.boss = b;
     part({ k: 'glow', x, y, z: 20, life: 0.3, s0: 40, s1: 90, col: 'hot' }); ring(x, y, 140, def.col || 'arcane', 0.7, 8); ring(x, y, 80, 'white', 0.4, 5); flash('white', 0.7); flashLight(x, y, 260, def.col || 'arcane', 2, 0.6);
     smoke(x, y, 16, 'dark', 22, 80, 2.4, 20); debris(x, y, 40, ['#5a5048', '#7d7064', '#3c342e'], 220, 280, 2.4); shake(1); hitstop(0.12); slowmo(0.35, 0.8); SFX.thunder(0, 1.3); buzz([300, 100, 300]);
     textBanner(def.name, def.sub, def.col || 'red');
@@ -160,7 +168,7 @@ function monState(m, dt) {
 function updateDirector(dt) {
   G.phaseT += dt;
   if (G.phase === 'fight') {
-    if (!G.heroes.some(h => !h.dead)) { G.phase = 'wipe'; G.phaseT = 0; slowmo(0.3, 2); G.bestLvl = Math.max(G.bestLvl, G.lvl); textBanner(G.solo ? G.heroes[0].def.name + ' HAS FALLEN' : 'THE PARTY HAS FALLEN', 'FLOOR ' + G.floor + '  ·  LEVEL ' + G.lvl + '  ·  ' + G.kills.toLocaleString() + ' SLAIN', 'red'); pushBanner({ a: 'THEY RISE AGAIN', b: 'FLOOR ' + G.floor + ' MUST BE TAKEN', col: 'gold', keep: true, life: 2 }); SFX.braam(); return; }
+    if (!G.heroes.some(h => !h.dead)) { G.phase = 'wipe'; G.phaseT = 0; slowmo(0.3, 2); G.bestLvl = Math.max(G.bestLvl, G.lvl); textBanner(NP() === 1 ? G.heroes[0].def.name + ' HAS FALLEN' : 'THE PARTY HAS FALLEN', 'FLOOR ' + G.floor + '  ·  LEVEL ' + G.lvl + '  ·  ' + G.kills.toLocaleString() + ' SLAIN', 'red'); pushBanner({ a: 'THEY RISE AGAIN', b: 'FLOOR ' + G.floor + ' MUST BE TAKEN', col: 'gold', keep: true, life: 2 }); SFX.braam(); return; }
     updateSpawner(dt);
     if (G.wave === 0) { if (!G.choiceQ.some(q => q.kind === 'draft')) G.waveT -= dt; if (G.waveT < 1.6) for (const r of ARENA.runes) r.glow = Math.max(r.glow, 0.6); if (G.waveT <= 0) { if (G.cdn > 0) { const before = Math.ceil(G.cdn); if (G.cdn === 3) countTick(3); G.cdn -= dt; if (G.cdn > 0 && Math.ceil(G.cdn) !== before) countTick(Math.ceil(G.cdn)); if (G.cdn <= 0) { G.cdn = 0; G.fightT = 1.1; flash('red', 0.25); shake(0.5); SFX.boom(1.2, 0); SFX.braam(); buzz([120]); for (const r of ARENA.runes) { r.glow = 1.6; ring(r.x, r.y, 30, 'arcane', 0.5, 4); } startWave(); } } else startWave(); } }
     else if (!G.spawnQ.length && !G.pending) {

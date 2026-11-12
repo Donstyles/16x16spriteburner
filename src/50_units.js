@@ -42,9 +42,10 @@ const BOSS_DEFS = [
   { spr: 'AdamantiumGolem', name: 'ADAMANT THE UNBROKEN', sub: 'NOTHING HAS EVER SCRATCHED IT', hp: 3400, moves: ['slam', 'charge', 'volley', 'slam', 'summon'], blood: 'metal', col: 'gold' },
 ];
 const BLOOD = { red: ['#7a0c14', '#a01420', '#5a0810'], rock: ['#6b625a', '#8a8076', '#4a423c'], wood: ['#6a4a2a', '#8a6638', '#4a3018'], metal: ['#9aa4b0', '#c8d0d8', '#6a7480'], fire: ['#ff8a20', '#ffd060', '#c03010'], slime: ['#3a8a30', '#60c040', '#2a5a20'], straw: ['#c8a040', '#e0c060', '#8a6a20'] };
+let UID = 0;
 function mkUnit(team, def, x, y, hpMul = 1) {
   const sc = def.scale || 1, hp = Math.round(def.hp * hpMul);
-  return { team, def, spr: def.spr, x, y, z: 0, vx: 0, vy: 0, vz: 0, kx: 0, ky: 0, r: (def.r || 5) * sc, scale: sc, hp, maxHp: hp, face: 1, anim: rand(10), cd: {}, target: null,
+  return { id: ++UID, team, def, spr: def.spr, x, y, z: 0, vx: 0, vy: 0, vz: 0, kx: 0, ky: 0, r: (def.r || 5) * sc, scale: sc, hp, maxHp: hp, face: 1, anim: rand(10), cd: {}, target: null,
     flash: 0, stun: 0, shock: 0, burn: 0, atkT: 0, lunge: 0, la: 0, dead: false, deadT: 0, ult: rand(10, 45), state: null, boss: false, spawnT: 0, squash: 0, moving: false, mul: 1, slow: 0 };
 }
 const alive = u => u && !u.dead;

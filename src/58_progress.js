@@ -1,18 +1,18 @@
 // ===================== progression: levels, titles, ascensions =====================
 const XP_TIER = [0, 1, 2.5, 5, 8];
-const xpFor = L => Math.round(16 * (L - 1) ** 2.15 * (G.solo ? 0.72 : 1)); // total xp needed to reach level L
+const xpFor = L => Math.round(16 * (L - 1) ** 2.15 * [0.72, 0.9, 1, 1][NP() - 1]); // total xp needed to reach level L
 const HERO_PROG = {
   warrior: { titles: [[1, 'SQUIRE'], [4, 'KNIGHT-ERRANT'], [8, 'BATTLEMAGE'], [13, 'BLADEMASTER'], [16, 'WARLORD']], ult: 'CATACLYSM' },
   pyro: { titles: [[1, 'APPRENTICE'], [5, 'PYROMANCER'], [10, 'FLAME MAGUS'], [15, 'ARCHMAGE OF CINDERS']], ult: 'METEOR STORM', evolve: { lvl: 10, spr: 'FlameMagus' } },
   storm: { titles: [[1, 'HEDGE MAGE'], [6, 'STORMCALLER'], [12, 'THUNDERLORD']], ult: 'THUNDERSTORM', evolve: { lvl: 12, spr: 'WiseWizard' } },
   druid: { titles: [[1, 'HERBALIST'], [5, 'DRUID'], [10, 'EARTHSHAPER'], [15, 'WORLDROOT']], ult: 'EARTHQUAKE' },
 };
-const ultUnlocked = h => h && h.team === 'hero' && G.known && G.known.has(HERO_PROG[h.key].ult);
+const ultUnlocked = h => h && h.team === 'hero' && sbOf(h).known.has(HERO_PROG[h.key].ult);
 function heroTitle(h) { let t = ''; for (const [l, n] of HERO_PROG[h.key].titles) if (G.lvl >= l) t = n; return t; }
 function scaleParty() {
   const L = G.lvl;
-  const solo = G.heroes.length === 1;
-  for (const h of G.heroes) { h.mul = (1 + 0.21 * (L - 1)) * (solo ? 1.9 : 1); const mx = Math.round(h.def.hp * (0.65 + 0.095 * (L - 1)) * (solo ? 2.4 : 1)); h.hp = h.dead ? 0 : Math.max(1, Math.round(h.hp / h.maxHp * mx)); h.maxHp = mx; }
+  const n = NP() - 1;
+  for (const h of G.heroes) { h.mul = (1 + 0.21 * (L - 1)) * [1.9, 1.45, 1.2, 1][n]; const mx = Math.round(h.def.hp * (0.65 + 0.095 * (L - 1)) * [2.4, 1.75, 1.3, 1][n]); h.hp = h.dead ? 0 : Math.max(1, Math.round(h.hp / h.maxHp * mx)); h.maxHp = mx; }
 }
 function gainXp(n) { G.xp += n; let ups = 0; while (G.xp >= xpFor(G.lvl + 1) && ups < 3) { ups++; levelUp(); } }
 function levelUp() {

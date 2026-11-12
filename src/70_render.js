@@ -29,7 +29,7 @@ function updateCam(dt) {
   let zMin = Math.min(VIEW.w / ARENA.pw, VIEW.h / ARENA.ph) * 0.96; if (VIEW.h > VIEW.w) zMin = Math.max(zMin, VIEW.w / (ARENA.pw * 0.62)); const zMax = Math.max(zMin * 1.05, Math.min(VIEW.w, VIEW.h) / 115);
   const tz = clamp(Math.min(VIEW.w / bw, VIEW.h / bh), zMin, zMax);
   let fx = (x0 + x1) / 2, fy = (y0 + y1) / 2, fz = tz; if (G.focus && G.focus.t > 0) { G.focus.t -= dt; fx = lerp(fx, G.focus.x, G.focus.w); fy = lerp(fy, G.focus.y, G.focus.w); fz = Math.min(zMax, tz * (1 + G.focus.w * 0.35)); }
-  const me = G.heroes.length === 1 && G.heroes[0], follow = me && !me.dead && G.phase !== 'wipe' && !G.eq;
+  const me = G.me, follow = me && !me.dead && G.phase !== 'wipe' && !G.eq;
   if (follow) { fx = lerp(me.x + me.vx * 0.3, fx, 0.15); fy = lerp(me.y + me.vy * 0.25 - 8, fy, 0.15); fz = clamp(Math.min(VIEW.w / 330, VIEW.h / 200), zMin, zMax * 1.2); if (G.boss && alive(G.boss)) { fx = lerp(fx, G.boss.x, 0.25); fy = lerp(fy, G.boss.y - 20, 0.25); fz *= 0.85; } if (G.focus && G.focus.t > 0) fz *= 1 + G.focus.w * 0.15; }
   const cr = follow ? 5 : 2.4; CAM.z = damp(CAM.z, fz, 1.5, dt); CAM.x = damp(CAM.x, fx, cr, dt); CAM.y = damp(CAM.y, fy, cr, dt);
   const hw = VIEW.w / (2 * CAM.z), hh = VIEW.h / (2 * CAM.z);

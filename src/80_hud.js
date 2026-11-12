@@ -52,8 +52,10 @@ function drawHUD() {
   // countdown before the very first wave
   if (G.cdn > 0 && G.waveT <= 0 && G.phase === 'fight') { const n = Math.ceil(G.cdn), f = n - G.cdn, sz = clamp(big / 2.6, 70, 190) * (f < 0.18 ? 1.45 - f / 0.18 * 0.45 : 1); c.globalAlpha = Math.min(1, (1 - f) * 6); font(c, 900, sz, F_DISP); c.shadowColor = 'rgba(255,170,60,0.95)'; c.shadowBlur = 40; label(c, String(n), W / 2, H / 2 + sz * 0.33, '#fff4dc', { align: 'center' }); c.shadowBlur = 0; c.globalAlpha = 1; }
   if (G.fightT > 0) { const f = 1 - G.fightT / 1.1, sz = clamp(big / 3.4, 60, 150) * (1 + f * 0.3); c.globalAlpha = Math.min(1, G.fightT * 2.5); font(c, 900, sz, F_DISP); c.shadowColor = 'rgba(255,70,40,1)'; c.shadowBlur = 44; label(c, 'FIGHT!', W / 2 + rand(-3, 3) * (1 - f), H / 2 + sz * 0.33, '#ffffff', { align: 'center' }); c.shadowBlur = 0; c.globalAlpha = 1; }
+  drawNetHud(c, R, T);
   drawControls(c);
   drawChoice(c);
   if (!(narrow && G.choice)) drawTopButtons(c, R, narrow ? T + 66 : T);
   drawBook(c);
+  drawNetPanel(c);
 }

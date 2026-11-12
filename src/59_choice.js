@@ -1,6 +1,10 @@
 // ===================== player choice: pick 1 of 3 powers on level-up and after bosses =====================
 const DEFMOD = { dmg: 1, size: 1, dur: 1, count: 0, cd: 1, f: {} };
-function md(name) { return (G.modv && G.modv[name]) || DEFMOD; }
+// MDH is the hero whose turn it is; spells read that hero's upgrades
+let MDH = null;
+function md(name) { const v = MDH && MDH.sb ? MDH.sb.modv : G.modv; return (v && v[name]) || DEFMOD; }
+// a hero's spell profile: what it knows, its four skill buttons, its basic attack, its upgrades
+function newSB(k) { const basic = { ...DEFAULT_BASIC }; return { known: new Set(k ? [DEFAULT_BASIC[k], ...(k === 'druid' ? ['MEND'] : [])] : [...STARTING, ...Object.values(basic)]), slots: k ? [k === 'druid' ? 'MEND' : null, null, null, null] : null, basic, mods: {}, modv: {} }; }
 function applyMod(name, eff) { const m = G.modv[name] || (G.modv[name] = { dmg: 1, size: 1, dur: 1, count: 0, cd: 1, f: {} }); if (eff.dmg) m.dmg *= eff.dmg; if (eff.size) m.size *= eff.size; if (eff.dur) m.dur *= eff.dur; if (eff.count) m.count += eff.count; if (eff.cd) m.cd *= eff.cd; if (eff.f) m.f[eff.f] = true; }
 const TIER_MIN = [1, 2, 5, 9, 12], TIER_LABEL = ['BASIC', 'LOW', 'MEDIUM', 'HIGH', 'ULTIMATE'], TIER_HEX = ['#c8b48c', '#d8a060', '#8fb8ff', '#ffd860', '#ff6a4a'];
 const STARTING = ['MEND'];
@@ -66,7 +70,7 @@ const MODS = {
   'RESURRECTION': [['SWIFT RETURN', 'Cooldown -45%', { cd: 0.55 }], ['FULL LIFE', 'Return with full health', { dmg: 2 }], ['WRATH OF LIFE', 'The return blasts foes away', { f: 'blast' }]],
   'EARTHQUAKE': [['LONG QUAKE', 'Lasts 50% longer', { dur: 1.5 }], ['HEAVY QUAKE', '+50% damage', { dmg: 1.5 }], ['ROCK RAIN', 'Far more falling rocks', { count: 2 }]],
 };
-function resetSpells() { G.basic = { ...DEFAULT_BASIC }; G.slots = null; G.heroKey = null; G.known = new Set([...STARTING, ...Object.values(G.basic)]); G.modsTaken = {}; G.modv = {}; G.choice = null; G.choiceQ = []; G.autoStreak = 0; G.acted = false; }
+function resetSpells() { G.sb0 = newSB(); G.me = null; G.draftKey = null; G.choice = null; G.choiceQ = []; G.autoStreak = 0; G.acted = false; }
 const HERO_CLASS = { warrior: 'THE BATTLEMAGE', pyro: 'THE PYROMANCER', storm: 'THE STORMCALLER', druid: 'THE DRUID' };
 // before the first wave: pick a hero, then that hero's basic attack and first skill
 function queueDraft() {
@@ -75,6 +79,7 @@ function queueDraft() {
   G.choiceQ.push({ kind: 'draft', step: 3, title: 'FIRST SKILL', optsFn: () => shuffle(SPELLBOOK[G.heroKey].filter(s => s.tier === 1 && !s.free)).slice(0, 3).map(sp => ({ type: 'spell', hero: G.heroKey, sp })) });
 }
 function applyPick(o) {
+  if (NET.role === 'client' && !G.me) return guestDraftPick(o);
   if (o.type === 'hero') selectHero(o.hero);
   else if (o.type === 'basic') { G.known.delete(G.basic[o.hero]); G.basic[o.hero] = o.sp.name; G.known.add(o.sp.name); }
   else if (o.type === 'spell') learnSpell(o);
@@ -86,11 +91,12 @@ function autoDraft() { // the party fills in every remaining draft step itself
   G.choiceQ = G.choiceQ.filter(q => q.kind !== 'draft'); G.waveT = Math.min(G.waveT, 1.2);
   pushBanner({ a: HERO_DEFS[G.heroKey].name + ' STEPS FORWARD', b: 'A HERO CHOSEN BY FATE', col: HERO_DEFS[G.heroKey].col, keep: true, life: 1.8 }); SFX.levelup();
 }
+const bookKeys = () => G.me ? [G.me.key] : G.heroes.map(x => x.key);
 const knownCount = k => SPELLBOOK[k].filter(sp => G.known.has(sp.name)).length + Object.keys(G.modsTaken).filter(n => SPELLBOOK[k].some(sp => sp.name === n)).length * 0.3;
 function candidates() {
   const news = [], mods = [];
-  const solo = G.heroes.length === 1, rep = G.slots && !G.slots.includes(null) ? weakestSlot() : null;
-  for (const k of G.heroes.map(h => h.key)) for (const sp of SPELLBOOK[k]) {
+  const solo = NP() === 1, rep = G.slots && !G.slots.includes(null) ? weakestSlot() : null;
+  for (const k of bookKeys()) for (const sp of SPELLBOOK[k]) {
     if (!G.known.has(sp.name)) { if (sp.tier > 0 && G.lvl >= TIER_MIN[sp.tier] && !(solo && sp.name === 'RESURRECTION')) news.push({ type: 'spell', hero: k, sp, replace: sp.tier < 4 ? rep : null }); continue; }
     const taken = G.modsTaken[sp.name] || [];
     for (const [name, desc, eff, req] of MODS[sp.name] || []) if (!taken.includes(name) && (!req || taken.includes(req))) mods.push({ type: 'mod', hero: k, sp, mod: { name, desc, eff }, n: taken.length });
@@ -108,22 +114,20 @@ function genChoices(boss) {
   for (const o of [...news, ...mods]) { if (out.length >= 3) break; if (!out.includes(o) && !used.has(o.sp.name)) { out.push(o); used.add(o.sp.name); } }
   return out;
 }
-function queueChoice(kind, title) { G.choiceQ.push({ kind, title }); }
+function queueChoice(kind, title) { G.choiceQ.push({ kind, title }); if (NET.role === 'host' && NET.conns.size) netQueueChoice(kind, title); }
 function openChoice(q) {
   const opts = q.opts || (q.optsFn ? q.optsFn() : genChoices(q.kind === 'boss')); if (!opts.length) return;
   const auto = window.CR_AUTO || (q.kind === 'draft' ? 20 : G.autoStreak >= 2 ? 6 : 18);
-  G.choice = { kind: q.kind, step: q.step, title: q.title || ('LEVEL ' + G.lvl), opts, t: 0, auto, hover: -1, picked: -1, pickT: 0, rects: [] }; SFX.choice();
+  G.choice = { kind: q.kind, step: q.step, title: q.title || ('LEVEL ' + G.lvl), opts, t: 0, auto, hover: -1, picked: -1, pickT: 0, rects: [], netId: q.netId }; SFX.choice();
 }
 const tierOfName = n => { for (const k in SPELLBOOK) { const sp = SPELLBOOK[k].find(s => s.name === n); if (sp) return sp.tier; } return 0; };
 function autoIndex(c) { let best = 0, bs = -1e9; c.opts.forEach((o, i) => { const s = (o.type === 'spell' ? (o.replace ? 6 + (o.sp.tier - tierOfName(o.replace)) * 6 : 12 + o.sp.tier * 4) : 4 + o.sp.tier * 2) - knownCount(o.hero) * 0.8 + Math.random() * 2; if (s > bs) { bs = s; best = i; } }); return best; }
 function pickChoice(i, byPlayer) {
-  const c = G.choice; if (!c || c.picked >= 0 || !c.opts[i]) return; c.picked = i; c.pickT = 0; const o = c.opts[i], h = G.heroes.find(x => x.key === o.hero);
+  const c = G.choice; if (!c || c.picked >= 0 || !c.opts[i]) return; c.picked = i; c.pickT = 0; const o = c.opts[i], h = G.me || G.heroes.find(x => x.key === o.hero);
   if (byPlayer) { G.acted = true; G.autoStreak = 0; } else G.autoStreak++;
+  if (c.netId) { try { netSend(NET.host, { t: 'pick', id: c.netId, i }); } catch (e) { } SFX.choice(); return; }
   if (c.kind === 'draft') { applyPick(o); SFX.levelup(); if (h && !h.dead) ring(h.x, h.y, 30, h.def.col, 0.5, 4); if (!G.choiceQ.some(q => q.kind === 'draft')) G.waveT = Math.min(G.waveT, 1.2); return; }
-  if (o.type === 'basic') { applyPick(o); }
-  else if (o.type === 'spell') { learnSpell(o); pushBanner({ a: o.sp.name, b: h.def.name + ' LEARNS A ' + TIER_LABEL[o.sp.tier] + ' SPELL' + (o.replace ? ' · FORGETS ' + o.replace : ''), col: h.def.col, keep: true, life: 2.1 }); }
-  else { (G.modsTaken[o.sp.name] = G.modsTaken[o.sp.name] || []).push(o.mod.name); applyMod(o.sp.name, o.mod.eff); pushBanner({ a: o.mod.name, b: o.sp.name + ' UPGRADED · ' + o.mod.desc.toUpperCase(), col: h.def.col, keep: true, life: 2.1 }); }
-  if (h && !h.dead) { column(h.x, h.y, h.def.col, 1.2, 12); ring(h.x, h.y, 36, h.def.col, 0.5, 4); flashLight(h.x, h.y, 110, h.def.col, 1.5, 0.6); }
+  choiceEffect(h, o);
   SFX.levelup();
 }
 function updateChoice(rdt) {
@@ -180,8 +184,8 @@ function drawBook(c) {
   c.fillStyle = 'rgba(6,4,10,0.9)'; c.fillRect(0, 0, W, H);
   font(c, 900, 28, F_DISP); label(c, 'Spellbook', W / 2, top + 24, '#fff1d0', { align: 'center' });
   const nm = Object.values(G.modsTaken).flat().length; font(c, 500, 13, F_HUD); spaced(c, 'LEVEL ' + G.lvl + '  ·  ' + G.known.size + ' SKILLS  ·  ' + nm + ' UPGRADES  ·  TAP ANYWHERE TO CLOSE', W / 2, top + 42, 1.6, '#a89a84', 'center');
-  const wide = W >= 640, cols = Math.min(G.heroes.length, wide ? 4 : 2), rows = Math.ceil(G.heroes.length / cols), gap = 10, areaTop = top + 54, areaH = H - areaTop - Math.max(12, S.b + 8), cw = (R - L - gap * (cols - 1)) / cols, chh = (areaH - gap * (rows - 1)) / rows;
-  G.heroes.map(x => x.key).forEach((k, i) => {
+  const wide = W >= 640, cols = Math.min(bookKeys().length, wide ? 4 : 2), rows = Math.ceil(bookKeys().length / cols), gap = 10, areaTop = top + 54, areaH = H - areaTop - Math.max(12, S.b + 8), cw = (R - L - gap * (cols - 1)) / cols, chh = (areaH - gap * (rows - 1)) / rows;
+  bookKeys().forEach((k, i) => {
     const h = G.heroes.find(x => x.key === k), hd = HERO_DEFS[k], x = L + (i % cols) * (cw + gap), y = areaTop + ((i / cols) | 0) * (chh + gap), m = MOBS[h.spr], focus = UI.bookFocus === k;
     c.fillStyle = 'rgba(22,16,24,0.95)'; c.fillRect(x, y, cw, chh); c.strokeStyle = focus ? `rgb(${COL[hd.col]})` : 'rgba(255,255,255,0.12)'; c.lineWidth = focus ? 2 : 1; c.strokeRect(x + 0.5, y + 0.5, cw - 1, chh - 1);
     c.imageSmoothingEnabled = false; c.drawImage(IMG.mobs, 0, m[0], m[1], m[2], x + 6, y + 6, 30, 30 * m[2] / m[1]);
