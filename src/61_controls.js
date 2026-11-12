@@ -144,6 +144,7 @@ function drawTopButtons(c, R, T) {
   const al = autoLevel(), idleAuto = al === 2 && G.autoMode < 2;
   items.push({ t: idleAuto ? 'AUTOPILOT · IDLE' : AUTO_LABEL[G.autoMode], hot: G.autoMode > 0 || idleAuto, fn: cycleAuto });
   items.push({ t: 'SPELLBOOK', fn: () => { UI.bookOpen = true; } });
+  if (MENU.update) { const sure = MENU.sureT > performance.now(); items.push({ t: sure ? 'TAP AGAIN · ENDS THIS RUN' : 'UPDATE READY', hot: true, fn: () => { if (MENU.sureT > performance.now()) location.reload(); else MENU.sureT = performance.now() + 3000; } }); }
   items.push({ t: NET.on ? 'ROOM ' + NET.code : 'CO-OP', hot: NET.on, fn: () => { NET.panel = true; } });
   items.push({ t: !SFX.ctx ? 'TAP FOR SOUND' : SFX.on ? 'SOUND ON' : 'SOUND OFF', pulse: !SFX.ctx, fn: () => { if (SFX.ctx) SFX.toggle(); } });
   font(c, 600, 13, F_HUD); let x = R;

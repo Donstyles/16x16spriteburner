@@ -98,6 +98,7 @@ function drawMenus(c) {
     mbtn(c, 450 - 75, 360, 150, 46, 'DELETE', '', () => codeKey('DEL'), { size: 18 });
     mbtn(c, 450 + 146, 360, 150, 46, 'JOIN', '', () => netJoin(MENU.code), { size: 20, hot: MENU.code.length === 4, off: MENU.code.length < 4 });
   } else drawRoom(c, false);
+  font(c, 500, 12, F_HUD); c.globalAlpha = 0.55; spaced(c, 'VERSION ' + BUILD.toUpperCase(), 890, 414, 2, '#a8987e', 'right'); c.globalAlpha = 1;
   c.restore();
   if (NET.statusT > 0) { NET.statusT -= 1 / 60; font(c, 600, 16, F_HUD); c.globalAlpha = Math.min(1, NET.statusT * 2); spaced(c, NET.status, VIEW.w / 2, MENU.oy + (G.mode === 'lobby' ? 291 : G.mode === 'join' ? 173 : 412) * MENU.k, 2, '#ffd860', 'center'); c.globalAlpha = 1; }
 }
@@ -121,6 +122,7 @@ function drawRoom(c, inGame) { // the lobby before the descent, and the same roo
   if (NET.role === 'client' && !NET.on) return drawJoinState(c);
   const sw = 205, gap = 10, x0 = 450 - (sw * 4 + gap * 3) / 2, sy = 152, sh = 124;
   seats.forEach((s, i) => drawSeat(c, s, x0 + i * (sw + gap), sy, sw, sh, s.pid === me));
+  if (MENU.update && lobby) mbtn(c, 700, 10, 190, 30, 'NEW VERSION · RELOAD', '', () => location.reload(), { size: 13, hot: true });
   if (lobby) {
     const mine = (seats.find(s => s.pid === me) || {}).hero; font(c, 500, 13, F_HUD); spaced(c, 'YOUR HERO', x0, 296, 2, '#a8987e');
     ['warrior', 'pyro', 'storm', 'druid'].forEach((k, i) => { const x = x0 + i * (sw + gap), y = 302, d = HERO_DEFS[k], on = mine === k;
