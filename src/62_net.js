@@ -102,6 +102,7 @@ function hostOpen(tries = 0) {
 function freeSlot() { const used = new Set([...G.heroes.map(h => h.pid), ...NET.conns.keys()]); for (let i = 1; i < 4; i++) if (!used.has(i)) return i; return -1; }
 function hostConn(conn) {
   const c = { conn, pid: -1, h: null, ok: false, token: conn.metadata && conn.metadata.token };
+  netSay('A FRIEND IS CONNECTING…', 8); setTimeout(() => { if (!c.ok && NET.role === 'host') netSay('A FRIEND CAN’T GET THROUGH YET · KEEP THIS SCREEN OPEN', 8); }, 15000);
   conn.on('open', () => {
     const gv = conn.metadata && conn.metadata.ver; if (gv && gv !== BUILD) { netSend(conn, { t: 'ver', ver: BUILD }); setTimeout(() => conn.close(), 800); netSay('A FRIEND HAS A DIFFERENT VERSION · BOTH SHOULD REOPEN THE GAME', 6); return; }
     let h = c.token && G.heroes.find(x => x.token === c.token && x.away);
@@ -178,7 +179,7 @@ function netJoin(raw, relay, retry) {
   const code = String(raw || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4); if (code.length !== 4) { netSay('ROOM CODES HAVE 4 LETTERS', 3); return; }
   if (NET.role === 'host') netCloseRoom();
   if (NET.role === 'client' && NET.peer) { try { NET.peer.destroy(); } catch (e) { } }
-  if (!retry) NET.tries = 0;
+  if (!retry) { NET.tries = 0; NET.attempt = 1; }
   Object.assign(NET, { role: 'client', code, on: false, host: null, lost: false, fail: null, relay: !!relay, stage: 'MATCHMAKER', stageT: performance.now(), seats: retry ? NET.seats : null, panel: false });
   if (!retry) NET.lobbyPick = null; MENU.seatsKey = ''; G.mode = 'lobby';
   G.sched = []; G.proj = []; G.choice = null; G.choiceQ = []; UI.bookOpen = false; G.me = null; G.draftKey = null; NET.draft = {}; NET.mir.clear(); NET.stat.clear(); for (const k in FX) FX[k].length = 0;
@@ -186,6 +187,9 @@ function netJoin(raw, relay, retry) {
   peer.on('open', () => {
     if (NET.peer !== peer) return;
     const conn = peer.connect(NET_PREFIX + code, { reliable: true, serialization: 'raw', metadata: { token: netToken(code), ver: BUILD } }); NET.host = conn; NET.stage = 'HOST'; NET.stageT = performance.now();
+    // remember which kinds of route this phone could offer (local network, internet address, relay) for the failure message
+    NET.cand = NET.cand || {}; NET.candErr = NET.candErr || ''; const pc = conn.peerConnection;
+    if (pc) { pc.addEventListener('icecandidate', e => { const m = e.candidate && / typ (\w+)/.exec(e.candidate.candidate); if (m) NET.cand[m[1]] = (NET.cand[m[1]] || 0) + 1; }); pc.addEventListener('icecandidateerror', e => { NET.candErr = e.errorCode + (e.url ? ' ' + e.url.split(':')[0] : ''); }); }
     conn.on('open', () => { NET.on = true; NET.stage = 'OK'; NET.tries = 0; netSay('CONNECTED TO ROOM ' + code, 2); });
     conn.on('data', d => { NET.rx = performance.now(); try { netRecv(conn, d, guestMsg); } catch (e) { console.error(e); } });
     conn.on('close', () => { if (NET.host === conn) guestLost('CONNECTION LOST', true); }); conn.on('error', () => { if (NET.host === conn) guestLost('CONNECTION LOST', true); });
@@ -201,9 +205,15 @@ function netJoin(raw, relay, retry) {
 }
 function joinFail(a, b) { NET.fail = { a, b }; NET.on = false; NET.statusT = 0; try { NET.peer && NET.peer.destroy(); } catch (e) { } if (SFX.ctx) SFX.clang && SFX.clang(); }
 function joinWatch() { // a link that never opens: one retry through the relay, then a clear message
-  if (NET.role !== 'client' || NET.on || NET.fail || NET.stage !== 'HOST') return;
+  if (NET.role !== 'client' || NET.on || NET.fail) return;
+  if (NET.stage === 'MATCHMAKER' && performance.now() - NET.stageT > 15000) return joinFail('COULD NOT REACH THE MATCHMAKER', 'The matchmaking server did not answer. Check your internet connection and try again.');
+  if (NET.stage !== 'HOST') return;
   const pc = NET.host && NET.host.peerConnection, ice = pc ? pc.iceConnectionState : ''; NET.ice = ice;
-  if (ice === 'failed' || performance.now() - NET.stageT > 16000) { if (!NET.relay) { NET.stage = 'RELAY'; netJoin(NET.code, true, true); } else joinFail('COULD NOT CONNECT TO THE HOST', 'Your networks block a direct link. Put both phones on the same Wi-Fi and try again.'); }
+  if (ice === 'failed' || performance.now() - NET.stageT > 15000) {
+    // keep trying for about 90 s, alternating a direct link and the relay: the host may only just be back from sending the invite
+    if ((NET.attempt || 1) < 6) { NET.attempt = (NET.attempt || 1) + 1; netJoin(NET.code, NET.attempt % 2 === 0, true); }
+    else { const c = NET.cand || {}, ok = v => v ? '✓' : '✗'; joinFail('COULD NOT CONNECT TO THE HOST', 'Your phone could offer: local network ' + ok(c.host) + '  ·  internet address ' + ok(c.srflx) + '  ·  relay ' + ok(c.relay) + (NET.candErr ? '  (relay error ' + NET.candErr + ')' : '') + '. Try both phones on the same Wi-Fi.'); }
+  }
 }
 function guestLost(why, retry) {
   if (NET.role !== 'client' || NET.lost || NET.fail) return; NET.lost = true;
