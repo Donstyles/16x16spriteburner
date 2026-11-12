@@ -53,7 +53,7 @@ function netWrap() {
   pushBanner = fxWrap('pushBanner', pushBanner); textBanner = fxWrap('textBanner', textBanner); banner = fxWrap('banner', banner);
   for (const k of ['boom', 'thunder', 'zap', 'quake', 'slash', 'clang', 'hit', 'fire', 'whoosh', 'summon', 'pop', 'shatter', 'drum', 'beam', 'charge', 'heal', 'braam', 'drone', 'levelup']) if (typeof SFX[k] === 'function') SFX[k] = fxWrap('sfx.' + k, SFX[k], SFX);
   const _light = light; light = function (x, y, r, col, a = 1) { if (NET.rec && !NET.depth) NET.lightsCur.push(r1(x), r1(y), r1(r), col, r2(a)); return _light(x, y, r, col, a); };
-  _buildArena = buildArena;
+  _buildArena = buildArena; loadTurn();
   buildArena = function (floor) { const seed = (Math.random() * 2147483647) | 0; NET.arena = { floor, seed }; if (NET.role === 'host') NET.ev.push(['A', floor, seed]); return withSeed(seed, () => _buildArena(floor)); };
 }
 // ---------- host: what goes on the wire ----------
@@ -92,6 +92,7 @@ function hostTick(rdt) {
   for (const c of NET.conns.values()) if (c.ok) { s.me = privOf(c.h); try { netSend(c.conn, s); } catch (e) { } }
 }
 function hostOpen(tries = 0) {
+  if (turnWaiting()) { NET.role = 'host'; netSay('OPENING A ROOM…', 30); loadTurn().then(() => { NET.turnTried = true; if (NET.role === 'host' && !NET.peer) hostOpen(tries); }); return; }
   const code = Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[randi(0, 23)]).join(''), peer = new Peer(NET_PREFIX + code, peerOpts());
   NET.role = 'host'; netSay('OPENING A ROOM…', 30); if (!NET.lobby) NET.lobby = { started: true, picks: {} };
   peer.on('open', () => { NET.peer = peer; NET.code = code; NET.on = true; netSay('ROOM ' + code + ' IS OPEN', 4); pushBanner({ a: 'ROOM ' + code, b: 'SEND THE INVITE · UP TO 3 FRIENDS CAN JOIN', col: 'gold', keep: true, life: 2.4 }); });
@@ -167,8 +168,18 @@ function netCloseRoom() {
 // PeerJS's own defaults, spelled out so a guest can retry through the relay only
 const ICE = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }];
 const BUILD = window.__BUILD || 'dev';
+// our own relay (Metered): the app name and the credential's front-end apiKey; the game fetches the current relay list from Metered
+const TURN_CFG = { app: '', apiKey: '' };
+let TURN_ICE = null, turnP = null;
+const turnUrl = () => window.CR_TURN_URL || (TURN_CFG.app && TURN_CFG.apiKey ? 'https://' + TURN_CFG.app + '.metered.live/api/v1/turn/credentials?apiKey=' + TURN_CFG.apiKey : '');
+function loadTurn() {
+  const u = turnUrl(); if (!u || TURN_ICE) return Promise.resolve(TURN_ICE);
+  if (!turnP) turnP = Promise.race([fetch(u, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(a => { if (Array.isArray(a) && a.length) TURN_ICE = a; else NET.turnErr = true; return TURN_ICE; }), new Promise(r => setTimeout(r, 4000))]).catch(() => { NET.turnErr = true; return null; }).then(v => { if (!TURN_ICE) turnP = null; return v; });
+  return turnP;
+}
+const turnWaiting = () => turnUrl() && !TURN_ICE && !NET.turnTried;
 function peerOpts(relay) {
-  const q = new URLSearchParams(location.search), o = { debug: 0, config: { iceServers: ICE, iceTransportPolicy: relay ? 'relay' : 'all' } };
+  const q = new URLSearchParams(location.search), o = { debug: 0, config: { iceServers: TURN_ICE ? [{ urls: 'stun:stun.l.google.com:19302' }, ...TURN_ICE] : ICE, iceTransportPolicy: relay ? 'relay' : 'all' } };
   if (q.get('peerhost')) Object.assign(o, { host: q.get('peerhost'), port: +q.get('peerport') || 9000, path: '/', secure: false, config: { iceServers: [] } });
   return o;
 }
@@ -183,6 +194,7 @@ function netJoin(raw, relay, retry) {
   Object.assign(NET, { role: 'client', code, on: false, host: null, lost: false, fail: null, relay: !!relay, stage: 'MATCHMAKER', stageT: performance.now(), seats: retry ? NET.seats : null, panel: false });
   if (!retry) NET.lobbyPick = null; MENU.seatsKey = ''; G.mode = 'lobby';
   G.sched = []; G.proj = []; G.choice = null; G.choiceQ = []; UI.bookOpen = false; G.me = null; G.draftKey = null; NET.draft = {}; NET.mir.clear(); NET.stat.clear(); for (const k in FX) FX[k].length = 0;
+  if (turnWaiting()) { loadTurn().then(() => { NET.turnTried = true; if (NET.role === 'client' && NET.code === code && !NET.on && !NET.fail) netJoin(code, relay, true); }); return; }
   const peer = new Peer(peerOpts(relay)); NET.peer = peer;
   peer.on('open', () => {
     if (NET.peer !== peer) return;
@@ -212,7 +224,7 @@ function joinWatch() { // a link that never opens: one retry through the relay, 
   if (ice === 'failed' || performance.now() - NET.stageT > 15000) {
     // keep trying for about 90 s, alternating a direct link and the relay: the host may only just be back from sending the invite
     if ((NET.attempt || 1) < 6) { NET.attempt = (NET.attempt || 1) + 1; netJoin(NET.code, NET.attempt % 2 === 0, true); }
-    else { const c = NET.cand || {}, ok = v => v ? '✓' : '✗'; joinFail('COULD NOT CONNECT TO THE HOST', 'Your phone could offer: local network ' + ok(c.host) + '  ·  internet address ' + ok(c.srflx) + '  ·  relay ' + ok(c.relay) + (NET.candErr ? '  (relay error ' + NET.candErr + ')' : '') + '. Try both phones on the same Wi-Fi.'); }
+    else { const c = NET.cand || {}, ok = v => v ? '✓' : '✗'; joinFail('COULD NOT CONNECT TO THE HOST', 'Your phone could offer: local network ' + ok(c.host) + '  ·  internet address ' + ok(c.srflx) + '  ·  relay ' + ok(c.relay) + (NET.candErr ? '  (relay error ' + NET.candErr + ')' : '') + (NET.turnErr ? '  (relay settings did not load)' : '') + '. Try both phones on the same Wi-Fi.'); }
   }
 }
 function guestLost(why, retry) {
