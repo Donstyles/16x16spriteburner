@@ -89,7 +89,15 @@ function hostTick(rdt) {
   if (!NET.conns.size) { NET.ev = []; NET.newDefs = []; return; }
   const s = snapshot(false);
   if (window.CR_PROF) { const P = window.CR_PROF; for (const k in s) P[k] = (P[k] || 0) + JSON.stringify(s[k]).length; P.n = (P.n || 0) + 1; if (s.ev) for (const e of s.ev) { const nm = e[0] === 'A' ? 'A' : FXO[e[0]].name; P['ev:' + nm] = (P['ev:' + nm] || 0) + JSON.stringify(e).length; } }
-  for (const c of NET.conns.values()) if (c.ok) { s.me = privOf(c.h); try { netSend(c.conn, s); } catch (e) { } }
+  NET.tick = (NET.tick || 0) + 1;
+  for (const c of NET.conns.values()) if (c.ok) {
+    if (!c.relayed) { s.me = privOf(c.h); try { netSend(c.conn, s); } catch (e) { } continue; }
+    // through the relay: 10 updates a second and no single particles, so the monthly allowance lasts; skipped updates are carried over
+    const bk = c.back || (c.back = { ev: [], nu: [], nd: [], g: {} });
+    bk.ev.push(...s.ev.filter(e => !(FXO[e[0]] && FXO[e[0]].isPart))); bk.nu.push(...s.nu); bk.nd.push(...s.nd); Object.assign(bk.g, s.g);
+    if (NET.tick % 2) continue;
+    c.back = null; try { netSend(c.conn, { ...s, g: bk.g, ev: bk.ev, nu: bk.nu, nd: bk.nd, me: privOf(c.h) }); } catch (e) { }
+  }
 }
 function hostOpen(tries = 0) {
   if (turnWaiting()) { NET.role = 'host'; netSay('OPENING A ROOM…', 30); loadTurn().then(() => { NET.turnTried = true; if (NET.role === 'host' && !NET.peer) hostOpen(tries); }); return; }
@@ -169,9 +177,47 @@ function netCloseRoom() {
 const ICE = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }];
 const BUILD = window.__BUILD || 'dev';
 // our own relay (Metered): the app name and the credential's front-end apiKey; the game fetches the current relay list from Metered
-const TURN_CFG = { app: '', apiKey: '' };
+// Our own relay (Metered). The key is never in the code or on GitHub: it lives only on the host's phone, set once by
+// opening a private link ending in #relay=<app>:<key> (the part after # never reaches a server) or pasting it in the room view.
+// Only the host needs it: a friend who can't link directly connects to the host's relay address.
+function relayKey() {
+  try {
+    const h = /relay=([a-z0-9-]+):([0-9a-f]{16,})/i.exec(location.hash); if (h) { localStorage.setItem('cor-relay', h[1].toLowerCase() + ':' + h[2]); history.replaceState(null, '', location.pathname + location.search); }
+    return localStorage.getItem('cor-relay') || '';
+  } catch (e) { return ''; }
+}
+function setRelayKey(raw) { // accepts the Metered credentials URL or app:key
+  const s = String(raw || ''), u = /([a-z0-9-]+)\.metered\.live.*apiKey=([0-9a-f]{16,})/i.exec(s), p = /^\s*([a-z0-9-]+)\s*:\s*([0-9a-f]{16,})\s*$/i.exec(s), m = u || p;
+  if (!m) { netSay('THAT DOESN’T LOOK LIKE A RELAY KEY', 4); return; }
+  try { localStorage.setItem('cor-relay', m[1].toLowerCase() + ':' + m[2]); } catch (e) { }
+  TURN_ICE = null; turnP = null; NET.turnErr = false; NET.turnTried = false; loadTurn().then(v => netSay(v ? 'RELAY READY · REOPEN THE ROOM TO USE IT' : 'THE RELAY KEY WAS NOT ACCEPTED', 5));
+}
+// the free plan has 500 MB a month: relay traffic is counted on this phone, relayed friends get a lighter stream,
+// new rooms stop offering the relay at 400 MB and relayed friends are let go at 470 MB
+const RELAY_SOFT = 400 * 1048576, RELAY_HARD = 470 * 1048576;
+const relayMonth = () => { const d = new Date(); return 'cor-relay-used-' + d.getUTCFullYear() + '-' + (d.getUTCMonth() + 1); };
+function relayUsed() { try { return +localStorage.getItem(relayMonth()) || 0; } catch (e) { return 0; } }
+function relayAdd(n) { try { localStorage.setItem(relayMonth(), String(Math.round(relayUsed() + n))); } catch (e) { } }
+async function relayWatch() {
+  if (NET.role !== 'host') return;
+  for (const c of [...NET.conns.values()]) {
+    const pc = c.conn && c.conn.peerConnection; if (!c.ok || !pc || !pc.getStats) continue;
+    try {
+      const st = await pc.getStats(); let pair = null;
+      st.forEach(r => { if (r.type === 'transport' && r.selectedCandidatePairId) pair = st.get(r.selectedCandidatePairId); });
+      if (!pair) st.forEach(r => { if (r.type === 'candidate-pair' && r.nominated && r.state === 'succeeded') pair = r; });
+      if (!pair) continue;
+      const lc = st.get(pair.localCandidateId), was = c.relayed; c.relayed = !!(lc && lc.candidateType === 'relay');
+      const bytes = (pair.bytesSent || 0) + (pair.bytesReceived || 0);
+      if (c.relayed && c.lastBytes !== undefined && bytes > c.lastBytes) relayAdd((bytes - c.lastBytes) * 1.15);
+      c.lastBytes = bytes; if (c.relayed && !was) netSend(c.conn, { t: 'slow' });
+    } catch (e) { }
+  }
+  if (relayUsed() > RELAY_HARD) for (const c of [...NET.conns.values()]) if (c.relayed && c.ok) { netSend(c.conn, { t: 'relayout' }); hostDrop(c); setTimeout(() => { try { c.conn.close(); } catch (e) { } }, 600); }
+}
+setInterval(relayWatch, 3000);
+const turnUrl = () => { if (window.CR_TURN_URL) return window.CR_TURN_URL; const k = relayKey(); if (!k || relayUsed() > RELAY_SOFT) return ''; const [app, key] = k.split(':'); return 'https://' + app + '.metered.live/api/v1/turn/credentials?apiKey=' + key; };
 let TURN_ICE = null, turnP = null;
-const turnUrl = () => window.CR_TURN_URL || (TURN_CFG.app && TURN_CFG.apiKey ? 'https://' + TURN_CFG.app + '.metered.live/api/v1/turn/credentials?apiKey=' + TURN_CFG.apiKey : '');
 function loadTurn() {
   const u = turnUrl(); if (!u || TURN_ICE) return Promise.resolve(TURN_ICE);
   if (!turnP) turnP = Promise.race([fetch(u, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(a => { if (Array.isArray(a) && a.length) TURN_ICE = a; else NET.turnErr = true; return TURN_ICE; }), new Promise(r => setTimeout(r, 4000))]).catch(() => { NET.turnErr = true; return null; }).then(v => { if (!TURN_ICE) turnP = null; return v; });
@@ -179,7 +225,7 @@ function loadTurn() {
 }
 const turnWaiting = () => turnUrl() && !TURN_ICE && !NET.turnTried;
 function peerOpts(relay) {
-  const q = new URLSearchParams(location.search), o = { debug: 0, config: { iceServers: TURN_ICE ? [{ urls: 'stun:stun.l.google.com:19302' }, ...TURN_ICE] : ICE, iceTransportPolicy: relay ? 'relay' : 'all' } };
+  const q = new URLSearchParams(location.search), o = { debug: 0, config: { iceServers: TURN_ICE ? [{ urls: 'stun:stun.l.google.com:19302' }, ...TURN_ICE] : ICE, iceTransportPolicy: relay && TURN_ICE ? 'relay' : 'all' } };
   if (q.get('peerhost')) Object.assign(o, { host: q.get('peerhost'), port: +q.get('peerport') || 9000, path: '/', secure: false, config: { iceServers: [] } });
   return o;
 }
@@ -241,6 +287,8 @@ function guestMsg(m) {
   else if (m.t === 'lb') { NET.seats = m.seats; const s = m.seats.find(x => x.pid === NET.myPid); if (s && NET.lobbyPick && !s.hero) s.hero = NET.lobbyPick; }
   else if (m.t === 'go') { G.mode = 'play'; UI.titleT = 99; G.choiceQ = []; G.choice = null; NET.draft = {}; if (NET.lobbyPick) { NET.draft.hero = { type: 'hero', hero: NET.lobbyPick }; G.draftKey = NET.lobbyPick; queueDraft(true); } else queueDraft(); }
   else if (m.t === 'ch') G.choiceQ.push({ kind: m.kind, title: m.title || undefined, netId: m.id, opts: m.opts.map(decOpt).filter(Boolean) });
+  else if (m.t === 'slow') NET.slow = true;
+  else if (m.t === 'relayout') { G.mode = 'lobby'; joinFail('THE HOST’S RELAY IS USED UP FOR THIS MONTH', 'Only phones that can link directly can play together until next month. Try the same Wi-Fi.'); }
   else if (m.t === 'full') guestLost('ROOM ' + NET.code + ' IS FULL');
   else if (m.t === 'bye') guestLost('THE HOST CLOSED THE ROOM');
 }
@@ -301,7 +349,7 @@ function guestFrame(rdt) {
   if (NET.on && NET.rx && performance.now() - NET.rx > 5000) guestLost('CONNECTION LOST', true);
   joinWatch();
   NET.inT += rdt;
-  if (NET.on && NET.host && G.me && (NET.inT >= 0.033 || INPUT.castQ.length || INPUT.dashQ)) {
+  if (NET.on && NET.host && G.me && (NET.inT >= (NET.slow ? 0.066 : 0.033) || INPUT.castQ.length || INPUT.dashQ)) {
     NET.inT = 0; const [x, y] = inputVec();
     try { netSend(NET.host, { t: 'in', mx: r2(x), my: r2(y), auto: autoLevel(), d: INPUT.dashQ ? 1 : 0, c: INPUT.castQ.splice(0) }); } catch (e) { }
     INPUT.dashQ = false;

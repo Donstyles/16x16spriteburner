@@ -118,6 +118,9 @@ function drawRoom(c, inGame) { // the lobby before the descent, and the same roo
   if (NET.code) {
     font(c, 500, 14, F_HUD); spaced(c, 'ROOM CODE', 300, 104, 3, '#a8987e', 'center'); font(c, 900, 40, F_DISP); c.shadowColor = 'rgba(255,200,90,0.6)'; c.shadowBlur = 14; spaced(c, NET.code, 300, 134, 10, '#ffd860', 'center'); c.shadowBlur = 0;
     mbtn(c, 470, 92, 220, 48, 'SEND INVITE LINK', '', netInvite, { size: 18, hot: n < 2 });
+    if (host) { const k = relayKey(), used = relayUsed() / 1048576, on = k && TURN_ICE && used < 400; font(c, 500, 13, F_HUD); spaced(c, 'RELAY', 795, 106, 3, '#a8987e', 'center');
+      if (!k) mbtn(c, 712, 112, 166, 30, 'ADD RELAY KEY', '', () => { const v = prompt('Paste the Metered credentials link (or app:key)'); if (v) setRelayKey(v); }, { size: 13 });
+      else { font(c, 600, 14, F_HUD); spaced(c, on ? 'ON · ' + Math.round(used) + ' / 400 MB' : used >= 400 ? 'USED UP THIS MONTH' : NET.turnErr ? 'KEY NOT ACCEPTED' : 'OFF', 795, 128, 1.5, on ? '#9fe0a0' : '#ff9a7a', 'center'); } }
   } else { font(c, 600, 20, F_HUD); spaced(c, NET.role === 'client' ? 'CONNECTING TO THE ROOM…' : 'OPENING A ROOM…', 450, 124, 3, '#ffd860', 'center'); }
   if (NET.role === 'client' && !NET.on) return drawJoinState(c);
   const sw = 205, gap = 10, x0 = 450 - (sw * 4 + gap * 3) / 2, sy = 152, sh = 124;
