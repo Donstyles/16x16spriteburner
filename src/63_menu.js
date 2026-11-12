@@ -98,7 +98,7 @@ function drawMenus(c) {
     mbtn(c, 450 - 75, 360, 150, 46, 'DELETE', '', () => codeKey('DEL'), { size: 18 });
     mbtn(c, 450 + 146, 360, 150, 46, 'JOIN', '', () => netJoin(MENU.code), { size: 20, hot: MENU.code.length === 4, off: MENU.code.length < 4 });
   } else drawRoom(c, false);
-  font(c, 500, 12, F_HUD); c.globalAlpha = 0.55; spaced(c, 'VERSION ' + BUILD.toUpperCase(), 890, 414, 2, '#a8987e', 'right'); c.globalAlpha = 1;
+  font(c, 500, 12, F_HUD); c.globalAlpha = 0.55; spaced(c, 'VERSION ' + BUILD.toUpperCase(), 890, 418, 2, '#a8987e', 'right'); c.globalAlpha = 1;
   c.restore();
   if (NET.statusT > 0) { NET.statusT -= 1 / 60; font(c, 600, 16, F_HUD); c.globalAlpha = Math.min(1, NET.statusT * 2); spaced(c, NET.status, VIEW.w / 2, MENU.oy + (G.mode === 'lobby' ? 291 : G.mode === 'join' ? 173 : 412) * MENU.k, 2, '#ffd860', 'center'); c.globalAlpha = 1; }
 }
@@ -109,8 +109,11 @@ function drawJoinState(c) { // the guest's view until the host answers
   font(c, 600, 22, F_HUD); spaced(c, msg[0], 450, 206, 2, f ? '#ff9a7a' : '#ffd860', 'center'); font(c, 500, 17, F_HUD); label(c, msg[1], 450, 240, '#cbbd9f', { align: 'center' });
   if (f) mbtn(c, 450 + 10, 300, 220, 48, 'TRY AGAIN', '', () => netJoin(NET.code), { size: 18, hot: true });
   mbtn(c, f ? 450 - 230 : 450 - 110, 300, 220, 48, 'BACK TO MENU', '', () => { location.href = location.pathname + peerQuery().replace('&', '?'); }, { size: 18 });
+  mbtn(c, 450 - 110, 358, 220, 40, 'SHARE LOG', '', shareLog, { size: 16, hot: !!f });
+  const tail = NLOG.slice(-2); font(c, 500, 12, F_HUD); tail.forEach((ln, i) => label(c, ln.length > 105 ? ln.slice(0, 105) + '…' : ln, 450, 262 + i * 13, 'rgba(200,184,150,0.6)', { align: 'center' }));
 }
-function drawRoom(c, inGame) { // the lobby before the descent, and the same room view over a running fight
+function drawRoom(c, inGame) {
+  if (!(NET.role === 'client' && !NET.on)) mbtn(c, 742, 380, 148, 30, 'SHARE LOG', '', shareLog, { size: 13 }); // the lobby before the descent, and the same room view over a running fight
   const seats = seatsNow(), host = NET.role === 'host', me = host ? 0 : NET.myPid, lobby = G.mode === 'lobby', n = seats.filter(s => s.here).length;
   const sk = seats.map(s => +s.here).join(''); if (sk !== MENU.seatsKey) { if (MENU.seatsKey && sk.split('1').length > MENU.seatsKey.split('1').length) { if (SFX.ctx) SFX.summon(); seats.forEach((s, i) => { if (s.here && MENU.seatsKey[i] === '0') MENU.flash[s.pid] = 1; }); } MENU.seatsKey = sk; }
   font(c, 900, 42, F_DISP); c.shadowColor = 'rgba(255,140,50,0.7)'; c.shadowBlur = 20; label(c, lobby ? 'The Cellar Door' : 'Your Room', 450, 46, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0;

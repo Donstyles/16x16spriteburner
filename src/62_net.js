@@ -10,6 +10,42 @@ const PCOL = ['#ffd860', '#6cc8ff', '#ff7a8a', '#8aff9a'];
 const r1 = v => Math.round(v * 10) / 10, r2 = v => Math.round(v * 100) / 100;
 const netGuest = () => NET.role === 'client';
 function netSay(s, t = 3) { NET.status = s; NET.statusT = t; }
+// ---------- connection log: every step on this phone, shared from the room screens with SHARE LOG ----------
+// Candidate addresses are never logged, only their kinds (local network, internet address, relay) and protocols.
+const NLOG = [], NLOG_T0 = performance.now();
+function nlog(s) { const line = ((performance.now() - NLOG_T0) / 1000).toFixed(1) + 's ' + s; NLOG.push(line); if (NLOG.length > 600) NLOG.shift(); try { console.log('[net] ' + line); } catch (e) { } }
+function logText() {
+  const c = navigator.connection, solo = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  return ['CELLAR OF RUIN CONNECTION LOG', 'version ' + BUILD + ' · role ' + (NET.role || '-') + ' · room ' + (NET.code || '-'), 'device ' + navigator.userAgent, 'network ' + (c ? (c.type || '?') + ' ' + (c.effectiveType || '') : 'unknown') + ' · home-screen app ' + (solo ? 'yes' : 'no'),
+    'relay ' + (relayKey() ? (TURN_ICE ? 'loaded, ' + TURN_ICE.length + ' servers' : NET.turnErr ? 'key set, FAILED to load' : 'key set, not loaded') : 'no key on this phone') + ' · used this month ' + Math.round(relayUsed() / 1048576) + ' MB', '---', ...NLOG].join('\n');
+}
+function shareLog() { const text = logText(); if (navigator.share) navigator.share({ title: 'Cellar of Ruin log', text }).catch(() => copyLog(text)); else copyLog(text); }
+function copyLog(text) { if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => netSay('LOG COPIED · PASTE IT INTO THE CHAT', 5)).catch(() => netSay('COULD NOT COPY THE LOG', 4)); else netSay('THIS BROWSER CANNOT SHARE THE LOG', 4); }
+function iceList(cfg) { return (cfg && cfg.iceServers || []).map(s => [].concat(s.urls).map(u => u.replace(/\?.*transport=tcp.*/, '/tcp').replace(/\?.*/, '')).join(',')).join(' ') + ' · policy ' + ((cfg && cfg.iceTransportPolicy) || 'all'); }
+// every state change and candidate kind of one connection, plus a summary of what was tried when it settles
+function watchPc(conn, who) {
+  const pc = conn.peerConnection; if (!pc) { nlog(who + ': no peer connection object'); return; }
+  try { nlog(who + ': ice servers ' + iceList(pc.getConfiguration())); } catch (e) { }
+  const kinds = {};
+  pc.addEventListener('icecandidate', e => {
+    if (!e.candidate || !e.candidate.candidate) { nlog(who + ': gathering finished, offered ' + (JSON.stringify(kinds) || '{}')); return; }
+    const c = e.candidate.candidate, typ = (/ typ (\w+)/.exec(c) || [])[1] || '?', pr = ((/ (udp|tcp) /i.exec(c) || [])[1] || '?').toLowerCase(), rp = e.candidate.relayProtocol ? ' via ' + e.candidate.relayProtocol : '';
+    const k = typ + '/' + pr + rp; kinds[k] = (kinds[k] || 0) + 1; if (kinds[k] === 1) nlog(who + ': offers ' + k);
+  });
+  pc.addEventListener('icecandidateerror', e => nlog(who + ': candidate error ' + e.errorCode + ' ' + (e.errorText || '') + ' @ ' + String(e.url || '').replace(/\?.*/, '')));
+  pc.addEventListener('iceconnectionstatechange', () => { nlog(who + ': ice ' + pc.iceConnectionState); if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'connected') pcStats(pc, who); });
+  pc.addEventListener('icegatheringstatechange', () => nlog(who + ': gathering ' + pc.iceGatheringState));
+  pc.addEventListener('connectionstatechange', () => nlog(who + ': connection ' + pc.connectionState));
+  pc.addEventListener('signalingstatechange', () => nlog(who + ': signaling ' + pc.signalingState));
+  conn.__pc = pc;
+}
+async function pcStats(pc, who) {
+  try {
+    const st = await pc.getStats(), L = {}, R = {}, P = {}; let sel = '';
+    st.forEach(r => { const k = r.candidateType + '/' + r.protocol; if (r.type === 'local-candidate') L[k] = (L[k] || 0) + 1; else if (r.type === 'remote-candidate') R[k] = (R[k] || 0) + 1; else if (r.type === 'candidate-pair') P[r.state] = (P[r.state] || 0) + 1; else if (r.type === 'transport' && r.selectedCandidatePairId) { const p = st.get(r.selectedCandidatePairId), a = p && st.get(p.localCandidateId), b = p && st.get(p.remoteCandidateId); if (a && b) sel = a.candidateType + '/' + a.protocol + ' <-> ' + b.candidateType + '/' + b.protocol; } });
+    nlog(who + ': this phone ' + JSON.stringify(L) + ' · other phone ' + JSON.stringify(R) + ' · pairs ' + JSON.stringify(P) + (sel ? ' · using ' + sel : ''));
+  } catch (e) { nlog(who + ': stats unavailable (' + e.message + ')'); }
+}
 // plain JSON text over the data channel; anything bigger than ~12 KB goes in numbered chunks (some phones cap one message near 16 KB)
 let CHUNK_ID = 0;
 function netSend(conn, obj) { if (!conn || !conn.open) return; const s = JSON.stringify(obj), L = 12000; NET.tx += s.length; if (s.length <= L) { conn.send(s); return; } const id = ++CHUNK_ID, n = Math.ceil(s.length / L); for (let i = 0; i < n; i++) conn.send('\u0001' + id + ',' + i + ',' + n + ',' + s.slice(i * L, (i + 1) * L)); }
@@ -104,18 +140,20 @@ function hostTick(rdt) {
 }
 function hostOpen(tries = 0) {
   if (turnWaiting()) { NET.role = 'host'; netSay('OPENING A ROOM…', 30); loadTurn().then(() => { NET.turnTried = true; if (NET.role === 'host' && !NET.peer) hostOpen(tries); }); return; }
-  const code = Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[randi(0, 23)]).join(''), peer = new Peer(NET_PREFIX + code, peerOpts());
+  const code = Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[randi(0, 23)]).join(''), opts = peerOpts(), peer = new Peer(NET_PREFIX + code, opts); nlog('opening room ' + code + ' · version ' + BUILD + ' · ' + iceList(opts.config));
   NET.role = 'host'; netSay('OPENING A ROOM…', 30); if (!NET.lobby) NET.lobby = { started: true, picks: {} };
-  peer.on('open', () => { NET.peer = peer; NET.code = code; NET.on = true; netSay('ROOM ' + code + ' IS OPEN', 4); pushBanner({ a: 'ROOM ' + code, b: 'SEND THE INVITE · UP TO 3 FRIENDS CAN JOIN', col: 'gold', keep: true, life: 2.4 }); });
+  peer.on('open', () => { nlog('room ' + code + ' registered with the matchmaker'); NET.peer = peer; NET.peerRole = 'host'; NET.code = code; NET.on = true; netSay('ROOM ' + code + ' IS OPEN', 4); pushBanner({ a: 'ROOM ' + code, b: 'SEND THE INVITE · UP TO 3 FRIENDS CAN JOIN', col: 'gold', keep: true, life: 2.4 }); });
   peer.on('connection', conn => hostConn(conn));
-  peer.on('disconnected', () => { if (NET.role === 'host') setTimeout(() => { try { peer.reconnect(); } catch (e) { } }, 1500); });
-  peer.on('error', e => { if (e.type === 'unavailable-id' && tries < 4) { peer.destroy(); hostOpen(tries + 1); } else if (!NET.on) { netSay('COULD NOT OPEN A ROOM (' + e.type + ')', 5); NET.role = null; try { peer.destroy(); } catch (x) { } } });
+  peer.on('disconnected', () => { nlog('matchmaker connection dropped'); if (NET.role === 'host') setTimeout(() => { try { nlog('reconnecting to the matchmaker'); peer.reconnect(); } catch (e) { } }, 1500); });
+  peer.on('error', e => { nlog('matchmaker error: ' + e.type + ' · ' + (e.message || '')); if (e.type === 'unavailable-id' && tries < 4) { peer.destroy(); hostOpen(tries + 1); } else if (!NET.on) { netSay('COULD NOT OPEN A ROOM (' + e.type + ')', 5); NET.role = null; try { peer.destroy(); } catch (x) { } } });
 }
 function freeSlot() { const used = new Set([...G.heroes.map(h => h.pid), ...NET.conns.keys()]); for (let i = 1; i < 4; i++) if (!used.has(i)) return i; return -1; }
 function hostConn(conn) {
   const c = { conn, pid: -1, h: null, ok: false, token: conn.metadata && conn.metadata.token };
-  netSay('A FRIEND IS CONNECTING…', 8); setTimeout(() => { if (!c.ok && NET.role === 'host') netSay('A FRIEND CAN’T GET THROUGH YET · KEEP THIS SCREEN OPEN', 8); }, 15000);
+  const who = 'friend ' + String(c.token || '?').slice(0, 4); nlog(who + ' is connecting · version ' + ((conn.metadata && conn.metadata.ver) || '?')); watchPc(conn, who);
+  netSay('A FRIEND IS CONNECTING…', 8); setTimeout(() => { if (!c.ok && NET.role === 'host') { netSay('A FRIEND CAN’T GET THROUGH YET · KEEP THIS SCREEN OPEN', 8); nlog(who + ': no link after 15s'); if (conn.__pc) pcStats(conn.__pc, who); } }, 15000);
   conn.on('open', () => {
+    nlog(who + ' connected');
     const gv = conn.metadata && conn.metadata.ver; if (gv && gv !== BUILD) { netSend(conn, { t: 'ver', ver: BUILD }); setTimeout(() => conn.close(), 800); netSay('A FRIEND HAS A DIFFERENT VERSION · BOTH SHOULD REOPEN THE GAME', 6); return; }
     let h = c.token && G.heroes.find(x => x.token === c.token && x.away);
     if (!h && freeSlot() < 0) { const away = G.heroes.find(x => x.away); if (away) dropHero(away); }
@@ -126,7 +164,7 @@ function hostConn(conn) {
     if (h) { c.h = h; h.away = false; h.inp.auto = 0; pushBanner({ a: h.pname + ' IS BACK', b: h.def.name + ' RETURNS TO THEIR CONTROL', col: h.def.col, keep: true, life: 1.8 }); }
   });
   conn.on('data', d => { try { netRecv(conn, d, m => hostMsg(c, m)); } catch (e) { console.error(e); } });
-  conn.on('close', () => hostDrop(c)); conn.on('error', () => hostDrop(c));
+  conn.on('close', () => { nlog(who + ': link closed'); hostDrop(c); }); conn.on('error', e => { nlog(who + ': link error ' + (e && (e.type || e.message) || e)); hostDrop(c); });
 }
 function hostMsg(c, m) {
   if (!m || !c.ok) return;
@@ -223,7 +261,7 @@ const turnUrl = () => { if (window.CR_TURN_URL) return window.CR_TURN_URL; const
 let TURN_ICE = null, turnP = null;
 function loadTurn() {
   const u = turnUrl(); if (!u || TURN_ICE) return Promise.resolve(TURN_ICE);
-  if (!turnP) turnP = Promise.race([fetch(u, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(a => { if (Array.isArray(a) && a.length) TURN_ICE = a; else NET.turnErr = true; return TURN_ICE; }), new Promise(r => setTimeout(r, 4000))]).catch(() => { NET.turnErr = true; return null; }).then(v => { if (!TURN_ICE) turnP = null; return v; });
+  if (!turnP) turnP = Promise.race([fetch(u, { cache: 'no-store' }).then(r => { nlog('relay list: HTTP ' + r.status); return r.ok ? r.json() : null; }).then(a => { if (Array.isArray(a) && a.length) { TURN_ICE = a; nlog('relay list loaded: ' + iceList({ iceServers: a })); } else NET.turnErr = true; return TURN_ICE; }), new Promise(r => setTimeout(r, 4000))]).catch(e => { NET.turnErr = true; nlog('relay list failed: ' + (e && e.message)); return null; }).then(v => { if (!TURN_ICE) turnP = null; return v; });
   return turnP;
 }
 const turnWaiting = () => turnUrl() && !TURN_ICE && !NET.turnTried;
@@ -238,33 +276,40 @@ function netToken(code) { const k = 'cor-token-' + code; let t = null; try { t =
 function netJoin(raw, relay, retry) {
   const code = String(raw || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4); if (code.length !== 4) { netSay('ROOM CODES HAVE 4 LETTERS', 3); return; }
   if (NET.role === 'host') netCloseRoom();
-  if (NET.role === 'client' && NET.peer) { try { NET.peer.destroy(); } catch (e) { } }
-  if (!retry) { NET.tries = 0; NET.attempt = 1; }
-  Object.assign(NET, { role: 'client', code, on: false, host: null, lost: false, fail: null, relay: !!relay, stage: 'MATCHMAKER', stageT: performance.now(), seats: retry ? NET.seats : null, panel: false });
+  if (!retry) { NET.tries = 0; NET.attempt = 1; NET.reconnects = 0; nlog('join room ' + code + ' · version ' + BUILD); }
+  Object.assign(NET, { role: 'client', code, on: false, lost: false, fail: null, relay: false, stage: 'MATCHMAKER', stageT: performance.now(), seats: retry ? NET.seats : null, panel: false });
   if (!retry) NET.lobbyPick = null; MENU.seatsKey = ''; G.mode = 'lobby';
   G.sched = []; G.proj = []; G.choice = null; G.choiceQ = []; UI.bookOpen = false; G.me = null; G.draftKey = null; NET.draft = {}; NET.mir.clear(); NET.stat.clear(); for (const k in FX) FX[k].length = 0;
   if (turnWaiting()) { loadTurn().then(() => { NET.turnTried = true; if (NET.role === 'client' && NET.code === code && !NET.on && !NET.fail) netJoin(code, relay, true); }); return; }
-  const peer = new Peer(peerOpts(relay)); NET.peer = peer;
-  peer.on('open', () => {
-    if (NET.peer !== peer) return;
-    const conn = peer.connect(NET_PREFIX + code, { reliable: true, serialization: 'raw', metadata: { token: netToken(code), ver: BUILD } }); NET.host = conn; NET.stage = 'HOST'; NET.stageT = performance.now();
-    // remember which kinds of route this phone could offer (local network, internet address, relay) for the failure message
-    NET.cand = NET.cand || {}; NET.candErr = NET.candErr || ''; const pc = conn.peerConnection;
-    if (pc) { pc.addEventListener('icecandidate', e => { const m = e.candidate && / typ (\w+)/.exec(e.candidate.candidate); if (m) NET.cand[m[1]] = (NET.cand[m[1]] || 0) + 1; }); pc.addEventListener('icecandidateerror', e => { NET.candErr = e.errorCode + (e.url ? ' ' + e.url.split(':')[0] : ''); }); }
-    conn.on('open', () => { NET.on = true; NET.stage = 'OK'; NET.tries = 0; netSay('CONNECTED TO ROOM ' + code, 2); });
-    conn.on('data', d => { NET.rx = performance.now(); try { netRecv(conn, d, guestMsg); } catch (e) { console.error(e); } });
-    conn.on('close', () => { if (NET.host === conn) guestLost('CONNECTION LOST', true); }); conn.on('error', () => { if (NET.host === conn) guestLost('CONNECTION LOST', true); });
-  });
+  const p0 = NET.peer; if (p0 && NET.peerRole === 'client' && !p0.destroyed) { if (p0.open) return connectHost(p0, code); if (p0.disconnected) { try { p0.reconnect(); } catch (e) { } } return; }
+  const opts = peerOpts(); nlog('contacting the matchmaker · ' + iceList(opts.config));
+  const peer = new Peer(opts); NET.peer = peer; NET.peerRole = 'client';
+  peer.on('open', id => { if (NET.peer !== peer) return; nlog('matchmaker ok'); if (NET.role === 'client' && !NET.on && !NET.fail) connectHost(peer, NET.code); });
+  peer.on('disconnected', () => { nlog('matchmaker connection dropped'); if (NET.peer === peer && !peer.destroyed && NET.role === 'client' && (NET.reconnects = (NET.reconnects || 0) + 1) <= 5) setTimeout(() => { try { nlog('reconnecting to the matchmaker'); peer.reconnect(); } catch (e) { } }, 1500); });
   peer.on('error', e => {
-    if (NET.peer !== peer) return;
+    if (NET.peer !== peer) return; nlog('matchmaker error: ' + e.type + ' · ' + (e.message || ''));
     if (e.type === 'peer-unavailable') {
       if (NET.on) return guestLost('THE HOST LEFT', true);
-      if (++NET.tries <= 10) { NET.stage = 'NOTFOUND'; setTimeout(() => { if (NET.role === 'client' && NET.peer === peer && !NET.on && !NET.fail) netJoin(code, relay, true); }, 3000); }
+      if (++NET.tries <= 10) { NET.stage = 'NOTFOUND'; setTimeout(() => { if (NET.role === 'client' && NET.peer === peer && !NET.on && !NET.fail && peer.open) connectHost(peer, code); }, 3000); }
       else joinFail('NO ROOM CALLED ' + code, 'Check the code. The host’s game has to stay open on their screen.');
+    } else if (!NET.on && (e.type === 'network' || e.type === 'socket-error' || e.type === 'socket-closed' || e.type === 'server-error')) {
+      if ((NET.reconnects = (NET.reconnects || 0) + 1) > 5) joinFail('LOST THE MATCHMAKER', 'The matchmaking server kept dropping. Check your internet connection, then TRY AGAIN.');
     } else if (!NET.on) joinFail('COULD NOT REACH THE MATCHMAKER', 'Check your internet connection and try again (' + e.type + ').');
   });
 }
-function joinFail(a, b) { NET.fail = { a, b }; NET.on = false; NET.statusT = 0; try { NET.peer && NET.peer.destroy(); } catch (e) { } if (SFX.ctx) SFX.clang && SFX.clang(); }
+function connectHost(peer, code) {
+  if (NET.host) { try { NET.host.close(); } catch (e) { } }
+  nlog('connecting to the host · try ' + (NET.attempt || 1));
+  const conn = peer.connect(NET_PREFIX + code, { reliable: true, serialization: 'raw', metadata: { token: netToken(code), ver: BUILD } }); NET.host = conn; NET.stage = 'HOST'; NET.stageT = performance.now();
+  NET.cand = NET.cand || {}; NET.candErr = NET.candErr || ''; const pc = conn.peerConnection;
+  if (pc) { pc.addEventListener('icecandidate', e => { const m = e.candidate && / typ (\w+)/.exec(e.candidate.candidate); if (m) NET.cand[m[1]] = (NET.cand[m[1]] || 0) + 1; }); pc.addEventListener('icecandidateerror', e => { NET.candErr = e.errorCode + (e.url ? ' ' + e.url.split(':')[0] : ''); }); }
+  watchPc(conn, 'link');
+  conn.on('open', () => { if (NET.host !== conn) return; NET.on = true; NET.stage = 'OK'; NET.tries = 0; nlog('connected to the host'); netSay('CONNECTED TO ROOM ' + code, 2); });
+  conn.on('data', d => { NET.rx = performance.now(); try { netRecv(conn, d, guestMsg); } catch (e) { console.error(e); } });
+  conn.on('close', () => { if (NET.host === conn) { nlog('link closed'); guestLost('CONNECTION LOST', true); } });
+  conn.on('error', e => { nlog('link error: ' + (e && (e.type || e.message) || e)); if (NET.host === conn && NET.on) guestLost('CONNECTION LOST', true); });
+}
+function joinFail(a, b) { nlog('GAVE UP: ' + a + ' · ' + b); NET.fail = { a, b }; NET.on = false; NET.statusT = 0; try { NET.peer && NET.peer.destroy(); } catch (e) { } if (SFX.ctx) SFX.clang && SFX.clang(); }
 function joinWatch() { // a link that never opens: one retry through the relay, then a clear message
   if (NET.role !== 'client' || NET.on || NET.fail) return;
   if (NET.stage === 'MATCHMAKER' && performance.now() - NET.stageT > 15000) return joinFail('COULD NOT REACH THE MATCHMAKER', 'The matchmaking server did not answer. Check your internet connection and try again.');
@@ -272,7 +317,8 @@ function joinWatch() { // a link that never opens: one retry through the relay, 
   const pc = NET.host && NET.host.peerConnection, ice = pc ? pc.iceConnectionState : ''; NET.ice = ice;
   if (ice === 'failed' || performance.now() - NET.stageT > 15000) {
     // keep trying for about 90 s, alternating a direct link and the relay: the host may only just be back from sending the invite
-    if ((NET.attempt || 1) < 6) { NET.attempt = (NET.attempt || 1) + 1; netJoin(NET.code, NET.attempt % 2 === 0, true); }
+    const pc0 = NET.host && NET.host.__pc; if (pc0) pcStats(pc0, 'link'); nlog('no link after ' + Math.round((performance.now() - NET.stageT) / 1000) + 's (ice ' + (ice || 'none') + ')');
+    if ((NET.attempt || 1) < 6) { NET.attempt = (NET.attempt || 1) + 1; if (NET.peer && NET.peer.open) connectHost(NET.peer, NET.code); else netJoin(NET.code, false, true); }
     else { const c = NET.cand || {}, ok = v => v ? '✓' : '✗'; joinFail('COULD NOT CONNECT TO THE HOST', 'Your phone could offer: local network ' + ok(c.host) + '  ·  internet address ' + ok(c.srflx) + '  ·  relay ' + ok(c.relay) + (NET.candErr ? '  (relay error ' + NET.candErr + ')' : '') + (NET.turnErr ? '  (relay settings did not load)' : '') + '. Try both phones on the same Wi-Fi.'); }
   }
 }
