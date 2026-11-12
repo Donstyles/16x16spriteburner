@@ -55,6 +55,7 @@ function drawHUD() {
   if (G.fightT > 0) { const f = 1 - G.fightT / 1.1, sz = clamp(big / 3.4, 60, 150) * (1 + f * 0.3); c.globalAlpha = Math.min(1, G.fightT * 2.5); font(c, 900, sz, F_DISP); c.shadowColor = 'rgba(255,70,40,1)'; c.shadowBlur = 44; label(c, 'FIGHT!', W / 2 + rand(-3, 3) * (1 - f), H / 2 + sz * 0.33, '#ffffff', { align: 'center' }); c.shadowBlur = 0; c.globalAlpha = 1; }
   drawNetHud(c, R, T);
   drawControls(c);
+  drawTut(c);
   drawChoice(c);
   if (!(narrow && G.choice)) drawTopButtons(c, R, narrow ? T + 66 : T);
   drawBook(c);

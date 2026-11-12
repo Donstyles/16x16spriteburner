@@ -2,7 +2,7 @@
 
 One hero fights down an endless cellar, floor by floor. Steer it yourself, leave it on autopilot and watch, or bring up to three friends.
 
-The main menu offers PLAY SOLO, WATCH (autopilot from the first wave), HOST CO-OP and JOIN CO-OP.
+The main menu offers PLAY SOLO, WATCH (autopilot from the first wave), HOST CO-OP and JOIN CO-OP. Your first solo game starts with a short hands-on tutorial (move, automatic attacks, casting, dashing, growing stronger, auto modes); each step ends when you do it, SKIP ends it at any time, and HOW TO PLAY on the menu replays it. Enemies take it easy on you while the tutorial runs.
 
 Before the first wave you pick a hero (Brandt the battlemage, Ignis the pyromancer, Voltaire the stormcaller or Mossa the druid), its basic attack and a first skill (or press AUTO-DRAFT). After that, every cleared floor (or slain boss) offers three cards: a new spell or an upgrade. Level-ups make the hero stronger and unlock the next tier of spells. Each spell has three upgrades. You hold four skills plus an ultimate; once all four buttons are full, a new spell replaces the weakest one (the card says which). Open the SPELLBOOK (button, the hero frame, or B) to see every skill and upgrade; the battle pauses while it is open.
 

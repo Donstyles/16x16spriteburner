@@ -489,7 +489,7 @@ function hurt(u, amt, src, o = {}) {
   if (!u || u.dead || u.spawnT > 0) return 0;
   if (u.iframe > 0 && u.team === 'hero') { if (chance(0.2)) textPop(u.x, u.y, 18, 'DODGE', 'gold', false); return 0; }
   let d = amt * rand(0.88, 1.12) * (o.crit ? 2 : 1);
-  if (u.team === 'hero') { d *= G.heroDmgTaken; if (u.def.role === 'melee') d *= 0.72; }
+  if (u.team === 'hero') { d *= G.heroDmgTaken * (TUT.on ? 0.4 : 1); if (u.def.role === 'melee') d *= 0.72; }
   d = Math.max(1, Math.round(d)); u.hp -= d; u.flash = 0.12;
   const km = u.boss ? 0.12 : u.scale > 1.2 ? 0.45 : 1; if (o.kx || o.ky) { u.kx += (o.kx || 0) * km; u.ky += (o.ky || 0) * km; }
   if (o.up && !u.boss) u.vz = Math.max(u.vz, o.up * (u.scale > 1.2 ? 0.55 : 1));
@@ -1363,7 +1363,7 @@ const G = {
   mode: 'boot', floor: 1, run: 0, kills: 0, best: 1, units: [], heroes: [], mons: [], proj: [], sched: [], pending: 0, phase: 'fight', phaseT: 0,
   lvl: 1, xp: 0, bestLvl: 1, castLock: 0, majorLock: 0, focus: null, bq: [], spawnQ: [], inten: 0, champ: null, gapT: 0, waveSize: 0, packT: 0, wave: 0, waves: 3, waveT: 0, trauma: 0, quakeT: 0, quakeP: 0, hitstop: 0, ts: 1, slowT: 0, flashA: 0, flashC: 'white', ambDark: 0, ambFlash: 0,
   storm: null, eq: null, ultCd: 3, combo: 0, comboT: 0, burst: 0, burstT: 0, banner: null, card: null, fade: 1, time: 0, boss: null,
-  monHp: 1, monDmg: 1, heroDmgTaken: 1, me: null, sb0: null, draftKey: null,
+  monHp: 1, monDmg: 1, heroDmgTaken: 2.5, me: null, sb0: null, draftKey: null,
 };
 // spell state lives on each hero; G.known etc. read the local player's hero (or the shared profile before a hero is chosen)
 const SBP = () => (G.me && G.me.sb) || G.sb0;
@@ -1589,6 +1589,7 @@ function setupControls() {
     const [x, y] = ptr(e); touched(); first();
     if (G.mode !== 'play') { menuTap(x, y); return; }
     if (NET.panel) { netPanelTap(x, y); return; }
+    if (TUT.skipRect && inRect(TUT.skipRect, x, y)) { tutEnd(); return; }
     if (UI.bookOpen) { UI.bookOpen = false; return; }
     for (const b of CTRL.top) if (inRect(b.r, x, y)) { b.fn(); return; }
     if (G.choice) { if (G.choice.picked < 0) { if (G.choice.kind === 'draft' && inRect(UI.draftRect, x, y)) { G.acted = true; autoDraft(); return; } const i = choiceAt(x, y); if (i >= 0) pickChoice(i, true); } return; }
@@ -1609,7 +1610,7 @@ function setupControls() {
     const c = e.code; touched(); first();
     if (G.mode === 'join') { if (/^Key[A-Z]$/.test(c)) codeKey(c.slice(3)); else if (c === 'Backspace') codeKey('DEL'); else if (c === 'Enter' && MENU.code.length === 4) netJoin(MENU.code); else if (c === 'Escape') G.mode = MENU.back; return; }
     if (G.mode === 'menu') { if (c === 'Enter') startSolo(); return; } if (G.mode !== 'play') return;
-    if (c === 'KeyB') { UI.bookOpen = !UI.bookOpen; return; } if (c === 'Escape') { UI.bookOpen = false; return; } if (UI.bookOpen) return;
+    if (c === 'KeyB') { UI.bookOpen = !UI.bookOpen; return; } if (c === 'Escape' && TUT.on && !UI.bookOpen) { tutEnd(); return; } if (c === 'Escape') { UI.bookOpen = false; return; } if (UI.bookOpen) return;
     if (G.choice) { if (G.choice.picked < 0 && /^Digit[1-3]$/.test(c)) pickChoice(+c.slice(5) - 1, true); return; }
     if (c === 'Space' || c === 'ShiftLeft' || c === 'ShiftRight') { INPUT.dashQ = true; e.preventDefault(); }
     if (/^Digit[1-4]$/.test(c)) INPUT.castQ.push(+c.slice(5) - 1);
@@ -1641,13 +1642,13 @@ function tryCast(h, slot, foes) {
   if (sp.tier === 4) { if (h.ult < 100) return fail(); } else if ((h.cd[sp.name] || 0) > 0) return fail();
   let t = sp.pick(h, foes); if (!t) t = HEALS.has(sp.name) ? h : nearest(h, foes, 260); if (!t) return fail();
   if (sp.tier === 4) { h.ult = 0; G.ultCd = 4; } else setCd(h, sp.name, sp.cd * md(sp.name).cd);
-  beginCast(h, { ...sp, wind: (sp.wind || 0) * 0.6, free: true }, t === true ? null : t);
+  beginCast(h, { ...sp, wind: (sp.wind || 0) * 0.6, free: true }, t === true ? null : t); if (h === G.me) TUT.cast = true;
 }
 function doDash(h, ix, iy) {
   let dx = ix, dy = iy; if (!dx && !dy) { dx = h.face; dy = 0; } const l = Math.hypot(dx, dy); dx /= l; dy /= l;
   h.iframe = 0.35; h.dashCd = 2.2; h.dashMax = 2.2; h.face = dx < 0 ? -1 : 1;
   smoke(h.x, h.y, 4, 'dust', 8, 30, 0.7); ring(h.x, h.y, 16, h.def.col, 0.25, 2); SFX.whoosh(panOf(h.x));
-  dash(h, h.x + dx * 62, h.y + dy * 50, 0.17, { r: 0, col: h.def.col });
+  dash(h, h.x + dx * 62, h.y + dy * 50, 0.17, { r: 0, col: h.def.col }); if (h === G.me) TUT.dash = true;
 }
 function playerHero(h, dt) {
   const I = h.inp;
@@ -1733,7 +1734,7 @@ function drawControls(c) {
   list.push({ id: 'dash', slot: 'dash', x: ux - rad - 62 * sc, y: uy + 6 * sc, r: 24 * sc, sp: { name: 'DASH', tier: 0 }, key: 'SPACE', press: () => { INPUT.dashQ = true; } });
   const al = autoLevel(); c.globalAlpha = al === 2 ? 0.45 : 1; for (const b of list) drawSkillBtn(c, b, h); c.globalAlpha = 1; CTRL.buttons = list;
   // the stick is invisible: touch anywhere that isn't a button and drag; a hint shows until the first real move
-  if (INPUT.touch && !INPUT.moved && G.phase === 'fight' && !G.choice) { font(c, 600, 15, F_HUD); c.globalAlpha = 0.45 + 0.25 * Math.sin(performance.now() / 400); spaced(c, 'TOUCH ANYWHERE AND DRAG TO MOVE', VIEW.w / 2, B - 8, 3, '#f0e0c0', 'center'); c.globalAlpha = 1; }
+  if (INPUT.touch && !INPUT.moved && !TUT.on && G.phase === 'fight' && !G.choice) { font(c, 600, 15, F_HUD); c.globalAlpha = 0.45 + 0.25 * Math.sin(performance.now() / 400); spaced(c, 'TOUCH ANYWHERE AND DRAG TO MOVE', VIEW.w / 2, B - 8, 3, '#f0e0c0', 'center'); c.globalAlpha = 1; }
   else if (!INPUT.touch && G.phase === 'fight') { font(c, 500, 12, F_HUD); c.globalAlpha = 0.6; spaced(c, 'WASD MOVE  ·  SPACE DASH  ·  1-4 SKILLS  ·  R ULTIMATE  ·  T AUTO  ·  B BOOK', L, B - 4, 1, '#c8b48c'); c.globalAlpha = 1; }
 }
 
@@ -2062,7 +2063,7 @@ function shade(c, a = 0.72) { const W = VIEW.w, H = VIEW.h, g = c.createLinearGr
 function sprite(c, spr, x, y, s, a = 1) { const m = MOBS[spr]; if (!m) return; c.imageSmoothingEnabled = false; c.globalAlpha = a; c.drawImage(IMG.mobs, ((performance.now() / 180) | 0) % 4 * m[1], m[0], m[1], m[2], x, y, s, s * m[2] / m[1]); c.globalAlpha = 1; }
 // ---------- start buttons ----------
 function beginPlay() { G.mode = 'play'; UI.titleT = 99; G.fade = 1; G.card = { t: 0, life: 2.8, a: 'FLOOR ' + G.floor, b: ARENA.name, c: floorLine(G.floor) }; }
-function startSolo() { beginPlay(); queueDraft(); }
+function startSolo(tut) { beginPlay(); queueDraft(); TUT.pending = tut === true || !tutSeen; }
 function startWatch() { beginPlay(); G.autoMode = 2; queueDraft(); G.acted = true; autoDraft(); }
 function startHost() { G.mode = 'lobby'; NET.lobby = { started: false, picks: {} }; MENU.flash = {}; hostOpen(); }
 function startJoin() { MENU.back = G.mode === 'play' ? 'play' : 'menu'; MENU.code = ''; G.mode = 'join'; NET.panel = false; }
@@ -2116,14 +2117,15 @@ function drawMenus(c) {
     font(c, 900, 96, F_DISP); c.shadowColor = 'rgba(255,140,50,0.9)'; c.shadowBlur = 30 + 10 * Math.sin(t * 1.7); label(c, 'Cellar of Ruin', 450, 122, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0;
     font(c, 500, 20, F_HUD); spaced(c, 'SOMETHING OLD IS WAKING UNDER THE FARMHOUSE', 450, 158, 3, '#d8b888', 'center');
     font(c, 500, 17, F_HUD); label(c, 'Go down. Put it back to sleep. Try not to count the floors.', 450, 182, '#9a8c78', { align: 'center' });
-    const bw = 202, gap = 12, x0 = 450 - (bw * 4 + gap * 3) / 2, y = 222, bh = 88;
+    const bw = 202, gap = 12, x0 = 450 - (bw * 4 + gap * 3) / 2, y = 212, bh = 86;
     mbtn(c, x0, y, bw, bh, 'PLAY SOLO', 'One hero. Your hands.', startSolo, { hot: true });
     mbtn(c, x0 + (bw + gap), y, bw, bh, 'WATCH', 'The cellar plays itself', startWatch);
     mbtn(c, x0 + 2 * (bw + gap), y, bw, bh, 'HOST CO-OP', 'Open a room for 3 friends', startHost);
     mbtn(c, x0 + 3 * (bw + gap), y, bw, bh, 'JOIN CO-OP', 'Type a friend’s room code', startJoin);
+    mbtn(c, 450 - 100, 310, 200, 34, 'HOW TO PLAY', '', () => startSolo(true), { size: 16 });
     font(c, 500, 15, F_HUD); c.globalAlpha = 0.8;
-    spaced(c, [MENU.best > 1 ? 'DEEPEST FLOOR REACHED · ' + MENU.best : '', SFX.ctx ? '' : 'TAP FOR SOUND'].filter(Boolean).join('   ·   '), 450, 348, 2, '#cdb890', 'center');
-    font(c, 500, 14, F_HUD); spaced(c, INPUT.touch ? 'DRAG ANYWHERE TO MOVE  ·  SPELLS ON THE RIGHT  ·  BEST ON THE HOME SCREEN' : 'WASD MOVE  ·  SPACE DASH  ·  1-4 SPELLS  ·  R ULTIMATE', 450, 374, 2, '#8a7c66', 'center'); c.globalAlpha = 1;
+    spaced(c, [MENU.best > 1 ? 'DEEPEST FLOOR REACHED · ' + MENU.best : '', SFX.ctx ? '' : 'TAP FOR SOUND'].filter(Boolean).join('   ·   '), 450, 370, 2, '#cdb890', 'center');
+    font(c, 500, 14, F_HUD); spaced(c, INPUT.touch ? 'DRAG ANYWHERE TO MOVE  ·  SPELLS ON THE RIGHT  ·  BEST ON THE HOME SCREEN' : 'WASD MOVE  ·  SPACE DASH  ·  1-4 SPELLS  ·  R ULTIMATE', 450, 394, 2, '#8a7c66', 'center'); c.globalAlpha = 1;
   } else if (G.mode === 'join') {
     font(c, 900, 46, F_DISP); label(c, 'Join a Room', 450, 58, '#f8ecd6', { align: 'center' });
     font(c, 500, 16, F_HUD); spaced(c, 'TYPE THE 4 LETTERS ON YOUR FRIEND’S SCREEN', 450, 84, 2, '#bfae90', 'center');
@@ -2134,7 +2136,7 @@ function drawMenus(c) {
     mbtn(c, 450 + 146, 360, 150, 46, 'JOIN', '', () => netJoin(MENU.code), { size: 20, hot: MENU.code.length === 4, off: MENU.code.length < 4 });
   } else drawRoom(c, false);
   c.restore();
-  if (NET.statusT > 0) { NET.statusT -= 1 / 60; font(c, 600, 16, F_HUD); c.globalAlpha = Math.min(1, NET.statusT * 2); spaced(c, NET.status, VIEW.w / 2, MENU.oy + (G.mode === 'lobby' ? 291 : G.mode === 'join' ? 173 : 334) * MENU.k, 2, '#ffd860', 'center'); c.globalAlpha = 1; }
+  if (NET.statusT > 0) { NET.statusT -= 1 / 60; font(c, 600, 16, F_HUD); c.globalAlpha = Math.min(1, NET.statusT * 2); spaced(c, NET.status, VIEW.w / 2, MENU.oy + (G.mode === 'lobby' ? 291 : G.mode === 'join' ? 173 : 412) * MENU.k, 2, '#ffd860', 'center'); c.globalAlpha = 1; }
 }
 function drawRoom(c, inGame) { // the lobby before the descent, and the same room view over a running fight
   const seats = seatsNow(), host = NET.role === 'host', me = host ? 0 : NET.myPid, lobby = G.mode === 'lobby', n = seats.filter(s => s.here).length;
@@ -2159,6 +2161,41 @@ function drawRoom(c, inGame) { // the lobby before the descent, and the same roo
     mbtn(c, 130, 300, 300, 48, host ? 'CLOSE ROOM' : 'LEAVE ROOM', '', host ? netCloseRoom : leaveLobby, { size: 18 });
     mbtn(c, 470, 300, 300, 48, 'BACK TO THE FIGHT', '', () => { NET.panel = false; }, { size: 18, hot: true });
   }
+}
+
+// ---- 64_tutorial.js ----
+// ===================== a short, skippable tutorial during the first fight =====================
+// Runs on a player's first solo game (and from HOW TO PLAY on the menu). Each step ends when the player does the thing.
+const TUT = { on: false, pending: false, step: 0, t: 0, moved: 0, last: null, cast: false, dash: false, skipRect: null };
+let tutSeen = false; try { tutSeen = localStorage.getItem('cor-tut') === '1'; } catch (e) { }
+const TUT_STEPS = [
+  { a: 'MOVE', b: () => INPUT.touch ? 'Touch anywhere and drag. The stick is invisible.' : 'Move with WASD or the arrow keys.', done: () => TUT.moved > 60 },
+  { a: 'ATTACKS ARE AUTOMATIC', b: () => 'Your basic attack hits the nearest enemy by itself. Get close.', done: s => s.t > 5 },
+  { a: 'CAST A SPELL', b: () => INPUT.touch ? 'Enemies near? Tap the glowing spell button.' : 'Enemies near? Press 1.', done: () => TUT.cast, btn: 0 },
+  { a: 'DASH', b: () => (INPUT.touch ? 'Tap » to dash.' : 'Press Space to dash.') + ' Nothing can hurt you mid-dash.', done: () => TUT.dash, btn: 'dash' },
+  { a: 'GROW STRONGER', b: () => 'Clear a floor to pick a new spell. Your ultimate wakes at level 12.', done: s => s.t > 6.5, btn: 'ult' },
+  { a: 'NEED A BREATHER?', b: () => 'MANUAL switches to AUTO-CAST or AUTOPILOT. Good luck down there.', done: s => s.t > 6 },
+];
+function tutEnd() { TUT.on = false; TUT.pending = false; tutSeen = true; try { localStorage.setItem('cor-tut', '1'); } catch (e) { } }
+function tutUpdate(rdt) {
+  const me = G.me;
+  if (TUT.pending && me && !G.choice && !G.choiceQ.length && !G.card) { TUT.pending = false; Object.assign(TUT, { on: true, step: 0, t: 0, moved: 0, last: null, cast: false, dash: false }); }
+  if (TUT.on && (G.floor > 1 || G.autoMode === 2)) { tutEnd(); return; } // watching, or already past floor 1
+  if (!TUT.on || !me || G.choice) return;
+  if (TUT.last && me.inp && (me.inp.mx || me.inp.my)) TUT.moved += Math.hypot(me.x - TUT.last[0], me.y - TUT.last[1]); TUT.last = [me.x, me.y];
+  const s = TUT_STEPS[TUT.step]; TUT.t += rdt;
+  if (s.done(TUT)) { TUT.step++; TUT.t = 0; if (SFX.ctx) SFX.choice(); if (TUT.step >= TUT_STEPS.length) { tutEnd(); pushBanner({ a: 'THE CELLAR IS YOURS', b: 'TUTORIAL COMPLETE', col: 'gold', small: true, life: 1.8 }); } }
+}
+function drawTut(c) {
+  TUT.skipRect = null; if (!TUT.on || G.choice || !G.me) return;
+  const s = TUT_STEPS[TUT.step], W = VIEW.w, H = VIEW.h, S = VIEW.safe, B = H - Math.max(10, S.b + 8), w = Math.min(450, W - 40), h = 76, x = W / 2 - w / 2 - (W > 700 ? 40 : 0), y = B - h - 14, pulse = 0.6 + 0.4 * Math.sin(performance.now() / 260);
+  c.fillStyle = 'rgba(16,11,18,0.9)'; c.fillRect(x, y, w, h); c.strokeStyle = `rgba(255,216,96,${0.5 + 0.3 * pulse})`; c.lineWidth = 1.5; c.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  font(c, 500, 11, F_HUD); spaced(c, 'TUTORIAL · ' + (TUT.step + 1) + ' OF ' + TUT_STEPS.length, x + 12, y + 15, 2, '#a8987e');
+  for (let i = 0; i < TUT_STEPS.length; i++) { c.fillStyle = i < TUT.step ? '#ffd860' : i === TUT.step ? `rgba(255,216,96,${pulse})` : 'rgba(255,255,255,0.18)'; c.fillRect(x + 130 + i * 11, y + 9, 7, 4); }
+  font(c, 900, 20, F_DISP); label(c, s.a, x + 12, y + 37, '#fff1d0');
+  font(c, 500, 15, F_HUD); const lines = wrapText(c, s.b(), w - 110); lines.slice(0, 2).forEach((ln, i) => label(c, ln, x + 12, y + 53 + i * 14 - (lines.length > 1 ? 0 : -2), '#d8c8a8'));
+  const bw = 76, bx = x + w - bw - 10, by = y + 10; c.strokeStyle = 'rgba(200,160,80,0.7)'; c.lineWidth = 1; c.strokeRect(bx + 0.5, by + 0.5, bw - 1, 24); font(c, 600, 13, F_HUD); spaced(c, 'SKIP', bx + bw / 2, by + 17, 2, '#f0e0c0', 'center'); TUT.skipRect = [bx - 6, by - 6, bw + 12, 36];
+  if (s.btn !== undefined) { const b = CTRL.buttons.find(q => q.id === s.btn); if (b) { c.strokeStyle = `rgba(255,216,96,${pulse})`; c.lineWidth = 3; c.shadowColor = '#ffd860'; c.shadowBlur = 18; c.beginPath(); c.arc(b.x, b.y, b.r + 7 + pulse * 4, 0, TAU); c.stroke(); c.shadowBlur = 0; } }
 }
 
 // ---- 70_render.js ----
@@ -2366,6 +2403,7 @@ function drawHUD() {
   if (G.fightT > 0) { const f = 1 - G.fightT / 1.1, sz = clamp(big / 3.4, 60, 150) * (1 + f * 0.3); c.globalAlpha = Math.min(1, G.fightT * 2.5); font(c, 900, sz, F_DISP); c.shadowColor = 'rgba(255,70,40,1)'; c.shadowBlur = 44; label(c, 'FIGHT!', W / 2 + rand(-3, 3) * (1 - f), H / 2 + sz * 0.33, '#ffffff', { align: 'center' }); c.shadowBlur = 0; c.globalAlpha = 1; }
   drawNetHud(c, R, T);
   drawControls(c);
+  drawTut(c);
   drawChoice(c);
   if (!(narrow && G.choice)) drawTopButtons(c, R, narrow ? T + 66 : T);
   drawBook(c);
@@ -2406,7 +2444,7 @@ function frame(t) {
   PERF.acc += rdt; PERF.n++; if (PERF.n >= 90) { const avg = PERF.acc / PERF.n; PERF.acc = PERF.n = 0; if (avg > 0.026 && Q.res > 0.55) { Q.res = Math.max(0.55, Q.res - 0.15); Q.pmax = Math.max(1200, Q.pmax - 400); resize(); PERF.good = 0; } else if (avg > 0.034) Q.bloom = 0.5; else if (avg < 0.0175 && ++PERF.good > 3 && Q.res < 1) { Q.res = Math.min(1, Q.res + 0.1); resize(); PERF.good = 0; } }
   try {
     NET.rec = NET.role === 'host' && NET.conns.size > 0;
-    pollPad(); if (!UI.bookOpen) updateChoice(rdt); if (G.fightT > 0) G.fightT -= rdt;
+    pollPad(); if (!UI.bookOpen) updateChoice(rdt); if (G.mode === 'play' && NET.role !== 'client') tutUpdate(rdt); if (G.fightT > 0) G.fightT -= rdt;
     if (NET.role === 'client') guestFrame(rdt);
     else if (G.mode !== 'play') { G.time += rdt; for (const u of G.units) u.anim += rdt * 0.7; if (ARENA && chance(rdt * 5)) embers(rand(ARENA.x0, ARENA.x1), rand(ARENA.y0, ARENA.y1), 1); updateFx(rdt); }
     else if ((G.choice || UI.bookOpen) && !(NET.role === 'host' && NET.conns.size)) { /* the battle holds its breath while the player chooses or reads */ }
@@ -2427,7 +2465,7 @@ async function boot() {
   setupControls(); netWrap();
   startRun(true); G.mode = 'menu'; G.card = null; UI.titleT = 99; const ld = document.getElementById('loading'); if (ld) ld.hidden = true;
   const rq = new URLSearchParams(location.search).get('room'); if (rq) setTimeout(() => netJoin(rq), 400);
-  window.CR = { G, FX, CAM, Q, SFX, VIEW, ARENA: () => ARENA, startRun, startFloor, startWave, beginCast, SPELLBOOK, live, pickChoice, md, MODS, UI, autoDraft, INPUT, CTRL, NET, MENU, startSolo, startWatch, startHost, startJoin, lobbyPick, lobbyStart, netJoin, hostOpen, netCloseRoom, tryCast, autoLevel, selectHero, gainXp, levelUp, xpFor, spawnBoss, meteorStorm, thunderstorm, earthquake, cataclysm, explode, MON_DEFS, HERO_DEFS };
+  window.CR = { G, FX, CAM, Q, SFX, VIEW, ARENA: () => ARENA, startRun, startFloor, startWave, beginCast, SPELLBOOK, live, pickChoice, md, MODS, UI, autoDraft, INPUT, CTRL, NET, MENU, startSolo, startWatch, TUT, startHost, startJoin, lobbyPick, lobbyStart, netJoin, hostOpen, netCloseRoom, tryCast, autoLevel, selectHero, gainXp, levelUp, xpFor, spawnBoss, meteorStorm, thunderstorm, earthquake, cataclysm, explode, MON_DEFS, HERO_DEFS };
   requestAnimationFrame(frame);
 }
 boot().catch(e => { const ld = document.getElementById('loading'); if (ld) ld.textContent = 'Failed to start: ' + e.message; console.error(e); });

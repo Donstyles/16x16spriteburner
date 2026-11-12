@@ -29,6 +29,7 @@ function setupControls() {
     const [x, y] = ptr(e); touched(); first();
     if (G.mode !== 'play') { menuTap(x, y); return; }
     if (NET.panel) { netPanelTap(x, y); return; }
+    if (TUT.skipRect && inRect(TUT.skipRect, x, y)) { tutEnd(); return; }
     if (UI.bookOpen) { UI.bookOpen = false; return; }
     for (const b of CTRL.top) if (inRect(b.r, x, y)) { b.fn(); return; }
     if (G.choice) { if (G.choice.picked < 0) { if (G.choice.kind === 'draft' && inRect(UI.draftRect, x, y)) { G.acted = true; autoDraft(); return; } const i = choiceAt(x, y); if (i >= 0) pickChoice(i, true); } return; }
@@ -49,7 +50,7 @@ function setupControls() {
     const c = e.code; touched(); first();
     if (G.mode === 'join') { if (/^Key[A-Z]$/.test(c)) codeKey(c.slice(3)); else if (c === 'Backspace') codeKey('DEL'); else if (c === 'Enter' && MENU.code.length === 4) netJoin(MENU.code); else if (c === 'Escape') G.mode = MENU.back; return; }
     if (G.mode === 'menu') { if (c === 'Enter') startSolo(); return; } if (G.mode !== 'play') return;
-    if (c === 'KeyB') { UI.bookOpen = !UI.bookOpen; return; } if (c === 'Escape') { UI.bookOpen = false; return; } if (UI.bookOpen) return;
+    if (c === 'KeyB') { UI.bookOpen = !UI.bookOpen; return; } if (c === 'Escape' && TUT.on && !UI.bookOpen) { tutEnd(); return; } if (c === 'Escape') { UI.bookOpen = false; return; } if (UI.bookOpen) return;
     if (G.choice) { if (G.choice.picked < 0 && /^Digit[1-3]$/.test(c)) pickChoice(+c.slice(5) - 1, true); return; }
     if (c === 'Space' || c === 'ShiftLeft' || c === 'ShiftRight') { INPUT.dashQ = true; e.preventDefault(); }
     if (/^Digit[1-4]$/.test(c)) INPUT.castQ.push(+c.slice(5) - 1);
@@ -81,13 +82,13 @@ function tryCast(h, slot, foes) {
   if (sp.tier === 4) { if (h.ult < 100) return fail(); } else if ((h.cd[sp.name] || 0) > 0) return fail();
   let t = sp.pick(h, foes); if (!t) t = HEALS.has(sp.name) ? h : nearest(h, foes, 260); if (!t) return fail();
   if (sp.tier === 4) { h.ult = 0; G.ultCd = 4; } else setCd(h, sp.name, sp.cd * md(sp.name).cd);
-  beginCast(h, { ...sp, wind: (sp.wind || 0) * 0.6, free: true }, t === true ? null : t);
+  beginCast(h, { ...sp, wind: (sp.wind || 0) * 0.6, free: true }, t === true ? null : t); if (h === G.me) TUT.cast = true;
 }
 function doDash(h, ix, iy) {
   let dx = ix, dy = iy; if (!dx && !dy) { dx = h.face; dy = 0; } const l = Math.hypot(dx, dy); dx /= l; dy /= l;
   h.iframe = 0.35; h.dashCd = 2.2; h.dashMax = 2.2; h.face = dx < 0 ? -1 : 1;
   smoke(h.x, h.y, 4, 'dust', 8, 30, 0.7); ring(h.x, h.y, 16, h.def.col, 0.25, 2); SFX.whoosh(panOf(h.x));
-  dash(h, h.x + dx * 62, h.y + dy * 50, 0.17, { r: 0, col: h.def.col });
+  dash(h, h.x + dx * 62, h.y + dy * 50, 0.17, { r: 0, col: h.def.col }); if (h === G.me) TUT.dash = true;
 }
 function playerHero(h, dt) {
   const I = h.inp;
@@ -173,6 +174,6 @@ function drawControls(c) {
   list.push({ id: 'dash', slot: 'dash', x: ux - rad - 62 * sc, y: uy + 6 * sc, r: 24 * sc, sp: { name: 'DASH', tier: 0 }, key: 'SPACE', press: () => { INPUT.dashQ = true; } });
   const al = autoLevel(); c.globalAlpha = al === 2 ? 0.45 : 1; for (const b of list) drawSkillBtn(c, b, h); c.globalAlpha = 1; CTRL.buttons = list;
   // the stick is invisible: touch anywhere that isn't a button and drag; a hint shows until the first real move
-  if (INPUT.touch && !INPUT.moved && G.phase === 'fight' && !G.choice) { font(c, 600, 15, F_HUD); c.globalAlpha = 0.45 + 0.25 * Math.sin(performance.now() / 400); spaced(c, 'TOUCH ANYWHERE AND DRAG TO MOVE', VIEW.w / 2, B - 8, 3, '#f0e0c0', 'center'); c.globalAlpha = 1; }
+  if (INPUT.touch && !INPUT.moved && !TUT.on && G.phase === 'fight' && !G.choice) { font(c, 600, 15, F_HUD); c.globalAlpha = 0.45 + 0.25 * Math.sin(performance.now() / 400); spaced(c, 'TOUCH ANYWHERE AND DRAG TO MOVE', VIEW.w / 2, B - 8, 3, '#f0e0c0', 'center'); c.globalAlpha = 1; }
   else if (!INPUT.touch && G.phase === 'fight') { font(c, 500, 12, F_HUD); c.globalAlpha = 0.6; spaced(c, 'WASD MOVE  ·  SPACE DASH  ·  1-4 SKILLS  ·  R ULTIMATE  ·  T AUTO  ·  B BOOK', L, B - 4, 1, '#c8b48c'); c.globalAlpha = 1; }
 }

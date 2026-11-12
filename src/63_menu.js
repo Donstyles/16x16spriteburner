@@ -25,7 +25,7 @@ function shade(c, a = 0.72) { const W = VIEW.w, H = VIEW.h, g = c.createLinearGr
 function sprite(c, spr, x, y, s, a = 1) { const m = MOBS[spr]; if (!m) return; c.imageSmoothingEnabled = false; c.globalAlpha = a; c.drawImage(IMG.mobs, ((performance.now() / 180) | 0) % 4 * m[1], m[0], m[1], m[2], x, y, s, s * m[2] / m[1]); c.globalAlpha = 1; }
 // ---------- start buttons ----------
 function beginPlay() { G.mode = 'play'; UI.titleT = 99; G.fade = 1; G.card = { t: 0, life: 2.8, a: 'FLOOR ' + G.floor, b: ARENA.name, c: floorLine(G.floor) }; }
-function startSolo() { beginPlay(); queueDraft(); }
+function startSolo(tut) { beginPlay(); queueDraft(); TUT.pending = tut === true || !tutSeen; }
 function startWatch() { beginPlay(); G.autoMode = 2; queueDraft(); G.acted = true; autoDraft(); }
 function startHost() { G.mode = 'lobby'; NET.lobby = { started: false, picks: {} }; MENU.flash = {}; hostOpen(); }
 function startJoin() { MENU.back = G.mode === 'play' ? 'play' : 'menu'; MENU.code = ''; G.mode = 'join'; NET.panel = false; }
@@ -79,14 +79,15 @@ function drawMenus(c) {
     font(c, 900, 96, F_DISP); c.shadowColor = 'rgba(255,140,50,0.9)'; c.shadowBlur = 30 + 10 * Math.sin(t * 1.7); label(c, 'Cellar of Ruin', 450, 122, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0;
     font(c, 500, 20, F_HUD); spaced(c, 'SOMETHING OLD IS WAKING UNDER THE FARMHOUSE', 450, 158, 3, '#d8b888', 'center');
     font(c, 500, 17, F_HUD); label(c, 'Go down. Put it back to sleep. Try not to count the floors.', 450, 182, '#9a8c78', { align: 'center' });
-    const bw = 202, gap = 12, x0 = 450 - (bw * 4 + gap * 3) / 2, y = 222, bh = 88;
+    const bw = 202, gap = 12, x0 = 450 - (bw * 4 + gap * 3) / 2, y = 212, bh = 86;
     mbtn(c, x0, y, bw, bh, 'PLAY SOLO', 'One hero. Your hands.', startSolo, { hot: true });
     mbtn(c, x0 + (bw + gap), y, bw, bh, 'WATCH', 'The cellar plays itself', startWatch);
     mbtn(c, x0 + 2 * (bw + gap), y, bw, bh, 'HOST CO-OP', 'Open a room for 3 friends', startHost);
     mbtn(c, x0 + 3 * (bw + gap), y, bw, bh, 'JOIN CO-OP', 'Type a friend’s room code', startJoin);
+    mbtn(c, 450 - 100, 310, 200, 34, 'HOW TO PLAY', '', () => startSolo(true), { size: 16 });
     font(c, 500, 15, F_HUD); c.globalAlpha = 0.8;
-    spaced(c, [MENU.best > 1 ? 'DEEPEST FLOOR REACHED · ' + MENU.best : '', SFX.ctx ? '' : 'TAP FOR SOUND'].filter(Boolean).join('   ·   '), 450, 348, 2, '#cdb890', 'center');
-    font(c, 500, 14, F_HUD); spaced(c, INPUT.touch ? 'DRAG ANYWHERE TO MOVE  ·  SPELLS ON THE RIGHT  ·  BEST ON THE HOME SCREEN' : 'WASD MOVE  ·  SPACE DASH  ·  1-4 SPELLS  ·  R ULTIMATE', 450, 374, 2, '#8a7c66', 'center'); c.globalAlpha = 1;
+    spaced(c, [MENU.best > 1 ? 'DEEPEST FLOOR REACHED · ' + MENU.best : '', SFX.ctx ? '' : 'TAP FOR SOUND'].filter(Boolean).join('   ·   '), 450, 370, 2, '#cdb890', 'center');
+    font(c, 500, 14, F_HUD); spaced(c, INPUT.touch ? 'DRAG ANYWHERE TO MOVE  ·  SPELLS ON THE RIGHT  ·  BEST ON THE HOME SCREEN' : 'WASD MOVE  ·  SPACE DASH  ·  1-4 SPELLS  ·  R ULTIMATE', 450, 394, 2, '#8a7c66', 'center'); c.globalAlpha = 1;
   } else if (G.mode === 'join') {
     font(c, 900, 46, F_DISP); label(c, 'Join a Room', 450, 58, '#f8ecd6', { align: 'center' });
     font(c, 500, 16, F_HUD); spaced(c, 'TYPE THE 4 LETTERS ON YOUR FRIEND’S SCREEN', 450, 84, 2, '#bfae90', 'center');
@@ -97,7 +98,7 @@ function drawMenus(c) {
     mbtn(c, 450 + 146, 360, 150, 46, 'JOIN', '', () => netJoin(MENU.code), { size: 20, hot: MENU.code.length === 4, off: MENU.code.length < 4 });
   } else drawRoom(c, false);
   c.restore();
-  if (NET.statusT > 0) { NET.statusT -= 1 / 60; font(c, 600, 16, F_HUD); c.globalAlpha = Math.min(1, NET.statusT * 2); spaced(c, NET.status, VIEW.w / 2, MENU.oy + (G.mode === 'lobby' ? 291 : G.mode === 'join' ? 173 : 334) * MENU.k, 2, '#ffd860', 'center'); c.globalAlpha = 1; }
+  if (NET.statusT > 0) { NET.statusT -= 1 / 60; font(c, 600, 16, F_HUD); c.globalAlpha = Math.min(1, NET.statusT * 2); spaced(c, NET.status, VIEW.w / 2, MENU.oy + (G.mode === 'lobby' ? 291 : G.mode === 'join' ? 173 : 412) * MENU.k, 2, '#ffd860', 'center'); c.globalAlpha = 1; }
 }
 function drawRoom(c, inGame) { // the lobby before the descent, and the same room view over a running fight
   const seats = seatsNow(), host = NET.role === 'host', me = host ? 0 : NET.myPid, lobby = G.mode === 'lobby', n = seats.filter(s => s.here).length;

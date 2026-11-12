@@ -3,7 +3,7 @@ const G = {
   mode: 'boot', floor: 1, run: 0, kills: 0, best: 1, units: [], heroes: [], mons: [], proj: [], sched: [], pending: 0, phase: 'fight', phaseT: 0,
   lvl: 1, xp: 0, bestLvl: 1, castLock: 0, majorLock: 0, focus: null, bq: [], spawnQ: [], inten: 0, champ: null, gapT: 0, waveSize: 0, packT: 0, wave: 0, waves: 3, waveT: 0, trauma: 0, quakeT: 0, quakeP: 0, hitstop: 0, ts: 1, slowT: 0, flashA: 0, flashC: 'white', ambDark: 0, ambFlash: 0,
   storm: null, eq: null, ultCd: 3, combo: 0, comboT: 0, burst: 0, burstT: 0, banner: null, card: null, fade: 1, time: 0, boss: null,
-  monHp: 1, monDmg: 1, heroDmgTaken: 1, me: null, sb0: null, draftKey: null,
+  monHp: 1, monDmg: 1, heroDmgTaken: 2.5, me: null, sb0: null, draftKey: null,
 };
 // spell state lives on each hero; G.known etc. read the local player's hero (or the shared profile before a hero is chosen)
 const SBP = () => (G.me && G.me.sb) || G.sb0;
