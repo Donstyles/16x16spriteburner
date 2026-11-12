@@ -52,6 +52,8 @@ const { chromium } = require('playwright'); const path = require('path');
     if (st.ch) { const r = await guest.evaluate(() => CR.G.choice.rects[0]); await guest.mouse.click(r[0] + r[2] / 2, r[1] + r[3] / 2); picks++; if (!shot) { shot = true; } }
     if (!shot && (Date.now() - t0) > secs * 500) { await guest.screenshot({ path: path.join(out, 'guest_mid.png') }); await host.screenshot({ path: path.join(out, 'host_mid.png') }); shot = true; }
   }
+  // the spectacle on both screens: particles alive right now, sampled a few times
+  { let hp = 0, gp = 0; for (let i = 0; i < 12; i++) { hp += await host.evaluate(() => CR.FX.P.length); gp += await guest.evaluate(() => CR.FX.P.length); await guest.waitForTimeout(250); } console.log('particles on screen (avg): host', Math.round(hp / 12), '| friend', Math.round(gp / 12)); }
   const gs = await guest.evaluate(() => ({ floor: CR.G.floor, wave: CR.G.wave, lvl: CR.G.lvl, units: CR.G.units.length, heroes: CR.G.heroes.map(h => h.pname + ':' + h.key + (h.dead ? ':dead' : '')), known: [...CR.G.known], mods: CR.G.modsTaken, kbps: (window.__rx / 1024 / ((performance.now() - 0) / 1000)).toFixed(1), msgs: window.__n, rx: window.__rx, err: window.CR_ERR }));
   const hs = await host.evaluate(() => ({ floor: CR.G.floor, wave: CR.G.wave, lvl: CR.G.lvl, units: CR.G.units.length, heroes: CR.G.heroes.map(h => h.pname + ':' + h.key + (h.dead ? ':dead' : '')), guestKnown: [...CR.G.heroes.find(x => x.pid === 1).sb.known], pend: CR.NET.pend.size, err: window.CR_ERR }));
   console.log('guest', JSON.stringify(gs)); console.log('host', JSON.stringify(hs)); console.log('guest picks', picks, 'avg KB/s', (gs.rx / 1024 / (secs + 2)).toFixed(1), 'avg msg bytes', Math.round(gs.rx / Math.max(1, gs.msgs)));

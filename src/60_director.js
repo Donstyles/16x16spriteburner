@@ -77,7 +77,7 @@ function spawnBoss() {
   const def = BOSS_DEFS[(Math.floor(G.floor / 4) - 1) % BOSS_DEFS.length], x = ARENA.pw / 2, y = ARENA.y0 + (ARENA.y1 - ARENA.y0) * 0.38;
   G.ambDark = 1; SFX.braam(); SFX.quake(2.5); quake(2.4, 0.7);
   circleFx(x, y, 44, def.col || 'arcane', 2.4); cracks(x, y, 10, 70, 140, 4, 'magma');
-  for (let i = 0; i < 40; i++) after(i * 0.05, () => { part({ k: 'glow', x: x + rand(-40, 40), y: y + rand(-28, 28), z: 0, vz: rand(40, 120), drag: 0.4, life: rand(0.6, 1.2), s0: rand(2, 4), s1: 0, col: def.col || 'arcane' }); });
+  emitFx('rise', { x, y, col: def.col || 'arcane' }, 2.0);
   G.pending++;
   after(2.2, () => {
     G.pending--; const b = mkUnit('mon', { ...def, ai: 'boss', scale: 3, r: 5, spd: 34, dmg: 30 }, x, y, G.monHp * 1.6 * (1.3 + 0.15 * Math.floor(G.floor / 4 - 1)) * [0.55, 0.72, 0.87, 1][NP() - 1]); b.boss = true; b.mul = G.monDmg; b.moveT = 1.5; b.mi = 0; b.spawnT = 0.3; G.units.push(b); G.boss = b;

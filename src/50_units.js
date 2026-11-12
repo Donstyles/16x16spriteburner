@@ -68,7 +68,7 @@ function hurt(u, amt, src, o = {}) {
   if (u.hp <= 0) kill(u, src, o.elem);
   return d;
 }
-function heal(u, amt) { if (!alive(u)) return; const h = Math.min(u.maxHp - u.hp, Math.round(amt)); if (h <= 0) return; u.hp += h; number(u.x, u.y, 18, '+' + h, 'heal', h > 60); for (let i = 0; i < 10; i++) part({ k: 'glow', x: u.x + rand(-7, 7), y: u.y + rand(-3, 3), z: rand(0, 14), vz: rand(20, 50), drag: 1, life: rand(0.6, 1.2), s0: rand(2, 4), s1: 0, col: 'heal' }); light(u.x, u.y, 40, 'heal', 0.8); }
+function heal(u, amt) { if (!alive(u)) return; const h = Math.min(u.maxHp - u.hp, Math.round(amt)); if (h <= 0) return; u.hp += h; number(u.x, u.y, 18, '+' + h, 'heal', h > 60); healFx(u.x, u.y); }
 function kill(u, src, elem) {
   u.dead = true; u.hp = 0;
   if (u.team === 'mon') {
@@ -84,6 +84,7 @@ function kill(u, src, elem) {
 }
 // the corpse shatters into its own pixels, flavoured by what killed it
 function deathFx(u, elem) {
+  if (!MOBS[u.spr]) return;
   const px = spritePixels(u.spr), sc = u.scale * (u.boss ? 1 : 1), fl = u.face < 0 ? -1 : 1, bl = BLOOD[u.def.blood || 'red'];
   const mode = elem === 'bolt' ? 'zap' : elem === 'fire' ? 'burn' : 'smash', pw = Math.max(1, Math.round(sc));
   const kx = clamp(u.kx * 0.4, -120, 120), ky = clamp(u.ky * 0.4, -120, 120), step = px.length > 200 ? 2 : 1;

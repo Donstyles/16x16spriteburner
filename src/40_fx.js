@@ -1,6 +1,6 @@
 // ===================== FX engine: particles, lightning, shockwaves, cracks, light, shake =====================
 const Q = { pmax: 2600, bloom: 1, res: 1 };
-const FX = { P: [], bolts: [], rings: [], arcs: [], cracks: [], beams: [], lights: [], flights: [], nums: [], tele: [], columns: [], circles: [], ghosts: [], hz: [] };
+const FX = { emit: [], P: [], bolts: [], rings: [], arcs: [], cracks: [], beams: [], lights: [], flights: [], nums: [], tele: [], columns: [], circles: [], ghosts: [], hz: [] };
 function part(o) {
   if (FX.P.length >= Q.pmax) return null;
   const p = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, g: 0, drag: 0, t: 0, life: 1, s0: 2, s1: 0, a0: 1, a1: 0, col: 'white', k: 'glow', bounce: 0, rot: 0, vr: 0 };

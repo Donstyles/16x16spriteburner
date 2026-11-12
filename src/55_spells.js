@@ -28,8 +28,7 @@ function castFireball(h, tx, ty, big = 1, dm = 1.5, o = {}) {
 }
 function flameNova(h) { const m = md('FLAME NOVA'); for (let k = 0; k <= m.count; k++) after(k * 0.42, () => { if (alive(h)) novaPulse(h, m); }); }
 function novaPulse(h, m) {
-  const S = m.size; h.lunge = 0.3; ring(h.x, h.y, 60 * S, 'fire', 0.45, 7); ring(h.x, h.y, 40 * S, 'fire2', 0.3, 4);
-  for (let i = 0; i < 36; i++) { const a = i / 36 * TAU; part({ k: 'glow', x: h.x, y: h.y, z: 6, vx: Math.cos(a) * 190 * S, vy: Math.sin(a) * 140 * S, drag: 2.6, life: 0.6, s0: 7, s1: 2, col: i % 2 ? 'fire' : 'fire2' }); }
+  const S = m.size; h.lunge = 0.3; novaFx(h.x, h.y, S);
   for (const u of within(h.x, h.y, 50 * S, G.mons)) { const a = angTo(h.x, h.y, u.x, u.y); hurt(u, h.def.dmg * h.mul * 1.6 * m.dmg, h, { elem: 'fire', kx: Math.cos(a) * 260, ky: Math.sin(a) * 200, up: 120 }); }
   flashLight(h.x, h.y, 150, 'fire', 1.6, 0.4); shake(0.3); hitstop(0.04); SFX.boom(0.8, panOf(h.x)); scorch(h.x, h.y, 26, 0.5);
 }
@@ -143,7 +142,7 @@ function summonMon(def, x, y, delay, hpMul = G.monHp, dmgMul = G.monDmg, rank = 
   x = clamp(x, ARENA.x0 + 8, ARENA.x1 - 8); y = clamp(y, ARENA.y0 + 6, ARENA.y1 - 4); G.pending++;
   if (rank) { const war = rank === 'warlord'; def = { ...def, scale: (def.scale || 1) * (war ? 1.9 : 1.45), r: (def.r || 5), dmg: def.dmg * (war ? 1.7 : 1.35), hp: def.hp * (war ? 9 : 4) * [0.6, 0.75, 0.9, 1][NP() - 1], spd: def.spd * 0.9, rank }; }
   const sc = def.scale || 1;
-  after(delay, () => { circleFx(x, y, 9 * sc + 5, 'arcane', 1.0); for (let i = 0; i < 10; i++) part({ k: 'glow', x: x + rand(-8, 8), y: y + rand(-5, 5), z: 0, vz: rand(30, 70), drag: 0.5, life: rand(0.5, 0.9), s0: rand(1.5, 3), s1: 0, col: 'arcane' }); SFX.summon(panOf(x)); });
+  after(delay, () => summonFx(x, y, sc));
   after(delay + 0.75, () => {
     G.pending--; const m = mkUnit('mon', def, x, y, hpMul); m.mul = dmgMul; m.spawnT = 0.35; G.units.push(m);
     if (def.rank) { m.rank = def.rank; ring(x, y, 50 * sc, 'red', 0.5, 5); flashLight(x, y, 120, 'red', 1.6, 0.5); shake(0.25); SFX.summon(panOf(x)); if (def.rank === 'warlord') { m.title = pick(WARLORD_NAMES); G.champ = m; textBanner(m.title, 'WARLORD OF ' + ARENA.name, 'red'); quake(1, 0.7); slowmo(0.45, 0.5); smoke(x, y, 12, 'dark', 18, 60, 2, 16); debris(x, y, 30, ['#5a5048', '#7d7064', '#3c342e'], 200, 260, 2.2); } }
@@ -153,23 +152,20 @@ function summonMon(def, x, y, delay, hpMul = G.monHp, dmgMul = G.monDmg, rank = 
 // ---------- projectiles ----------
 function updateProj(dt) {
   for (const p of G.proj) {
-    p.t += dt; const foes = p.team === 'hero' ? G.mons : G.heroes;
+    p.t += dt; const foes = p.team === 'hero' ? G.mons : G.heroes; localFx(() => projFx(p, dt));
     if (p.k === 'meteor' || p.k === 'boulder') {
       p.x += p.vx * dt; p.z += p.vz * dt;
-      if (p.k === 'meteor') { glows(p.x, p.y, p.z, 2, 'fire', 30, 8, 0.4); if (chance(0.6)) part({ k: 'smoke', x: p.x, y: p.y, z: p.z, vx: rand(-8, 8), vy: rand(-5, 5), vz: 4, drag: 1, life: 1, s0: 5, s1: 13, col: 'dark', a0: 0.7, a1: 0 }); embers(p.x, p.y, 1); light(p.x, p.y, 70, 'fire', 0.9); }
       if (p.z <= 0) { p.dead = true;
         if (p.k === 'meteor') { explode(p.x, p.y, p.R, p.dmg, p.src); if (p.lava) hazard({ k: 'lava', x: p.x, y: p.y, r: p.R * 0.45, life: 4.5, rate: 0.3, dmg: p.dmg * 0.08, src: p.src }); cracks(p.x, p.y, 8, p.R * 1.6, 360, 3); quake(0.5 * p.big, 0.6); if (p.last) { slowmo(0.25, 0.5); flash('white', 0.6); hitstop(0.09); } }
         else { for (const u of within(p.x, p.y, p.R * p.sz, G.mons)) hurt(u, p.dmg, p.src, { elem: 'earth', up: 160, stun: 0.6 }); hitProps(p.x, p.y, 12); debris(p.x, p.y, 10, ['#5a5048', '#7d7064', '#3c342e'], 110, 170, 2); smoke(p.x, p.y, 3, 'dust', 10, 30, 1.2); ring(p.x, p.y, 22 * p.sz, 'earth', 0.3, 3); scorch(p.x, p.y, 8, 0.4); shake(0.08); SFX.hit(panOf(p.x)); }
       }
       continue;
     }
-    if (p.k === 'glob') { p.u += dt / p.T; p.x = lerp(p.x0, p.tx, Math.min(1, p.u)); p.y = lerp(p.y0, p.ty, Math.min(1, p.u)); p.z = 8 + Math.sin(Math.min(1, p.u) * Math.PI) * 44; if (!p.mud) { if (chance(0.7)) part({ k: 'glow', x: p.x, y: p.y, z: p.z, life: 0.3, s0: 4, s1: 0, col: 'fire' }); light(p.x, p.y, 40, 'fire', 0.8); } if (p.u >= 1 && p.mud) { p.dead = true; const R = p.PR || 18; for (const u of within(p.tx, p.ty, R, G.mons)) { hurt(u, p.dmg, p.src, { elem: 'earth', kx: rand(-40, 40), ky: rand(-30, 30) }); u.slow = Math.max(u.slow, p.SL || 1.6); } debris(p.tx, p.ty, 12, ['#5a4028', '#7a5a38', '#3a2818'], 90, 120, 1.8); smoke(p.tx, p.ty, 3, 'dust', 10, 30, 1); ring(p.tx, p.ty, R * 1.3, 'earth', 0.3, 3); splat(p.tx, p.ty, '#3a2818', 8, R * 0.6); SFX.hit(panOf(p.tx)); continue; } if (p.u >= 1) { p.dead = true; hazard({ k: 'lava', x: p.tx, y: p.ty, r: p.PR || 13, life: p.PL || 4.2, rate: 0.3, dmg: p.dmg, src: p.src }); scorch(p.tx, p.ty, 12, 0.6); glows(p.tx, p.ty, 4, 8, 'fire', 80, 5, 0.5); sparks(p.tx, p.ty, 4, 10, 'fire', 120, 100); SFX.hit(panOf(p.tx)); } continue; }
-    if (p.shot === 'serpent') { p.wob += dt * 9; const s = Math.hypot(p.vx, p.vy), ca = Math.atan2(p.vy, p.vx) + Math.sin(p.wob) * 2.2 * dt; p.vx = Math.cos(ca) * s; p.vy = Math.sin(ca) * s; for (let i = 0; i < 2; i++) part({ k: 'glow', x: p.x + rand(-1, 1), y: p.y, z: p.z, vx: -p.vx * 0.1, vy: -p.vy * 0.1, life: 0.35, s0: 4, s1: 0.5, col: i ? 'fire2' : 'fire' }); light(p.x, p.y, 40, 'fire', 0.8); }
+    if (p.k === 'glob') { p.u += dt / p.T; p.x = lerp(p.x0, p.tx, Math.min(1, p.u)); p.y = lerp(p.y0, p.ty, Math.min(1, p.u)); p.z = 8 + Math.sin(Math.min(1, p.u) * Math.PI) * 44; if (p.u >= 1 && p.mud) { p.dead = true; const R = p.PR || 18; for (const u of within(p.tx, p.ty, R, G.mons)) { hurt(u, p.dmg, p.src, { elem: 'earth', kx: rand(-40, 40), ky: rand(-30, 30) }); u.slow = Math.max(u.slow, p.SL || 1.6); } debris(p.tx, p.ty, 12, ['#5a4028', '#7a5a38', '#3a2818'], 90, 120, 1.8); smoke(p.tx, p.ty, 3, 'dust', 10, 30, 1); ring(p.tx, p.ty, R * 1.3, 'earth', 0.3, 3); splat(p.tx, p.ty, '#3a2818', 8, R * 0.6); SFX.hit(panOf(p.tx)); continue; } if (p.u >= 1) { p.dead = true; hazard({ k: 'lava', x: p.tx, y: p.ty, r: p.PR || 13, life: p.PL || 4.2, rate: 0.3, dmg: p.dmg, src: p.src }); scorch(p.tx, p.ty, 12, 0.6); glows(p.tx, p.ty, 4, 8, 'fire', 80, 5, 0.5); sparks(p.tx, p.ty, 4, 10, 'fire', 120, 100); SFX.hit(panOf(p.tx)); } continue; }
+    if (p.shot === 'serpent') { p.wob += dt * 9; const s = Math.hypot(p.vx, p.vy), ca = Math.atan2(p.vy, p.vx) + Math.sin(p.wob) * 2.2 * dt; p.vx = Math.cos(ca) * s; p.vy = Math.sin(ca) * s; }
     if (p.home && alive(p.home)) { const a = angTo(p.x, p.y, p.home.x, p.home.y), s = Math.hypot(p.vx, p.vy), ca = Math.atan2(p.vy, p.vx), na = ca + clamp(((a - ca + Math.PI * 3) % TAU) - Math.PI, -1.8 * dt, 1.8 * dt); p.vx = Math.cos(na) * s; p.vy = Math.sin(na) * s; }
     p.x += p.vx * dt; p.y += p.vy * dt;
-    if (p.k === 'fireball') { for (let i = 0; i < 2; i++) part({ k: 'glow', x: p.x + rand(-2, 2), y: p.y + rand(-2, 2), z: p.z, vx: -p.vx * 0.15 + rand(-15, 15), vy: -p.vy * 0.15 + rand(-15, 15), drag: 2, life: rand(0.25, 0.45), s0: 6 * p.big, s1: 1, col: chance(0.5) ? 'fire' : 'fire2' }); if (chance(0.4)) embers(p.x, p.y, 1); if (chance(0.25)) smoke(p.x, p.y, 1, 'dark', 6, 6, 0.8, 4); light(p.x, p.y, 60 * p.big, 'fire', 1.1); }
-    else if (p.k === 'ball') { p.zapT -= dt; light(p.x, p.y, 70, 'bolt', 1.2); if (chance(0.5)) sparks(p.x, p.y, p.z, 1, 'bolt', 80, 40); if (p.zapT <= 0) { p.zapT = 0.13; const t = nearest(p, G.mons, 62); if (t) { bolt(p.x, p.y - p.z, t.x, t.y - 6 * t.scale, { life: 0.14, w: 0.7, branches: 1 }); zapHit(t, p.src, p.dmg, { stun: 0.25 }); } else if (chance(0.5)) { const a = rand(TAU); bolt(p.x, p.y - p.z, p.x + Math.cos(a) * 22, p.y + Math.sin(a) * 16, { life: 0.1, w: 0.5, branches: 0 }); } } if (p.home === undefined && p.target && alive(p.target)) { const a = angTo(p.x, p.y, p.target.x, p.target.y); p.vx = damp(p.vx, Math.cos(a) * 46, 2, dt); p.vy = damp(p.vy, Math.sin(a) * 46, 2, dt); } }
-    else if (p.k === 'mshot') { if (p.shot !== 'arrow' && p.shot !== 'stone') { part({ k: 'glow', x: p.x, y: p.y, z: p.z, vx: -p.vx * 0.1, vy: -p.vy * 0.1, life: 0.3, s0: 4, s1: 0, col: p.col }); light(p.x, p.y, 34, p.col, 0.8); } }
+    if (p.k === 'ball') { p.zapT -= dt; if (p.zapT <= 0) { p.zapT = 0.13; const t = nearest(p, G.mons, 62); if (t) { bolt(p.x, p.y - p.z, t.x, t.y - 6 * t.scale, { life: 0.14, w: 0.7, branches: 1 }); zapHit(t, p.src, p.dmg, { stun: 0.25 }); } else if (chance(0.5)) { const a = rand(TAU); bolt(p.x, p.y - p.z, p.x + Math.cos(a) * 22, p.y + Math.sin(a) * 16, { life: 0.1, w: 0.5, branches: 0 }); } } if (p.home === undefined && p.target && alive(p.target)) { const a = angTo(p.x, p.y, p.target.x, p.target.y); p.vx = damp(p.vx, Math.cos(a) * 46, 2, dt); p.vy = damp(p.vy, Math.sin(a) * 46, 2, dt); } }
     // collisions
     let hitU = null; for (const u of foes) { if (u.dead || u.spawnT > 0) continue; if (Math.abs(u.x - p.x) < u.r + p.r && Math.abs(u.y - p.y) < u.r + p.r && dist(u.x, u.y, p.x, p.y) < u.r + p.r) { hitU = u; break; } }
     const wall = !inArena(p.x, p.y) || nearestSolid(p.x, p.y + 2, p.r);

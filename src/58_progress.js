@@ -18,8 +18,7 @@ function gainXp(n) { G.xp += n; let ups = 0; while (G.xp >= xpFor(G.lvl + 1) && 
 function levelUp() {
   G.lvl++; scaleParty(); const L = G.lvl;
   for (const h of G.heroes) {
-    if (h.dead) continue; heal(h, h.maxHp * 0.35); column(h.x, h.y, 'gold', 1.3, 11); ring(h.x, h.y, 34, 'gold', 0.5, 4); flashLight(h.x, h.y, 90, 'gold', 1.5, 0.6);
-    for (let i = 0; i < 14; i++) part({ k: 'glow', x: h.x + rand(-8, 8), y: h.y + rand(-4, 4), z: rand(0, 12), vz: rand(40, 110), drag: 0.8, life: rand(0.7, 1.3), s0: rand(1.5, 3), s1: 0, col: 'gold' });
+    if (h.dead) continue; heal(h, h.maxHp * 0.35); levelFx(h.x, h.y);
     const ev = HERO_PROG[h.key].evolve; if (ev && ev.lvl === L) ascend(h, ev.spr);
   }
   flash('gold', 0.22); slowmo(0.45, 0.45); kick(0.05); SFX.levelup();

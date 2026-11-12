@@ -95,7 +95,7 @@ function playerHero(h, dt) {
   if (h.dead) { h.deadT += dt; I.castQ.length = 0; return; }
   for (const k in h.cd) h.cd[k] -= dt;
   h.ult = ultUnlocked(h) ? Math.min(100, h.ult + dt * 2.6) : 0;
-  if (h.regen && (h.regen.t -= dt) > 0) { if ((h.regen.tick -= dt) <= 0) { h.regen.tick = 0.5; heal(h, h.regen.per); } } else h.regen = null;
+  if (h.regen && (h.regen.t -= dt) > 0) { if ((h.regen.tick -= dt) <= 0) { h.regen.tick = 0.5; heal(h, h.regen.per); } localFx(() => regenFx(h, dt)); } else h.regen = null;
   if (h.z > 0 && G.phase !== 'fight') return;
   const ix = I.mx, iy = I.my, foes = live(G.mons), st = h.state;
   if (I.dashQ) { I.dashQ = false; if (h.dashCd <= 0 && h.stun <= 0 && !(st && (st.k === 'cuts' || st.k === 'leap' || st.k === 'dash' || (st.k === 'cast' && st.sp.tier >= 4)))) { h.state = null; doDash(h, ix, iy); } }

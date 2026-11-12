@@ -28,7 +28,7 @@ function encPart(o) { const r = PARTK.map(k => { const v = o[k]; return v === un
 function decPart(a) { const o = {}; a.forEach((v, j) => { if (v !== null) o[PARTK[j]] = v; }); return o; }
 function fxWrap(name, f, self) {
   const i = FXO.length, isPart = name === 'part'; FXO.push({ name, f, self, isPart });
-  return function (...a) { if (NET.rec && !NET.depth) { if (!isPart) NET.ev.push([i, ...a.map(encA)]); else if (NET.partN++ < 30 && a[0]) NET.ev.push([i, encPart(a[0])]); } NET.depth++; try { return f.apply(self || this, a); } finally { NET.depth--; } };
+  return function (...a) { if (NET.rec && !NET.depth) { if (!isPart) NET.ev.push([i, ...a.map(encA)]); else if (a[0]) NET.ev.push([i, encPart(a[0])]); } NET.depth++; try { return f.apply(self || this, a); } finally { NET.depth--; } };
 }
 function encA(v) {
   if (typeof v === 'number') return r2(v);
@@ -50,6 +50,8 @@ function netWrap() {
   ring = fxWrap('ring', ring); flashLight = fxWrap('flashLight', flashLight); arcFx = fxWrap('arcFx', arcFx); teleg = fxWrap('teleg', teleg); column = fxWrap('column', column); circleFx = fxWrap('circleFx', circleFx);
   shake = fxWrap('shake', shake); quake = fxWrap('quake', quake); kick = fxWrap('kick', kick); flash = fxWrap('flash', flash); bolt = fxWrap('bolt', bolt); cracks = fxWrap('cracks', cracks);
   scorch = fxWrap('scorch', scorch); splat = fxWrap('splat', splat); number = fxWrap('number', number); textPop = fxWrap('textPop', textPop); spellLabel = fxWrap('spellLabel', spellLabel); ghost = fxWrap('ghost', ghost);
+  healFx = fxWrap('healFx', healFx); novaFx = fxWrap('novaFx', novaFx); summonFx = fxWrap('summonFx', summonFx); gustFx = fxWrap('gustFx', gustFx); lashFx = fxWrap('lashFx', lashFx); riseFx = fxWrap('riseFx', riseFx);
+  bashFx = fxWrap('bashFx', bashFx); jetFx = fxWrap('jetFx', jetFx); levelFx = fxWrap('levelFx', levelFx); deathFx = fxWrap('deathFx', deathFx); slamFx = fxWrap('slamFx', slamFx); emitFx = fxWrap('emitFx', emitFx);
   pushBanner = fxWrap('pushBanner', pushBanner); textBanner = fxWrap('textBanner', textBanner); banner = fxWrap('banner', banner);
   for (const k of ['boom', 'thunder', 'zap', 'quake', 'slash', 'clang', 'hit', 'fire', 'whoosh', 'summon', 'pop', 'shatter', 'drum', 'beam', 'charge', 'heal', 'braam', 'drone', 'levelup']) if (typeof SFX[k] === 'function') SFX[k] = fxWrap('sfx.' + k, SFX[k], SFX);
   const _light = light; light = function (x, y, r, col, a = 1) { if (NET.rec && !NET.depth) NET.lightsCur.push(r1(x), r1(y), r1(r), col, r2(a)); return _light(x, y, r, col, a); };
@@ -60,7 +62,7 @@ function netWrap() {
 function defIdOf(d) { let id = NET.defIds.get(d); if (id === undefined) { id = NET.defs.length; NET.defIds.set(d, id); const o = {}; for (const k in d) { const v = d[k]; if (v === null || (typeof v !== 'object' && typeof v !== 'function')) o[k] = v; } NET.defs.push(o); NET.newDefs.push([id, o]); } return id; }
 const statOf = u => [u.id, defIdOf(u.def), u.spr, u.team, u.key || 0, u.rank || 0, u.title || 0, u.pid === undefined ? -1 : u.pid, u.pname || 0, r1(u.r), u.boss ? 1 : 0];
 const dynOf = u => [u.id, r1(u.x), r1(u.y), r1(u.z), r1(u.vx), r1(u.vy), r2(u.anim), u.face, Math.round(u.hp), Math.round(u.maxHp), r2(u.flash), r2(u.lunge), r2(u.la), r2(u.squash), r2(u.stun), r2(u.spawnT), r2(u.scale), Math.round(u.ult || 0),
-  (u.dead ? 1 : 0) | (u.moving ? 2 : 0) | (u.iframe > 0 ? 4 : 0) | (u.inp && u.inp.auto >= 2 ? 8 : 0) | (u.away ? 16 : 0)];
+  (u.dead ? 1 : 0) | (u.moving ? 2 : 0) | (u.iframe > 0 ? 4 : 0) | (u.inp && u.inp.auto >= 2 ? 8 : 0) | (u.away ? 16 : 0) | (u.regen ? 32 : 0), u.state && u.state.k === 'cast' && u.state.sp ? u.state.sp.tier + 1 : 0, u.state && u.state.k === 'cast' ? r2(u.state.t / u.state.dur) : 0];
 const PK = ['k', 'x', 'y', 'z', 'vx', 'vy', 'vz', 't', 'big', 'sz', 'rk', 'mud', 'shot', 'tint', 'col', 'life'];
 function pickO(o, keys) { const r = {}; for (const k of keys) { const v = o[k]; if (v !== undefined && v !== null && typeof v !== 'object' && typeof v !== 'function') r[k] = typeof v === 'number' ? r2(v) : v; } return r; }
 function plain(o) { const r = {}; for (const k in o) { if (k === 'hit') continue; const v = o[k], t = typeof v; if (t === 'number') r[k] = r2(v); else if (t === 'string' || t === 'boolean') r[k] = v; else if (Array.isArray(v) && v.length <= 64 && (typeof v[0] === 'number' || Array.isArray(v[0]))) r[k] = v.map(x => Array.isArray(x) ? x.map(y => typeof y === 'number' ? r2(y) : y) : typeof x === 'number' ? r2(x) : x); } return r; }
@@ -92,9 +94,9 @@ function hostTick(rdt) {
   NET.tick = (NET.tick || 0) + 1;
   for (const c of NET.conns.values()) if (c.ok) {
     if (!c.relayed) { s.me = privOf(c.h); try { netSend(c.conn, s); } catch (e) { } continue; }
-    // through the relay: 10 updates a second and no single particles, so the monthly allowance lasts; skipped updates are carried over
+    // through the relay: 10 updates a second (all effects still arrive), so the monthly allowance lasts; skipped updates are carried over
     const bk = c.back || (c.back = { ev: [], nu: [], nd: [], g: {} });
-    bk.ev.push(...s.ev.filter(e => !(FXO[e[0]] && FXO[e[0]].isPart))); bk.nu.push(...s.nu); bk.nd.push(...s.nd); Object.assign(bk.g, s.g);
+    bk.ev.push(...s.ev); bk.nu.push(...s.nu); bk.nd.push(...s.nd); Object.assign(bk.g, s.g);
     if (NET.tick % 2) continue;
     c.back = null; try { netSend(c.conn, { ...s, g: bk.g, ev: bk.ev, nu: bk.nu, nd: bk.nd, me: privOf(c.h) }); } catch (e) { }
   }
@@ -315,7 +317,7 @@ function applySnap(m) {
     if (!u) { const st = NET.stat.get(id); if (!st) continue; u = { id, x: a[1], y: a[2], z: a[3], kx: 0, ky: 0, vz: 0, cd: {}, state: null, mul: 1, anim: a[6] }; setStat(u, st); NET.mir.set(id, u); }
     u.sx = a[1]; u.sy = a[2]; u.sz = a[3]; u.vx = a[4]; u.vy = a[5]; if (!(Math.abs(u.anim - a[6]) < 0.4)) u.anim = a[6];
     u.face = a[7]; u.hp = a[8]; u.maxHp = a[9]; u.flash = a[10]; u.lunge = a[11]; u.la = a[12]; u.squash = a[13]; u.stun = a[14]; u.spawnT = a[15]; u.scale = a[16]; u.ult = a[17];
-    const f = a[18]; u.dead = !!(f & 1); u.moving = !!(f & 2); u.iframe = f & 4 ? 1 : 0; u.autoNet = !!(f & 8); u.away = !!(f & 16); seen.add(id);
+    const f = a[18]; u.dead = !!(f & 1); u.moving = !!(f & 2); u.iframe = f & 4 ? 1 : 0; u.autoNet = !!(f & 8); u.away = !!(f & 16); u.regenOn = !!(f & 32); u.castT = a[19] || 0; u.castU = a[20] || 0; seen.add(id);
   }
   for (const id of [...NET.mir.keys()]) if (!seen.has(id)) NET.mir.delete(id);
   G.units = [...NET.mir.values()]; G.heroes = G.units.filter(u => u.team === 'hero').sort((a, b) => a.pid - b.pid); G.mons = G.units.filter(u => u.team === 'mon' && !u.dead);
@@ -345,6 +347,10 @@ function guestFrame(rdt) {
   for (const p of G.proj) { p.x += (p.vx || 0) * rdt; p.y += (p.vy || 0) * rdt; if (p.vz) p.z = Math.max(0, p.z + p.vz * rdt); p.t = (p.t || 0) + rdt; }
   for (const z of FX.hz) z.t = (z.t || 0) + rdt;
   G.time += rdt; updateFx(rdt);
+  // continuous effects are made here, from what this phone already knows
+  for (const p of G.proj) projFx(p, rdt); for (const z of FX.hz) if (z.life) hazFx(z, rdt);
+  for (const h of G.heroes) { if (h.dead) continue; if (h.castT) castFx(h, h.castT - 1, h.castU, rdt); if (h.regenOn) regenFx(h, rdt); }
+  updateEmitters(rdt);
   const L = NET.lights; for (let i = 0; i < L.length; i += 5) FX.lights.push(L[i], L[i + 1], L[i + 2], L[i + 3], L[i + 4]);
   if (NET.on && NET.rx && performance.now() - NET.rx > 5000) guestLost('CONNECTION LOST', true);
   joinWatch();

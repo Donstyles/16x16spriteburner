@@ -18,7 +18,7 @@ function update(dt) {
   for (const u of G.units) { if (u.state && u.state.k === 'leap') continue; const wasAir = u.z > 0, vz = u.vz; moveUnit(u, dt); if (wasAir && u.z === 0 && u.team === 'hero' && vz < -300) { ring(u.x, u.y, 30, 'white', 0.3, 3); smoke(u.x, u.y, 5, 'dust', 9, 40, 1); debris(u.x, u.y, 8, ['#5a5048', '#7d7064'], 80, 100, 1.6); shake(0.15); SFX.hit(panOf(u.x)); } }
   separate(G.units, dt);
   removeIf(G.units, u => u.dead && u.team === 'mon');
-  updateProj(dt); updateHazards(dt); updateStorm(dt); updateQuake(dt); updateFx(dt); updateDirector(dt);
+  updateProj(dt); updateHazards(dt); localFx(() => updateEmitters(dt)); updateStorm(dt); updateQuake(dt); updateFx(dt); updateDirector(dt);
   G.castLock -= dt; G.majorLock -= dt;
   G.ultCd -= dt; if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
   if (G.burstT > 0) { G.burstT -= dt; if (G.burstT <= 0) { const n = G.burst; G.burst = 0; const t = n >= 30 ? 'GODLIKE' : n >= 20 ? 'MONSTER KILL' : n >= 14 ? 'ULTRA KILL' : n >= 9 ? 'MEGA KILL' : n >= 6 ? 'MULTI KILL' : null; if (t) G.callout = { txt: t + ' ×' + n, t: 0 }; } }
