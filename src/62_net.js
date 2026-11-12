@@ -52,6 +52,7 @@ function netWrap() {
   scorch = fxWrap('scorch', scorch); splat = fxWrap('splat', splat); number = fxWrap('number', number); textPop = fxWrap('textPop', textPop); spellLabel = fxWrap('spellLabel', spellLabel); ghost = fxWrap('ghost', ghost);
   healFx = fxWrap('healFx', healFx); novaFx = fxWrap('novaFx', novaFx); summonFx = fxWrap('summonFx', summonFx); gustFx = fxWrap('gustFx', gustFx); lashFx = fxWrap('lashFx', lashFx); riseFx = fxWrap('riseFx', riseFx);
   bashFx = fxWrap('bashFx', bashFx); jetFx = fxWrap('jetFx', jetFx); levelFx = fxWrap('levelFx', levelFx); deathFx = fxWrap('deathFx', deathFx); slamFx = fxWrap('slamFx', slamFx); emitFx = fxWrap('emitFx', emitFx);
+  hitstop = fxWrap('hitstop', hitstop); slowmo = fxWrap('slowmo', slowmo);
   pushBanner = fxWrap('pushBanner', pushBanner); textBanner = fxWrap('textBanner', textBanner); banner = fxWrap('banner', banner);
   for (const k of ['boom', 'thunder', 'zap', 'quake', 'slash', 'clang', 'hit', 'fire', 'whoosh', 'summon', 'pop', 'shatter', 'drum', 'beam', 'charge', 'heal', 'braam', 'drone', 'levelup']) if (typeof SFX[k] === 'function') SFX[k] = fxWrap('sfx.' + k, SFX[k], SFX);
   const _light = light; light = function (x, y, r, col, a = 1) { if (NET.rec && !NET.depth) NET.lightsCur.push(r1(x), r1(y), r1(r), col, r2(a)); return _light(x, y, r, col, a); };
@@ -66,7 +67,7 @@ const dynOf = u => [u.id, r1(u.x), r1(u.y), r1(u.z), r1(u.vx), r1(u.vy), r2(u.an
 const PK = ['k', 'x', 'y', 'z', 'vx', 'vy', 'vz', 't', 'big', 'sz', 'rk', 'mud', 'shot', 'tint', 'col', 'life'];
 function pickO(o, keys) { const r = {}; for (const k of keys) { const v = o[k]; if (v !== undefined && v !== null && typeof v !== 'object' && typeof v !== 'function') r[k] = typeof v === 'number' ? r2(v) : v; } return r; }
 function plain(o) { const r = {}; for (const k in o) { if (k === 'hit') continue; const v = o[k], t = typeof v; if (t === 'number') r[k] = r2(v); else if (t === 'string' || t === 'boolean') r[k] = v; else if (Array.isArray(v) && v.length <= 64 && (typeof v[0] === 'number' || Array.isArray(v[0]))) r[k] = v.map(x => Array.isArray(x) ? x.map(y => typeof y === 'number' ? r2(y) : y) : typeof x === 'number' ? r2(x) : x); } return r; }
-const GK = ['time', 'phase', 'phaseT', 'wave', 'waves', 'waveT', 'floor', 'lvl', 'xp', 'kills', 'combo', 'comboT', 'ts', 'ambDark', 'ambFlash', 'inten', 'cdn', 'fightT', 'best', 'falls', 'bossFloor', 'burst'];
+const GK = ['time', 'phase', 'phaseT', 'wave', 'waves', 'waveT', 'floor', 'lvl', 'xp', 'kills', 'combo', 'comboT', 'ambDark', 'ambFlash', 'inten', 'cdn', 'fightT', 'best', 'falls', 'bossFloor', 'burst'];
 function privOf(h) {
   if (!h || !h.sb) return null; const cd = {}; for (const k in h.cd) if (h.cd[k] > 0) cd[k] = r2(h.cd[k]);
   return { known: [...h.sb.known], slots: h.sb.slots, basic: h.sb.basic[h.key], mods: h.sb.mods, cd, cdMax: h.cdMax || {}, dashCd: r2(h.dashCd || 0) };
@@ -338,19 +339,20 @@ function guestArena(floor, seed) {
   const cx = ARENA.pw / 2; CAM.x = cx; CAM.y = ARENA.ph / 2; CAM.z = camFitZoom(); G.fade = 1;
 }
 function guestFrame(rdt) {
+  // the host's clock: frozen during a hit-stop, slowed during slow motion — particles and motion keep in step with it
+  let dt = rdt; if (G.hitstop > 0) { G.hitstop -= rdt; dt = 0; } else { if (G.slowT > 0) G.slowT -= rdt; else G.ts = damp(G.ts, 1, 3, rdt); dt = rdt * G.ts; }
   for (const u of G.units) {
-    u.anim += rdt; if (u.flash > 0) u.flash -= rdt; if (u.lunge > 0) u.lunge -= rdt * 1.8;
-    if (u.sx === undefined) continue; u.sx += u.vx * rdt; u.sy += u.vy * rdt;
+    u.anim += dt; if (u.flash > 0) u.flash -= dt; if (u.lunge > 0) u.lunge -= dt * 1.8;
+    if (u.sx === undefined) continue; u.sx += u.vx * dt; u.sy += u.vy * dt;
     if (Math.hypot(u.sx - u.x, u.sy - u.y) > 48) { u.x = u.sx; u.y = u.sy; } else { u.x = damp(u.x, u.sx, 14, rdt); u.y = damp(u.y, u.sy, 14, rdt); }
     u.z = damp(u.z, u.sz, 14, rdt);
   }
-  for (const p of G.proj) { p.x += (p.vx || 0) * rdt; p.y += (p.vy || 0) * rdt; if (p.vz) p.z = Math.max(0, p.z + p.vz * rdt); p.t = (p.t || 0) + rdt; }
-  for (const z of FX.hz) z.t = (z.t || 0) + rdt;
-  G.time += rdt; updateFx(rdt);
+  for (const p of G.proj) { p.x += (p.vx || 0) * dt; p.y += (p.vy || 0) * dt; if (p.vz) p.z = Math.max(0, p.z + p.vz * dt); p.t = (p.t || 0) + dt; }
+  for (const z of FX.hz) z.t = (z.t || 0) + dt;
+  G.time += dt; updateFx(dt);
   // continuous effects are made here, from what this phone already knows
-  for (const p of G.proj) projFx(p, rdt); for (const z of FX.hz) if (z.life) hazFx(z, rdt);
-  for (const h of G.heroes) { if (h.dead) continue; if (h.castT) castFx(h, h.castT - 1, h.castU, rdt); if (h.regenOn) regenFx(h, rdt); }
-  updateEmitters(rdt);
+  if (dt > 0) { for (const p of G.proj) projFx(p, dt); for (const z of FX.hz) if (z.life) hazFx(z, dt); for (const h of G.heroes) { if (h.dead) continue; if (h.castT) castFx(h, h.castT - 1, h.castU, dt); if (h.regenOn) regenFx(h, dt); } }
+  updateEmitters(dt);
   const L = NET.lights; for (let i = 0; i < L.length; i += 5) FX.lights.push(L[i], L[i + 1], L[i + 2], L[i + 3], L[i + 4]);
   if (NET.on && NET.rx && performance.now() - NET.rx > 5000) guestLost('CONNECTION LOST', true);
   joinWatch();
