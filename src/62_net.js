@@ -103,11 +103,12 @@ function freeSlot() { const used = new Set([...G.heroes.map(h => h.pid), ...NET.
 function hostConn(conn) {
   const c = { conn, pid: -1, h: null, ok: false, token: conn.metadata && conn.metadata.token };
   conn.on('open', () => {
+    const gv = conn.metadata && conn.metadata.ver; if (gv && gv !== BUILD) { netSend(conn, { t: 'ver', ver: BUILD }); setTimeout(() => conn.close(), 800); netSay('A FRIEND HAS A DIFFERENT VERSION · BOTH SHOULD REOPEN THE GAME', 6); return; }
     let h = c.token && G.heroes.find(x => x.token === c.token && x.away);
     if (!h && freeSlot() < 0) { const away = G.heroes.find(x => x.away); if (away) dropHero(away); }
     const pid = h ? h.pid : freeSlot(); if (pid < 0) { netSend(conn, { t: 'full' }); setTimeout(() => conn.close(), 800); return; }
     c.pid = pid; c.ok = true; NET.conns.set(pid, c);
-    const lob = !NET.lobby.started, s = snapshot(true); s.t = 'w'; s.pid = pid; s.code = NET.code; s.lobby = lob; s.draft = !h && !lob; netSend(conn, s);
+    const lob = !NET.lobby.started, s = snapshot(true); s.t = 'w'; s.ver = BUILD; s.pid = pid; s.code = NET.code; s.lobby = lob; s.draft = !h && !lob; netSend(conn, s);
     if (lob) { MENU.flash[pid] = 1; if (SFX.ctx) SFX.summon(); lobbySync(); } else if (!h) netSay('P' + (pid + 1) + ' IS JOINING…', 3);
     if (h) { c.h = h; h.away = false; h.inp.auto = 0; pushBanner({ a: h.pname + ' IS BACK', b: h.def.name + ' RETURNS TO THEIR CONTROL', col: h.def.col, keep: true, life: 1.8 }); }
   });
@@ -162,28 +163,50 @@ function netCloseRoom() {
   Object.assign(NET, { role: null, on: false, peer: null, code: '', lobby: null, panel: false }); netSay('ROOM CLOSED', 3);
 }
 // ---------- guest ----------
-function peerOpts() {
-  const q = new URLSearchParams(location.search), o = { debug: 0 };
+// PeerJS's own defaults, spelled out so a guest can retry through the relay only
+const ICE = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }];
+const BUILD = window.__BUILD || 'dev';
+function peerOpts(relay) {
+  const q = new URLSearchParams(location.search), o = { debug: 0, config: { iceServers: ICE, iceTransportPolicy: relay ? 'relay' : 'all' } };
   if (q.get('peerhost')) Object.assign(o, { host: q.get('peerhost'), port: +q.get('peerport') || 9000, path: '/', secure: false, config: { iceServers: [] } });
   return o;
 }
 function netToken(code) { const k = 'cor-token-' + code; let t = null; try { t = sessionStorage.getItem(k); } catch (e) { } if (!t) { t = Math.random().toString(36).slice(2, 10); try { sessionStorage.setItem(k, t); } catch (e) { } } return t; }
-function netJoin(raw) {
+// joining: each stage is shown in the lobby; a missing room is retried for 30 s (the host may be in the share sheet),
+// a link that never opens is retried through the relay, and anything else ends on a clear message with TRY AGAIN
+function netJoin(raw, relay, retry) {
   const code = String(raw || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4); if (code.length !== 4) { netSay('ROOM CODES HAVE 4 LETTERS', 3); return; }
   if (NET.role === 'host') netCloseRoom();
-  NET.role = 'client'; NET.code = code; NET.seats = null; NET.lobbyPick = null; MENU.seatsKey = ''; G.mode = 'lobby'; NET.panel = false; netSay('JOINING ROOM ' + code + '…', 60);
+  if (NET.role === 'client' && NET.peer) { try { NET.peer.destroy(); } catch (e) { } }
+  if (!retry) NET.tries = 0;
+  Object.assign(NET, { role: 'client', code, on: false, host: null, lost: false, fail: null, relay: !!relay, stage: 'MATCHMAKER', stageT: performance.now(), seats: retry ? NET.seats : null, panel: false });
+  if (!retry) NET.lobbyPick = null; MENU.seatsKey = ''; G.mode = 'lobby';
   G.sched = []; G.proj = []; G.choice = null; G.choiceQ = []; UI.bookOpen = false; G.me = null; G.draftKey = null; NET.draft = {}; NET.mir.clear(); NET.stat.clear(); for (const k in FX) FX[k].length = 0;
-  const peer = new Peer(peerOpts()); NET.peer = peer;
+  const peer = new Peer(peerOpts(relay)); NET.peer = peer;
   peer.on('open', () => {
-    const conn = peer.connect(NET_PREFIX + code, { reliable: true, serialization: 'raw', metadata: { token: netToken(code) } }); NET.host = conn;
-    conn.on('open', () => { NET.on = true; netSay('CONNECTED TO ROOM ' + code, 2); });
+    if (NET.peer !== peer) return;
+    const conn = peer.connect(NET_PREFIX + code, { reliable: true, serialization: 'raw', metadata: { token: netToken(code), ver: BUILD } }); NET.host = conn; NET.stage = 'HOST'; NET.stageT = performance.now();
+    conn.on('open', () => { NET.on = true; NET.stage = 'OK'; NET.tries = 0; netSay('CONNECTED TO ROOM ' + code, 2); });
     conn.on('data', d => { NET.rx = performance.now(); try { netRecv(conn, d, guestMsg); } catch (e) { console.error(e); } });
-    conn.on('close', () => guestLost('CONNECTION LOST', true)); conn.on('error', () => guestLost('CONNECTION LOST', true));
+    conn.on('close', () => { if (NET.host === conn) guestLost('CONNECTION LOST', true); }); conn.on('error', () => { if (NET.host === conn) guestLost('CONNECTION LOST', true); });
   });
-  peer.on('error', e => guestLost(e.type === 'peer-unavailable' ? 'NO ROOM CALLED ' + code : 'COULD NOT CONNECT (' + e.type + ')'));
+  peer.on('error', e => {
+    if (NET.peer !== peer) return;
+    if (e.type === 'peer-unavailable') {
+      if (NET.on) return guestLost('THE HOST LEFT', true);
+      if (++NET.tries <= 10) { NET.stage = 'NOTFOUND'; setTimeout(() => { if (NET.role === 'client' && NET.peer === peer && !NET.on && !NET.fail) netJoin(code, relay, true); }, 3000); }
+      else joinFail('NO ROOM CALLED ' + code, 'Check the code. The host’s game has to stay open on their screen.');
+    } else if (!NET.on) joinFail('COULD NOT REACH THE MATCHMAKER', 'Check your internet connection and try again (' + e.type + ').');
+  });
+}
+function joinFail(a, b) { NET.fail = { a, b }; NET.on = false; NET.statusT = 0; try { NET.peer && NET.peer.destroy(); } catch (e) { } if (SFX.ctx) SFX.clang && SFX.clang(); }
+function joinWatch() { // a link that never opens: one retry through the relay, then a clear message
+  if (NET.role !== 'client' || NET.on || NET.fail || NET.stage !== 'HOST') return;
+  const pc = NET.host && NET.host.peerConnection, ice = pc ? pc.iceConnectionState : ''; NET.ice = ice;
+  if (ice === 'failed' || performance.now() - NET.stageT > 16000) { if (!NET.relay) { NET.stage = 'RELAY'; netJoin(NET.code, true, true); } else joinFail('COULD NOT CONNECT TO THE HOST', 'Your networks block a direct link. Put both phones on the same Wi-Fi and try again.'); }
 }
 function guestLost(why, retry) {
-  if (NET.role !== 'client' || NET.lost) return; NET.lost = true;
+  if (NET.role !== 'client' || NET.lost || NET.fail) return; NET.lost = true;
   // a dropped connection (screen lock, weak signal) rejoins the same room and gets the same hero back; anything else returns to solo
   const again = retry && !/[?&]retry=/.test(location.search); netSay(why + (again ? ' · REJOINING…' : ' · BACK TO SOLO…'), 10);
   setTimeout(() => { location.href = location.pathname + (again ? '?room=' + NET.code + '&retry=1' + peerQuery() : peerQuery().replace('&', '?')); }, 2200);
@@ -191,6 +214,7 @@ function guestLost(why, retry) {
 function peerQuery() { const q = new URLSearchParams(location.search); return q.get('peerhost') ? '&peerhost=' + q.get('peerhost') + '&peerport=' + (q.get('peerport') || 9000) : ''; }
 function guestMsg(m) {
   if (m.t === 's') applySnap(m);
+  else if (m.t === 'ver' || (m.t === 'w' && m.ver !== BUILD)) { joinFail('YOU AND THE HOST HAVE DIFFERENT VERSIONS', 'Both of you: close the game completely (swipe it away), open it again, then rejoin.'); }
   else if (m.t === 'w') { NET.myPid = m.pid; NET.code = m.code; applySnap(m); G.choiceQ = []; G.choice = null; if (m.lobby) G.mode = 'lobby'; else { G.mode = 'play'; UI.titleT = 99; if (m.draft) queueDraft(); } }
   else if (m.t === 'lb') { NET.seats = m.seats; const s = m.seats.find(x => x.pid === NET.myPid); if (s && NET.lobbyPick && !s.hero) s.hero = NET.lobbyPick; }
   else if (m.t === 'go') { G.mode = 'play'; UI.titleT = 99; G.choiceQ = []; G.choice = null; NET.draft = {}; if (NET.lobbyPick) { NET.draft.hero = { type: 'hero', hero: NET.lobbyPick }; G.draftKey = NET.lobbyPick; queueDraft(true); } else queueDraft(); }
@@ -253,6 +277,7 @@ function guestFrame(rdt) {
   G.time += rdt; updateFx(rdt);
   const L = NET.lights; for (let i = 0; i < L.length; i += 5) FX.lights.push(L[i], L[i + 1], L[i + 2], L[i + 3], L[i + 4]);
   if (NET.on && NET.rx && performance.now() - NET.rx > 5000) guestLost('CONNECTION LOST', true);
+  joinWatch();
   NET.inT += rdt;
   if (NET.on && NET.host && G.me && (NET.inT >= 0.033 || INPUT.castQ.length || INPUT.dashQ)) {
     NET.inT = 0; const [x, y] = inputVec();
@@ -260,6 +285,11 @@ function guestFrame(rdt) {
     INPUT.dashQ = false;
   } else if (!G.me) { INPUT.castQ.length = 0; INPUT.dashQ = false; }
 }
+function netWake() { const p = NET.peer; if (NET.role === 'host' && p && !p.destroyed && p.disconnected) { try { p.reconnect(); } catch (e) { } } }
+setInterval(netWake, 3000);
+// a newer build on the site: reload by itself on the menu, otherwise offer it
+function checkVersion() { if (!/^https?:$/.test(location.protocol) || BUILD === 'dev' || /claude/.test(location.hostname)) return; fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (/^[0-9a-f]{8}$/.test(v) && v !== BUILD) { MENU.update = v; if (G.mode === 'menu' && !NET.role) location.reload(); } }).catch(() => { }); }
+setInterval(checkVersion, 60000); document.addEventListener('visibilitychange', () => { if (!document.hidden) { netWake(); checkVersion(); } });
 // ---------- co-op panel and name tags ----------
 function netInvite() {
   const url = location.origin + location.pathname + '?room=' + NET.code;

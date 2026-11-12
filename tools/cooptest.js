@@ -5,7 +5,7 @@ const { chromium } = require('playwright'); const path = require('path');
 (async () => {
   const out = process.argv[2] || '/tmp', secs = +(process.argv[3] || 40), ps = process.argv[4] || '127.0.0.1:9000';
   const q = ps === 'cloud' ? '' : `?peerhost=${ps.split(':')[0]}&peerport=${ps.split(':')[1]}`;
-  const browser = await chromium.launch({ args: ['--no-sandbox', '--disable-features=WebRtcHideLocalIpsWithMdns,CalculateNativeWinOcclusion', '--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows'] });
+  const browser = await chromium.launch({ ...(ps === 'cloud' && process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY, bypass: '127.0.0.1,localhost' } } : {}), args: ['--no-sandbox', '--disable-features=WebRtcHideLocalIpsWithMdns,CalculateNativeWinOcclusion', '--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows'] });
   const mk = async (tag) => { const p = await (await browser.newContext({ viewport: { width: 932, height: 430 } })).newPage(); p.errs = []; p.on('pageerror', e => p.errs.push(tag + ' PAGEERROR ' + e.message + ' ' + (e.stack || '').split('\n')[1])); p.on('console', m => { if (m.type() === 'error') p.errs.push(tag + ' CONSOLE ' + m.text().slice(0, 200)); }); return p; };
   const host = await mk('host'), guest = await mk('guest');
   const tap = async (p, r) => { await p.mouse.click(r[0] + r[2] / 2, r[1] + r[3] / 2); };

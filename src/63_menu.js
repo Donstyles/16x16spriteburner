@@ -76,6 +76,7 @@ function drawMenus(c) {
   MENU.rects = []; const k = vbox(), t = performance.now() / 1000;
   shade(c, G.mode === 'menu' ? 0.62 : 0.8); c.save(); c.translate(MENU.ox, MENU.oy); c.scale(k, k);
   if (G.mode === 'menu') {
+    if (MENU.update) mbtn(c, 300, 8, 300, 34, 'NEW VERSION · TAP TO UPDATE', '', () => location.reload(), { size: 15, hot: true });
     font(c, 900, 96, F_DISP); c.shadowColor = 'rgba(255,140,50,0.9)'; c.shadowBlur = 30 + 10 * Math.sin(t * 1.7); label(c, 'Cellar of Ruin', 450, 122, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0;
     font(c, 500, 20, F_HUD); spaced(c, 'SOMETHING OLD IS WAKING UNDER THE FARMHOUSE', 450, 158, 3, '#d8b888', 'center');
     font(c, 500, 17, F_HUD); label(c, 'Go down. Put it back to sleep. Try not to count the floors.', 450, 182, '#9a8c78', { align: 'center' });
@@ -100,15 +101,24 @@ function drawMenus(c) {
   c.restore();
   if (NET.statusT > 0) { NET.statusT -= 1 / 60; font(c, 600, 16, F_HUD); c.globalAlpha = Math.min(1, NET.statusT * 2); spaced(c, NET.status, VIEW.w / 2, MENU.oy + (G.mode === 'lobby' ? 291 : G.mode === 'join' ? 173 : 412) * MENU.k, 2, '#ffd860', 'center'); c.globalAlpha = 1; }
 }
+function drawJoinState(c) { // the guest's view until the host answers
+  const f = NET.fail, t = performance.now() / 1000, dots = '.'.repeat(1 + ((t * 2) | 0) % 3);
+  const msg = f ? [f.a, f.b] : NET.stage === 'NOTFOUND' ? ['ROOM ' + NET.code + ' NOT FOUND YET · TRYING AGAIN (' + NET.tries + '/10)', 'Is the host’s game open on their screen? It must not be in the background.'] : NET.stage === 'RELAY' ? ['DIRECT LINK BLOCKED · TRYING A RELAY' + dots, 'This can take a few seconds on mobile data.'] : NET.stage === 'HOST' ? ['CONNECTING TO THE HOST' + dots + (NET.ice ? '  (' + NET.ice.toUpperCase() + ')' : ''), 'The room exists; the two phones are finding each other.'] : ['CONTACTING THE MATCHMAKER' + dots, 'One moment.'];
+  c.fillStyle = 'rgba(16,11,18,0.92)'; c.fillRect(110, 160, 680, 120); c.strokeStyle = f ? '#ff8a6a' : 'rgba(200,160,80,0.6)'; c.lineWidth = 1.5; c.strokeRect(110.5, 160.5, 679, 119);
+  font(c, 600, 22, F_HUD); spaced(c, msg[0], 450, 206, 2, f ? '#ff9a7a' : '#ffd860', 'center'); font(c, 500, 17, F_HUD); label(c, msg[1], 450, 240, '#cbbd9f', { align: 'center' });
+  if (f) mbtn(c, 450 + 10, 300, 220, 48, 'TRY AGAIN', '', () => netJoin(NET.code), { size: 18, hot: true });
+  mbtn(c, f ? 450 - 230 : 450 - 110, 300, 220, 48, 'BACK TO MENU', '', () => { location.href = location.pathname + peerQuery().replace('&', '?'); }, { size: 18 });
+}
 function drawRoom(c, inGame) { // the lobby before the descent, and the same room view over a running fight
   const seats = seatsNow(), host = NET.role === 'host', me = host ? 0 : NET.myPid, lobby = G.mode === 'lobby', n = seats.filter(s => s.here).length;
   const sk = seats.map(s => +s.here).join(''); if (sk !== MENU.seatsKey) { if (MENU.seatsKey && sk.split('1').length > MENU.seatsKey.split('1').length) { if (SFX.ctx) SFX.summon(); seats.forEach((s, i) => { if (s.here && MENU.seatsKey[i] === '0') MENU.flash[s.pid] = 1; }); } MENU.seatsKey = sk; }
   font(c, 900, 42, F_DISP); c.shadowColor = 'rgba(255,140,50,0.7)'; c.shadowBlur = 20; label(c, lobby ? 'The Cellar Door' : 'Your Room', 450, 46, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0;
-  font(c, 500, 15, F_HUD); spaced(c, lobby ? 'GATHER YOUR PARTY BEFORE THE DESCENT  ·  UP TO FOUR HEROES' : 'FRIENDS CAN DROP IN AT ANY TIME', 450, 70, 2, '#bfae90', 'center');
+  font(c, 500, 15, F_HUD); spaced(c, lobby ? (host ? 'KEEP THIS SCREEN OPEN WHILE FRIENDS JOIN  ·  UP TO FOUR HEROES' : 'GATHER YOUR PARTY BEFORE THE DESCENT  ·  UP TO FOUR HEROES') : 'FRIENDS CAN DROP IN AT ANY TIME', 450, 70, 2, '#bfae90', 'center');
   if (NET.code) {
     font(c, 500, 14, F_HUD); spaced(c, 'ROOM CODE', 300, 104, 3, '#a8987e', 'center'); font(c, 900, 40, F_DISP); c.shadowColor = 'rgba(255,200,90,0.6)'; c.shadowBlur = 14; spaced(c, NET.code, 300, 134, 10, '#ffd860', 'center'); c.shadowBlur = 0;
     mbtn(c, 470, 92, 220, 48, 'SEND INVITE LINK', '', netInvite, { size: 18, hot: n < 2 });
   } else { font(c, 600, 20, F_HUD); spaced(c, NET.role === 'client' ? 'CONNECTING TO THE ROOM…' : 'OPENING A ROOM…', 450, 124, 3, '#ffd860', 'center'); }
+  if (NET.role === 'client' && !NET.on) return drawJoinState(c);
   const sw = 205, gap = 10, x0 = 450 - (sw * 4 + gap * 3) / 2, sy = 152, sh = 124;
   seats.forEach((s, i) => drawSeat(c, s, x0 + i * (sw + gap), sy, sw, sh, s.pid === me));
   if (lobby) {
