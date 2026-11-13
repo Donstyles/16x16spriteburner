@@ -66,6 +66,8 @@ function cracks(x, y, n, len, speed = 260, hot = 2.5, col = 'magma') {
 }
 // --- floor decals (painted straight into the arena ground: the room gets wrecked) ---
 function scorch(x, y, r, a = 0.6) { const g = ARENA.g, gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(8,5,4,${a})`); gr.addColorStop(0.55, `rgba(16,10,8,${a * 0.55})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, r, r * 0.75, 0, 0, TAU); g.fill(); }
+// blood in whole pixels, painted into the floor: it stays until the floor gives way
+function bloodPaint(x, y, pal, n, spread) { const g = ARENA && ARENA.g; if (!g) return; for (let i = 0; i < n; i++) { g.globalAlpha = rand(0.7, 1); g.fillStyle = pal[(Math.random() * pal.length) | 0]; const w = chance(0.25) ? 2 : 1; g.fillRect(Math.round(x + rand(-spread, spread)), Math.round(y + rand(-spread, spread) * 0.6), w, chance(0.5) ? 1 : w); } g.globalAlpha = 1; }
 function splat(x, y, col, n = 6, spread = 7) { const g = ARENA.g; g.fillStyle = col; for (let i = 0; i < n; i++) { g.globalAlpha = rand(0.35, 0.75); const r = rand(0.8, 2.6); g.beginPath(); g.ellipse(x + rand(-spread, spread), y + rand(-spread, spread) * 0.7, r, r * 0.75, 0, 0, TAU); g.fill(); } g.globalAlpha = 1; }
 // --- floating combat numbers ---
 function number(x, y, z, n, col, big) { FX.nums.push({ x: x + rand(-4, 4), y, z, vz: rand(50, 80), vx: rand(-12, 12), txt: String(n), col, big, t: 0, life: big ? 1.1 : 0.8 }); if (FX.nums.length > 90) FX.nums.shift(); }

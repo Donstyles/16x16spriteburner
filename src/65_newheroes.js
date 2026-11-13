@@ -54,7 +54,18 @@ function angelPose(z) {
 // where an abducted unit is right now (on a guest the zone only knows the unit's id)
 function abductee(z) { return z.m || G.units.find(v => v.id === z.uid) || null; }
 const HAZFX = {
-  bleed(z, dt) { if (chance(dt * 9)) part({ k: 'pix', x: z.x + rand(-3, 3), y: z.y, z: rand(6, 14), vx: rand(-10, 10), vy: 0, vz: rand(10, 40), g: 300, life: 0.6, s0: 1.2, col: '#b0101e' }); },
+  // an opened wound: a spurt with every heartbeat, a steady drip, a trail where it walks and a pool where it stands
+  bleed(z, dt) {
+    const pal = BLOOD[z.bl] || BLOOD.red, hh = 8 * (z.s || 1), moved = z._lx === undefined ? 0 : dist(z.x, z.y, z._lx, z._ly); z._lx = z.x; z._ly = z.y;
+    const beat = Math.floor(z.t / 0.42);
+    if (beat !== z._b) {
+      z._b = beat; const a = rand(TAU), sp = rand(45, 85);
+      for (let i = 0; i < 8; i++) { const aa = a + rand(-0.35, 0.35), v = sp * rand(0.7, 1.2); part({ k: 'pix', x: z.x, y: z.y, z: hh, vx: Math.cos(aa) * v, vy: Math.sin(aa) * v * 0.5, vz: rand(30, 80), g: 360, life: rand(0.45, 0.75), s0: chance(0.3) ? 2 : 1, col: pal[i % pal.length] }); }
+      bloodPaint(z.x + Math.cos(a) * sp * 0.35, z.y + Math.sin(a) * sp * 0.18, pal, 7, 3); // where the spurt lands
+    }
+    if (chance(dt * 16)) { part({ k: 'pix', x: z.x + rand(-2, 2), y: z.y, z: hh * rand(0.5, 1), vz: -10, g: 300, life: 0.4, s0: 1, col: pal[1] }); bloodPaint(z.x, z.y, pal, 2, 2.5); }
+    z._pool = moved > 0.4 ? 2 : Math.min(10, (z._pool || 2) + dt * 3); if (chance(dt * 8)) bloodPaint(z.x, z.y + 1, pal, 3, z._pool);
+  },
   holyflame(z, dt) { if (chance(dt * 18)) part({ k: 'glow', x: z.x + rand(-4, 4), y: z.y + rand(-2, 2), z: rand(2, 12), vz: rand(30, 60), drag: 1, life: rand(0.3, 0.6), s0: rand(2, 3.5), s1: 0.5, col: chance(0.6) ? 'holy' : 'white' }); light(z.x, z.y, 30, 'holy', 0.6); },
   batcloud(z, dt) { light(z.x, z.y, z.r * 1.6, 'crimson', 0.5); },
   abduct(z, dt) {
@@ -153,7 +164,7 @@ function claw(h, t) {
 function bloodWhip(h) { const m = md('BLOOD WHIP'), ts = live(G.mons).filter(u => dist(h.x, h.y, u.x, u.y) < 72 * m.size).sort((a, b) => dist(h.x, h.y, a.x, a.y) - dist(h.x, h.y, b.x, b.y)).slice(0, 2 + m.count); for (const u of ts) { FX.beams.push({ x0: h.x, y0: h.y - 8, x1: u.x, y1: u.y - 6, w: 1.4, col: 'crimson', t: 0, life: 0.2, cap: true }); hurt(u, D(h) * 0.75 * m.dmg, h, { elem: 'crimson' }); HFX.bite(u.x, u.y); } SFX.slash(panOf(h.x)); }
 function batBite(h, t) { const m = md('BAT BITE'); for (let i = 0; i <= m.count; i++) { const a = angTo(h.x, h.y, t.x, t.y) + (i ? rand(-0.8, 0.8) : 0); proj({ k: 'bat', x: h.x, y: h.y, z: 10, vx: Math.cos(a) * 150, vy: Math.sin(a) * 110, home: t, life: 1.6, r: 4, dmg: D(h) * 1.1 * m.dmg, src: h, team: 'hero' }); } SFX.whoosh(panOf(h.x)); }
 function batSwarm(h) { const m = md('BAT SWARM'), n = 5 + m.count, ts = live(G.mons).filter(u => dist(h.x, h.y, u.x, u.y) < 170).sort((a, b) => dist(h.x, h.y, a.x, a.y) - dist(h.x, h.y, b.x, b.y)); if (!ts.length) return; HFX.batBurst(h.x, h.y, 8); for (let i = 0; i < n; i++) { const t = ts[i % ts.length], a = rand(TAU); proj({ k: 'bat', x: h.x, y: h.y, z: 12, vx: Math.cos(a) * 120, vy: Math.sin(a) * 90, home: t, life: 2.2, r: 4, dmg: D(h) * 0.9 * m.dmg, src: h, team: 'hero' }); } }
-function hemorrhage(h, t) { const m = md('HEMORRHAGE'); hazard({ k: 'bleed', m: t, x: t.x, y: t.y, src: h, life: 4 * m.dur, rate: 0.4, dmg: D(h) * 0.5 * m.dmg, bloom: !!m.f.bloom }); HFX.bloodBurst(t.x, t.y, 0.6); SFX.hit(panOf(t.x)); }
+function hemorrhage(h, t) { const m = md('HEMORRHAGE'); hazard({ k: 'bleed', m: t, x: t.x, y: t.y, bl: (t.def && t.def.blood) || 'red', s: t.scale || 1, src: h, life: 4 * m.dur, rate: 0.4, dmg: D(h) * 0.5 * m.dmg, bloom: !!m.f.bloom }); HFX.bloodBurst(t.x, t.y, 0.6); SFX.hit(panOf(t.x)); }
 function shadowStep(h, t) { const m = md('SHADOW STEP'), a = angTo(h.x, h.y, t.x, t.y); HFX.batBurst(h.x, h.y, 10); h.x = clamp(t.x + Math.cos(a) * 12, ARENA.x0 + 6, ARENA.x1 - 6); h.y = clamp(t.y + Math.sin(a) * 9, ARENA.y0 + 4, ARENA.y1 - 2); h.face = Math.cos(a) < 0 ? 1 : -1; HFX.batBurst(h.x, h.y, 10); hurt(t, D(h) * 1.8 * m.dmg, h, { elem: 'crimson', crit: true, kx: Math.cos(a) * 120, ky: Math.sin(a) * 90 }); HFX.bloodBurst(t.x, t.y, 0.7); h.iframe = Math.max(h.iframe || 0, m.f.mist ? 1 : 0.3); }
 function bloodMist(h) { const m = md('BLOOD MIST'); h.iframe = Math.max(h.iframe || 0, 1.2 * m.dur); h.regen = { t: 3 * m.dur, per: h.maxHp * 0.03 * m.dmg, tick: 0 }; HFX.mist(h.x, h.y); }
 function crimsonLance(h, t) {
