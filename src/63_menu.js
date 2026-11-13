@@ -65,9 +65,9 @@ function drawSeat(c, s, x, y, w, h, mine) {
   if (s.away) { c.textAlign = 'right'; c.fillText('AWAY', x + w - 8, y + 16); }
   if (s.hero) {
     const d = HERO_DEFS[s.hero]; sprite(c, d.spr, x + 10, y + 30, 58, s.dead ? 0.4 : 1);
-    font(c, 900, 22, F_DISP); label(c, d.name, x + 76, y + 52, `rgb(${COL[d.col]})`); font(c, 500, 14, F_HUD); label(c, HERO_CLASS[s.hero], x + 76, y + 70, '#bfae90');
+    fitFont(c, 900, 22, F_DISP, d.name, w - 84, 12); label(c, d.name, x + 76, y + 52, `rgb(${COL[d.col]})`); fitFont(c, 500, 14, F_HUD, HERO_CLASS[s.hero], w - 84, 9); label(c, HERO_CLASS[s.hero], x + 76, y + 70, '#bfae90');
     font(c, 500, 14, F_HUD); label(c, G.mode === 'lobby' ? 'READY' : s.dead ? 'DOWN · RETURNS SOON' : 'IN THE FIGHT', x + 76, y + 88, G.mode === 'lobby' ? '#9fe0a0' : '#a8987e');
-    font(c, 500, 13, F_HUD); label(c, HERO_QUOTE[s.hero], x + w / 2, y + h - 10, '#8f7f66', { align: 'center' });
+    fitFont(c, 500, 13, F_HUD, HERO_QUOTE[s.hero], w - 16, 9); label(c, HERO_QUOTE[s.hero], x + w / 2, y + h - 10, '#8f7f66', { align: 'center' });
   } else { font(c, 900, 48, F_DISP); label(c, '?', x + 38, y + 84, 'rgba(240,228,204,0.35)', { align: 'center' }); font(c, 500, 17, F_HUD); label(c, 'choosing a hero' + '.'.repeat(1 + ((t * 2) | 0) % 3), x + 76, y + 66, '#bfae90'); }
 }
 // ---------- screens ----------
@@ -101,7 +101,7 @@ function drawMenus(c) {
   font(c, 500, 12, F_HUD); c.globalAlpha = 0.55; spaced(c, 'VERSION ' + BUILD.toUpperCase(), 890, 418, 2, '#a8987e', 'right'); c.globalAlpha = 1;
   c.restore();
   if (G.mode === 'lobby' && NET.role) { const S = VIEW.safe; drawNetIndicator(c, VIEW.w - Math.max(12, S.r + 10), Math.max(10, S.t + 8) + 14); if (NET.indRect) MENU.rects.push({ r: NET.indRect, fn: () => { NET.detail = !NET.detail; } }); }
-  if (NET.statusT > 0) { NET.statusT -= 1 / 60; font(c, 600, 16, F_HUD); c.globalAlpha = Math.min(1, NET.statusT * 2); spaced(c, NET.status, VIEW.w / 2, MENU.oy + (G.mode === 'lobby' ? 291 : G.mode === 'join' ? 173 : 412) * MENU.k, 2, '#ffd860', 'center'); c.globalAlpha = 1; }
+  if (NET.statusT > 0) { NET.statusT -= 1 / 60; font(c, 600, 16, F_HUD); c.globalAlpha = Math.min(1, NET.statusT * 2); spaced(c, NET.status, VIEW.w / 2, MENU.oy + (G.mode === 'lobby' ? 414 : G.mode === 'join' ? 173 : 412) * MENU.k, 2, '#ffd860', 'center'); c.globalAlpha = 1; }
 }
 function drawJoinState(c) { // the guest's view until the host answers
   const f = NET.fail, t = performance.now() / 1000, dots = '.'.repeat(1 + ((t * 2) | 0) % 3);
@@ -113,35 +113,44 @@ function drawJoinState(c) { // the guest's view until the host answers
   mbtn(c, 450 - 110, 358, 220, 40, 'SHARE LOG', '', shareLog, { size: 16, hot: !!f });
   const tail = NLOG.slice(-2); font(c, 500, 12, F_HUD); tail.forEach((ln, i) => label(c, ln.length > 105 ? ln.slice(0, 105) + '…' : ln, 450, 262 + i * 13, 'rgba(200,184,150,0.6)', { align: 'center' }));
 }
-function drawRoom(c, inGame) {
-  if (!(NET.role === 'client' && !NET.on)) { mbtn(c, 742, 380, 148, 30, 'SHARE LOG', '', shareLog, { size: 13 }); if (G.mode === 'lobby') mbtn(c, 742, 344, 148, 30, 'MOVE: ' + SCHEME_LABEL[INPUT.scheme].split(' ')[0], '', cycleScheme, { size: 13 }); } // the lobby before the descent, and the same room view over a running fight
+function drawRoom(c, inGame) { // the lobby before the descent, and the same room view over a running fight
   const seats = seatsNow(), host = NET.role === 'host', me = host ? 0 : NET.myPid, lobby = G.mode === 'lobby', n = seats.filter(s => s.here).length;
   const sk = seats.map(s => +s.here).join(''); if (sk !== MENU.seatsKey) { if (MENU.seatsKey && sk.split('1').length > MENU.seatsKey.split('1').length) { if (SFX.ctx) SFX.summon(); seats.forEach((s, i) => { if (s.here && MENU.seatsKey[i] === '0') MENU.flash[s.pid] = 1; }); } MENU.seatsKey = sk; }
-  font(c, 900, 42, F_DISP); c.shadowColor = 'rgba(255,140,50,0.7)'; c.shadowBlur = 20; label(c, lobby ? 'The Cellar Door' : 'Your Room', 450, 46, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0;
-  font(c, 500, 15, F_HUD); spaced(c, lobby ? (host ? 'KEEP THIS SCREEN OPEN WHILE FRIENDS JOIN  ·  UP TO FOUR HEROES' : 'GATHER YOUR PARTY BEFORE THE DESCENT  ·  UP TO FOUR HEROES') : 'FRIENDS CAN DROP IN AT ANY TIME', 450, 70, 2, '#bfae90', 'center');
+  const L = 30, W = 840;
+  // 1 · title
+  font(c, 900, 40, F_DISP); c.shadowColor = 'rgba(255,140,50,0.7)'; c.shadowBlur = 20; label(c, lobby ? 'The Cellar Door' : 'Your Room', 450, 42, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0;
+  font(c, 500, 14, F_HUD); spaced(c, lobby ? (host ? 'KEEP THIS SCREEN OPEN WHILE FRIENDS JOIN  ·  UP TO FOUR HEROES' : 'GATHER YOUR PARTY BEFORE THE DESCENT  ·  UP TO FOUR HEROES') : 'FRIENDS CAN DROP IN AT ANY TIME', 450, 64, 2, '#bfae90', 'center');
+  if (MENU.update && lobby) mbtn(c, 10, 8, 190, 28, 'NEW VERSION · RELOAD', '', () => location.reload(), { size: 13, hot: true });
+  // 2 · the room: code, invite, relay
   if (NET.code) {
-    font(c, 500, 14, F_HUD); spaced(c, 'ROOM CODE', 300, 104, 3, '#a8987e', 'center'); font(c, 900, 40, F_DISP); c.shadowColor = 'rgba(255,200,90,0.6)'; c.shadowBlur = 14; spaced(c, NET.code, 300, 134, 10, '#ffd860', 'center'); c.shadowBlur = 0;
-    mbtn(c, 470, 92, 220, 48, 'SEND INVITE LINK', '', netInvite, { size: 18, hot: n < 2 });
-    if (host) { const k = relayKey(), used = relayUsed() / 1048576, on = k && TURN_ICE && used < 400; font(c, 500, 13, F_HUD); spaced(c, 'RELAY', 795, 106, 3, '#a8987e', 'center');
-      if (!k) mbtn(c, 712, 112, 166, 30, 'ADD RELAY KEY', '', () => { const v = prompt('Paste the Metered credentials link (or app:key)'); if (v) setRelayKey(v); }, { size: 13 });
-      else { font(c, 600, 14, F_HUD); spaced(c, on ? 'ON · ' + Math.round(used) + ' / 400 MB' : used >= 400 ? 'USED UP THIS MONTH' : NET.turnErr ? 'KEY NOT ACCEPTED' : 'OFF', 795, 128, 1.5, on ? '#9fe0a0' : '#ff9a7a', 'center'); } }
-  } else { font(c, 600, 20, F_HUD); spaced(c, NET.role === 'client' ? 'CONNECTING TO THE ROOM…' : 'OPENING A ROOM…', 450, 124, 3, '#ffd860', 'center'); }
+    font(c, 500, 12, F_HUD); spaced(c, 'ROOM CODE', L + 4, 92, 3, '#a8987e'); font(c, 900, 34, F_DISP); c.shadowColor = 'rgba(255,200,90,0.6)'; c.shadowBlur = 14; spaced(c, NET.code, L, 126, 9, '#ffd860'); c.shadowBlur = 0;
+    mbtn(c, 450 - 120, 84, 240, 44, 'SEND INVITE LINK', '', netInvite, { size: 18, hot: n < 2 });
+    if (host) { const k = relayKey(), used = relayUsed() / 1048576, on = k && TURN_ICE && used < 400; font(c, 500, 12, F_HUD); spaced(c, 'RELAY', L + W - 4, 92, 3, '#a8987e', 'right');
+      if (!k) mbtn(c, L + W - 160, 100, 160, 28, 'ADD RELAY KEY', '', () => { const v = prompt('Paste the Metered credentials link (or app:key)'); if (v) setRelayKey(v); }, { size: 13 });
+      else { font(c, 600, 15, F_HUD); spaced(c, on ? 'ON · ' + Math.round(used) + ' / 400 MB' : used >= 400 ? 'USED UP THIS MONTH' : NET.turnErr ? 'KEY NOT ACCEPTED' : 'OFF', L + W - 4, 118, 1.5, on ? '#9fe0a0' : '#ff9a7a', 'right'); } }
+  } else { font(c, 600, 20, F_HUD); spaced(c, NET.role === 'client' ? 'CONNECTING TO THE ROOM…' : 'OPENING A ROOM…', 450, 112, 3, '#ffd860', 'center'); }
   if (NET.role === 'client' && !NET.on) return drawJoinState(c);
-  const sw = 205, gap = 10, x0 = 450 - (sw * 4 + gap * 3) / 2, sy = 152, sh = 124;
-  seats.forEach((s, i) => drawSeat(c, s, x0 + i * (sw + gap), sy, sw, sh, s.pid === me));
-  if (MENU.update && lobby) mbtn(c, 700, 10, 190, 30, 'NEW VERSION · RELOAD', '', () => location.reload(), { size: 13, hot: true });
+  // 3 · four seats
+  const gap = 12, sw = (W - gap * 3) / 4, sy = 142, sh = 124;
+  seats.forEach((s, i) => drawSeat(c, s, L + i * (sw + gap), sy, sw, sh, s.pid === me));
   if (lobby) {
-    const mine = (seats.find(s => s.pid === me) || {}).hero; font(c, 500, 13, F_HUD); spaced(c, 'YOUR HERO', x0, 296, 2, '#a8987e');
-    const hk = Object.keys(HERO_DEFS), hg = 6, bw = (sw * 4 + gap * 3 - hg * (hk.length - 1)) / hk.length;
-    hk.forEach((k, i) => { const x = x0 + i * (bw + hg), y = 302, d = HERO_DEFS[k], on = mine === k, sw = bw;
-      c.fillStyle = on ? 'rgba(58,38,16,0.94)' : 'rgba(18,13,20,0.9)'; c.fillRect(x, y, sw, 48); c.strokeStyle = on ? '#ffd860' : `rgba(${COL[d.col]},0.6)`; c.lineWidth = on ? 2 : 1.2; c.strokeRect(x + 0.5, y + 0.5, sw - 1, 47);
-      sprite(c, d.spr, x + 6, y + 4, 40); font(c, 900, 18, F_DISP); label(c, d.name, x + 52, y + 22, `rgb(${COL[d.col]})`); font(c, 500, 13, F_HUD); label(c, HERO_BLURB[k][0].split(' ')[0], x + 52, y + 40, '#a8987e'); vbtn(x, y, sw, 48, () => lobbyPick(k)); });
-    mbtn(c, x0, 362, 130, 46, 'LEAVE', '', leaveLobby, { size: 18 });
-    if (host) { const ready = !!NET.lobby.picks[0]; mbtn(c, 450 - 170, 360, 340, 50, ready ? 'DESCEND WITH ' + n + (n > 1 ? ' HEROES' : ' HERO') : 'CHOOSE YOUR HERO FIRST', ready ? 'late friends can still drop in' : '', lobbyStart, { size: 22, hot: ready, off: !ready }); }
-    else { font(c, 600, 18, F_HUD); spaced(c, mine ? 'READY  ·  WAITING FOR THE HOST TO DESCEND' : 'PICK YOUR HERO WHILE YOU WAIT', 450 + 40, 390, 2, mine ? '#9fe0a0' : '#ffd860', 'center'); }
+    // 4 · your hero: every hero in one even row
+    const mine = (seats.find(s => s.pid === me) || {}).hero, hk = Object.keys(HERO_DEFS), hg = 6, bw = (W - hg * (hk.length - 1)) / hk.length, hy = 294, hh = 44;
+    font(c, 600, 13, F_HUD); spaced(c, mine ? 'YOUR HERO · TAP ANOTHER TO SWITCH' : 'PICK YOUR HERO', L + 2, 286, 2, mine ? '#a8987e' : '#ffd860');
+    hk.forEach((k, i) => { const x = L + i * (bw + hg), d = HERO_DEFS[k], on = mine === k, cc = `rgb(${COL[d.col]})`;
+      c.fillStyle = on ? 'rgba(58,38,16,0.95)' : 'rgba(18,13,20,0.92)'; c.fillRect(x, hy, bw, hh); c.strokeStyle = on ? '#ffd860' : `rgba(${COL[d.col]},0.55)`; c.lineWidth = on ? 2 : 1.2; c.strokeRect(x + 0.5, hy + 0.5, bw - 1, hh - 1);
+      sprite(c, d.spr, x + 4, hy + 6, 32); const tx = x + 40, tw = bw - 44;
+      fitFont(c, 900, 16, F_DISP, d.name, tw, 10); label(c, d.name, tx, hy + 20, cc); const tag = HERO_BLURB[k][0].split(' ')[0]; fitFont(c, 500, 11, F_HUD, tag, tw, 8); label(c, tag, tx, hy + 35, '#a8987e');
+      vbtn(x, hy, bw, hh, () => lobbyPick(k)); });
+    // 5 · leave · descend · log
+    mbtn(c, L, 352, 140, 46, 'LEAVE', '', leaveLobby, { size: 18 });
+    if (host) { const ready = !!NET.lobby.picks[0]; mbtn(c, 450 - 160, 350, 320, 50, ready ? 'DESCEND WITH ' + n + (n > 1 ? ' HEROES' : ' HERO') : 'PICK YOUR HERO FIRST', ready ? 'late friends can still drop in' : '', lobbyStart, { size: 22, hot: ready, off: !ready }); }
+    else { font(c, 600, 17, F_HUD); spaced(c, mine ? 'READY  ·  WAITING FOR THE HOST TO DESCEND' : 'PICK YOUR HERO WHILE YOU WAIT', 450, 381, 2, mine ? '#9fe0a0' : '#ffd860', 'center'); }
+    mbtn(c, L + W - 110, 360, 110, 30, 'SHARE LOG', '', shareLog, { size: 13 });
   } else {
-    mbtn(c, 130, 300, 300, 48, host ? 'CLOSE ROOM' : 'LEAVE ROOM', '', host ? netCloseRoom : leaveLobby, { size: 18 });
-    mbtn(c, 470, 300, 300, 48, 'BACK TO THE FIGHT', '', () => { NET.panel = false; }, { size: 18, hot: true });
+    mbtn(c, 450 - 310, 290, 300, 48, host ? 'CLOSE ROOM' : 'LEAVE ROOM', '', host ? netCloseRoom : leaveLobby, { size: 18 });
+    mbtn(c, 450 + 10, 290, 300, 48, 'BACK TO THE FIGHT', '', () => { NET.panel = false; }, { size: 18, hot: true });
+    mbtn(c, L + W - 110, 352, 110, 30, 'SHARE LOG', '', shareLog, { size: 13 });
   }
 }
 // ---------- in-game menu: resume, co-op, sound, back to the main menu ----------
