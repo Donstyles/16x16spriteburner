@@ -46,6 +46,7 @@ function setupControls() {
     if (NET.panel) { netPanelTap(x, y); return; }
     if (TUT.skipRect && inRect(TUT.skipRect, x, y)) { tutEnd(); return; }
     if (UI.bookOpen) { UI.bookOpen = false; return; }
+    if (NET.indRect && inRect(NET.indRect, x, y)) { NET.detail = !NET.detail; return; }
     for (const b of CTRL.top) if (inRect(b.r, x, y)) { b.fn(); return; }
     if (G.choice) { if (G.choice.picked < 0) { if (G.choice.kind === 'draft' && inRect(UI.draftRect, x, y)) { G.acted = true; autoDraft(); return; } const i = choiceAt(x, y); if (i >= 0) pickChoice(i, true); } return; }
     for (const b of CTRL.buttons) if (Math.hypot(x - b.x, y - b.y) <= b.r + 10) { b.press(); (CTRL.fx[b.id] = CTRL.fx[b.id] || {}).flash = 0.15; return; }

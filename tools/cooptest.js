@@ -25,7 +25,7 @@ const { chromium } = require('playwright'); const path = require('path');
   await host.waitForFunction(() => Object.keys(CR.NET.lobby.picks).length === 2, null, { timeout: 10000 });
   await host.waitForTimeout(500); await host.screenshot({ path: path.join(out, 'lobby_host_two.png') }); await guest.screenshot({ path: path.join(out, 'lobby_guest.png') });
   console.log('lobby picks', JSON.stringify(await host.evaluate(() => CR.NET.lobby.picks)));
-  const desc = await host.evaluate(() => CR.MENU.rects[CR.MENU.rects.length - 1].r); await tap(host, desc); // DESCEND
+  const desc = await host.evaluate(() => CR.MENU.rects.map(b => b.r).filter(r => r[1] > CR.VIEW.h * 0.7).sort((a, b) => b[2] - a[2])[0]); await tap(host, desc); // DESCEND
   await host.waitForFunction(() => CR.G.mode === 'play', null, { timeout: 5000 });
   await guest.waitForFunction(() => CR.G.mode === 'play', null, { timeout: 8000 });
   await host.evaluate(() => { CR.G.acted = true; });

@@ -101,6 +101,7 @@ function drawMenus(c) {
   } else drawRoom(c, false);
   font(c, 500, 12, F_HUD); c.globalAlpha = 0.55; spaced(c, 'VERSION ' + BUILD.toUpperCase(), 890, 418, 2, '#a8987e', 'right'); c.globalAlpha = 1;
   c.restore();
+  if (G.mode === 'lobby' && NET.role) { const S = VIEW.safe; drawNetIndicator(c, VIEW.w - Math.max(12, S.r + 10), Math.max(10, S.t + 8) + 14); if (NET.indRect) MENU.rects.push({ r: NET.indRect, fn: () => { NET.detail = !NET.detail; } }); }
   if (NET.statusT > 0) { NET.statusT -= 1 / 60; font(c, 600, 16, F_HUD); c.globalAlpha = Math.min(1, NET.statusT * 2); spaced(c, NET.status, VIEW.w / 2, MENU.oy + (G.mode === 'lobby' ? 291 : G.mode === 'join' ? 173 : 412) * MENU.k, 2, '#ffd860', 'center'); c.globalAlpha = 1; }
 }
 function drawJoinState(c) { // the guest's view until the host answers

@@ -2,7 +2,7 @@
 // The host runs the real game. Guests send their stick and buttons; 20 times a second the host sends back where
 // everything is, plus every effect that fired (explosions, bolts, sounds, banners) as a short event. Guests replay
 // those events locally, so the full spectacle costs almost no bandwidth. Matchmaking uses the public PeerJS server.
-const NET = { role: null, on: false, peer: null, conns: new Map(), host: null, code: '', myPid: -1, sendT: 0, inT: 0, rec: false, depth: 0, ev: [], lightsCur: [], lights: [],
+const NET = { grave: new Map(), skip: new Map(), nm: { corr: 0 }, role: null, on: false, peer: null, conns: new Map(), host: null, code: '', myPid: -1, sendT: 0, inT: 0, rec: false, depth: 0, ev: [], lightsCur: [], lights: [],
   defIds: new Map(), defs: [], newDefs: [], statCache: new Map(), mir: new Map(), stat: new Map(), pend: new Map(), chId: 0, arena: null, lastCard: null, lastCallout: null,
   status: '', statusT: 0, panel: false, panelRects: [], draft: {}, rx: 0, tx: 0, bytes: 0 };
 const NET_PREFIX = 'cellar-of-ruin-v1-';
@@ -75,7 +75,7 @@ function encA(v) {
 }
 function decA(v) {
   if (!v || typeof v !== 'object') return v;
-  if (v.$u !== undefined) return NET.mir.get(v.$u) || { x: 0, y: 0, z: 0, scale: 1, face: 1, spr: '', def: { col: 'white', name: '' }, team: 'mon', dead: true };
+  if (v.$u !== undefined) return NET.mir.get(v.$u) || (NET.grave.get(v.$u) || {}).u || { x: 0, y: 0, z: 0, scale: 1, face: 1, spr: '', def: { col: 'white', name: '' }, team: 'mon', dead: true };
   if (Array.isArray(v)) return v.map(decA);
   const r = {}; for (const k in v) r[k] = decA(v[k]); return r;
 }
@@ -127,7 +127,7 @@ function snapshot(kind) {
   else { if (G.card !== NET.lastCard) { NET.lastCard = G.card; g.card = G.card ? plain(G.card) : null; } if (G.callout !== NET.lastCallout) { NET.lastCallout = G.callout; g.callout = G.callout ? plain(G.callout) : null; } }
   const s = { t: 's', g, u, nu, p: G.proj.map(p => pickO(p, PK)), hz: FX.hz.map(plain), bm: FX.beams.map(plain), li: NET.lightsCur.slice(), rn: ARENA.runes.map(r => r2(r.glow || 0)), pd: ARENA.props.map((p, i) => p.dead ? i : -1).filter(i => i >= 0), arena: NET.arena };
   const nd = kind === 'welcome' ? [] : NET.newDefs.slice(); if (all) { const have = new Set(nd.map(d => d[0])); for (const id of defIds) if (!have.has(id)) nd.push([id, NET.defs[id]]); }
-  s.nd = nd; s.ev = kind === 'welcome' ? [] : NET.ev;
+  s.nd = nd; s.ev = kind === 'welcome' ? [] : NET.ev; if (kind === 'key') s.k = 1;
   if (kind !== 'welcome') { NET.newDefs = []; NET.ev = []; NET.partN = 0; }
   return s;
 }
@@ -140,12 +140,21 @@ function hostTick(rdt) {
   if (window.CR_PROF) { const P = window.CR_PROF; for (const k in s) P[k] = (P[k] || 0) + JSON.stringify(s[k]).length; P.n = (P.n || 0) + 1; if (s.ev) for (const e of s.ev) { const nm = e[0] === 'A' ? 'A' : FXO[e[0]].name; P['ev:' + nm] = (P['ev:' + nm] || 0) + JSON.stringify(e).length; } }
   NET.tick = (NET.tick || 0) + 1;
   for (const c of NET.conns.values()) if (c.ok) {
-    if (!c.relayed) { s.me = privOf(c.h); try { netSend(c.conn, s); } catch (e) { } continue; }
-    // through the relay: 10 updates a second (all effects still arrive), so the monthly allowance lasts; skipped updates are carried over
-    const bk = c.back || (c.back = { ev: [], nu: [], nd: [], g: {} });
-    bk.ev.push(...s.ev); bk.nu.push(...s.nu); bk.nd.push(...s.nd); Object.assign(bk.g, s.g);
-    if (NET.tick % 2) continue;
-    c.back = null; try { netSend(c.conn, { ...s, g: bk.g, ev: bk.ev, nu: bk.nu, nd: bk.nd, me: privOf(c.h) }); } catch (e) { }
+    let pl = s;
+    if (c.relayed) { // through the relay: 10 updates a second (all effects still arrive), so the monthly allowance lasts; skipped updates are carried over
+      const bk = c.back || (c.back = { ev: [], nu: [], nd: [], g: {}, k: 0 });
+      bk.ev.push(...s.ev); bk.nu.push(...s.nu); bk.nd.push(...s.nd); Object.assign(bk.g, s.g); if (s.k) bk.k = 1;
+      if (NET.tick % 2) continue;
+      c.back = null; pl = { ...s, g: bk.g, ev: bk.ev, nu: bk.nu, nd: bk.nd, k: bk.k || undefined };
+    }
+    const me = privOf(c.h);
+    try {
+      if (c.fast && c.fast.readyState === 'open') {
+        // motion goes on the fast lane: a lost packet is simply replaced by the next one, nothing waits behind it
+        const { u, p, hz, bm, li, rn, ...rest } = pl; c.fast.send(JSON.stringify({ t: 'f', q: c.fq = (c.fq || 0) + 1, u, p, hz, bm, li, rn }));
+        netSend(c.conn, pl.k ? { ...pl, me } : { ...rest, me }); // keyframes also carry motion on the sure lane
+      } else netSend(c.conn, { ...pl, me });
+    } catch (e) { }
   }
 }
 function hostOpen(tries = 0) {
@@ -172,7 +181,7 @@ function hostConn(conn) {
     let h = c.token && G.heroes.find(x => x.token === c.token); const wasAway = h && h.away;
     if (!h && !old && freeSlot() < 0) { const away = G.heroes.find(x => x.away); if (away) dropHero(away); }
     const pid = h ? h.pid : old ? old.pid : freeSlot(); if (pid < 0) { netSend(conn, { t: 'full' }); setTimeout(() => conn.close(), 800); return; }
-    c.pid = pid; c.ok = true; NET.conns.set(pid, c);
+    c.pid = pid; c.ok = true; NET.conns.set(pid, c); c.fast = openFast(conn, null, who);
     const lob = !NET.lobby.started, s = snapshot('welcome'); s.t = 'w'; s.ver = BUILD; s.pid = pid; s.code = NET.code; s.lobby = lob; s.draft = !h && !lob; netSend(conn, s);
     if (lob) { MENU.flash[pid] = 1; if (SFX.ctx) SFX.summon(); lobbySync(); } else if (!h) netSay('P' + (pid + 1) + ' IS JOINING…', 3);
     if (h) { c.h = h; h.away = false; h.awayT = 0; h.inp.auto = 0; if (wasAway) pushBanner({ a: h.pname + ' IS BACK', b: h.def.name + ' RETURNS TO THEIR CONTROL', col: h.def.col, keep: true, life: 1.8 }); }
@@ -185,6 +194,7 @@ function hostMsg(c, m) {
   if (m.t === 'in') { const h = c.h; if (!h || !h.inp) return; const I = h.inp; I.mx = clamp(+m.mx || 0, -1, 1); I.my = clamp(+m.my || 0, -1, 1); I.auto = clamp(m.auto | 0, 0, 2); if (m.d) I.dashQ = true; if (Array.isArray(m.c)) for (const s of m.c.slice(0, 6)) if (s === 'ult' || (s >= 0 && s < 4)) I.castQ.push(s); }
   else if (m.t === 'join') hostJoin(c, m);
   else if (m.t === 'ping') netSend(c.conn, { t: 'pong', ts: m.ts });
+  else if (m.t === 'net') c.nm = { rtt: +m.rtt || 0, loss: +m.loss || 0, ups: +m.ups || 0, sync: String(m.sync || ''), route: String(m.route || ''), fast: !!m.fast, at: performance.now() };
   else if (m.t === 'lh') { if (NET.lobby && !NET.lobby.started && HERO_DEFS[m.hero]) { NET.lobby.picks[c.pid] = m.hero; MENU.flash[c.pid] = 1; lobbySync(); } }
   else if (m.t === 'pick') { const p = NET.pend.get(m.id); if (p && p.pid === c.pid && p.opts[m.i]) { NET.pend.delete(m.id); choiceEffect(p.h, p.opts[m.i]); } }
 }
@@ -319,7 +329,8 @@ function connectHost(peer, code) {
   NET.cand = NET.cand || {}; NET.candErr = NET.candErr || ''; const pc = conn.peerConnection;
   if (pc) { pc.addEventListener('icecandidate', e => { const m = e.candidate && / typ (\w+)/.exec(e.candidate.candidate); if (m) NET.cand[m[1]] = (NET.cand[m[1]] || 0) + 1; }); pc.addEventListener('icecandidateerror', e => { NET.candErr = e.errorCode + (e.url ? ' ' + e.url.split(':')[0] : ''); }); }
   watchPc(conn, 'link');
-  conn.on('open', () => { if (NET.host !== conn) return; NET.on = true; NET.stage = 'OK'; NET.tries = 0; NET.rejoinT = 0; NET.rx = performance.now(); nlog('connected to the host'); netSay('CONNECTED TO ROOM ' + code, 2); });
+  conn.on('open', () => { if (NET.host !== conn) return; NET.on = true; NET.stage = 'OK'; NET.tries = 0; NET.rejoinT = 0; NET.rx = performance.now(); nlog('connected to the host');
+    NET.fast = openFast(conn, d => { NET.rx = performance.now(); NET.bytes += d.length; try { guestFast(JSON.parse(d)); } catch (e) { } }, 'link'); Object.assign(NET.nm, { fq: 0, fRecv: 0, fq0: 0, fRecv0: 0, loss: 0 }); netSay('CONNECTED TO ROOM ' + code, 2); });
   conn.on('data', d => { NET.rx = performance.now(); try { netRecv(conn, d, guestMsg); } catch (e) { console.error(e); } });
   conn.on('close', () => { if (NET.host === conn) { nlog('link closed'); guestLost('CONNECTION LOST', true); } });
   conn.on('error', e => { nlog('link error: ' + (e && (e.type || e.message) || e)); if (NET.host === conn && NET.on) guestLost('CONNECTION LOST', true); });
@@ -372,28 +383,39 @@ function guestDraftPick(o) { // a guest's draft is kept locally, then sent to th
 }
 function setStat(u, st) { u.def = NET.defs[st[1]] || u.def || { col: 'white', name: '' }; u.spr = st[2]; u.team = st[3]; u.key = st[4] || undefined; u.rank = st[5] || undefined; u.title = st[6] || undefined; u.pid = st[7] >= 0 ? st[7] : undefined; u.pname = st[8] || undefined; u.r = st[9]; u.boss = !!st[10]; }
 function applySnap(m) {
+  // a keyframe (once a second) carries the whole state: count what it had to put right on this phone
+  if (m.k && NET.nm) { const why = []; if (m.g && m.g.floor !== undefined && G.floor !== m.g.floor) why.push('floor ' + G.floor + '→' + m.g.floor); if (m.arena && NET.arena && NET.arena.seed !== m.arena.seed) why.push('map'); if (m.g && m.g.lvl !== undefined && G.lvl !== m.g.lvl) why.push('level ' + G.lvl + '→' + m.g.lvl);
+    let miss = 0; for (const st of m.nu || []) { const o = NET.stat.get(st[0]); if (NET.mir.has(st[0]) && o && JSON.stringify(o) !== JSON.stringify(st)) miss++; } const tnow = performance.now(); for (const [id, t0] of NET.skip) if (tnow - t0 > 500) miss++; NET.skip.clear(); if (miss) why.push(miss + ' units');
+    if (why.length) { NET.nm.corr = (NET.nm.corr || 0) + 1; NET.nm.lastCorr = performance.now(); nlog('resync: ' + why.join(', ')); } }
   if (m.arena && (!NET.arena || NET.arena.seed !== m.arena.seed)) guestArena(m.arena.floor, m.arena.seed);
   for (const [i, d] of m.nd || []) NET.defs[i] = d;
   for (const st of m.nu || []) { NET.stat.set(st[0], st); const u = NET.mir.get(st[0]); if (u) setStat(u, st); }
   // effects first: a new floor (arena event) must exist before this snapshot's units land on it
   for (const e of m.ev || []) { if (e[0] === 'A') { if (!NET.arena || NET.arena.seed !== e[2]) guestArena(e[1], e[2]); continue; } const f = FXO[e[0]]; if (!f) continue; try { if (f.isPart) f.f(decPart(e[1])); else f.f.apply(f.self || null, e.slice(1).map(decA)); } catch (x) { } }
-  const seen = new Set();
-  for (const a of m.u) {
-    const id = a[0]; let u = NET.mir.get(id);
-    if (!u) { const st = NET.stat.get(id); if (!st) continue; u = { id, x: a[1], y: a[2], z: a[3], kx: 0, ky: 0, vz: 0, cd: {}, state: null, mul: 1, anim: a[6] }; setStat(u, st); NET.mir.set(id, u); }
-    u.sx = a[1]; u.sy = a[2]; u.sz = a[3]; u.vx = a[4]; u.vy = a[5]; if (!(Math.abs(u.anim - a[6]) < 0.4)) u.anim = a[6];
-    u.face = a[7]; u.hp = a[8]; u.maxHp = a[9]; u.flash = a[10]; u.lunge = a[11]; u.la = a[12]; u.squash = a[13]; u.stun = a[14]; u.spawnT = a[15]; u.scale = a[16]; u.ult = a[17];
-    const f = a[18]; u.dead = !!(f & 1); u.moving = !!(f & 2); u.iframe = f & 4 ? 1 : 0; u.autoNet = !!(f & 8); u.away = !!(f & 16); u.regenOn = !!(f & 32); u.castT = a[19] || 0; u.castU = a[20] || 0; seen.add(id);
+  if (m.u) {
+    const seen = new Set(), now = performance.now();
+    for (const a of m.u) {
+      const id = a[0]; let u = NET.mir.get(id);
+      if (!u) { const st = NET.stat.get(id); if (!st) { if (!NET.skip.has(id)) NET.skip.set(id, now); continue; } NET.skip.delete(id); u = { id, x: a[1], y: a[2], z: a[3], kx: 0, ky: 0, vz: 0, cd: {}, state: null, mul: 1, anim: a[6] }; setStat(u, st); NET.mir.set(id, u); }
+      u.sx = a[1]; u.sy = a[2]; u.sz = a[3]; u.vx = a[4]; u.vy = a[5]; if (!(Math.abs(u.anim - a[6]) < 0.4)) u.anim = a[6];
+      u.face = a[7]; u.hp = a[8]; u.maxHp = a[9]; u.flash = a[10]; u.lunge = a[11]; u.la = a[12]; u.squash = a[13]; u.stun = a[14]; u.spawnT = a[15]; u.scale = a[16]; u.ult = a[17];
+      const f = a[18]; u.dead = !!(f & 1); u.moving = !!(f & 2); u.iframe = f & 4 ? 1 : 0; u.autoNet = !!(f & 8); u.away = !!(f & 16); u.regenOn = !!(f & 32); u.castT = a[19] || 0; u.castU = a[20] || 0; seen.add(id);
+    }
+    // a unit that just left (died) stays findable for 2 s, so its death shatter still plays when that event arrives a moment later
+    for (const [id, u] of [...NET.mir]) if (!seen.has(id)) { NET.mir.delete(id); NET.grave.set(id, { u, t: now }); }
+    for (const [id, gr] of [...NET.grave]) if (now - gr.t > 2000) NET.grave.delete(id);
+    G.units = [...NET.mir.values()]; G.heroes = G.units.filter(u => u.team === 'hero').sort((a, b) => a.pid - b.pid); G.mons = G.units.filter(u => u.team === 'mon' && !u.dead);
+    G.me = G.heroes.find(h => h.pid === NET.myPid) || null;
+    if (NET.nm) { NET.nm.updN = (NET.nm.updN || 0) + 1; const dt = now - (NET.nm.lastUpd || now); NET.nm.jit = (NET.nm.jit || 0) * 0.9 + Math.abs(dt - 1000 / (NET.slow ? 10 : 20)) * 0.1; NET.nm.lastUpd = now; }
   }
-  for (const id of [...NET.mir.keys()]) if (!seen.has(id)) NET.mir.delete(id);
-  G.units = [...NET.mir.values()]; G.heroes = G.units.filter(u => u.team === 'hero').sort((a, b) => a.pid - b.pid); G.mons = G.units.filter(u => u.team === 'mon' && !u.dead);
-  G.me = G.heroes.find(h => h.pid === NET.myPid) || null;
-  const g = m.g; for (const k of GK) if (g[k] !== undefined && k !== 'time') G[k] = g[k];
-  if (Math.abs(G.time - g.time) > 0.4) G.time = g.time;
-  G.boss = NET.mir.get(g.boss) || null; G.champ = NET.mir.get(g.champ) || null; G.eq = g.eq ? (G.eq || {}) : null; G.storm = g.storm ? (G.storm || {}) : null; G.spawnQ = { length: g.sq || 0 };
-  G.focus = g.fo ? { x: g.fo[0], y: g.fo[1], w: g.fo[2], t: g.fo[3] } : null;
-  if ('card' in g) G.card = g.card; if ('callout' in g) G.callout = g.callout;
-  G.proj = m.p; FX.hz = m.hz; FX.beams = m.bm; NET.lights = m.li || [];
+  if (m.g) {
+    const g = m.g; for (const k of GK) if (g[k] !== undefined && k !== 'time') G[k] = g[k];
+    if (Math.abs(G.time - g.time) > 0.4) G.time = g.time;
+    G.boss = NET.mir.get(g.boss) || null; G.champ = NET.mir.get(g.champ) || null; G.eq = g.eq ? (G.eq || {}) : null; G.storm = g.storm ? (G.storm || {}) : null; G.spawnQ = { length: g.sq || 0 };
+    G.focus = g.fo ? { x: g.fo[0], y: g.fo[1], w: g.fo[2], t: g.fo[3] } : null;
+    if ('card' in g) G.card = g.card; if ('callout' in g) G.callout = g.callout;
+  }
+  if (m.p) G.proj = m.p; if (m.hz) FX.hz = m.hz; if (m.bm) FX.beams = m.bm; if (m.li) NET.lights = m.li;
   if (ARENA) { (m.rn || []).forEach((v, i) => { if (ARENA.runes[i]) ARENA.runes[i].glow = v; }); for (const i of m.pd || []) { const p = ARENA.props[i]; if (p) { p.dead = true; p.solid = false; } } }
   const me = G.me, p = m.me;
   if (me && p) { me.sb = { known: new Set(p.known), slots: p.slots, basic: { [me.key]: p.basic }, mods: p.mods || {}, modv: {} }; me.cd = p.cd || {}; me.cdMax = p.cdMax || {}; me.dashCd = p.dashCd; me.dashMax = 2.2; }
@@ -404,6 +426,7 @@ function guestArena(floor, seed) {
   const cx = ARENA.pw / 2; CAM.x = cx; CAM.y = ARENA.ph / 2; CAM.z = camFitZoom(); G.fade = 1;
 }
 function guestFrame(rdt) {
+  netMeasure(rdt);
   if (NET.on && NET.host && (NET.pingT = (NET.pingT || 0) + rdt) > 2) { NET.pingT = 0; netSend(NET.host, { t: 'ping', ts: performance.now() }); }
   // your own hero is drawn ahead of the host's last word by your input times the round trip, so it answers your thumb at once
   const me = G.me; let lx = 0, ly = 0;
@@ -438,6 +461,75 @@ setInterval(netWake, 3000);
 // a newer build on the site: reload by itself on the menu, otherwise offer it
 function checkVersion() { if (!/^https?:$/.test(location.protocol) || BUILD === 'dev' || /claude/.test(location.hostname)) return; fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (/^[0-9a-f]{8}$/.test(v) && v !== BUILD) { MENU.update = v; if (G.mode === 'menu' && !NET.role) location.reload(); } }).catch(() => { }); }
 setInterval(checkVersion, 60000); document.addEventListener('visibilitychange', () => { if (!document.hidden) { netWake(); checkVersion(); } });
+// ---------- the fast lane and the connection measurements ----------
+// A second channel on the same connection (no extra setup): unordered and unreliable, used only for motion.
+function openFast(conn, onMsg, who) {
+  const pc = conn.peerConnection; if (!pc || !pc.createDataChannel) return null;
+  try { const dc = pc.createDataChannel('cor-fast', { negotiated: true, id: 7, ordered: false, maxRetransmits: 0 }); dc.onopen = () => nlog(who + ': fast lane open'); dc.onclose = () => nlog(who + ': fast lane closed'); if (onMsg) dc.onmessage = e => onMsg(e.data); return dc; }
+  catch (e) { nlog(who + ': fast lane unavailable (' + e.message + ')'); return null; }
+}
+function guestFast(m) {
+  const N = NET.nm; if (!m || m.t !== 'f') return;
+  if (m.q <= (N.fq || 0)) { N.late = (N.late || 0) + 1; return; } // arrived after a newer one: dropped
+  N.fRecv = (N.fRecv || 0) + 1; N.fq = m.q; applySnap(m);
+}
+// once a second on a guest: loss from gaps in the fast lane's numbering, updates per second, data rates, the route
+function netMeasure(rdt) {
+  const N = NET.nm; N.acc = (N.acc || 0) + rdt; if (N.acc < 1) return; const sec = N.acc; N.acc = 0;
+  const span = (N.fq || 0) - (N.fq0 || 0), recv = (N.fRecv || 0) - (N.fRecv0 || 0); N.fq0 = N.fq || 0; N.fRecv0 = N.fRecv || 0;
+  if (span > 0) { const l = Math.max(0, Math.min(1, 1 - recv / span)); N.loss = N.lossSet ? N.loss * 0.6 + l * 0.4 : l; N.lossSet = true; }
+  N.ups = ((N.updN || 0) - (N.updN0 || 0)) / sec; N.updN0 = N.updN || 0;
+  N.inK = (NET.bytes - (N.b0 || 0)) / 1024 / sec; N.b0 = NET.bytes; N.outK = (NET.tx - (N.t0 || 0)) / 1024 / sec; N.t0 = NET.tx;
+  const pc = NET.host && NET.host.__pc; if (pc && (N.rt = (N.rt || 0) + 1) % 3 === 0) pc.getStats().then(st => { st.forEach(r => { if (r.type === 'transport' && r.selectedCandidatePairId) { const p = st.get(r.selectedCandidatePairId), a = p && st.get(p.localCandidateId), b = p && st.get(p.remoteCandidateId); if (a && b) N.route = a.candidateType === 'relay' || b.candidateType === 'relay' ? 'RELAY' : a.candidateType === 'host' && b.candidateType === 'host' ? 'LOCAL NETWORK' : 'DIRECT'; } }); }).catch(() => { });
+  if (NET.on && NET.host) netSend(NET.host, { t: 'net', rtt: Math.round((NET.rtt || 0) * 1000), loss: Math.round((N.loss || 0) * 1000) / 10, ups: Math.round(N.ups * 10) / 10, sync: syncState()[0], route: N.route || '', fast: !!(NET.fast && NET.fast.readyState === 'open') });
+}
+function syncState() {
+  const N = NET.nm, now = performance.now(), age = now - (N.lastUpd || 0);
+  if (NET.role !== 'client') return ['HOST', '#9fe0a0'];
+  if (NET.fail) return ['DISCONNECTED', '#ff7a6a']; if (!NET.on || NET.lost) return ['REJOINING', '#ff9a6a'];
+  if (age > 2000) return ['NO UPDATES', '#ff7a6a']; if (age > 450) return ['LAGGING', '#ffd24a'];
+  if (now - (N.lastCorr || -1e9) < 4000) return ['RESYNCED', '#ffd24a'];
+  return ['IN SYNC', '#9fe0a0'];
+}
+// 0-4 bars from round trip, loss and how fresh the last update is
+function netBars(rtt, loss, age) { if (age > 2000) return 0; return rtt < 0.1 && loss < 0.02 && age < 300 ? 4 : rtt < 0.18 && loss < 0.05 && age < 500 ? 3 : rtt < 0.3 && loss < 0.12 && age < 1000 ? 2 : 1; }
+function drawNetIndicator(c, R, y) {
+  NET.indRect = null; if (!NET.role) return;
+  let bars, txt, col;
+  if (NET.role === 'client') {
+    const N = NET.nm, age = performance.now() - (N.lastUpd || 0), [st, sc] = syncState();
+    bars = NET.on ? netBars(NET.rtt || 0, N.loss || 0, age) : 0; col = sc;
+    txt = (NET.rtt ? Math.round(NET.rtt * 1000) + ' MS' : '— MS') + ' · ' + (N.lossSet ? (N.loss * 100).toFixed(N.loss < 0.1 ? 1 : 0) + '% LOSS' : 'LOSS —') + ' · ' + st;
+  } else {
+    const fr = [...NET.conns.values()].filter(x => x.ok), now = performance.now(); if (!fr.length) { bars = 4; col = '#bfae90'; txt = NET.on ? 'ROOM ' + NET.code + ' · NO FRIENDS YET' : 'OPENING…'; }
+    else { let worst = 4, wr = 0, wl = 0; for (const x of fr) { const m = x.nm, stale = !m || now - m.at > 6000, b = stale ? 1 : netBars(m.rtt / 1000, m.loss / 100, m.sync === 'IN SYNC' || m.sync === 'RESYNCED' ? 0 : 600); if (b < worst) worst = b; if (m) { wr = Math.max(wr, m.rtt); wl = Math.max(wl, m.loss); } }
+      bars = worst; col = worst >= 3 ? '#9fe0a0' : worst === 2 ? '#ffd24a' : '#ff7a6a'; txt = fr.length + (fr.length === 1 ? ' FRIEND' : ' FRIENDS') + ' · ' + (wr ? wr + ' MS' : '— MS') + ' · ' + wl.toFixed(wl < 10 ? 1 : 0) + '% LOSS'; }
+  }
+  font(c, 600, 12, F_HUD); let w = 0; for (const ch of txt) w += c.measureText(ch).width + 1.2; const bw = 22, x = R - w - bw - 14, h = 18;
+  c.fillStyle = 'rgba(10,8,12,0.7)'; c.fillRect(x - 6, y - 13, w + bw + 20, h + 2); NET.indRect = [x - 10, y - 18, w + bw + 28, h + 12];
+  for (let i = 0; i < 4; i++) { c.fillStyle = i < bars ? (bars >= 3 ? '#9fe0a0' : bars === 2 ? '#ffd24a' : '#ff7a6a') : 'rgba(255,255,255,0.18)'; c.fillRect(x + i * 5, y + 1 - (i + 1) * 3, 3.5, (i + 1) * 3); }
+  spaced(c, txt, x + bw, y, 1.2, col);
+  if (NET.detail) drawNetDetail(c, R, y + 12);
+}
+function drawNetDetail(c, R, y) {
+  const lines = [], N = NET.nm, now = performance.now();
+  if (NET.role === 'client') {
+    const exp = NET.slow ? 10 : 20, [st] = syncState();
+    lines.push(['ROUTE', (N.route || 'CHECKING…') + ' · FAST LANE ' + (NET.fast && NET.fast.readyState === 'open' ? 'ON' : 'OFF')]);
+    lines.push(['ROUND TRIP', NET.rtt ? Math.round(NET.rtt * 1000) + ' MS · JITTER ' + Math.round(N.jit || 0) + ' MS' : 'MEASURING…']);
+    lines.push(['UPDATES', (N.ups || 0).toFixed(1) + ' / S OF ' + exp + ' · LAST ' + Math.round(now - (N.lastUpd || now)) + ' MS AGO']);
+    lines.push(['PACKET LOSS', N.lossSet ? (N.loss * 100).toFixed(1) + '% · ' + (N.late || 0) + ' ARRIVED TOO LATE' : 'MEASURING…']);
+    lines.push(['SYNC', st + ' · ' + (N.corr || 0) + (N.corr === 1 ? ' CORRECTION' : ' CORRECTIONS') + (N.lastCorr ? ' · LAST ' + Math.round((now - N.lastCorr) / 1000) + ' S AGO' : '')]);
+    lines.push(['DATA', (N.inK || 0).toFixed(1) + ' KB/S IN · ' + (N.outK || 0).toFixed(1) + ' KB/S OUT']);
+  } else {
+    const fr = [...NET.conns.values()].filter(x => x.ok); if (!fr.length) lines.push(['FRIENDS', 'NONE YET · ROOM ' + NET.code]);
+    for (const x of fr) { const m = x.nm, h = x.h, name = 'P' + (x.pid + 1) + (h ? ' ' + h.def.name : ''); lines.push([name, !m ? 'CONNECTING…' : now - m.at > 6000 ? 'NO REPORT FOR ' + Math.round((now - m.at) / 1000) + ' S' : (m.route || '?') + ' · ' + m.rtt + ' MS · ' + m.loss + '% LOSS · ' + m.ups + ' UPD/S · ' + m.sync + (x.relayed ? ' · VIA YOUR RELAY' : '')]); }
+    lines.push(['RELAY', relayKey() ? Math.round(relayUsed() / 1048576) + ' / 400 MB THIS MONTH' : 'NO KEY ON THIS PHONE']);
+  }
+  font(c, 500, 12, F_HUD); const wv = Math.max(...lines.map(l => c.measureText(l[1]).width)), W = Math.min(VIEW.w - 24, wv + 120), x = R - W, H = lines.length * 16 + 12;
+  c.fillStyle = 'rgba(14,10,16,0.94)'; c.fillRect(x, y, W, H); c.strokeStyle = 'rgba(200,160,80,0.5)'; c.lineWidth = 1; c.strokeRect(x + 0.5, y + 0.5, W - 1, H - 1);
+  lines.forEach((l, i) => { font(c, 600, 11, F_HUD); spaced(c, l[0], x + 10, y + 18 + i * 16, 1.2, '#a8987e'); font(c, 500, 12, F_HUD); label(c, l[1], x + 104, y + 18 + i * 16, '#f0e4cc'); });
+}
 // ---------- co-op panel and name tags ----------
 function netInvite() {
   const url = location.origin + location.pathname + '?room=' + NET.code;
@@ -469,5 +561,5 @@ function drawNetHud(c, R, T) {
     label(c, (h.pname || '') + (h.away ? ' · AWAY' : ''), sx, sy, PCOL[h.pid % 4], { align: 'center', stroke: 3 });
   }
   if (NET.statusT > 0) { NET.statusT -= 1 / 60; font(c, 600, 15, F_HUD); c.globalAlpha = Math.min(1, NET.statusT * 2); spaced(c, NET.status, VIEW.w / 2, VIEW.h * 0.3, 2, '#ffd860', 'center'); c.globalAlpha = 1; }
-  if (NET.on) { font(c, 500, 12, F_HUD); c.globalAlpha = 0.8; spaced(c, (NET.role === 'host' ? 'ROOM ' : 'IN ROOM ') + NET.code + ' · ' + ((n) => n + (n === 1 ? ' HERO' : ' HEROES'))(G.heroes.filter(h => h.pid !== undefined).length), R, T + 32, 1.2, '#bfae90', 'right'); c.globalAlpha = 1; }
+  drawNetIndicator(c, R, T + 36);
 }
