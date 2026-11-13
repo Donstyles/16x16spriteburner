@@ -225,7 +225,7 @@ function heroBrain(h, foes) {
     if (sp.tier === 4) { if (!canUlt(h)) continue; } else if ((h.cd[sp.name] || 0) > 0) continue;
     if (!sp.free && (G.castLock > 0 || (sp.tier >= 3 && G.majorLock > 0))) continue;
     const t = sp.pick(h, foes); if (!t) continue;
-    if (sp.tier === 4) { h.ult = 0; G.ultCd = 4.2; } else setCd(h, sp.name, sp.cd * md(sp.name).cd * rand(0.9, 1.2));
+    if (sp.tier === 4) startUlt(h, sp); else setCd(h, sp.name, sp.cd * md(sp.name).cd * rand(0.9, 1.2));
     beginCast(h, sp, t === true ? null : t); return true;
   }
   return false;
@@ -236,7 +236,7 @@ function heroAI(h, dt) {
   const I = h.ctrl === 'player' ? h.inp : null; // a player on AUTO MOVE or AUTOPILOT still sends spells and dodges
   if (h.dead) { h.deadT += dt; if (I) I.castQ.length = 0; return; }
   for (const k in h.cd) h.cd[k] -= dt;
-  h.ult = ultUnlocked(h) ? Math.min(100, h.ult + dt * 2.6) : 0;
+  ultTick(h, dt);
   if (h.regen && (h.regen.t -= dt) > 0) { if ((h.regen.tick -= dt) <= 0) { h.regen.tick = 0.5; heal(h, h.regen.per); } localFx(() => regenFx(h, dt)); } else h.regen = null;
   if (h.z > 0 && G.phase !== 'fight') return;
   if (I && I.dashQ) { I.dashQ = false; if (canDash(h)) { h.state = null; const [dx, dy] = escapeDir(h, live(G.mons)); doDash(h, dx, dy); } else dashFail(h); }

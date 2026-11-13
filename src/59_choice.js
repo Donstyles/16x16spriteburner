@@ -225,7 +225,7 @@ function drawBook(c) {
   if (!fsp) { font(c, 500, 13, F_HUD); label(c, 'Tap any spell to see what it does and its three upgrades. Tap outside to close.', L + 10, dy + 25, '#8f8472'); return; }
   const hex = TIER_HEX[fsp.basic ? 0 : fsp.tier], taken = G.modsTaken[fsp.name] || [];
   font(c, 600, 15, F_HUD); label(c, fsp.name, L + 10, dy + 17, hex); let px = L + 18 + c.measureText(fsp.name).width;
-  font(c, 500, 12, F_HUD); const meta = (fsp.basic ? 'BASIC ATTACK · EVERY ' + fsp.cd + ' S' : BOOK_ROW[fsp.tier] + (fsp.tier < 4 ? ' · ' + fsp.cd + ' S COOLDOWN' : ' · CHARGES AS YOU FIGHT')) + '  ·  ' + (SPELL_INFO[fsp.name] || ''); label(c, meta, px, dy + 17, '#cbbd9f');
+  font(c, 500, 12, F_HUD); const meta = (fsp.basic ? 'BASIC ATTACK · EVERY ' + fsp.cd + ' S' : BOOK_ROW[fsp.tier] + (fsp.tier < 4 ? ' · ' + fsp.cd + ' S COOLDOWN' : ' · ' + ULT_CD + ' S COOLDOWN · ONE ULTIMATE AT A TIME')) + '  ·  ' + (SPELL_INFO[fsp.name] || ''); label(c, meta, px, dy + 17, '#cbbd9f');
   px = L + 10; for (const [mn, desc] of MODS[fsp.name] || []) { const got = taken.includes(mn), s = (got ? '✓ ' : '') + mn + ': ' + desc; label(c, s, px, dy + 33, got ? '#9fd8a0' : '#a89a84'); px += c.measureText(s).width + 18; }
 }
 const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)).join(',');

@@ -106,7 +106,7 @@ function pickO(o, keys) { const r = {}; for (const k of keys) { const v = o[k]; 
 // a zone's own drawing state (smoothed flight and the like, keys starting with _) survives each new snapshot
 function keepLocal(old, nw) { const o = new Map(); for (const z of old) if (z.id) o.set(z.id, z); for (const z of nw) { const p = o.get(z.id); if (p) for (const k in p) if (k[0] === '_') z[k] = p[k]; } return nw; }
 function plain(o) { const r = {}; for (const k in o) { if (k === 'hit' || k[0] === '_') continue; const v = o[k], t = typeof v; if (t === 'number') r[k] = r2(v); else if (t === 'string' || t === 'boolean') r[k] = v; else if (Array.isArray(v) && v.length <= 64 && (typeof v[0] === 'number' || Array.isArray(v[0]))) r[k] = v.map(x => Array.isArray(x) ? x.map(y => typeof y === 'number' ? r2(y) : y) : typeof x === 'number' ? r2(x) : x); } return r; }
-const GK = ['time', 'phase', 'phaseT', 'wave', 'waves', 'waveT', 'floor', 'lvl', 'xp', 'kills', 'combo', 'comboT', 'ambDark', 'ambFlash', 'inten', 'cdn', 'fightT', 'best', 'falls', 'bossFloor', 'burst'];
+const GK = ['ultLock', 'ultBy', 'time', 'phase', 'phaseT', 'wave', 'waves', 'waveT', 'floor', 'lvl', 'xp', 'kills', 'combo', 'comboT', 'ambDark', 'ambFlash', 'inten', 'cdn', 'fightT', 'best', 'falls', 'bossFloor', 'burst'];
 function privOf(h) {
   if (!h || !h.sb) return null; const cd = {}; for (const k in h.cd) if (h.cd[k] > 0) cd[k] = r2(h.cd[k]);
   return { known: [...h.sb.known], slots: h.sb.slots, basic: h.sb.basic[h.key], mods: h.sb.mods, cd, cdMax: h.cdMax || {}, dN: h.dashN === undefined ? DASH_N : h.dashN, dT: r2(h.dashT || 0) };

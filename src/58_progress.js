@@ -7,6 +7,12 @@ const HERO_PROG = {
   storm: { titles: [[1, 'HEDGE MAGE'], [6, 'STORMCALLER'], [12, 'THUNDERLORD']], ult: 'THUNDERSTORM', evolve: { lvl: 12, spr: 'WiseWizard' } },
   druid: { titles: [[1, 'HERBALIST'], [5, 'DRUID'], [10, 'EARTHSHAPER'], [15, 'WORLDROOT']], ult: 'EARTHQUAKE' },
 };
+// an ultimate comes back only with time; while anyone's ultimate is running, nobody else can start one
+const ULT_CD = 60;
+const ULT_DUR = { 'METEOR STORM': 5.5, 'CATACLYSM': 3, 'EARTHQUAKE': 2, 'CRIMSON MOON': 5.5, 'JUDGMENT': 6, 'TSUNAMI': 9, 'TEMPEST': 7.5, 'TOTAL WAR': 7, 'THUNDERSTORM': 2 };
+const ultBlocked = () => G.ultLock > 0 || !!G.storm || !!G.eq;
+function ultTick(h, dt) { if (!ultUnlocked(h)) { h.ult = 0; h.ultCd = 0; return; } if (h.ultCd > 0) h.ultCd -= dt; h.ult = h.ultCd > 0 ? 100 * (1 - h.ultCd / (h.ultMax || ULT_CD)) : 100; }
+function startUlt(h, sp) { const m = md(sp.name); h.ultMax = ULT_CD * (m.cd || 1); h.ultCd = h.ultMax; h.ult = 0; G.ultLock = (ULT_DUR[sp.name] || 6) * (m.dur || 1) + (sp.wind || 0) + 0.5; G.ultBy = h.pname && G.heroes.length > 1 ? h.pname + ' ' + h.def.name : h.def.name; }
 const ultUnlocked = h => h && h.team === 'hero' && sbOf(h).known.has(HERO_PROG[h.key].ult);
 function heroTitle(h) { let t = ''; for (const [l, n] of HERO_PROG[h.key].titles) if (G.lvl >= l) t = n; return t; }
 function scaleParty() {

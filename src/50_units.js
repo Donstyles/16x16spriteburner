@@ -66,8 +66,7 @@ function hurt(u, amt, src, o = {}) {
   if (o.stun) u.stun = Math.max(u.stun, o.stun * (u.boss ? 0.15 : u.scale > 1.2 ? 0.5 : 1));
   if (o.elem === 'bolt') u.shock = 0.9; if (o.elem === 'fire') u.burn = Math.max(u.burn, 1.6); if (o.elem === 'ice' && u.team === 'mon') { u.slow = Math.max(u.slow, 1.6); u.chill = Math.max(u.chill || 0, 1.6); }
   number(u.x, u.y, u.z + 16 * u.scale, d, u.team === 'hero' ? 'red' : (o.elem || 'white'), o.crit || d > 90);
-  if (src && src.team === 'hero' && u.team === 'mon' && ultUnlocked(src)) src.ult = Math.min(100, src.ult + d * 0.05);
-  if (u.team === 'hero') { if (ultUnlocked(u)) u.ult = Math.min(100, u.ult + d * 0.08); if (d > 20) shake(0.06); }
+  if (u.team === 'hero' && d > 20) shake(0.06);
   const bl = BLOOD[u.def.blood || 'red'];
   if (!o.quiet) { if (u.def.blood === 'metal' || (u.team === 'hero' && u.def.role === 'melee')) { sparks(u.x, u.y, 8 * u.scale, 6, 'white', 120, 90); SFX.clang(panOf(u.x)); } else { debris(u.x, u.y, 3, bl, 60, 90, 1.4); SFX.hit(panOf(u.x)); } }
   if (u.hp <= 0) kill(u, src, o.elem);
@@ -80,7 +79,6 @@ function kill(u, src, elem) {
   u.dead = true; u.hp = 0;
   if (u.team === 'mon') {
     G.kills++; G.combo++; G.comboT = 2.6; G.burst++; G.burstT = 0.7;
-    if (src && src.team === 'hero' && ultUnlocked(src)) src.ult = Math.min(100, src.ult + 4);
     gainXp(u.boss ? 80 + 30 * Math.floor(G.floor / 4) : (XP_TIER[u.def.tier] || 1) * (u.rank === 'warlord' ? 12 : u.rank === 'elite' ? 4 : 1));
     if (u.rank === 'warlord') { slowmo(0.25, 1); flash('white', 0.5); ring(u.x, u.y, 120, 'red', 0.7, 7); slamFx(u.x, u.y, 1.3, 'red'); textBanner(u.title + ' IS SLAIN', '', 'gold'); }
     else if (u.rank === 'elite') { ring(u.x, u.y, 60, 'red', 0.45, 5); shake(0.3); hitstop(0.06); }

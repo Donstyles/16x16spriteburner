@@ -11,7 +11,7 @@ Every hero holds **one basic attack, one Low, one Medium and one High spell, and
 - **Levels 5, 9 and 12** open the Medium, High and Ultimate tiers. When that floor is cleared, the cards show every spell of the new tier: Medium goes on button 2, High on button 3, the Ultimate on its own button.
 - **Every other cleared floor** (on boss floors: after the boss) offers three upgrades for spells you hold, basic attack included. Each spell has three upgrades; damage, size and duration upgrades multiply, extra projectiles or targets add up. Unpicked cards pick themselves after 18 seconds.
 - **Levels** heal 35% and raise health and damage. Ignis, Kazimir, Seraphine, Nerida and Aldric take a new form at level 10, Voltaire at 12; Brandt and Mossa keep theirs.
-- Once learned, the ultimate's ring fills as you fight, and a full ring casts it.
+- **Ultimates** have a 60-second cooldown and nothing else brings them back; a newly learned one is ready at once. Only one ultimate can run at a time: while a friend's is going, yours shows WAIT, so everyone gets to see each one.
 - The SPELLBOOK (button, the hero frame, or B) shows all five tiers with every spell of the hero: yours lit with its upgrades, the rest dimmed, locked tiers with the level they open at. Tap a spell for details. The battle pauses while it is open.
 
 | Hero | Basic attack (pick one) | Low (pick one at the start) | Medium (level 5) | High (level 9) | Ultimate (level 12) |

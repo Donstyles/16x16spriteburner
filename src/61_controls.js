@@ -106,9 +106,9 @@ function setCd(h, name, v) { h.cd[name] = v; (h.cdMax || (h.cdMax = {}))[name] =
 function tryCast(h, slot, foes) {
   const sp = slotSpell(h, slot), fail = () => { if (h === G.me) (CTRL.fx[slot] = CTRL.fx[slot] || {}).shake = 0.3; };
   if (!sp) return fail();
-  if (sp.tier === 4) { if (h.ult < 100) return fail(); } else if ((h.cd[sp.name] || 0) > 0) return fail();
+  if (sp.tier === 4) { if (h.ult < 100) return fail(); if (ultBlocked()) { if (h === G.me) netSay('WAIT · ' + (G.ultBy ? G.ultBy + '’S' : 'ANOTHER') + ' ULTIMATE IS STILL GOING', 2); return fail(); } } else if ((h.cd[sp.name] || 0) > 0) return fail();
   let t = sp.pick(h, foes); if (!t) t = HEALS.has(sp.name) ? h : nearest(h, foes, 260); if (!t) return fail();
-  if (sp.tier === 4) { h.ult = 0; G.ultCd = 4; } else setCd(h, sp.name, sp.cd * md(sp.name).cd);
+  if (sp.tier === 4) startUlt(h, sp); else setCd(h, sp.name, sp.cd * md(sp.name).cd);
   beginCast(h, { ...sp, wind: (sp.wind || 0) * 0.6, free: true }, t === true ? null : t); if (h === G.me) TUT.cast = true;
 }
 // dodging: DASH_N charges, each coming back after DASH_T seconds
@@ -149,7 +149,7 @@ function playerHero(h, dt) {
   const I = h.inp;
   if (h.dead) { h.deadT += dt; I.castQ.length = 0; return; }
   for (const k in h.cd) h.cd[k] -= dt;
-  h.ult = ultUnlocked(h) ? Math.min(100, h.ult + dt * 2.6) : 0;
+  ultTick(h, dt);
   if (h.regen && (h.regen.t -= dt) > 0) { if ((h.regen.tick -= dt) <= 0) { h.regen.tick = 0.5; heal(h, h.regen.per); } localFx(() => regenFx(h, dt)); } else h.regen = null;
   if (h.z > 0 && G.phase !== 'fight') return;
   const ix = I.mx, iy = I.my, foes = live(G.mons), st = h.state;
@@ -255,7 +255,8 @@ function drawSkillBtn(c, b, h) {
   if (b.slot === 'ult') { c.strokeStyle = 'rgba(255,255,255,0.15)'; c.lineWidth = 4; c.beginPath(); c.arc(x, y, r - 2, 0, TAU); c.stroke(); c.strokeStyle = hex; c.beginPath(); c.arc(x, y, r - 2, -Math.PI / 2, -Math.PI / 2 + TAU * h.ult / 100); c.stroke(); if (ready) { c.shadowColor = hex; c.shadowBlur = 18 + 8 * Math.sin(performance.now() / 150); c.stroke(); c.shadowBlur = 0; } }
   else { c.strokeStyle = ready ? hex : 'rgba(255,255,255,0.25)'; c.lineWidth = 2; c.beginPath(); c.arc(x, y, r - 1, 0, TAU); c.stroke(); }
   if (fx.flash > 0) { c.fillStyle = `rgba(255,255,255,${fx.flash * 3})`; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill(); }
-  if (!ready && b.slot !== 'ult') {}
+  if (b.slot === 'ult' && sp && !ready) { const left = Math.ceil((1 - h.ult / 100) * (h.ultMax || ULT_CD)); c.fillStyle = 'rgba(0,0,0,0.5)'; c.beginPath(); c.arc(x, y, r - 4, 0, TAU); c.fill(); font(c, 600, 17 * ctrlScale(), F_HUD); label(c, String(left), x, y + 6 * ctrlScale(), '#ffffff', { align: 'center', stroke: 3 }); return; }
+  if (b.slot === 'ult' && sp && ready && ultBlocked()) { c.fillStyle = 'rgba(0,0,0,0.55)'; c.beginPath(); c.arc(x, y, r - 4, 0, TAU); c.fill(); font(c, 600, 13 * ctrlScale(), F_HUD); label(c, 'WAIT', x, y + 2, '#ffd860', { align: 'center', stroke: 3 }); font(c, 500, 10 * ctrlScale(), F_HUD); label(c, Math.ceil(G.ultLock) + ' S', x, y + 13 * ctrlScale(), '#cbbd9f', { align: 'center', stroke: 3 }); return; }
   else if (b.id === 'dash') { font(c, 900, 18 * ctrlScale(), F_DISP); label(c, '»', x, y + 6 * ctrlScale(), ready ? '#fff4e0' : 'rgba(255,244,224,0.45)', { align: 'center' }); }
   else { const words = sp.name.split(' '), lines = words.length > 2 ? [words.slice(0, -1).join(' '), words[words.length - 1]] : words, fs0 = (b.slot === 'ult' ? 13 : 11) * ctrlScale(); let fs = fs0; font(c, 600, fs, F_HUD); const mw = Math.max(...lines.map(l => c.measureText(l).width)); if (mw > r * 1.72) { fs = fs0 * r * 1.72 / mw; font(c, 600, fs, F_HUD); } const y0 = y - (lines.length - 1) * fs * 0.45 + fs * 0.35; lines.forEach((l, k) => label(c, l, x, y0 + k * fs * 0.9, ready ? '#fff4e0' : 'rgba(255,244,224,0.4)', { align: 'center', stroke: 3 })); }
   if (!ready && b.slot !== 'ult') { c.fillStyle = 'rgba(0,0,0,0.55)'; c.beginPath(); c.moveTo(x, y); c.arc(x, y, r - 2, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(cdLeft / cdMax, 0, 1)); c.closePath(); c.fill(); font(c, 600, 17 * ctrlScale(), F_HUD); label(c, cdLeft.toFixed(cdLeft < 1 ? 1 : 0), x, y + 6 * ctrlScale(), '#ffffff', { align: 'center', stroke: 3 }); }
@@ -265,7 +266,7 @@ function drawControls(c) {
   CTRL.buttons = []; const h = G.me; if (!h || !G.slots) return;
   const W = VIEW.w, H = VIEW.h, S = VIEW.safe, sc = ctrlScale(), R = W - Math.max(14, S.r + 10), B = H - Math.max(12, S.b + 8), L = Math.max(14, S.l + 10);
   const ux = R - 38 * sc, uy = B - 38 * sc, rad = 96 * sc, list = [];
-  list.push({ id: 'ult', slot: 'ult', x: ux, y: uy, r: 30 * sc, sp: slotSpell(h, 'ult'), key: 'R', press: () => INPUT.castQ.push('ult') });
+  list.push({ id: 'ult', slot: 'ult', x: ux, y: uy, r: 30 * sc, sp: slotSpell(h, 'ult'), key: 'R', press: () => { if (G.me && G.me.ult >= 100 && ultBlocked()) { (CTRL.fx.ult = CTRL.fx.ult || {}).shake = 0.3; netSay('WAIT · ' + (G.ultBy ? G.ultBy + '’S' : 'ANOTHER') + ' ULTIMATE IS STILL GOING', 2); } else INPUT.castQ.push('ult'); } });
   [180, 225, 270].forEach((a, i) => { const t = a * Math.PI / 180; list.push({ id: i, slot: i, x: ux + Math.cos(t) * rad, y: uy + Math.sin(t) * rad, r: 25 * sc, sp: slotSpell(h, i), key: String(i + 1), press: () => INPUT.castQ.push(i) }); });
   list.push({ id: 'dash', slot: 'dash', x: ux - rad - 62 * sc, y: uy + 6 * sc, r: 24 * sc, sp: { name: 'DASH', tier: 0 }, key: 'SPACE', press: () => { if (G.me && G.me.dashN === 0) dashFail(G.me); else INPUT.dashQ = true; } });
   for (const b of list) drawSkillBtn(c, b, h); CTRL.buttons = list; // always pressable, whatever MOVEMENT and SPELLS are set to

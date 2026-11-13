@@ -2,7 +2,7 @@
 const G = {
   mode: 'boot', floor: 1, run: 0, kills: 0, best: 1, units: [], heroes: [], mons: [], proj: [], sched: [], pending: 0, phase: 'fight', phaseT: 0,
   lvl: 1, xp: 0, bestLvl: 1, castLock: 0, majorLock: 0, focus: null, bq: [], spawnQ: [], inten: 0, champ: null, gapT: 0, waveSize: 0, packT: 0, wave: 0, waves: 3, waveT: 0, trauma: 0, quakeT: 0, quakeP: 0, hitstop: 0, ts: 1, slowT: 0, flashA: 0, flashC: 'white', ambDark: 0, ambFlash: 0,
-  storm: null, eq: null, ultCd: 3, combo: 0, comboT: 0, burst: 0, burstT: 0, banner: null, card: null, fade: 1, time: 0, boss: null,
+  storm: null, eq: null, ultCd: 3, ultLock: 0, ultBy: '', combo: 0, comboT: 0, burst: 0, burstT: 0, banner: null, card: null, fade: 1, time: 0, boss: null,
   monHp: 1, monDmg: 1, heroDmgTaken: 1.5, me: null, sb0: null, draftKey: null, moveMode: 0, spellMode: 0,
   // older code and tests speak of one 'auto' level: 0 manual, 1 auto spells, 2 autopilot with auto spells
   get autoMode() { return this.moveMode === 2 ? 2 : this.spellMode ? 1 : 0; }, set autoMode(v) { this.moveMode = v === 2 ? 2 : 0; this.spellMode = v >= 1 ? 1 : 0; },
@@ -88,8 +88,8 @@ function spawnBoss() {
     textBanner(def.name, def.sub, def.col || 'red');
   });
 }
-function canUlt(h) { return h.ult >= 100 && G.ultCd <= 0 && !G.storm && !G.eq && (G.mons.length >= 7 || (G.boss && alive(G.boss)) || (G.champ && alive(G.champ) && G.mons.length >= 3)); }
-function useUlt(h, fn) { h.ult = 0; G.ultCd = 4.2; fn(h); }
+function canUlt(h) { return h.ult >= 100 && !ultBlocked() && (G.mons.length >= 7 || (G.boss && alive(G.boss)) || (G.champ && alive(G.champ) && G.mons.length >= 3)); }
+function useUlt(h, fn) { const sp = SPELLBOOK[h.key].find(s => s.name === HERO_PROG[h.key].ult); if (sp) startUlt(h, sp); fn(h); }
 function kite(h, foes, dt, pref) {
   const n = nearest(h, foes); if (!n) return; const d = dist(h.x, h.y, n.x, n.y); let tx, ty;
   if (d < pref * 0.65) { const a = angTo(n.x, n.y, h.x, h.y); tx = h.x + Math.cos(a) * 50; ty = h.y + Math.sin(a) * 40; }

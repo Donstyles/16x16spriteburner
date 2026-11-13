@@ -20,7 +20,7 @@ function update(dt) {
   removeIf(G.units, u => u.dead && u.team === 'mon');
   updateProj(dt); updateHazards(dt); localFx(() => updateEmitters(dt)); updateStorm(dt); updateQuake(dt); updateFx(dt); updateDirector(dt);
   G.castLock -= dt; G.majorLock -= dt;
-  G.ultCd -= dt; if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
+  if (G.ultLock > 0) G.ultLock -= dt; if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
   if (G.burstT > 0) { G.burstT -= dt; if (G.burstT <= 0) { const n = G.burst; G.burst = 0; const t = n >= 30 ? 'GODLIKE' : n >= 20 ? 'MONSTER KILL' : n >= 14 ? 'ULTRA KILL' : n >= 9 ? 'MEGA KILL' : n >= 6 ? 'MULTI KILL' : null; if (t) G.callout = { txt: t + ' ×' + n, t: 0 }; } }
   G.ambDark = damp(G.ambDark, 0, 1.4, dt); G.ambFlash = damp(G.ambFlash, 0, 10, dt);
   if (ARENA) for (const r of ARENA.runes) if (r.glow > 0) r.glow = Math.max(0, r.glow - dt * 0.7);
