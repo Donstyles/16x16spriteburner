@@ -100,14 +100,16 @@ function netWrap() {
 function defIdOf(d) { let id = NET.defIds.get(d); if (id === undefined) { id = NET.defs.length; NET.defIds.set(d, id); const o = {}; for (const k in d) { const v = d[k]; if (v === null || (typeof v !== 'object' && typeof v !== 'function')) o[k] = v; } NET.defs.push(o); NET.newDefs.push([id, o]); } return id; }
 const statOf = u => [u.id, defIdOf(u.def), u.spr, u.team, u.key || 0, u.rank || 0, u.title || 0, u.pid === undefined ? -1 : u.pid, u.pname || 0, r1(u.r), u.boss ? 1 : 0];
 const dynOf = u => [u.id, r1(u.x), r1(u.y), r1(u.z), r1(u.vx), r1(u.vy), r2(u.anim), u.face, Math.round(u.hp), Math.round(u.maxHp), r2(u.flash), r2(u.lunge), r2(u.la), r2(u.squash), r2(u.stun), r2(u.spawnT), r2(u.scale), Math.round(u.ult || 0),
-  (u.dead ? 1 : 0) | (u.moving ? 2 : 0) | (u.iframe > 0 ? 4 : 0) | (u.inp && u.inp.auto >= 2 ? 8 : 0) | (u.away ? 16 : 0) | (u.regen ? 32 : 0), u.state && u.state.k === 'cast' && u.state.sp ? u.state.sp.tier + 1 : 0, u.state && u.state.k === 'cast' ? r2(u.state.t / u.state.dur) : 0];
+  (u.dead ? 1 : 0) | (u.moving ? 2 : 0) | (u.iframe > 0 ? 4 : 0) | (u.inp && u.inp.mv >= 2 ? 8 : 0) | (u.away ? 16 : 0) | (u.regen ? 32 : 0) | (u.carried === 2 ? 64 : 0), u.state && u.state.k === 'cast' && u.state.sp ? u.state.sp.tier + 1 : 0, u.state && u.state.k === 'cast' ? r2(u.state.t / u.state.dur) : 0];
 const PK = ['k', 'x', 'y', 'z', 'vx', 'vy', 'vz', 't', 'big', 'sz', 'rk', 'mud', 'shot', 'tint', 'col', 'life'];
 function pickO(o, keys) { const r = {}; for (const k of keys) { const v = o[k]; if (v !== undefined && v !== null && typeof v !== 'object' && typeof v !== 'function') r[k] = typeof v === 'number' ? r2(v) : v; } return r; }
-function plain(o) { const r = {}; for (const k in o) { if (k === 'hit') continue; const v = o[k], t = typeof v; if (t === 'number') r[k] = r2(v); else if (t === 'string' || t === 'boolean') r[k] = v; else if (Array.isArray(v) && v.length <= 64 && (typeof v[0] === 'number' || Array.isArray(v[0]))) r[k] = v.map(x => Array.isArray(x) ? x.map(y => typeof y === 'number' ? r2(y) : y) : typeof x === 'number' ? r2(x) : x); } return r; }
+// a zone's own drawing state (smoothed flight and the like, keys starting with _) survives each new snapshot
+function keepLocal(old, nw) { const o = new Map(); for (const z of old) if (z.id) o.set(z.id, z); for (const z of nw) { const p = o.get(z.id); if (p) for (const k in p) if (k[0] === '_') z[k] = p[k]; } return nw; }
+function plain(o) { const r = {}; for (const k in o) { if (k === 'hit' || k[0] === '_') continue; const v = o[k], t = typeof v; if (t === 'number') r[k] = r2(v); else if (t === 'string' || t === 'boolean') r[k] = v; else if (Array.isArray(v) && v.length <= 64 && (typeof v[0] === 'number' || Array.isArray(v[0]))) r[k] = v.map(x => Array.isArray(x) ? x.map(y => typeof y === 'number' ? r2(y) : y) : typeof x === 'number' ? r2(x) : x); } return r; }
 const GK = ['time', 'phase', 'phaseT', 'wave', 'waves', 'waveT', 'floor', 'lvl', 'xp', 'kills', 'combo', 'comboT', 'ambDark', 'ambFlash', 'inten', 'cdn', 'fightT', 'best', 'falls', 'bossFloor', 'burst'];
 function privOf(h) {
   if (!h || !h.sb) return null; const cd = {}; for (const k in h.cd) if (h.cd[k] > 0) cd[k] = r2(h.cd[k]);
-  return { known: [...h.sb.known], slots: h.sb.slots, basic: h.sb.basic[h.key], mods: h.sb.mods, cd, cdMax: h.cdMax || {}, dashCd: r2(h.dashCd || 0) };
+  return { known: [...h.sb.known], slots: h.sb.slots, basic: h.sb.basic[h.key], mods: h.sb.mods, cd, cdMax: h.cdMax || {}, dN: h.dashN === undefined ? DASH_N : h.dashN, dT: r2(h.dashT || 0) };
 }
 // 'tick': what changed since the last update · 'key': everything, for everyone, once a second (a phone that missed
 // anything is healed within a second) · 'welcome': everything, for one arriving phone, without touching the others' baseline
@@ -185,14 +187,14 @@ function hostConn(conn) {
     c.pid = pid; c.ok = true; NET.conns.set(pid, c); c.fast = openFast(conn, null, who);
     const lob = !NET.lobby.started, s = snapshot('welcome'); s.t = 'w'; s.ver = BUILD; s.pid = pid; s.code = NET.code; s.lobby = lob; s.draft = !h && !lob; netSend(conn, s);
     if (lob) { MENU.flash[pid] = 1; if (SFX.ctx) SFX.summon(); lobbySync(); } else if (!h) netSay('P' + (pid + 1) + ' IS JOINING…', 3);
-    if (h) { c.h = h; h.away = false; h.awayT = 0; h.inp.auto = 0; if (wasAway) pushBanner({ a: h.pname + ' IS BACK', b: h.def.name + ' RETURNS TO THEIR CONTROL', col: h.def.col, keep: true, life: 1.8 }); }
+    if (h) { c.h = h; h.away = false; h.awayT = 0; h.inp.mv = 0; h.inp.sp = 0; if (wasAway) pushBanner({ a: h.pname + ' IS BACK', b: h.def.name + ' RETURNS TO THEIR CONTROL', col: h.def.col, keep: true, life: 1.8 }); }
   });
   conn.on('data', d => { try { netRecv(conn, d, m => hostMsg(c, m)); } catch (e) { console.error(e); } });
   conn.on('close', () => { nlog(who + ': link closed'); hostDrop(c); }); conn.on('error', e => { nlog(who + ': link error ' + (e && (e.type || e.message) || e)); hostDrop(c); });
 }
 function hostMsg(c, m) {
   if (!m || !c.ok) return;
-  if (m.t === 'in') { const h = c.h; if (!h || !h.inp) return; const I = h.inp; I.mx = clamp(+m.mx || 0, -1, 1); I.my = clamp(+m.my || 0, -1, 1); I.auto = clamp(m.auto | 0, 0, 2); if (m.d) I.dashQ = true; if (Array.isArray(m.c)) for (const s of m.c.slice(0, 6)) if (s === 'ult' || (s >= 0 && s < 4)) I.castQ.push(s); }
+  if (m.t === 'in') { const h = c.h; if (!h || !h.inp) return; const I = h.inp; I.mx = clamp(+m.mx || 0, -1, 1); I.my = clamp(+m.my || 0, -1, 1); I.mv = clamp(m.mv | 0, 0, 2); I.sp = m.sp ? 1 : 0; if (m.d) I.dashQ = true; if (Array.isArray(m.c)) for (const s of m.c.slice(0, 6)) if (s === 'ult' || (s >= 0 && s < 4)) I.castQ.push(s); }
   else if (m.t === 'join') hostJoin(c, m);
   else if (m.t === 'ping') netSend(c.conn, { t: 'pong', ts: m.ts });
   else if (m.t === 'net') c.nm = { rtt: +m.rtt || 0, loss: +m.loss || 0, ups: +m.ups || 0, sync: String(m.sync || ''), route: String(m.route || ''), fast: !!m.fast, at: performance.now() };
@@ -201,7 +203,7 @@ function hostMsg(c, m) {
 }
 function hostJoin(c, m) {
   if (c.h || !HERO_DEFS[m.hero]) return; const k = m.hero, h = mkUnit('hero', HERO_DEFS[k], 0, 0);
-  Object.assign(h, { key: k, ult: 0, strafe: chance(0.5) ? 1 : -1, pid: c.pid, pname: 'P' + (c.pid + 1), ctrl: 'player', inp: newInp(), sb: newSB(k), dashCd: 0, token: c.token || 0 });
+  Object.assign(h, { key: k, ult: 0, strafe: chance(0.5) ? 1 : -1, pid: c.pid, pname: 'P' + (c.pid + 1), ctrl: 'player', inp: newInp(), sb: newSB(k), dashN: DASH_N, dashT: 0, token: c.token || 0 });
   const b = SPELLBOOK[k].find(s => s.basic && s.name === m.basic); if (b) { h.sb.known.delete(h.sb.basic[k]); h.sb.basic[k] = b.name; h.sb.known.add(b.name); }
   const sk = SPELLBOOK[k].find(s => s.name === m.skill && s.tier === 1 && !s.free); if (sk) asHero(h, () => learnSpell({ sp: sk }));
   const a = (G.me && !G.me.dead && G.me) || G.heroes.find(x => !x.dead);
@@ -213,7 +215,7 @@ function dropHero(h) { removeIf(G.heroes, x => x === h); removeIf(G.units, x => 
 function hostDrop(c) {
   if (!c.ok) return; c.ok = false; NET.conns.delete(c.pid); const h = c.h;
   if (NET.lobby && !NET.lobby.started) { delete NET.lobby.picks[c.pid]; lobbySync(); }
-  if (h) { h.away = true; h.inp.auto = 2; h.inp.castQ.length = 0; h.inp.mx = h.inp.my = 0; pushBanner({ a: h.pname + ' LOST CONNECTION', b: h.def.name + ' FIGHTS ON BY ITSELF', col: h.def.col, keep: true, life: 2 }); }
+  if (h) { h.away = true; h.inp.mv = 2; h.inp.sp = 1; h.inp.castQ.length = 0; h.inp.mx = h.inp.my = 0; pushBanner({ a: h.pname + ' LOST CONNECTION', b: h.def.name + ' FIGHTS ON BY ITSELF', col: h.def.col, keep: true, life: 2 }); }
 }
 // per-player cards: the host deals each guest their own three cards; they never pause the fight
 function netQueueChoice(kind, title) {
@@ -400,7 +402,7 @@ function applySnap(m) {
       if (!u) { const st = NET.stat.get(id); if (!st) { if (!NET.skip.has(id)) NET.skip.set(id, now); continue; } NET.skip.delete(id); u = { id, x: a[1], y: a[2], z: a[3], kx: 0, ky: 0, vz: 0, cd: {}, state: null, mul: 1, anim: a[6] }; setStat(u, st); NET.mir.set(id, u); }
       u.sx = a[1]; u.sy = a[2]; u.sz = a[3]; u.vx = a[4]; u.vy = a[5]; if (!(Math.abs(u.anim - a[6]) < 0.4)) u.anim = a[6];
       u.face = a[7]; u.hp = a[8]; u.maxHp = a[9]; u.flash = a[10]; u.lunge = a[11]; u.la = a[12]; u.squash = a[13]; u.stun = a[14]; u.spawnT = a[15]; u.scale = a[16]; u.ult = a[17];
-      const f = a[18]; u.dead = !!(f & 1); u.moving = !!(f & 2); u.iframe = f & 4 ? 1 : 0; u.autoNet = !!(f & 8); u.away = !!(f & 16); u.regenOn = !!(f & 32); u.castT = a[19] || 0; u.castU = a[20] || 0; seen.add(id);
+      const f = a[18]; u.dead = !!(f & 1); u.moving = !!(f & 2); u.iframe = f & 4 ? 1 : 0; u.autoNet = !!(f & 8); u.away = !!(f & 16); u.regenOn = !!(f & 32); u.carried = f & 64 ? 2 : 0; u.castT = a[19] || 0; u.castU = a[20] || 0; seen.add(id);
     }
     // a unit that just left (died) stays findable for 2 s, so its death shatter still plays when that event arrives a moment later
     for (const [id, u] of [...NET.mir]) if (!seen.has(id)) { NET.mir.delete(id); NET.grave.set(id, { u, t: now }); }
@@ -416,10 +418,10 @@ function applySnap(m) {
     G.focus = g.fo ? { x: g.fo[0], y: g.fo[1], w: g.fo[2], t: g.fo[3] } : null;
     if ('card' in g) G.card = g.card; if ('callout' in g) G.callout = g.callout;
   }
-  if (m.p) G.proj = m.p; if (m.hz) FX.hz = m.hz; if (m.bm) FX.beams = m.bm; if (m.li) NET.lights = m.li;
+  if (m.p) G.proj = m.p; if (m.hz) FX.hz = keepLocal(FX.hz, m.hz); if (m.bm) FX.beams = m.bm; if (m.li) NET.lights = m.li;
   if (ARENA) { (m.rn || []).forEach((v, i) => { if (ARENA.runes[i]) ARENA.runes[i].glow = v; }); for (const i of m.pd || []) { const p = ARENA.props[i]; if (p) { p.dead = true; p.solid = false; } } }
   const me = G.me, p = m.me;
-  if (me && p) { me.sb = { known: new Set(p.known), slots: p.slots, basic: { [me.key]: p.basic }, mods: p.mods || {}, modv: {} }; me.cd = p.cd || {}; me.cdMax = p.cdMax || {}; me.dashCd = p.dashCd; me.dashMax = 2.2; }
+  if (me && p) { me.sb = { known: new Set(p.known), slots: p.slots, basic: { [me.key]: p.basic }, mods: p.mods || {}, modv: {} }; me.cd = p.cd || {}; me.cdMax = p.cdMax || {}; me.dashN = p.dN; me.dashT = p.dT; }
 }
 function guestArena(floor, seed) {
   NET.arena = { floor, seed }; withSeed(seed, () => _buildArena(floor));
@@ -431,7 +433,7 @@ function guestFrame(rdt) {
   if (NET.on && NET.host && (NET.pingT = (NET.pingT || 0) + rdt) > 2) { NET.pingT = 0; netSend(NET.host, { t: 'ping', ts: performance.now() }); }
   // your own hero is drawn ahead of the host's last word by your input times the round trip, so it answers your thumb at once
   const me = G.me; let lx = 0, ly = 0;
-  if (me && !me.dead && !me.castT && autoLevel() < 2) { const [ix, iy] = inputVec(), lead = clamp((NET.rtt || 0.12) / 2 + 0.06, 0.05, 0.3), sp = me.def.spd * 1.3; lx = ix * sp * lead; ly = iy * sp * lead; }
+  if (me && !me.dead && !me.castT && moveLevel() < 2) { const [ix, iy] = inputVec(), lead = clamp((NET.rtt || 0.12) / 2 + 0.06, 0.05, 0.3), sp = me.def.spd * 1.3; lx = ix * sp * lead; ly = iy * sp * lead; }
   // the host's clock: frozen during a hit-stop, slowed during slow motion — particles and motion keep in step with it
   let dt = rdt; if (G.hitstop > 0) { G.hitstop -= rdt; dt = 0; } else { if (G.slowT > 0) G.slowT -= rdt; else G.ts = damp(G.ts, 1, 3, rdt); dt = rdt * G.ts; }
   for (const u of G.units) {
@@ -453,7 +455,7 @@ function guestFrame(rdt) {
   NET.inT += rdt;
   if (NET.on && NET.host && G.me && (NET.inT >= (NET.slow ? 0.066 : 0.033) || INPUT.castQ.length || INPUT.dashQ)) {
     NET.inT = 0; const [x, y] = inputVec();
-    try { netSend(NET.host, { t: 'in', mx: r2(x), my: r2(y), auto: autoLevel(), d: INPUT.dashQ ? 1 : 0, c: INPUT.castQ.splice(0) }); } catch (e) { }
+    try { netSend(NET.host, { t: 'in', mx: r2(x), my: r2(y), mv: moveLevel(), sp: spellAuto(), d: INPUT.dashQ ? 1 : 0, c: INPUT.castQ.splice(0) }); } catch (e) { }
     INPUT.dashQ = false;
   } else if (!G.me) { INPUT.castQ.length = 0; INPUT.dashQ = false; }
 }

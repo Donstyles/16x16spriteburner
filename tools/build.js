@@ -10,7 +10,7 @@ const ver = require('crypto').createHash('sha1').update(js).digest('hex').slice(
 const assets = `window.__BUILD='${ver}';` + 'window.__ASSETS=' + JSON.stringify({ cellar: b64('cellar.png'), mobs: b64('mobs.png'), mobsJson: JSON.parse(rd('assets', 'mobs.json')) }) + ';';
 const fonts = '<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@700;900&family=Teko:wght@500;600&display=swap">';
 const head = `<title>Cellar of Ruin</title>\n<meta name="claude:viewport-fit-sides" content="cover">\n${fonts}\n<style>\n${rd('src', 'style.css')}</style>`;
-const body = '<canvas id="c" aria-label="Cellar of Ruin, a dungeon battle that plays itself"></canvas>\n<div id="safe"></div>\n<div id="loading">Cellar of Ruin</div>';
+const body = '<canvas id="c" aria-label="Cellar of Ruin, a dungeon battle for one to four heroes"></canvas>\n<div id="safe"></div>\n<div id="loading">Cellar of Ruin</div>';
 fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
 fs.writeFileSync(path.join(root, 'dist', 'artifact.html'), `${head}\n${body}\n<script>\n${peerjs}\n</script>\n<script>\n${assets}\n${js}\n</script>\n`);
 const pwa = '<meta name="apple-mobile-web-app-capable" content="yes">\n<meta name="mobile-web-app-capable" content="yes">\n<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">\n<meta name="apple-mobile-web-app-title" content="Cellar of Ruin">\n<meta name="theme-color" content="#0b0c0f">\n<link rel="manifest" href="manifest.webmanifest">\n<link rel="apple-touch-icon" href="icons/icon-180.png">\n<link rel="icon" href="icons/icon-96.png">';

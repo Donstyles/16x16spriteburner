@@ -13,8 +13,12 @@ function stickMove(s, px, py) {
   if (!s.fixed && d > R * 1.5) { s.ox += dx / d * (d - R * 1.5); s.oy += dy / d * (d - R * 1.5); dx = px - s.ox; dy = py - s.oy; d = Math.hypot(dx, dy); }
   const k = Math.min(d, R) / R; s.vx = d > 5 ? dx / d * k : 0; s.vy = d > 5 ? dy / d * k : 0; s.x = px; s.y = py; if (k > 0.4) INPUT.moved = true;
 }
-const CTRL = { buttons: [], top: [], fx: {} };
-const AUTO_LABEL = ['MANUAL', 'AUTO-CAST', 'AUTOPILOT'];
+const CTRL = { buttons: [], top: [], fx: {}, topLeft: 1e9 };
+// three separate switches: who moves the hero, who casts the spells, and how a touch steers
+const MOVE_LABEL = ['MANUAL', 'AUTO MOVE', 'AUTOPILOT'], MOVE_SUB = ['YOU STEER AND DODGE', 'YOUR HERO WALKS BY ITSELF · YOU DODGE · DRAG TO TAKE OVER', 'YOUR HERO WALKS AND DODGES ON ITS OWN'];
+const SPELL_LABEL = ['MANUAL', 'AUTO'], SPELL_SUB = ['TAP A SKILL TO CAST IT', 'SKILLS CAST THEMSELVES · TAP ONE TO CAST IT NOW'];
+const SCHEME_SHORT = { drag: 'DRAG', tap: 'TAP TO MOVE', stick: 'STICK' };
+const DASH_N = 3, DASH_T = 1.6; // dodge charges, and the seconds each one takes to come back
 const HEALS = new Set(['MEND', 'REJUVENATE', 'MASS HEAL']);
 const HERO_BLURB = {
   warrior: ['STEEL · MELEE', 'Wades into the horde with cleaves, dashes, flurries and floor-splitting slams.', ['WHIRLWIND', 'THOUSAND CUTS', 'CATACLYSM']],
@@ -26,8 +30,14 @@ const HERO_BLURB = {
 const ptr = e => VIEW.rot ? [e.clientY, VIEW.iw - e.clientX] : [e.clientX, e.clientY];
 function touched() { INPUT.lastT = performance.now(); }
 const idle = () => !INPUT.dest && performance.now() - INPUT.lastT > (INPUT.scheme === 'tap' ? 30000 : 10000); // tap players touch the screen less often
-function autoLevel() { return G.autoMode === 2 || (idle() && G.phase === 'fight' && G.wave >= 1 && !G.choice) ? 2 : G.autoMode; }
-function cycleAuto() { G.autoMode = (G.autoMode + 1) % 3; touched(); textBanner(AUTO_LABEL[G.autoMode], ['YOU MOVE AND CAST', 'YOU MOVE, SKILLS CAST THEMSELVES', 'THE HERO FIGHTS ON THEIR OWN'][G.autoMode], 'gold', true); }
+const idleNow = () => idle() && G.phase === 'fight' && G.wave >= 1 && !G.choice; // nobody touching: the hero fights on alone
+function moveLevel() { return idleNow() ? 2 : G.moveMode; }
+function spellAuto() { return idleNow() ? 1 : G.spellMode; }
+function autoLevel() { return moveLevel() === 2 ? 2 : spellAuto() ? 1 : 0; }
+function loadModes() { try { const v = (localStorage.getItem('cor-modes') || '').split(','); G.moveMode = clamp(+v[0] || 0, 0, 2); G.spellMode = v[1] === '1' ? 1 : 0; } catch (e) { } }
+function saveModes() { try { localStorage.setItem('cor-modes', G.moveMode + ',' + G.spellMode); } catch (e) { } }
+function cycleMove() { G.moveMode = (G.moveMode + 1) % 3; touched(); saveModes(); INPUT.dest = null; textBanner(G.moveMode ? MOVE_LABEL[G.moveMode] : 'MANUAL MOVEMENT', MOVE_SUB[G.moveMode], 'gold', true); }
+function cycleSpells() { G.spellMode = G.spellMode ? 0 : 1; touched(); saveModes(); textBanner(G.spellMode ? 'AUTO SPELLS' : 'MANUAL SPELLS', SPELL_SUB[G.spellMode], 'gold', true); }
 function inputVec() {
   let x = 0, y = 0;
   if (INPUT.stick) { x = INPUT.stick.vx; y = INPUT.stick.vy; INPUT.dest = null; }
@@ -44,6 +54,7 @@ function setupControls() {
     const [x, y] = ptr(e); touched(); first();
     if (G.mode !== 'play') { menuTap(x, y); return; }
     if (NET.panel) { netPanelTap(x, y); return; }
+    if (UI.menuOpen) { pauseTap(x, y); return; }
     if (TUT.skipRect && inRect(TUT.skipRect, x, y)) { tutEnd(); return; }
     if (UI.bookOpen) { UI.bookOpen = false; return; }
     if (NET.indRect && inRect(NET.indRect, x, y)) { NET.detail = !NET.detail; return; }
@@ -66,12 +77,12 @@ function setupControls() {
     const c = e.code; touched(); first();
     if (G.mode === 'join') { if (/^Key[A-Z]$/.test(c)) codeKey(c.slice(3)); else if (c === 'Backspace') codeKey('DEL'); else if (c === 'Enter' && MENU.code.length === 4) netJoin(MENU.code); else if (c === 'Escape') G.mode = MENU.back; return; }
     if (G.mode === 'menu') { if (c === 'Enter') startSolo(); return; } if (G.mode !== 'play') return;
-    if (c === 'KeyB') { UI.bookOpen = !UI.bookOpen; return; } if (c === 'Escape' && TUT.on && !UI.bookOpen) { tutEnd(); return; } if (c === 'Escape') { UI.bookOpen = false; return; } if (UI.bookOpen) return;
+    if (c === 'KeyB') { UI.bookOpen = !UI.bookOpen; return; } if (c === 'Escape' && TUT.on && !UI.bookOpen) { tutEnd(); return; } if (c === 'Escape') { if (UI.bookOpen) UI.bookOpen = false; else if (NET.panel) NET.panel = false; else UI.menuOpen = !UI.menuOpen; return; } if (UI.bookOpen || UI.menuOpen) return;
     if (G.choice) { if (G.choice.picked < 0 && /^Digit[1-3]$/.test(c)) pickChoice(+c.slice(5) - 1, true); return; }
     if (c === 'Space' || c === 'ShiftLeft' || c === 'ShiftRight') { INPUT.dashQ = true; e.preventDefault(); }
     if (/^Digit[1-4]$/.test(c)) INPUT.castQ.push(+c.slice(5) - 1);
     if (c === 'KeyR' || c === 'KeyQ') INPUT.castQ.push('ult');
-    if (c === 'KeyT') cycleAuto(); if (c === 'KeyM') SFX.toggle();
+    if (c === 'KeyT') cycleMove(); if (c === 'KeyG') cycleSpells(); if (c === 'KeyC') cycleScheme(); if (c === 'KeyM') SFX.toggle();
     if (/^(Key[WASD]|Arrow)/.test(c)) { INPUT.keys.add(c); INPUT.dest = null; e.preventDefault(); }
   });
   addEventListener('keyup', e => INPUT.keys.delete(e.code));
@@ -84,7 +95,7 @@ function pollPad() {
   const ax = Math.abs(gp.axes[0]) > 0.2 ? gp.axes[0] : 0, ay = Math.abs(gp.axes[1]) > 0.2 ? gp.axes[1] : 0; INPUT.pad = { x: ax, y: ay };
   const btn = i => gp.buttons[i] && gp.buttons[i].pressed, edge = i => btn(i) && !INPUT.padPrev[i];
   if (ax || ay || gp.buttons.some(b => b.pressed)) touched();
-  if (edge(9)) UI.bookOpen = !UI.bookOpen; if (edge(8)) cycleAuto();
+  if (edge(9)) UI.bookOpen = !UI.bookOpen; if (edge(8)) cycleMove(); if (edge(10)) cycleSpells();
   if (G.choice) { if (G.choice.picked < 0) [2, 3, 1].forEach((b, i) => { if (edge(b)) pickChoice(i, true); }); }
   else if (!UI.bookOpen) { if (edge(0)) INPUT.dashQ = true; [2, 3, 1, 5].forEach((b, i) => { if (edge(b)) INPUT.castQ.push(i); }); if (edge(7) || edge(4)) INPUT.castQ.push('ult'); }
   INPUT.padPrev = gp.buttons.map(b => b.pressed);
@@ -100,11 +111,39 @@ function tryCast(h, slot, foes) {
   if (sp.tier === 4) { h.ult = 0; G.ultCd = 4; } else setCd(h, sp.name, sp.cd * md(sp.name).cd);
   beginCast(h, { ...sp, wind: (sp.wind || 0) * 0.6, free: true }, t === true ? null : t); if (h === G.me) TUT.cast = true;
 }
-function doDash(h, ix, iy) {
+// dodging: three charges that come back one at a time
+function canDash(h) { const st = h.state; return (h.dashN === undefined ? DASH_N : h.dashN) > 0 && !(h.stun > 0) && !(st && (st.k === 'cuts' || st.k === 'leap' || st.k === 'dash' || (st.k === 'cast' && st.sp && st.sp.tier >= 4))); }
+function dashTick(h, dt) { if (h.dashN === undefined) { h.dashN = DASH_N; h.dashT = 0; } if (h.dashN < DASH_N && (h.dashT -= dt) <= 0) { h.dashN++; h.dashT = h.dashN < DASH_N ? DASH_T : 0; } }
+function dashFail(h) { if (h === G.me) (CTRL.fx.dash = CTRL.fx.dash || {}).shake = 0.3; }
+function doDash(h, ix, iy, ai) {
   let dx = ix, dy = iy; if (!dx && !dy) { dx = h.face; dy = 0; } const l = Math.hypot(dx, dy); dx /= l; dy /= l;
-  h.iframe = 0.35; h.dashCd = 2.2; h.dashMax = 2.2; h.face = dx < 0 ? -1 : 1;
+  h.iframe = 0.35; h.dashN = (h.dashN === undefined ? DASH_N : h.dashN) - 1; if (!(h.dashT > 0)) h.dashT = DASH_T; h.face = dx < 0 ? -1 : 1;
   smoke(h.x, h.y, 4, 'dust', 8, 30, 0.7); ring(h.x, h.y, 16, h.def.col, 0.25, 2); SFX.whoosh(panOf(h.x));
-  dash(h, h.x + dx * 62, h.y + dy * 50, 0.17, { r: 0, col: h.def.col }); if (h === G.me) TUT.dash = true;
+  dash(h, h.x + dx * 62, h.y + dy * 50, 0.17, { r: 0, col: h.def.col }); if (h === G.me && !ai) TUT.dash = true;
+}
+// what is about to hurt this hero: telegraphed slams, shots about to land, a crowd closing in while badly hurt
+function threatDir(h, foes) {
+  let ax = 0, ay = 0, why = 0; const R = h.r + 3;
+  for (const t of FX.tele) { if (t.col !== 'red' || t.life - t.t > 0.4) continue; const dx = h.x - t.x, dy = (h.y - t.y) / 0.72, d = Math.hypot(dx, dy); if (d < t.r + R) { const w = 1 / Math.max(4, d); ax += (d > 0.5 ? dx : rand(-1, 1)) * w; ay += (d > 0.5 ? dy * 0.72 : rand(-1, 1)) * w; why = 2; } }
+  if ((h.dashN || 0) >= 2 || h.hp < h.maxHp * 0.5) for (const p of G.proj) {
+    if (p.team !== 'mon' || p.dead) continue; const v2 = p.vx * p.vx + p.vy * p.vy; if (v2 < 100) continue;
+    const tc = ((h.x - p.x) * p.vx + (h.y - p.y) * p.vy) / v2; if (tc < 0 || tc > 0.22) continue;
+    const cx = h.x - p.x - p.vx * tc, cy = h.y - p.y - p.vy * tc; if (Math.hypot(cx, cy) > R + (p.r || 3)) continue;
+    const l = Math.sqrt(v2), s = cx * -p.vy + cy * p.vx >= 0 ? 1 : -1; ax += -p.vy / l * s; ay += p.vx / l * s; if (!why) why = 1;
+  }
+  if (h.hp < h.maxHp * 0.35) { const near = within(h.x, h.y, 30, foes); if (near.length >= 4) { let cx = 0, cy = 0; for (const u of near) { cx += u.x; cy += u.y; } ax += (h.x - cx / near.length) * 0.2; ay += (h.y - cy / near.length) * 0.2; why = 3; } }
+  return [ax, ay, why];
+}
+// a dodge direction that stays inside the walls
+function fitDash(h, ax, ay) { const l = Math.hypot(ax, ay); if (l < 1e-6) return [0, 0]; ax /= l; ay /= l; const A = ARENA; if (h.x + ax * 62 < A.x0 + 8 || h.x + ax * 62 > A.x1 - 8) ax = -ax * 0.5; if (h.y + ay * 50 < A.y0 + 4 || h.y + ay * 50 > A.y1 - 4) ay = -ay * 0.5; return [ax, ay]; }
+// a dodge pressed while the hero walks itself: away from the danger, or away from whoever is closest
+function escapeDir(h, foes) { let [ax, ay] = threatDir(h, foes); if (!ax && !ay) for (const u of within(h.x, h.y, 70, foes)) { const d = Math.max(4, dist(h.x, h.y, u.x, u.y)); ax += (h.x - u.x) / d / d; ay += (h.y - u.y) / d / d; } if (!ax && !ay) { ax = h.vx; ay = h.vy; } return fitDash(h, ax, ay); }
+// autopilot dodges on its own
+function aiDodge(h, foes, dt) {
+  if ((h.aiDashT = (h.aiDashT || 0) - dt) > 0 || !canDash(h)) return false;
+  const [ax, ay, why] = threatDir(h, foes); if (!why) return false;
+  let [dx, dy] = fitDash(h, ax, ay); if (!dx && !dy) { const a = rand(TAU); dx = Math.cos(a); dy = Math.sin(a); }
+  doDash(h, dx, dy, true); h.aiDashT = why === 1 ? 0.6 : 0.35; if (why === 3) h.fleeT = 1.4; return true;
 }
 function playerHero(h, dt) {
   const I = h.inp;
@@ -114,11 +153,11 @@ function playerHero(h, dt) {
   if (h.regen && (h.regen.t -= dt) > 0) { if ((h.regen.tick -= dt) <= 0) { h.regen.tick = 0.5; heal(h, h.regen.per); } localFx(() => regenFx(h, dt)); } else h.regen = null;
   if (h.z > 0 && G.phase !== 'fight') return;
   const ix = I.mx, iy = I.my, foes = live(G.mons), st = h.state;
-  if (I.dashQ) { I.dashQ = false; if (h.dashCd <= 0 && h.stun <= 0 && !(st && (st.k === 'cuts' || st.k === 'leap' || st.k === 'dash' || (st.k === 'cast' && st.sp.tier >= 4)))) { h.state = null; doDash(h, ix, iy); } }
+  if (I.dashQ) { I.dashQ = false; if (canDash(h)) { h.state = null; doDash(h, ix, iy); } else dashFail(h); } void st;
   if (h.stun > 0) { h.stun -= dt; h.vx = damp(h.vx, 0, 8, dt); h.vy = damp(h.vy, 0, 8, dt); return; }
   if (h.state) { heroState(h, dt); return; }
   const spd = h.def.spd * 1.3; h.vx = damp(h.vx, ix * spd, 12, dt); h.vy = damp(h.vy, iy * spd, 12, dt); h.moving = !!(ix || iy); if (Math.abs(ix) > 0.15) h.face = ix < 0 ? -1 : 1;
-  if (I.auto === 1 && G.phase === 'fight') heroBrain(h, foes);
+  if (I.sp && G.phase === 'fight') heroBrain(h, foes);
   while (I.castQ.length && !h.state) tryCast(h, I.castQ.shift(), foes);
   if (h.state || !foes.length) return;
   const basic = basicOf(h);
@@ -131,7 +170,7 @@ function selectHero(k) {
   for (const h of G.heroes) if (h !== keep && !(h.pid > 0)) { smoke(h.x, h.y, 6, 'dark', 10, 30, 1.2); ring(h.x, h.y, 22, h.def.col, 0.4, 3); glows(h.x, h.y, 8, 8, h.def.col, 60, 4, 0.6); }
   G.heroes = [keep, ...G.heroes.filter(h => h.pid > 0)]; removeIf(G.units, u => u.team === 'hero' && u !== keep && !(u.pid > 0)); keep.ctrl = 'player';
   keep.x = ARENA.pw / 2; keep.y = ARENA.y1 - 34; keep.vx = keep.vy = 0; column(keep.x, keep.y, keep.def.col, 1.4, 14); ring(keep.x, keep.y, 40, keep.def.col, 0.5, 4);
-  keep.pid = 0; keep.pname = 'P1'; keep.inp = newInp(); keep.sb = newSB(k); keep.dashCd = 0; G.me = keep;
+  keep.pid = 0; keep.pname = 'P1'; keep.inp = newInp(); keep.sb = newSB(k); keep.dashN = DASH_N; keep.dashT = 0; G.me = keep;
   scaleParty(); keep.hp = keep.maxHp;
 }
 function weakestSlot() { let best = 0, bs = 1e9; G.slots.forEach((n, i) => { const sp = n && SPELLBOOK[G.heroKey].find(s => s.name === n), s = sp ? sp.tier * 10 + (G.modsTaken[n] || []).length * 3 + i * 0.1 : -1; if (s < bs) { bs = s; best = i; } }); return G.slots[best]; }
@@ -156,17 +195,42 @@ function drawHeroFrame(c, L, T) {
   font(c, 500, 12, F_HUD); spaced(c, G.kills.toLocaleString() + ' SLAIN' + (G.falls ? '  ·  FALLEN ' + G.falls + '×' : ''), L, T + 66, 1.1, '#8f8472');
 }
 function drawTopButtons(c, R, T) {
-  CTRL.top = []; const items = [];
-  const al = autoLevel(), idleAuto = al === 2 && G.autoMode < 2;
-  items.push({ t: idleAuto ? 'AUTOPILOT · IDLE' : AUTO_LABEL[G.autoMode], hot: G.autoMode > 0 || idleAuto, fn: cycleAuto });
+  // right to left: MENU · SPELLBOOK · CONTROLS · SPELLS · MOVEMENT (· UPDATE)
+  CTRL.top = []; const items = [], ml = moveLevel(), sa = spellAuto();
+  items.push({ t: 'MENU', fn: () => { UI.menuOpen = true; UI.leaveT = 0; } });
   items.push({ t: 'SPELLBOOK', fn: () => { UI.bookOpen = true; } });
-  if (MENU.update) { const sure = MENU.sureT > performance.now(); items.push({ t: sure ? 'TAP AGAIN · ENDS THIS RUN' : 'UPDATE READY', hot: true, fn: () => { if (MENU.sureT > performance.now()) location.reload(); else MENU.sureT = performance.now() + 3000; } }); }
-  items.push({ t: NET.on ? 'ROOM ' + NET.code : 'CO-OP', hot: NET.on, fn: () => { NET.panel = true; } });
-  items.push({ t: !SFX.ctx ? 'TAP FOR SOUND' : SFX.on ? 'SOUND ON' : 'SOUND OFF', pulse: !SFX.ctx, fn: () => { if (SFX.ctx) SFX.toggle(); } });
-  font(c, 600, 13, F_HUD); let x = R;
-  for (const it of items) { const w = c.measureText(it.t).width + it.t.length * 1 + 18; x -= w; c.globalAlpha = it.pulse ? 0.65 + 0.35 * Math.sin(performance.now() / 300) : 0.9; c.fillStyle = 'rgba(10,8,12,0.7)'; c.fillRect(x, T - 4, w, 22); c.strokeStyle = it.hot ? '#ffd860' : 'rgba(200,160,80,0.6)'; c.lineWidth = 1; c.strokeRect(x + 0.5, T - 3.5, w - 1, 21); spaced(c, it.t, x + 9, T + 12, 1, it.hot ? '#ffd860' : '#e8d8b8'); c.globalAlpha = 1; CTRL.top.push({ r: [x - 2, T - 8, w + 4, 30], fn: it.fn }); x -= 6; }
+  items.push({ cap: 'CONTROLS', t: SCHEME_SHORT[INPUT.scheme], fn: cycleScheme });
+  items.push({ cap: 'SPELLS', t: sa && !G.spellMode ? 'AUTO · IDLE' : SPELL_LABEL[G.spellMode], hot: !!sa, fn: cycleSpells });
+  items.push({ cap: 'MOVEMENT', t: ml === 2 && G.moveMode < 2 ? 'AUTOPILOT · IDLE' : MOVE_LABEL[G.moveMode], hot: ml > 0, fn: cycleMove });
+  if (MENU.update) { const sure = MENU.sureT > performance.now(); items.push({ t: sure ? 'TAP AGAIN · ENDS THIS RUN' : 'UPDATE READY', hot: true, pulse: !sure, fn: () => { if (MENU.sureT > performance.now()) location.reload(); else MENU.sureT = performance.now() + 3000; } }); }
+  const wOf = s => { let w = 0; for (const ch of s) w += c.measureText(ch).width + 1; return w - 1; };
+  let x = R;
+  for (const it of items) {
+    font(c, 600, 13, F_HUD); let w = wOf(it.t); if (it.cap) { font(c, 500, 10, F_HUD); w = Math.max(w, wOf(it.cap)); } w += 18; x -= w;
+    c.globalAlpha = it.pulse ? 0.65 + 0.35 * Math.sin(performance.now() / 300) : 0.92; c.fillStyle = it.hot ? 'rgba(46,32,12,0.78)' : 'rgba(10,8,12,0.72)'; c.fillRect(x, T - 7, w, 29);
+    c.strokeStyle = it.hot ? '#ffd860' : 'rgba(200,160,80,0.6)'; c.lineWidth = 1; c.strokeRect(x + 0.5, T - 6.5, w - 1, 28);
+    if (it.cap) { font(c, 500, 10, F_HUD); spaced(c, it.cap, x + w / 2, T + 2.5, 1, it.hot ? '#c8a860' : '#9a8c78', 'center'); font(c, 600, 13, F_HUD); spaced(c, it.t, x + w / 2, T + 17, 1, it.hot ? '#ffd860' : '#e8d8b8', 'center'); }
+    else { font(c, 600, 13, F_HUD); spaced(c, it.t, x + w / 2, T + 12.5, 1, it.hot ? '#ffd860' : '#e8d8b8', 'center'); }
+    c.globalAlpha = 1; CTRL.top.push({ r: [x - 2, T - 10, w + 4, 36], fn: it.fn }); x -= 6;
+  }
+  CTRL.topLeft = x; // the wave counter moves down when the bar reaches the middle
+}
+// the dodge button: three pips for the charges and a gold sweep while the next one comes back
+function drawDashBtn(c, b, h) {
+  const fx = CTRL.fx.dash || {}, sc = ctrlScale(), x = b.x + (fx.shake > 0 ? Math.sin(performance.now() / 20) * 4 * fx.shake / 0.3 : 0), y = b.y, r = b.r;
+  if (fx.shake > 0) fx.shake -= 1 / 60; if (fx.flash > 0) fx.flash -= 1 / 60;
+  const n = h.dashN === undefined ? DASH_N : h.dashN, t = Math.max(0, h.dashT || 0), ready = n > 0;
+  c.fillStyle = 'rgba(14,10,18,0.66)'; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+  c.strokeStyle = ready ? '#e8d8b8' : 'rgba(255,255,255,0.25)'; c.lineWidth = 2; c.beginPath(); c.arc(x, y, r - 1, 0, TAU); c.stroke();
+  if (n < DASH_N) { c.strokeStyle = 'rgba(255,216,96,0.9)'; c.lineWidth = 3; c.beginPath(); c.arc(x, y, r + 3, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(1 - t / DASH_T, 0, 1)); c.stroke(); }
+  if (fx.flash > 0) { c.fillStyle = `rgba(255,255,255,${fx.flash * 3})`; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill(); }
+  if (ready) { font(c, 900, 18 * sc, F_DISP); label(c, '»', x, y + 6 * sc, '#fff4e0', { align: 'center' }); }
+  else { c.fillStyle = 'rgba(0,0,0,0.45)'; c.beginPath(); c.arc(x, y, r - 2, 0, TAU); c.fill(); font(c, 600, 17 * sc, F_HUD); label(c, t.toFixed(1), x, y + 6 * sc, '#ffffff', { align: 'center', stroke: 3 }); }
+  for (let i = 0; i < DASH_N; i++) { const px = x + (i - (DASH_N - 1) / 2) * 10 * sc, py = y - r - 8 * sc; c.beginPath(); c.arc(px, py, 3.2 * sc, 0, TAU); if (i < n) { c.fillStyle = '#ffd860'; c.fill(); } else { c.strokeStyle = 'rgba(255,216,96,0.55)'; c.lineWidth = 1.2; c.stroke(); } }
+  if (!INPUT.touch && b.key) { font(c, 600, 11, F_HUD); label(c, b.key, x + r * 0.72, y - r * 0.62, '#ffd860', { align: 'center', stroke: 3 }); }
 }
 function drawSkillBtn(c, b, h) {
+  if (b.id === 'dash') return drawDashBtn(c, b, h);
   const fx = CTRL.fx[b.id] || {}, sh = fx.shake > 0 ? Math.sin(performance.now() / 20) * 4 * fx.shake / 0.3 : 0, x = b.x + sh, y = b.y, r = b.r, sp = b.sp;
   if (fx.shake > 0) fx.shake -= 1 / 60; if (fx.flash > 0) fx.flash -= 1 / 60;
   c.fillStyle = 'rgba(14,10,18,0.66)'; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
@@ -188,13 +252,13 @@ function drawControls(c) {
   const ux = R - 38 * sc, uy = B - 38 * sc, rad = 96 * sc, list = [];
   list.push({ id: 'ult', slot: 'ult', x: ux, y: uy, r: 30 * sc, sp: slotSpell(h, 'ult'), key: 'R', press: () => INPUT.castQ.push('ult') });
   [180, 210, 240, 270].forEach((a, i) => { const t = a * Math.PI / 180; list.push({ id: i, slot: i, x: ux + Math.cos(t) * rad, y: uy + Math.sin(t) * rad, r: 23 * sc, sp: slotSpell(h, i), key: String(i + 1), press: () => INPUT.castQ.push(i) }); });
-  list.push({ id: 'dash', slot: 'dash', x: ux - rad - 62 * sc, y: uy + 6 * sc, r: 24 * sc, sp: { name: 'DASH', tier: 0 }, key: 'SPACE', press: () => { INPUT.dashQ = true; } });
-  const al = autoLevel(); c.globalAlpha = al === 2 ? 0.45 : 1; for (const b of list) drawSkillBtn(c, b, h); c.globalAlpha = 1; CTRL.buttons = list;
+  list.push({ id: 'dash', slot: 'dash', x: ux - rad - 62 * sc, y: uy + 6 * sc, r: 24 * sc, sp: { name: 'DASH', tier: 0 }, key: 'SPACE', press: () => { if (G.me && G.me.dashN === 0) dashFail(G.me); else INPUT.dashQ = true; } });
+  const ml = moveLevel(), sa = spellAuto(); for (const b of list) { c.globalAlpha = b.id === 'dash' ? (ml === 2 ? 0.5 : 1) : sa ? 0.62 : 1; drawSkillBtn(c, b, h); } c.globalAlpha = 1; CTRL.buttons = list;
   // the stick is invisible: touch anywhere that isn't a button and drag; a hint shows until the first real move
   if (INPUT.touch && !INPUT.moved && !TUT.on && G.phase === 'fight' && !G.choice) { font(c, 600, 15, F_HUD); c.globalAlpha = 0.45 + 0.25 * Math.sin(performance.now() / 400); spaced(c, moveHint(), VIEW.w / 2, B - 8, 3, '#f0e0c0', 'center'); c.globalAlpha = 1; }
   // tap to move: where the hero is heading
   if (INPUT.dest && G.me && !G.me.dead) { const [dx, dy] = toScreen(INPUT.dest.x, INPUT.dest.y), t = performance.now() / 1000, pr = (6 + 3 * Math.sin(t * 8)) * CAM.z / 2.4; c.strokeStyle = 'rgba(255,216,96,0.85)'; c.lineWidth = 2; c.beginPath(); c.ellipse(dx, dy, pr * 1.6, pr * 0.7, 0, 0, TAU); c.stroke(); c.globalAlpha = 0.5; c.beginPath(); c.ellipse(dx, dy, pr * 2.6, pr * 1.1, 0, 0, TAU); c.stroke(); c.globalAlpha = 1; }
   // fixed stick: always on screen at the bottom left
   if (INPUT.scheme === 'stick') { const [bx, by, R] = stickBase(), s2 = INPUT.stick && INPUT.stick.fixed ? INPUT.stick : null; c.globalAlpha = s2 ? 0.75 : 0.4; c.fillStyle = 'rgba(255,255,255,0.07)'; c.strokeStyle = 'rgba(255,240,210,0.5)'; c.lineWidth = 2; c.beginPath(); c.arc(bx, by, R, 0, TAU); c.fill(); c.stroke(); c.fillStyle = 'rgba(255,240,210,0.55)'; c.beginPath(); c.arc(bx + (s2 ? s2.vx * R : 0), by + (s2 ? s2.vy * R : 0), R * 0.42, 0, TAU); c.fill(); c.globalAlpha = 1; }
-  else if (!INPUT.touch && G.phase === 'fight') { font(c, 500, 12, F_HUD); c.globalAlpha = 0.6; spaced(c, 'WASD MOVE  ·  SPACE DASH  ·  1-4 SKILLS  ·  R ULTIMATE  ·  T AUTO  ·  B BOOK', L, B - 4, 1, '#c8b48c'); c.globalAlpha = 1; }
+  else if (!INPUT.touch && G.phase === 'fight') { font(c, 500, 12, F_HUD); c.globalAlpha = 0.6; spaced(c, 'WASD MOVE  ·  SPACE DODGE  ·  1-4 SKILLS  ·  R ULTIMATE  ·  T MOVEMENT  ·  G SPELLS  ·  C CONTROLS  ·  ESC MENU', L, B - 4, 1, '#c8b48c'); c.globalAlpha = 1; }
 }

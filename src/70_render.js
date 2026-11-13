@@ -22,7 +22,7 @@ function camFitZoom() { return clamp(Math.min(VIEW.w / (ARENA.pw * 0.85), VIEW.h
 function updateCam(dt) {
   if (!ARENA) return; let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9, n = 0;
   const add = (x, y, w = 1) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); n += w; };
-  for (const u of G.units) { if (u.team === 'mon' && (u.dead || u.spawnT > 0.3)) continue; if (u.team === 'hero' && u.dead && G.heroes.some(alive)) continue; add(u.x, u.y - 10 * u.scale); if (u.boss) { add(u.x - 30, u.y - 50); add(u.x + 30, u.y + 10); } }
+  for (const u of G.units) { if (u.team === 'mon' && (u.dead || u.spawnT > 0.3 || u.carried === 2)) continue; if (u.team === 'hero' && u.dead && G.heroes.some(alive)) continue; add(u.x, u.y - 10 * u.scale); if (u.boss) { add(u.x - 30, u.y - 50); add(u.x + 30, u.y + 10); } }
   if (G.eq || G.phase === 'clear') { add(ARENA.x0, ARENA.y0); add(ARENA.x1, ARENA.y1); }
   if (!n) { add(ARENA.pw / 2, ARENA.ph / 2); }
   const bw = x1 - x0 + 140, bh = y1 - y0 + 110;

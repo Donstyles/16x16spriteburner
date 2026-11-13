@@ -3,7 +3,9 @@ const G = {
   mode: 'boot', floor: 1, run: 0, kills: 0, best: 1, units: [], heroes: [], mons: [], proj: [], sched: [], pending: 0, phase: 'fight', phaseT: 0,
   lvl: 1, xp: 0, bestLvl: 1, castLock: 0, majorLock: 0, focus: null, bq: [], spawnQ: [], inten: 0, champ: null, gapT: 0, waveSize: 0, packT: 0, wave: 0, waves: 3, waveT: 0, trauma: 0, quakeT: 0, quakeP: 0, hitstop: 0, ts: 1, slowT: 0, flashA: 0, flashC: 'white', ambDark: 0, ambFlash: 0,
   storm: null, eq: null, ultCd: 3, combo: 0, comboT: 0, burst: 0, burstT: 0, banner: null, card: null, fade: 1, time: 0, boss: null,
-  monHp: 1, monDmg: 1, heroDmgTaken: 1.5, me: null, sb0: null, draftKey: null,
+  monHp: 1, monDmg: 1, heroDmgTaken: 1.5, me: null, sb0: null, draftKey: null, moveMode: 0, spellMode: 0,
+  // older code and tests speak of one 'auto' level: 0 manual, 1 auto spells, 2 autopilot with auto spells
+  get autoMode() { return this.moveMode === 2 ? 2 : this.spellMode ? 1 : 0; }, set autoMode(v) { this.moveMode = v === 2 ? 2 : 0; this.spellMode = v >= 1 ? 1 : 0; },
 };
 // spell state lives on each hero; G.known etc. read the local player's hero (or the shared profile before a hero is chosen)
 const SBP = () => (G.me && G.me.sb) || G.sb0;
@@ -12,7 +14,7 @@ const sbOf = h => (h && h.sb) || G.sb0;
 Object.defineProperty(G, 'heroKey', { get: () => G.me ? G.me.key : G.draftKey, set: v => { G.draftKey = v; } });
 function asHero(h, fn) { const m = G.me; G.me = h; try { return fn(); } finally { G.me = m; } }
 const NP = () => Math.max(1, Math.min(4, G.heroes.length)); // heroes in the fight, 1-4
-const newInp = () => ({ mx: 0, my: 0, castQ: [], dashQ: false, auto: 0 });
+const newInp = () => ({ mx: 0, my: 0, castQ: [], dashQ: false, mv: 0, sp: 0 });
 function makeParty() {
   const keys = Object.keys(HERO_DEFS);
   G.heroes = keys.map((k, i) => { const h = mkUnit('hero', HERO_DEFS[k], 0, 0); h.key = k; h.strafe = i % 2 ? 1 : -1; h.ult = 0; return h; });
@@ -22,7 +24,7 @@ function scaleForFloor() {
   const pity = Math.pow(0.85, G.floorFalls || 0); G.monHp = (1.4 + 0.32 * f) * pity; G.monDmg = (1 + 0.16 * f) * pity; scaleParty();
 }
 function startRun(noDraft) {
-  G.run++; G.floor = 1; G.lvl = 1; G.xp = 0; G.autoMode = G.autoMode || 0; resetSpells(); makeParty(); startFloor(true); if (!noDraft) queueDraft();
+  G.run++; G.floor = 1; G.lvl = 1; G.xp = 0; resetSpells(); makeParty(); startFloor(true); if (!noDraft) queueDraft();
 }
 function startFloor(first) {
   buildArena(G.floor); G.units = []; G.proj = []; G.sched = []; G.pending = 0; G.storm = null; G.eq = null; G.boss = null;
@@ -93,7 +95,7 @@ function kite(h, foes, dt, pref) {
   if (d < pref * 0.65) { const a = angTo(n.x, n.y, h.x, h.y); tx = h.x + Math.cos(a) * 50; ty = h.y + Math.sin(a) * 40; }
   else if (d > pref * 1.35) { tx = n.x; ty = n.y; }
   else { const a = angTo(n.x, n.y, h.x, h.y) + 0.5 * h.strafe; tx = n.x + Math.cos(a) * pref; ty = n.y + Math.sin(a) * pref * 0.8; }
-  const W = G.heroes.find(x => x.def.role === 'melee' && !x.dead); if (W && dist(tx, ty, W.x, W.y) > 110) { tx = (tx + W.x) / 2; ty = (ty + W.y) / 2; }
+  const W = G.heroes.find(x => x !== h && x.def.role === 'melee' && !x.def.skirm && !x.dead); if (W && dist(tx, ty, W.x, W.y) > 110) { tx = (tx + W.x) / 2; ty = (ty + W.y) / 2; }
   tx = clamp(tx, ARENA.x0 + 16, ARENA.x1 - 16); ty = clamp(ty, ARENA.y0 + 14, ARENA.y1 - 10);
   if ((h.flip = (h.flip || 0) - dt) <= 0) { h.flip = rand(2, 5); h.strafe = -h.strafe; }
   steer(h, tx, ty, h.def.spd, dt, 3); h.face = n.x < h.x ? -1 : 1;
@@ -115,6 +117,7 @@ function heroState(h, dt) {
   }
 }
 function monAI(m, dt, heroes) {
+  if (m.carried) { m.moving = m.carried === 2; return; } // in the claws of a bat flock
   if (m.spawnT > 0) { m.spawnT -= dt; return; }
   for (const k in m.cd) m.cd[k] -= dt;
   if (m.burn > 0) { m.burn -= dt; if (chance(dt * 14)) glows(m.x, m.y, rand(4, 14) * m.scale, 1, 'fire', 20, 3, 0.4); if ((m.burnT = (m.burnT || 0) - dt) <= 0) { m.burnT = 0.5; hurt(m, m.burnDmg || 3 * G.floor ** 0.5, m.immo || null, { quiet: true }); } } else m.burnDmg = 0;

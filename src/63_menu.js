@@ -25,10 +25,9 @@ function shade(c, a = 0.72) { const W = VIEW.w, H = VIEW.h, g = c.createLinearGr
 function sprite(c, spr, x, y, s, a = 1) { const m = MOBS[spr]; if (!m) return; c.imageSmoothingEnabled = false; c.globalAlpha = a; c.drawImage(IMG.mobs, ((performance.now() / 180) | 0) % 4 * m[1], m[0], m[1], m[2], x, y, s, s * m[2] / m[1]); c.globalAlpha = 1; }
 // ---------- start buttons ----------
 function beginPlay() { G.mode = 'play'; UI.titleT = 99; G.fade = 1; G.card = { t: 0, life: 2.8, a: 'FLOOR ' + G.floor, b: ARENA.name, c: floorLine(G.floor) }; }
-function startSolo(tut) { beginPlay(); queueDraft(); TUT.pending = tut === true || !tutSeen; }
-function startWatch() { beginPlay(); G.autoMode = 2; queueDraft(); G.acted = true; autoDraft(); }
-function startHost() { G.mode = 'lobby'; NET.lobby = { started: false, picks: {} }; MENU.flash = {}; hostOpen(); }
-function startJoin() { MENU.back = G.mode === 'play' ? 'play' : 'menu'; MENU.code = ''; G.mode = 'join'; NET.panel = false; }
+function startSolo(tut) { loadModes(); beginPlay(); queueDraft(); TUT.pending = tut === true || !tutSeen; }
+function startHost() { loadModes(); G.mode = 'lobby'; NET.lobby = { started: false, picks: {} }; MENU.flash = {}; hostOpen(); }
+function startJoin() { loadModes(); MENU.back = G.mode === 'play' ? 'play' : 'menu'; MENU.code = ''; G.mode = 'join'; NET.panel = false; }
 function codeKey(ch) { if (ch === 'DEL') MENU.code = MENU.code.slice(0, -1); else if (CODE_ABC.includes(ch) && MENU.code.length < 4) MENU.code += ch; if (MENU.code.length === 4 && ch !== 'DEL') setTimeout(() => { if (G.mode === 'join' && MENU.code.length === 4) netJoin(MENU.code); }, 250); }
 function leaveLobby() { if (NET.role === 'host') { netCloseRoom(); G.mode = 'menu'; } else location.href = location.pathname + peerQuery().replace('&', '?'); }
 // ---------- seats: who is in the room ----------
@@ -80,16 +79,15 @@ function drawMenus(c) {
     font(c, 900, 96, F_DISP); c.shadowColor = 'rgba(255,140,50,0.9)'; c.shadowBlur = 30 + 10 * Math.sin(t * 1.7); label(c, 'Cellar of Ruin', 450, 122, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0;
     font(c, 500, 20, F_HUD); spaced(c, 'SOMETHING OLD IS WAKING UNDER THE FARMHOUSE', 450, 158, 3, '#d8b888', 'center');
     font(c, 500, 17, F_HUD); label(c, 'Go down. Put it back to sleep. Try not to count the floors.', 450, 182, '#9a8c78', { align: 'center' });
-    const bw = 202, gap = 12, x0 = 450 - (bw * 4 + gap * 3) / 2, y = 212, bh = 86;
-    mbtn(c, x0, y, bw, bh, 'PLAY SOLO', 'One hero. Your hands.', startSolo, { hot: true });
-    mbtn(c, x0 + (bw + gap), y, bw, bh, 'WATCH', 'The cellar plays itself', startWatch);
-    mbtn(c, x0 + 2 * (bw + gap), y, bw, bh, 'HOST CO-OP', 'Open a room for 3 friends', startHost);
-    mbtn(c, x0 + 3 * (bw + gap), y, bw, bh, 'JOIN CO-OP', 'Type a friend’s room code', startJoin);
-    mbtn(c, 450 - 214, 310, 200, 34, 'HOW TO PLAY', '', () => startSolo(true), { size: 16 });
-    mbtn(c, 450 + 14, 310, 220, 34, 'MOVE: ' + SCHEME_LABEL[INPUT.scheme], '', cycleScheme, { size: 16 });
+    const bw = 260, gap = 14, x0 = 450 - (bw * 3 + gap * 2) / 2, y = 212, bh = 86;
+    mbtn(c, x0, y, bw, bh, 'PLAY SOLO', 'One hero against the cellar', startSolo, { hot: true });
+    mbtn(c, x0 + (bw + gap), y, bw, bh, 'HOST CO-OP', 'Open a room for up to 3 friends', startHost);
+    mbtn(c, x0 + 2 * (bw + gap), y, bw, bh, 'JOIN CO-OP', 'Type a friend’s room code', startJoin);
+    mbtn(c, 450 - 244, 310, 220, 34, 'HOW TO PLAY', '', () => startSolo(true), { size: 16 });
+    mbtn(c, 450 + 14, 310, 230, 34, 'CONTROLS: ' + SCHEME_LABEL[INPUT.scheme], '', cycleScheme, { size: 16 });
     font(c, 500, 15, F_HUD); c.globalAlpha = 0.8;
     spaced(c, [MENU.best > 1 ? 'DEEPEST FLOOR REACHED · ' + MENU.best : '', SFX.ctx ? '' : 'TAP FOR SOUND'].filter(Boolean).join('   ·   '), 450, 370, 2, '#cdb890', 'center');
-    font(c, 500, 14, F_HUD); spaced(c, INPUT.touch ? moveHint() + '  ·  SPELLS ON THE RIGHT  ·  BEST ON THE HOME SCREEN' : 'WASD MOVE  ·  SPACE DASH  ·  1-4 SPELLS  ·  R ULTIMATE', 450, 394, 2, '#8a7c66', 'center'); c.globalAlpha = 1;
+    font(c, 500, 14, F_HUD); spaced(c, INPUT.touch ? moveHint() + '  ·  » DODGES  ·  SPELLS ON THE RIGHT' : 'WASD MOVE  ·  SPACE DODGE  ·  1-4 SPELLS  ·  R ULTIMATE  ·  ESC MENU', 450, 394, 2, '#8a7c66', 'center'); c.globalAlpha = 1;
   } else if (G.mode === 'join') {
     font(c, 900, 46, F_DISP); label(c, 'Join a Room', 450, 58, '#f8ecd6', { align: 'center' });
     font(c, 500, 16, F_HUD); spaced(c, 'TYPE THE 4 LETTERS ON YOUR FRIEND’S SCREEN', 450, 84, 2, '#bfae90', 'center');
@@ -144,4 +142,26 @@ function drawRoom(c, inGame) {
     mbtn(c, 130, 300, 300, 48, host ? 'CLOSE ROOM' : 'LEAVE ROOM', '', host ? netCloseRoom : leaveLobby, { size: 18 });
     mbtn(c, 470, 300, 300, 48, 'BACK TO THE FIGHT', '', () => { NET.panel = false; }, { size: 18, hot: true });
   }
+}
+// ---------- in-game menu: resume, co-op, sound, back to the main menu ----------
+function drawPause(c) {
+  UI.pauseRects = []; if (!UI.menuOpen || G.mode !== 'play') return;
+  MENU.rects = []; const k = vbox(); shade(c, 0.84); c.save(); c.translate(MENU.ox, MENU.oy); c.scale(k, k);
+  const guest = NET.role === 'client', live = guest || (NET.role === 'host' && NET.conns.size > 0), sure = UI.leaveT > performance.now();
+  font(c, 900, 50, F_DISP); c.shadowColor = 'rgba(255,140,50,0.7)'; c.shadowBlur = 20; label(c, live ? 'The Fight Goes On' : 'Paused', 450, 76, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0;
+  font(c, 500, 18, F_HUD); label(c, 'Floor ' + G.floor + (ARENA ? ' · ' + ARENA.name : '') + ' · Level ' + G.lvl + ' · ' + G.kills.toLocaleString() + ' slain', 450, 108, '#cbbd9f', { align: 'center' });
+  mbtn(c, 140, 136, 300, 84, 'RESUME', live ? 'Your friends are still fighting' : 'The battle waits for you', () => { UI.menuOpen = false; }, { hot: !sure });
+  mbtn(c, 460, 136, 300, 84, NET.on ? 'ROOM ' + NET.code : 'PLAY TOGETHER', NET.role ? 'Who is here, invite link, relay' : 'Open a room or join a friend', () => { UI.menuOpen = false; NET.panel = true; });
+  mbtn(c, 140, 236, 300, 72, !SFX.ctx ? 'SOUND: TAP TO START' : SFX.on ? 'SOUND: ON' : 'SOUND: OFF', '', () => { if (SFX.ctx) SFX.toggle(); }, { size: 20 });
+  mbtn(c, 460, 236, 300, 72, sure ? 'TAP AGAIN TO LEAVE' : 'MAIN MENU', sure ? (NET.role === 'host' ? 'The room closes for everyone' : guest ? 'You leave this room' : 'This run ends here') : '', () => { if (UI.leaveT > performance.now()) backToMenu(); else UI.leaveT = performance.now() + 3000; }, { size: 20, hot: sure });
+  font(c, 500, 15, F_HUD); label(c, INPUT.touch ? 'Tap outside the buttons to resume' : 'ESC resumes  ·  T movement  ·  G spells  ·  C controls  ·  B spellbook', 450, 348, '#8f8472', { align: 'center' });
+  c.restore(); UI.pauseRects = MENU.rects.slice();
+}
+function pauseTap(x, y) { for (const b of UI.pauseRects || []) if (x >= b.r[0] && x <= b.r[0] + b.r[2] && y >= b.r[1] && y <= b.r[1] + b.r[3]) { if (SFX.ctx) SFX.choice(); b.fn(); return; } UI.menuOpen = false; }
+function backToMenu() {
+  UI.menuOpen = false; UI.bookOpen = false; NET.panel = false; UI.leaveT = 0;
+  if (NET.role === 'client') { location.href = location.pathname + peerQuery().replace('&', '?'); return; } // a guest starts clean
+  if (NET.role === 'host') netCloseRoom();
+  saveBest(); TUT.on = false; TUT.pending = false; INPUT.dest = null; INPUT.stick = null; INPUT.castQ.length = 0; INPUT.dashQ = false;
+  startRun(true); G.mode = 'menu'; G.card = null; G.banner = null; G.bq.length = 0; G.choice = null; G.choiceQ = []; UI.titleT = 99; loadModes();
 }

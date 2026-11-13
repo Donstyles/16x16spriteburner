@@ -5,16 +5,16 @@ let tutSeen = false; try { tutSeen = localStorage.getItem('cor-tut') === '1'; } 
 const TUT_STEPS = [
   { a: 'MOVE', b: () => INPUT.scheme === 'tap' ? (INPUT.touch ? 'Tap where you want to go. Hold and drag to steer.' : 'Click where you want to go, or use WASD.') : !INPUT.touch ? 'Move with WASD or the arrow keys.' : INPUT.scheme === 'stick' ? 'Use the stick at the bottom left.' : 'Touch anywhere and drag. The stick is invisible.', done: () => TUT.moved > 60 },
   { a: 'ATTACKS ARE AUTOMATIC', b: () => 'Your basic attack hits the nearest enemy by itself. Get close.', done: s => s.t > 5 },
-  { a: 'CAST A SPELL', b: () => INPUT.touch ? 'Enemies near? Tap the glowing spell button.' : 'Enemies near? Press 1.', done: () => TUT.cast, btn: 0 },
-  { a: 'DASH', b: () => (INPUT.touch ? 'Tap » to dash.' : 'Press Space to dash.') + ' Nothing can hurt you mid-dash.', done: () => TUT.dash, btn: 'dash' },
-  { a: 'GROW STRONGER', b: () => 'Clear a floor to pick a new spell. Your ultimate wakes at level 12.', done: s => s.t > 6.5, btn: 'ult' },
-  { a: 'NEED A BREATHER?', b: () => 'MANUAL switches to AUTO-CAST or AUTOPILOT. Good luck down there.', done: s => s.t > 6 },
+  { a: 'CAST A SPELL', b: () => G.spellMode ? 'SPELLS is on AUTO: they cast themselves. ' + (INPUT.touch ? 'Tap one to fire it now.' : 'Press 1 to fire one now.') : INPUT.touch ? 'Enemies near? Tap the glowing spell button.' : 'Enemies near? Press 1.', done: s => TUT.cast || (G.spellMode && s.t > 5), btn: 0 },
+  { a: 'DODGE', b: () => (INPUT.touch ? 'Tap » to dodge.' : 'Press Space to dodge.') + ' Nothing hurts you mid-dodge. Three charges, refilling one by one.', done: () => TUT.dash, btn: 'dash' },
+  { a: 'GROW STRONGER', b: () => 'Each cleared floor offers a new spell or an upgrade. Ultimates appear from level 12.', done: s => s.t > 6.5, btn: 'ult' },
+  { a: 'NEED A BREATHER?', b: () => 'MOVEMENT and SPELLS up top hand them to the hero. MENU pauses. Good luck.', done: s => s.t > 6 },
 ];
 function tutEnd() { TUT.on = false; TUT.pending = false; tutSeen = true; try { localStorage.setItem('cor-tut', '1'); } catch (e) { } }
 function tutUpdate(rdt) {
   const me = G.me;
   if (TUT.pending && me && !G.choice && !G.choiceQ.length && !G.card) { TUT.pending = false; Object.assign(TUT, { on: true, step: 0, t: 0, moved: 0, last: null, cast: false, dash: false }); }
-  if (TUT.on && (G.floor > 1 || G.autoMode === 2)) { tutEnd(); return; } // watching, or already past floor 1
+  if (TUT.on && (G.floor > 1 || G.moveMode === 2)) { tutEnd(); return; } // watching, or already past floor 1
   if (!TUT.on || !me || G.choice) return;
   if (TUT.last && me.inp && (me.inp.mx || me.inp.my)) TUT.moved += Math.hypot(me.x - TUT.last[0], me.y - TUT.last[1]); TUT.last = [me.x, me.y];
   const s = TUT_STEPS[TUT.step]; TUT.t += rdt;

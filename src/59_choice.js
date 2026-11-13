@@ -143,7 +143,7 @@ function drawChoice(c) {
   c.globalAlpha = fade; c.fillStyle = 'rgba(6,4,10,0.78)'; c.fillRect(0, 0, W, H);
   const wide = W >= 620, top = Math.max(14, S.t + 8);
   font(c, 900, wide ? 34 : 26, F_DISP); c.shadowColor = 'rgba(255,200,90,0.8)'; c.shadowBlur = 18; label(c, ch.kind === 'level' ? 'LEVEL ' + G.lvl : ch.kind === 'draft' ? ['', 'WHO GOES DOWN?', 'YOUR FIRST BLOW', 'A SPARK OF POWER'][ch.step] : ch.kind === 'floor' ? 'SPOILS OF THE DEEP' : ch.title, W / 2, top + (wide ? 30 : 24), '#fff1d0', { align: 'center' }); c.shadowBlur = 0;
-  font(c, 500, 15, F_HUD); spaced(c, ch.kind === 'level' ? 'CHOOSE A POWER' : ch.kind === 'draft' ? ch.title + '   ·   ' + ch.step + ' OF 3' : ch.kind === 'floor' ? (ch.title || 'FLOOR CLEARED') + '   ·   CLAIM ONE GIFT' : 'THE BEAST IS SLAIN   ·   CLAIM ONE GIFT', W / 2, top + (wide ? 50 : 42), 3, '#c8a878', 'center');
+  font(c, 500, 15, F_HUD); spaced(c, ch.kind === 'level' ? 'CHOOSE A POWER' : ch.kind === 'draft' ? ch.title + '   ·   ' + ch.step + ' OF 3' : ch.kind === 'floor' ? (ch.title || 'FLOOR CLEARED') + '   ·   PICK ONE: A NEW SPELL OR AN UPGRADE' : 'THE BEAST IS SLAIN   ·   PICK ONE: A NEW SPELL OR AN UPGRADE', W / 2, top + (wide ? 50 : 42), 3, '#c8a878', 'center');
   const n = ch.opts.length, gap = 12, areaTop = top + (wide ? 62 : 52), areaH = H - areaTop - Math.max(40, S.b + 34) - (!wide && ch.kind === 'draft' ? 34 : 0);
   // more than four cards (the six heroes) on a wide screen: a 3 x 2 grid of compact cards
   const grid = wide && n > 4, gc = 3, gr = Math.ceil(n / gc);

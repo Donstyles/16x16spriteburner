@@ -51,10 +51,10 @@ function mkUnit(team, def, x, y, hpMul = 1) {
 const alive = u => u && !u.dead;
 function foesOf(u) { return u.team === 'hero' ? G.mons : G.heroes.filter(alive); }
 function hurt(u, amt, src, o = {}) {
-  if (!u || u.dead || u.spawnT > 0) return 0;
+  if (!u || u.dead || u.spawnT > 0 || u.carried === 2) return 0;
   if (u.iframe > 0 && u.team === 'hero') { if (chance(0.2)) textPop(u.x, u.y, 18, 'DODGE', 'gold', false); return 0; }
   let d = amt * rand(0.88, 1.12) * (o.crit ? 2 : 1);
-  if (u.team === 'hero') { d *= G.heroDmgTaken * (TUT.on ? 0.4 : 1) * (u.blessT > 0 ? 0.5 : 1); if (u.def.role === 'melee') d *= 0.72; }
+  if (u.team === 'hero') { d *= G.heroDmgTaken * (TUT.on ? 0.4 : 1) * (u.blessT > 0 ? 0.5 : 1); d *= u.def.armor || (u.def.role === 'melee' ? 0.72 : 1); }
   d = Math.max(1, Math.round(d)); u.hp -= d; u.flash = 0.12;
   if (src && src.team === 'hero' && u.team === 'mon' && src.def.leech && !src.dead) src.hp = Math.min(src.maxHp, src.hp + d * src.def.leech * (src.frenzyT > 0 ? (src.leechMul || 2) : 1)); // vampires heal from every wound
   const km = u.boss ? 0.12 : u.scale > 1.2 ? 0.45 : 1; if (o.kx || o.ky) { u.kx += (o.kx || 0) * km; u.ky += (o.ky || 0) * km; }
@@ -85,7 +85,7 @@ function kill(u, src, elem) {
 }
 // the corpse shatters into its own pixels, flavoured by what killed it
 function deathFx(u, elem) {
-  if (!MOBS[u.spr]) return;
+  if (!MOBS[u.spr] || u.carried === 2) return; // carried off by bats: it dies out of sight
   const px = spritePixels(u.spr), sc = u.scale * (u.boss ? 1 : 1), fl = u.face < 0 ? -1 : 1, bl = BLOOD[u.def.blood || 'red'];
   const mode = elem === 'bolt' ? 'zap' : elem === 'fire' ? 'burn' : 'smash', pw = Math.max(1, Math.round(sc));
   const kx = clamp(u.kx * 0.4, -120, 120), ky = clamp(u.ky * 0.4, -120, 120), step = px.length > 200 ? 2 : 1;
@@ -110,7 +110,7 @@ function moveUnit(u, dt) {
   if (u.squash > 0) u.squash = Math.max(0, u.squash - dt * 2.5);
 }
 function separate(list, dt) {
-  for (let i = 0; i < list.length; i++) { const a = list[i]; if (a.dead && a.team === 'mon') continue; for (let j = i + 1; j < list.length; j++) { const b = list[j]; if (b.dead) continue; const dx = b.x - a.x, dy = b.y - a.y, m = a.r + b.r; if (Math.abs(dx) > m || Math.abs(dy) > m) continue; const d = Math.hypot(dx, dy); if (d < m && d > 0.01) { const push = (m - d) * 0.5, nx = dx / d, ny = dy / d, wa = a.boss ? 0.1 : b.boss ? 1.9 : 1, wb = 2 - wa; if (!a.dead) { a.x -= nx * push * wa; a.y -= ny * push * wa; } b.x += nx * push * wb; b.y += ny * push * wb; } } }
+  for (let i = 0; i < list.length; i++) { const a = list[i]; if ((a.dead && a.team === 'mon') || a.carried) continue; for (let j = i + 1; j < list.length; j++) { const b = list[j]; if (b.dead || b.carried) continue; const dx = b.x - a.x, dy = b.y - a.y, m = a.r + b.r; if (Math.abs(dx) > m || Math.abs(dy) > m) continue; const d = Math.hypot(dx, dy); if (d < m && d > 0.01) { const push = (m - d) * 0.5, nx = dx / d, ny = dy / d, wa = a.boss ? 0.1 : b.boss ? 1.9 : 1, wb = 2 - wa; if (!a.dead) { a.x -= nx * push * wa; a.y -= ny * push * wa; } b.x += nx * push * wb; b.y += ny * push * wb; } } }
 }
 // steering toward a point with a little obstacle avoidance
 function steer(u, tx, ty, spd, dt, stopAt = 0) {

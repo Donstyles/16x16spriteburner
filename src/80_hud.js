@@ -26,7 +26,7 @@ function drawHUD() {
     const sz = (n.big ? 19 : 12) * zf * pop; font(c, 600, sz, F_HUD); label(c, n.txt, sx, sy, NUMCOL[n.col] || '#fff', { align: 'center', stroke: n.big ? 4 : 3 });
   }
   c.globalAlpha = 1;
-  const narrow = W < 560, TC = narrow ? T + 98 : T, TK = narrow ? T + 76 : T;
+  const narrow = W < 560, crowd = !narrow && CTRL.topLeft < W / 2 + 80, TC = narrow ? T + 98 : crowd ? T + 30 : T, TK = narrow ? T + 76 : T;
   drawHeroFrame(c, L, T);
   // wave pips (top centre)
   if (G.phase === 'fight' && G.wave > 0 && !(G.boss && alive(G.boss))) { const n = G.waves, gap = 13, x0 = W / 2 - (n - 1) * gap / 2, y = TC + 8; for (let k = 0; k < n; k++) { const done = k < G.wave - 1, cur = k === G.wave - 1, s = cur ? 4.5 + Math.sin(G.time * 6) : 3.5; c.save(); c.translate(x0 + k * gap, y); c.rotate(Math.PI / 4); c.fillStyle = done ? '#ffd860' : cur ? '#ff7a4a' : 'rgba(255,255,255,0.18)'; c.fillRect(-s / 2, -s / 2, s, s); c.restore(); } font(c, 500, 13, F_HUD); spaced(c, (G.wave === n ? 'FINAL WAVE' : 'WAVE ' + G.wave + ' OF ' + n) + (G.spawnQ.length ? '  ·  ' + G.spawnQ.length + ' INBOUND' : ''), W / 2, y + 18, 1.6, G.wave === n ? '#ff7a4a' : '#bfae90', 'center'); }
@@ -59,5 +59,6 @@ function drawHUD() {
   drawChoice(c);
   if (!(narrow && G.choice)) drawTopButtons(c, R, narrow ? T + 66 : T);
   drawBook(c);
+  drawPause(c);
   drawNetPanel(c);
 }

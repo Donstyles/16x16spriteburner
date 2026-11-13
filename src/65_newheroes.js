@@ -2,13 +2,13 @@
 // Kazimir fights up close and heals from every wound he deals: claws, blood whips, bats and, at the end, a crimson moon.
 // Seraphine keeps the party standing with healing and blessings, and burns the dark with smites, sanctified ground and angels.
 // Sprites are palette swaps made by tools/recolor.py; bats are drawn as pixel art below.
-HERO_DEFS.vampire = { name: 'KAZIMIR', title: 'VAMPIRE', spr: 'Vampire', hp: 380, spd: 60, r: 6, role: 'melee', col: 'crimson', dmg: 20, leech: 0.05 };
+HERO_DEFS.vampire = { name: 'KAZIMIR', title: 'VAMPIRE', spr: 'Vampire', hp: 360, spd: 60, r: 6, role: 'melee', col: 'crimson', dmg: 20, leech: 0.035, armor: 0.9, skirm: true };
 HERO_DEFS.priest = { name: 'SERAPHINE', title: 'PRIEST', spr: 'Priest', hp: 310, spd: 46, r: 5, role: 'support', col: 'holy', dmg: 25 };
 HERO_PROG.vampire = { titles: [[1, 'FLEDGLING'], [5, 'NIGHTSTALKER'], [10, 'VAMPIRE LORD'], [15, 'ELDER OF THE BLOOD']], ult: 'CRIMSON MOON', evolve: { lvl: 10, spr: 'VampireLord' } };
 HERO_PROG.priest = { titles: [[1, 'ACOLYTE'], [5, 'PRIEST'], [10, 'ARCHPRIEST'], [15, 'VOICE OF HEAVEN']], ult: 'JUDGMENT', evolve: { lvl: 10, spr: 'Archpriest' } };
 DEFAULT_BASIC.vampire = 'CLAW'; DEFAULT_BASIC.priest = 'SMITE'; START_SPELL.priest = 'LAY ON HANDS';
 HERO_CLASS.vampire = 'THE VAMPIRE'; HERO_CLASS.priest = 'THE PRIEST';
-HERO_BLURB.vampire = ['BLOOD · MELEE', 'Heals from every wound he deals: blood whips, bat swarms and a crimson moon.', ['BAT SWARM', 'DRAIN LIFE', 'CRIMSON MOON']];
+HERO_BLURB.vampire = ['BLOOD · HIT AND RUN', 'Darts in, drinks, and is gone again: blood whips, bats that carry foes away, and a crimson moon.', ['BAT SWARM', 'ABDUCTION', 'CRIMSON MOON']];
 HERO_BLURB.priest = ['HOLY · SUPPORT', 'Calls down the light: smites, sanctified ground and guardian angels.', ['GUARDIAN ANGEL', 'HOLY NOVA', 'JUDGMENT']];
 HERO_QUOTE.vampire = '“The night is young. You are not.”'; HERO_QUOTE.priest = '“Kneel and be forgiven. Or don’t.”';
 for (const n of ['LAY ON HANDS', 'BLESSING', 'MIRACLE', 'BLOOD MIST']) HEALS.add(n);
@@ -41,13 +41,30 @@ const HFX = {
   miracle(x, y) { HFX.angelDown(x, y); for (let i = 0; i < 24; i++) part({ k: 'glow', x: x + rand(-12, 12), y: y + rand(-6, 6), z: rand(0, 30), vz: rand(40, 100), drag: 0.6, life: rand(0.8, 1.6), s0: rand(2, 4), s1: 0, col: chance(0.5) ? 'holy' : 'heal' }); },
 };
 // ---------- continuous effects of the new zones and emitters (every phone, every frame) ----------
+// angels glide: the drawn position eases after the real one, leans into its flight, turns by folding, and floats on two slow waves
+function angelGlide(z, dt) {
+  if (z._x === undefined) { z._x = z.x; z._y = z.y; z._f = z.face < 0 ? -1 : 1; z._vx = 0; z._ph = rand(TAU); }
+  const px = z._x; z._x = damp(z._x, z.x, 5, dt); z._y = damp(z._y, z.y, 5, dt); if (dt > 0) z._vx = damp(z._vx, (z._x - px) / dt, 4, dt); z._f = damp(z._f, z.face < 0 ? -1 : 1, 6, dt);
+}
+function angelPose(z) {
+  const x = z._x === undefined ? z.x : z._x, yb = z._y === undefined ? z.y : z._y, life = Math.min(1, z.t * 3, (z.life - z.t) * 3), ph = z._ph || 0;
+  const float = Math.sin(G.time * 1.7 + ph) * 2.6 + Math.sin(G.time * 0.73 + ph * 2) * 1.2;
+  return { x, yb, life, y: yb - 18 - (1 - life) * 40 + float, tilt: clamp((z._vx || 0) / 260, -0.22, 0.22), f: z._f === undefined ? (z.face < 0 ? -1 : 1) : z._f };
+}
+// where an abducted unit is right now (on a guest the zone only knows the unit's id)
+function abductee(z) { return z.m || G.units.find(v => v.id === z.uid) || null; }
 const HAZFX = {
   bleed(z, dt) { if (chance(dt * 9)) part({ k: 'pix', x: z.x + rand(-3, 3), y: z.y, z: rand(6, 14), vx: rand(-10, 10), vy: 0, vz: rand(10, 40), g: 300, life: 0.6, s0: 1.2, col: '#b0101e' }); },
   holyflame(z, dt) { if (chance(dt * 18)) part({ k: 'glow', x: z.x + rand(-4, 4), y: z.y + rand(-2, 2), z: rand(2, 12), vz: rand(30, 60), drag: 1, life: rand(0.3, 0.6), s0: rand(2, 3.5), s1: 0.5, col: chance(0.6) ? 'holy' : 'white' }); light(z.x, z.y, 30, 'holy', 0.6); },
   batcloud(z, dt) { light(z.x, z.y, z.r * 1.6, 'crimson', 0.5); },
+  abduct(z, dt) {
+    if ((z.heavy && z.st) || z.t < (z.delay || 0)) return; const u = abductee(z), x = u ? u.x : z.x, y = u ? u.y : z.y, hh = u ? u.z : z.h;
+    light(x, y - hh, 30, 'crimson', 0.45);
+    if (chance(dt * (z.heavy ? 14 : 8))) part({ k: 'pix', x: x + rand(-3, 3), y, z: hh + rand(2, 8), vx: rand(-10, 10), vy: rand(-4, 4), vz: rand(-10, 10), g: 300, life: 0.9, s0: 1.2, col: '#b0182c' });
+  },
   consecrate(z, dt) { const live2 = 1 - z.t / z.life; if (chance(dt * 14)) { const a = rand(TAU), r = rand(z.r); part({ k: 'glow', x: z.x + Math.cos(a) * r, y: z.y + Math.sin(a) * r * 0.7, z: 0, vz: rand(20, 50), life: rand(0.6, 1.1), s0: rand(1.5, 2.5), s1: 0, col: 'holy' }); } light(z.x, z.y, z.r * 1.8, 'holy', 0.35 * live2 + 0.1); },
   sanct(z, dt) { if (chance(dt * 18)) { const a = rand(TAU), r = rand(z.r); part({ k: 'glow', x: z.x + Math.cos(a) * r, y: z.y + Math.sin(a) * r * 0.7, z: rand(0, 20), vz: rand(20, 50), life: rand(0.8, 1.4), s0: rand(1.5, 3), s1: 0, col: chance(0.7) ? 'holy' : 'white' }); } if (chance(dt * 2)) HFX.feathers(z.x, z.y, 1); light(z.x, z.y, z.r * 1.7, 'holy', 0.4); },
-  angel(z, dt) { light(z.x, z.y - 20, 46, 'holy', 0.55); if (chance(dt * 3)) HFX.feathers(z.x, z.y, 1); if (chance(dt * 10)) part({ k: 'glow', x: z.x + rand(-12, 12), y: z.y + rand(-4, 4), z: rand(14, 34), vz: rand(-10, 20), life: 0.6, s0: 1.6, s1: 0, col: 'holy' }); },
+  angel(z, dt) { angelGlide(z, dt); const x = z._x, y = z._y; light(x, y - 20, 46, 'holy', 0.55); if (chance(dt * 3)) HFX.feathers(x, y, 1); if (chance(dt * 10)) part({ k: 'glow', x: x + rand(-12, 12), y: y + rand(-4, 4), z: rand(14, 34), vz: rand(-10, 20), life: 0.6, s0: 1.6, s1: 0, col: 'holy' }); },
   skybeam(z, dt) { light(z.x, z.y, z.r * 3, 'holy', 0.8); sparks(z.x, z.y, 4, 2, 'holy', 160, 160); if (chance(0.4)) scorch(z.x, z.y, z.r * 0.6, 0.15); },
   moon(z, dt) { light(z.x, z.y + 60, 260, 'crimson', 0.9); if (chance(dt * 30)) part({ k: 'ember', x: rand(ARENA.x0, ARENA.x1), y: rand(ARENA.y0, ARENA.y1), z: rand(40, 80), vx: rand(-10, 10), vy: 0, vz: -rand(10, 30), life: rand(1.5, 2.5), s0: rand(1, 1.8), s1: 0.3, col: 'crimson' }); },
 };
@@ -61,12 +78,20 @@ Object.assign(EMIT, {
 // ---------- drawing the new zones ----------
 const HAZDRAW = {
   world: {
+    abduct(c, z) {
+      const t = (z.t || 0) - (z.delay || 0); if (t < -0.05 || (z.heavy && z.st)) return; const u = abductee(z), x = u ? u.x : z.x, y = u ? u.y : z.y, hh = u ? u.z : z.h, s = z.s || 1;
+      const n = z.n || 4, grab = clamp(t / 0.35, 0, 1), strain = !!z.heavy, top = y - hh - 13 * s;
+      for (let k = 0; k < n; k++) {
+        const a = k / n * TAU + G.time * (strain ? 9 : 5), far = (1 - grab) * 46, rr = (strain ? 9 : 6) * s;
+        drawBat(c, x + Math.cos(a) * (rr + far), top + Math.sin(a) * far * 0.5 - Math.abs(Math.sin(a)) * 3 * s - (strain ? Math.abs(Math.sin(G.time * 17 + k)) * 3 : 0), strain ? 1 : 0.85, G.time * (strain ? 2.2 : 1.4) + k);
+      }
+    },
     batcloud(c, z) { for (const b of z.bats || []) { const a = b[0] + G.time * b[2], r = b[1]; drawBat(c, z.x + Math.cos(a) * r, z.y - 10 + Math.sin(a * 1.3) * r * 0.45, 0.8, G.time + b[0]); } },
     consecrate(c, z) { const live2 = Math.min(1, (1 - z.t / z.life) * 3); c.globalAlpha = 0.16 * live2; c.fillStyle = '#ffe9a8'; c.beginPath(); c.ellipse(z.x, z.y, z.r, z.r * 0.7, 0, 0, TAU); c.fill(); c.globalAlpha = 1; },
     angel(c, z) {
-      const m = MOBS.Angel; if (!m) return; const life = Math.min(1, z.t * 3, (z.life - z.t) * 3), sc = (z.big ? 2.8 : 2.2) * (0.85 + 0.15 * life), bob = Math.sin(G.time * 3 + z.x) * 2, fr = ((G.time * 6) | 0) % 4, foot = footOf('Angel'), y = z.y - 18 - (1 - life) * 40 + bob;
-      c.fillStyle = 'rgba(0,0,0,0.25)'; c.beginPath(); c.ellipse(z.x, z.y, 8, 3, 0, 0, TAU); c.fill();
-      c.save(); c.globalAlpha = life; c.translate(z.x, y); c.scale(sc * (z.face < 0 ? -1 : 1), sc); c.drawImage(IMG.mobs, fr * m[1], m[0], m[1], m[2], -m[1] / 2, -foot - 1, m[1], m[2]); c.restore(); c.globalAlpha = 1;
+      const m = MOBS.Angel; if (!m) return; const P = angelPose(z), sc = (z.big ? 2.8 : 2.2) * (0.85 + 0.15 * P.life), fr = ((G.time * 5) | 0) % 4, foot = footOf('Angel'), fl = Math.abs(P.f) < 0.15 ? (P.f < 0 ? -0.15 : 0.15) : P.f;
+      c.fillStyle = 'rgba(0,0,0,0.25)'; c.beginPath(); c.ellipse(P.x, P.yb, 8, 3, 0, 0, TAU); c.fill();
+      c.save(); c.globalAlpha = P.life; c.translate(P.x, P.y); c.rotate(P.tilt); c.scale(sc * fl, sc); c.drawImage(IMG.mobs, fr * m[1], m[0], m[1], m[2], -m[1] / 2, -foot - 1, m[1], m[2]); c.restore(); c.globalAlpha = 1;
     },
     sword(c, z) { const u = Math.min(1, z.t / z.life), y = z.y - 230 * (1 - u) - 6; c.fillStyle = '#fff6d8'; c.beginPath(); c.moveTo(z.x - 6, y - 90); c.lineTo(z.x + 6, y - 90); c.lineTo(z.x + 4, y - 6); c.lineTo(z.x, y + 6); c.lineTo(z.x - 4, y - 6); c.closePath(); c.fill(); c.fillStyle = '#c9a227'; c.fillRect(z.x - 16, y - 96, 32, 6); c.fillRect(z.x - 3, y - 118, 6, 22); },
   },
@@ -76,7 +101,7 @@ const HAZDRAW = {
     holyflame(c, z) { c.globalAlpha = 0.55; c.drawImage(GLOW.holy, z.x - 9, z.y - 14, 18, 18); },
     consecrate(c, z) { const live2 = Math.min(1, (1 - z.t / z.life) * 3); c.globalAlpha = 0.65 * live2; c.strokeStyle = rgba('holy', 0.9); c.lineWidth = 1.4; c.beginPath(); c.ellipse(z.x, z.y, z.r, z.r * 0.7, 0, 0, TAU); c.stroke(); c.beginPath(); c.ellipse(z.x, z.y, z.r * 0.7, z.r * 0.49, 0, 0, TAU); c.stroke(); c.globalAlpha = 0.25 * live2; c.drawImage(GLOW.holy, z.x - z.r, z.y - z.r * 0.7, z.r * 2, z.r * 1.4); },
     sanct(c, z) { const live2 = Math.min(1, (1 - z.t / z.life) * 3, z.t * 4), p = 0.8 + 0.2 * Math.sin(G.time * 3); c.globalAlpha = 0.16 * live2 * p; c.drawImage(GLOW.holy, z.x - z.r * 1.2, z.y - z.r * 1.3, z.r * 2.4, z.r * 1.8); c.globalAlpha = 0.8 * live2; c.strokeStyle = rgba('holy', 0.9); c.lineWidth = 1.6; c.beginPath(); c.ellipse(z.x, z.y, z.r, z.r * 0.7, 0, 0, TAU); c.stroke(); c.globalAlpha = 0.35 * live2; c.beginPath(); c.ellipse(z.x, z.y - z.r * 0.35, z.r, z.r * 0.9, 0, Math.PI, TAU); c.stroke(); },
-    angel(c, z) { const life = Math.min(1, z.t * 3, (z.life - z.t) * 3), y = z.y - 18 - (1 - life) * 40 + Math.sin(G.time * 3 + z.x) * 2, h = (z.big ? 2.8 : 2.2) * 16; c.globalAlpha = 0.3 * life; c.drawImage(GLOW.holy, z.x - h * 0.8, y - h * 1.05, h * 1.6, h * 1.3); c.globalAlpha = 0.9 * life; c.strokeStyle = rgba('holy', 1); c.lineWidth = 1.2; c.beginPath(); c.ellipse(z.x, y - h * 0.98, 5, 1.6, 0, 0, TAU); c.stroke(); },
+    angel(c, z) { const P = angelPose(z), life = P.life, y = P.y, h = (z.big ? 2.8 : 2.2) * 16; c.globalAlpha = 0.3 * life; c.drawImage(GLOW.holy, P.x - h * 0.8, y - h * 1.05, h * 1.6, h * 1.3); c.globalAlpha = 0.9 * life; c.strokeStyle = rgba('holy', 1); c.lineWidth = 1.2; c.beginPath(); c.ellipse(P.x + Math.sin(P.tilt) * h * 0.98, y - h * 0.98 * Math.cos(P.tilt), 5, 1.6, P.tilt, 0, TAU); c.stroke(); },
     skybeam(c, z) { const life = Math.min(1, z.t * 5, (z.life - z.t) * 5), w = z.r * 1.3; c.globalAlpha = 0.85 * life; const g = c.createLinearGradient(0, z.y - 240, 0, z.y); g.addColorStop(0, 'rgba(255,236,170,0)'); g.addColorStop(0.7, 'rgba(255,236,170,0.55)'); g.addColorStop(1, 'rgba(255,255,255,0.9)'); c.fillStyle = g; c.fillRect(z.x - w, z.y - 240, w * 2, 244); c.fillStyle = 'rgba(255,255,255,0.8)'; c.fillRect(z.x - w * 0.3, z.y - 240, w * 0.6, 244); c.drawImage(GLOW.holy, z.x - w * 2, z.y - w, w * 4, w * 2); },
     moon(c, z) { const life = Math.min(1, z.t * 1.5, (z.life - z.t) * 2), R = 46; c.globalAlpha = 0.9 * life; c.drawImage(GLOW.crimson, z.x - R * 2.6, z.y - R * 2.6, R * 5.2, R * 5.2); c.fillStyle = `rgba(255,70,90,${0.75 * life})`; c.beginPath(); c.arc(z.x, z.y, R, 0, TAU); c.fill(); c.fillStyle = `rgba(150,10,30,${0.6 * life})`; c.beginPath(); c.arc(z.x - 12, z.y - 8, 10, 0, TAU); c.arc(z.x + 14, z.y + 10, 7, 0, TAU); c.arc(z.x + 6, z.y - 18, 5, 0, TAU); c.fill(); },
     sword(c, z) { const u = Math.min(1, z.t / z.life), y = z.y - 230 * (1 - u) - 50; c.globalAlpha = 0.8; c.drawImage(GLOW.holy, z.x - 30, y - 70, 60, 120); },
@@ -86,11 +111,33 @@ const HAZDRAW = {
 const HAZSIM = {
   bleed(z, dt, tick) { const m = z.m; if (!m || m.dead) { if (m && !z.burst) { z.burst = true; HFX.bloodBurst(z.x, z.y, z.bloom ? 1.2 : 0.7); if (alive(z.src)) z.src.hp = Math.min(z.src.maxHp, z.src.hp + z.src.maxHp * 0.05); if (z.bloom) for (const u of within(z.x, z.y, 34, G.mons)) hurt(u, z.dmg * 3, z.src, { elem: 'crimson' }); } z.dead = true; return; } z.x = m.x; z.y = m.y; if (tick) hurt(m, z.dmg, z.src, { elem: 'crimson', quiet: true }); },
   holyflame(z, dt, tick) { const m = z.m; if (!m || m.dead) { if (m && (z.jumps || 0) > 0) { const n = nearest(m, live(G.mons), 70); if (n) { hazard({ ...z, m: n, x: n.x, y: n.y, t: 0, tick: 0, hit: new Set(), jumps: z.jumps - 1 }); HFX.chain(z.x, z.y, n.x, n.y); } } z.dead = true; return; } z.x = m.x; z.y = m.y; if (tick) hurt(m, z.dmg, z.src, { elem: 'holy', quiet: true }); },
+  // bats carry a foe over the walls; a boss or warlord is too heavy: they strain, lift it, and drop it
+  abduct(z, dt) {
+    const u = z.m; if (!u || u.dead) { z.dead = true; return; }
+    const t = z.t - z.delay; if (t < 0) return;
+    if (z.heavy) {
+      if (z.st === 0) {
+        const f = Math.min(1, t / 1.3); u.z = 30 * (1 - (1 - f) * (1 - f)) + Math.sin(t * 19) * 2 * f; u.x = z.bx + Math.sin(t * 23) * 1.4 * f; u.vx = u.vy = 0;
+        if (t > 1.5) { z.st = 1; u.carried = 0; u.state = null; u.vz = 30; HFX.batBurst(u.x, u.y, 8); SFX.whoosh(panOf(u.x)); } // they let go
+      } else if (u.z <= 0) {
+        hurt(u, z.dmg, z.src, { elem: 'crimson', crit: true }); slamFx(u.x, u.y, 0.9, 'crimson'); shake(0.5); hitstop(0.06);
+        for (const v of within(u.x, u.y, 34, G.mons)) if (v !== u) hurt(v, z.dmg * 0.3, z.src, { elem: 'crimson', up: 120 });
+        z.dead = true; return;
+      }
+      if (t > 4) { u.carried = 0; z.dead = true; }
+    } else {
+      if (t < 0.35) u.z = Math.min(12, u.z + 40 * dt);
+      else { z.sp = Math.min(260, z.sp + 480 * dt); u.x += z.dx * z.sp * dt; u.y += z.dy * z.sp * dt * 0.75; u.z += (50 + z.sp * 0.45) * dt; }
+      u.vx = u.vy = 0; u.moving = true;
+      const A = ARENA; if (u.z > 170 || u.x < A.x0 - 60 || u.x > A.x1 + 60 || u.y < A.y0 - 60 || u.y > A.y1 + 60 || t > 4) { kill(u, z.src, 'crimson'); if (alive(z.src)) heal(z.src, z.src.maxHp * (z.feed ? 0.08 : 0.03)); z.dead = true; return; }
+    }
+    z.x = u.x; z.y = u.y; z.h = u.z;
+  },
   batcloud(z, dt, tick) { if (tick) for (const u of within(z.x, z.y, z.r, G.mons)) { hurt(u, z.dmg, z.src, { elem: 'crimson', quiet: true }); if (chance(0.3)) HFX.bite(u.x, u.y); } },
   consecrate(z, dt, tick) { if (!tick) return; for (const u of within(z.x, z.y, z.r, G.mons)) hurt(u, z.dmg, z.src, { elem: 'holy', quiet: true }); for (const h of G.heroes) if (!h.dead && dist(z.x, z.y, h.x, h.y) < z.r) h.hp = Math.min(h.maxHp, h.hp + h.maxHp * 0.015); },
   sanct(z, dt, tick) { for (const h of G.heroes) if (!h.dead && dist(z.x, z.y, h.x, h.y) < z.r) { h.blessT = Math.max(h.blessT || 0, 0.6); if (tick) heal(h, h.maxHp * 0.03 * (z.heal || 1)); } if (tick) for (const u of within(z.x, z.y, z.r, G.mons)) { hurt(u, z.dmg, z.src, { elem: 'holy', quiet: true }); u.slow = 0.4; } },
   angel(z, dt, tick) {
-    const s = z.src; if (z.follow && alive(s)) { z.x = damp(z.x, s.x + z.ox, 3, dt); z.y = damp(z.y, s.y - 4, 3, dt); }
+    const s = z.src; if (z.follow && alive(s)) { const dx = s.x + z.ox - z.x, dy = s.y - 4 - z.y, d = Math.hypot(dx, dy), want = d > 10 ? Math.min(85, (d - 10) * 2) : 0; z.vx = damp(z.vx || 0, d > 0.1 ? dx / d * want : 0, 2.2, dt); z.vy = damp(z.vy || 0, d > 0.1 ? dy / d * want : 0, 2.2, dt); z.x += z.vx * dt; z.y += z.vy * dt; }
     if (!tick || z.t < 0.4 || z.t > z.life - 0.3) return; const t = nearest(z, live(G.mons), z.big ? 220 : 150); if (!t) return; z.face = t.x < z.x ? -1 : 1;
     FX.beams.push({ x0: z.x, y0: z.y - 30, x1: t.x, y1: t.y - 6, w: z.big ? 2.2 : 1.5, col: 'holy', t: 0, life: 0.2, cap: true }); hurt(t, z.dmg, z.src, { elem: 'holy' }); HFX.holyPillar(t.x, t.y, z.big ? 0.8 : 0.5);
   },
@@ -108,7 +155,7 @@ function batBite(h, t) { const m = md('BAT BITE'); for (let i = 0; i <= m.count;
 function batSwarm(h) { const m = md('BAT SWARM'), n = 5 + m.count, ts = live(G.mons).filter(u => dist(h.x, h.y, u.x, u.y) < 170).sort((a, b) => dist(h.x, h.y, a.x, a.y) - dist(h.x, h.y, b.x, b.y)); if (!ts.length) return; HFX.batBurst(h.x, h.y, 8); for (let i = 0; i < n; i++) { const t = ts[i % ts.length], a = rand(TAU); proj({ k: 'bat', x: h.x, y: h.y, z: 12, vx: Math.cos(a) * 120, vy: Math.sin(a) * 90, home: t, life: 2.2, r: 4, dmg: D(h) * 0.9 * m.dmg, src: h, team: 'hero' }); } }
 function hemorrhage(h, t) { const m = md('HEMORRHAGE'); hazard({ k: 'bleed', m: t, x: t.x, y: t.y, src: h, life: 4 * m.dur, rate: 0.4, dmg: D(h) * 0.5 * m.dmg, bloom: !!m.f.bloom }); HFX.bloodBurst(t.x, t.y, 0.6); SFX.hit(panOf(t.x)); }
 function shadowStep(h, t) { const m = md('SHADOW STEP'), a = angTo(h.x, h.y, t.x, t.y); HFX.batBurst(h.x, h.y, 10); h.x = clamp(t.x + Math.cos(a) * 12, ARENA.x0 + 6, ARENA.x1 - 6); h.y = clamp(t.y + Math.sin(a) * 9, ARENA.y0 + 4, ARENA.y1 - 2); h.face = Math.cos(a) < 0 ? 1 : -1; HFX.batBurst(h.x, h.y, 10); hurt(t, D(h) * 1.8 * m.dmg, h, { elem: 'crimson', crit: true, kx: Math.cos(a) * 120, ky: Math.sin(a) * 90 }); HFX.bloodBurst(t.x, t.y, 0.7); h.iframe = Math.max(h.iframe || 0, m.f.mist ? 1 : 0.3); }
-function bloodMist(h) { const m = md('BLOOD MIST'); h.iframe = Math.max(h.iframe || 0, 1.2 * m.dur); h.regen = { t: 3 * m.dur, per: h.maxHp * 0.04 * m.dmg, tick: 0 }; HFX.mist(h.x, h.y); }
+function bloodMist(h) { const m = md('BLOOD MIST'); h.iframe = Math.max(h.iframe || 0, 1.2 * m.dur); h.regen = { t: 3 * m.dur, per: h.maxHp * 0.03 * m.dmg, tick: 0 }; HFX.mist(h.x, h.y); }
 function crimsonLance(h, t) {
   const m = md('CRIMSON LANCE'), a0 = angTo(h.x, h.y, t.x, t.y); SFX.whoosh(panOf(h.x)); h.lunge = 0.3; h.la = a0;
   for (let k = 0; k <= m.count; k++) { const a = a0 + (k ? (k % 2 ? 0.35 : -0.35) * Math.ceil(k / 2) : 0), L = 130 * m.size, [x1, y1] = rayEnd(h.x, h.y - 6, a, L);
@@ -116,7 +163,7 @@ function crimsonLance(h, t) {
     for (const u of live(G.mons)) if (segDist(u.x, u.y - 6, h.x, h.y - 6, x1, y1) < 10 * m.size + u.r) hurt(u, D(h) * 1.6 * m.dmg, h, { elem: 'crimson', kx: Math.cos(a) * 160, ky: Math.sin(a) * 120, stun: m.f.stun ? 1 : 0 }); }
   shake(0.25);
 }
-function bloodNova(h) { const m = md('BLOOD NOVA'), R = 50 * m.size, pulse = () => { let n = 0; for (const u of within(h.x, h.y, R, G.mons)) { const a = angTo(h.x, h.y, u.x, u.y); hurt(u, D(h) * 1.6 * m.dmg, h, { elem: 'crimson', kx: Math.cos(a) * 220, ky: Math.sin(a) * 170, up: 80 }); n++; } h.hp = Math.min(h.maxHp, h.hp + h.maxHp * 0.03 * n * (m.f.feast ? 2 : 1)); HFX.bloodNova(h.x, h.y, R); shake(0.4); SFX.boom(0.6, panOf(h.x)); }; pulse(); for (let k = 1; k <= m.count; k++) after(k * 0.4, () => { if (alive(h)) pulse(); }); }
+function bloodNova(h) { const m = md('BLOOD NOVA'), R = 50 * m.size, pulse = () => { let n = 0; for (const u of within(h.x, h.y, R, G.mons)) { const a = angTo(h.x, h.y, u.x, u.y); hurt(u, D(h) * 1.6 * m.dmg, h, { elem: 'crimson', kx: Math.cos(a) * 220, ky: Math.sin(a) * 170, up: 80 }); n++; } h.hp = Math.min(h.maxHp, h.hp + h.maxHp * 0.03 * Math.min(n, 5) * (m.f.feast ? 2 : 1)); HFX.bloodNova(h.x, h.y, R); shake(0.4); SFX.boom(0.6, panOf(h.x)); }; pulse(); for (let k = 1; k <= m.count; k++) after(k * 0.4, () => { if (alive(h)) pulse(); }); }
 function batCloud(h, p) { const m = md('BAT CLOUD'), R = 30 * m.size; hazard({ k: 'batcloud', x: p.x, y: p.y, r: R, life: 4 * m.dur, rate: 0.3, dmg: D(h) * 0.45 * m.dmg, src: h, bats: Array.from({ length: 14 + m.count * 6 }, () => [rand(TAU), rand(6, R), rand(2, 4) * (chance(0.5) ? 1 : -1)]) }); HFX.batBurst(p.x, p.y, 10); }
 function drainLife(h, t) {
   const m = md('DRAIN LIFE'), dur = 2.5 * m.dur; SFX.beam(dur, 0.6); emitFx('drain', { u: h, tg: t }, dur);
@@ -149,6 +196,18 @@ function sacredFlame(h, t) { const m = md('SACRED FLAME'); hazard({ k: 'holyflam
 function divineBeam(h, t) { const m = md('DIVINE BEAM'), a = angTo(h.x, h.y, t.x, t.y); banner('DIVINE BEAM', h); hazard({ k: 'skybeam', x: h.x + Math.cos(a) * 24, y: h.y + Math.sin(a) * 18, vx: Math.cos(a) * 70, vy: Math.sin(a) * 52, r: 16 * m.size, life: 2.2 * m.dur, rate: 0.12, dmg: D(h) * 0.55 * m.dmg, src: h }); flash('holy', 0.12); SFX.beam(2.2 * m.dur, 1); shake(0.3); }
 function sanctuary(h) { const m = md('SANCTUARY'); banner('SANCTUARY', h); hazard({ k: 'sanct', x: h.x, y: h.y, r: 60 * m.size, life: 6 * m.dur, rate: 0.5, dmg: D(h) * 0.4 * m.dmg, src: h, heal: m.f.heal ? 2 : 1 }); HFX.holyBurst(h.x, h.y, 60 * m.size); SFX.levelup(); }
 function miracle(h) { const m = md('MIRACLE'); banner('MIRACLE', h); for (const x of G.heroes) { if (x.dead) { if (typeof reviveHero === 'function') reviveHero(x, h); x.hp = Math.round(x.maxHp * 0.6); } else heal(x, x.maxHp * 0.4 * m.dmg); if (m.f.halo) x.blessT = 4; HFX.miracle(x.x, x.y); } flash('white', 0.35); }
+function abduction(h, p) {
+  const m = md('ABDUCTION'), R = 44 * m.size, ts = live(G.mons).filter(u => dist(p.x, p.y, u.x, u.y) < R).sort((a, b) => dist(p.x, p.y, a.x, a.y) - dist(p.x, p.y, b.x, b.y)).slice(0, 3 + m.count);
+  if (!ts.length && p.team === 'mon' && alive(p)) ts.push(p);
+  banner('ABDUCTION', h); HFX.batBurst(h.x, h.y, 10); SFX.whoosh(panOf(p.x));
+  ts.forEach((u, i) => {
+    const heavy = !!(u.boss || u.rank === 'warlord'), A = ARENA;
+    // regular foes fly to the nearest wall (rarely toward the camera); the heavy ones only go up
+    const e = [[-1, 0, u.x - A.x0], [1, 0, A.x1 - u.x], [0, -1, (u.y - A.y0) * 1.2], [0, 1, (A.y1 - u.y) * 2.5]].sort((a, b) => a[2] - b[2])[0];
+    u.carried = heavy ? 1 : 2; u.state = null; u.vx = u.vy = u.kx = u.ky = u.vz = 0;
+    hazard({ k: 'abduct', m: u, uid: u.id, x: u.x, y: u.y, h: u.z, bx: u.x, s: u.scale, dx: e[0], dy: e[1], sp: 0, st: 0, heavy: heavy ? 1 : 0, n: heavy ? 9 : 4 + (i % 2), feed: m.f.feed ? 1 : 0, dmg: D(h) * 3.5 * m.dmg, delay: i * 0.1, life: 6, src: h });
+  });
+}
 function judgment(h) {
   const m = md('JUDGMENT'); banner('JUDGMENT', h); SFX.braam(); flash('white', 0.35); slowmo(0.4, 0.6);
   const n = 3 + m.count; for (let k = 0; k < n; k++) { const a = k / n * TAU - Math.PI / 2, x = ARENA.pw / 2 + Math.cos(a) * ARENA.pw * 0.28, y = (ARENA.y0 + ARENA.y1) / 2 + Math.sin(a) * (ARENA.y1 - ARENA.y0) * 0.28; hazard({ k: 'angel', x, y, ox: 0, face: 1, src: h, big: true, life: 6, rate: 0.35, dmg: D(h) * 1.4 * m.dmg }); HFX.angelDown(x, y); }
@@ -168,6 +227,7 @@ SPELLBOOK.vampire = [
   { name: 'BLOOD NOVA', lvl: 6, tier: 2, cd: 8, wind: 0.25, pick: (h, f) => within(h.x, h.y, 42, f).length >= 3 ? true : null, cast: bloodNova },
   { name: 'BAT CLOUD', lvl: 7, tier: 2, cd: 10, wind: 0.35, pick: (h, f) => cluster(h, f, 28, 3, 170), cast: batCloud },
   { name: 'DRAIN LIFE', lvl: 8, tier: 2, cd: 8, wind: 0.2, pick: (h, f) => toughest(h, f, 130), cast: drainLife },
+  { name: 'ABDUCTION', lvl: 10, tier: 3, cd: 14, wind: 0.35, pick: (h, f) => cluster(h, f, 30, 2, 170), cast: abduction },
   { name: 'VAMPIRIC FRENZY', lvl: 10, tier: 3, cd: 14, wind: 0.3, pick: (h, f) => within(h.x, h.y, 50, f).length >= 2 ? true : null, cast: vampiricFrenzy },
   { name: 'NIGHT WINGS', lvl: 11, tier: 3, cd: 9, wind: 0.25, pick: (h, f) => lineTarget(h, f, 150, 3), cast: nightWings },
   { name: 'EXSANGUINATE', lvl: 13, tier: 3, cd: 12, wind: 0.45, pick: (h, f) => within(h.x, h.y, 90, f).length >= 4 ? true : null, cast: exsanguinate },
@@ -194,7 +254,7 @@ Object.assign(SPELL_INFO, {
   'CLAW': 'Rake a crescent of foes; every wound feeds you', 'BLOOD WHIP': 'Lash the two nearest foes with a whip of blood', 'BAT BITE': 'Send a bat to bite and drain a foe',
   'BAT SWARM': 'A cloud of bats seeks out every foe nearby', 'HEMORRHAGE': 'Open a wound that bleeds; it heals you when they fall', 'SHADOW STEP': 'Vanish into bats and strike from behind', 'BLOOD MIST': 'Turn to mist: untouchable, healing',
   'CRIMSON LANCE': 'A spear of blood through everything in a line', 'BLOOD NOVA': 'Blood erupts around you; each foe hit heals you', 'BAT CLOUD': 'A whirling storm of bats over the crowd', 'DRAIN LIFE': 'A thick red beam that drinks a foe dry',
-  'VAMPIRIC FRENZY': 'Attack twice as fast and drink twice as deep', 'NIGHT WINGS': 'Fly through the horde as a swarm of bats', 'EXSANGUINATE': 'Tear the blood out of everything around you',
+  'ABDUCTION': 'Bats seize a knot of foes and carry them off into the night; the heaviest get dropped', 'VAMPIRIC FRENZY': 'Attack twice as fast and drink twice as deep', 'NIGHT WINGS': 'Fly through the horde as a swarm of bats', 'EXSANGUINATE': 'Tear the blood out of everything around you',
   'CRIMSON MOON': 'A red moon rises: blood rains on every foe and bats fill the sky',
   'SMITE': 'A pillar of light on one foe', 'HOLY BOLT': 'A bolt of golden light', 'CENSER': 'Swing a censer of holy fire',
   'LAY ON HANDS': 'A great heal for the most wounded ally', 'BLESSING': 'All allies take half damage for a while', 'CONSECRATE': 'Sanctify the ground: foes burn, allies mend', 'RADIANT SPEAR': 'A spear of light through a line of foes',
@@ -214,6 +274,7 @@ Object.assign(MODS, {
   'BLOOD NOVA': [['CRIMSON TIDE', 'Radius +40%', { size: 1.4 }], ['FEAST', 'Heals twice as much', { f: 'feast' }], ['ECHO', 'A second nova follows', { count: 1 }]],
   'BAT CLOUD': [['NIGHT SKY', 'Radius +40%, more bats', { size: 1.4, count: 1 }], ['FRENZIED', '+50% damage', { dmg: 1.5 }], ['LONG NIGHT', 'Lasts 60% longer', { dur: 1.6 }]],
   'DRAIN LIFE': [['SIPHON', 'Heals twice as much', { f: 'siphon' }], ['HUNGER', '+50% damage', { dmg: 1.5 }], ['LONG DRAW', 'Lasts 50% longer', { dur: 1.5 }]],
+  'ABDUCTION': [['GREATER FLOCK', 'Carries off two more', { count: 2 }], ['FEEDING FLIGHT', 'Each one taken heals you 8%', { f: 'feed' }], ['SWIFT FLOCK', 'Cooldown -35%', { cd: 0.65 }]],
   'VAMPIRIC FRENZY': [['BLOODLUST', 'Lasts 50% longer', { dur: 1.5 }], ['GORGE', 'Drink three times as deep', { f: 'gorge' }], ['REVEL', 'Cooldown -40%', { cd: 0.6 }]],
   'NIGHT WINGS': [['MIDNIGHT', '+60% damage', { dmg: 1.6 }], ['WIDE WINGS', 'Longer, wider flight', { size: 1.4 }], ['RETURN FLIGHT', 'Fly back through them', { f: 'back' }]],
   'EXSANGUINATE': [['TOTAL DRAIN', 'Radius +40%', { size: 1.4 }], ['BLOOD PRICE', '+50% damage', { dmg: 1.5 }], ['TRANSFUSION', 'Allies share the blood', { f: 'share' }]],

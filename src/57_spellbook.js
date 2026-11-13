@@ -4,9 +4,10 @@ const LOCK = [0, 0.55, 1.0, 1.7, 2.4];
 const angDiff = (a, b) => ((a - b) % TAU + TAU * 1.5) % TAU - Math.PI;
 function spellLabel(h, name, tier) { FX.nums.push({ x: h.x, y: h.y, z: 22 * h.scale + 10, vz: 14, vx: 0, txt: name, col: h.def.col, big: tier >= 3, label: tier, t: 0, life: 1.1 + tier * 0.3 }); }
 function ghost(u, col = 'gold', life = 0.3) { FX.ghosts.push({ spr: u.spr, x: u.x, y: u.y, z: u.z, face: u.face, sc: u.scale, fr: ((u.anim * 9) | 0) % 4, col, t: 0, life }); }
-function hazard(o) { const z = { t: 0, tick: 0, hit: new Set(), ...o }; FX.hz.push(z); return z; }
+let HZID = 0;
+function hazard(o) { const z = { t: 0, tick: 0, hit: new Set(), ...o, id: ++HZID }; FX.hz.push(z); return z; }
 // ---------- target pickers ----------
-const live = f => f.filter(m => !m.dead && m.spawnT <= 0);
+const live = f => f.filter(m => !m.dead && m.spawnT <= 0 && m.carried !== 2);
 function nearestFoe(h, f, r) { return nearest(h, f, r); }
 function farFoe(h, f, r0, r1) { let best = null, bd = 0; for (const m of f) { const d = dist(h.x, h.y, m.x, m.y); if (d > r0 && d < r1 && d > bd) { bd = d; best = m; } } return best; }
 function toughest(h, f, r) { let best = null, bh = 0; for (const m of f) { if (dist(h.x, h.y, m.x, m.y) > r) continue; if (m.hp > bh) { bh = m.hp; best = m; } } return best; }
@@ -22,7 +23,7 @@ function laser(h, t, o) {
   if (o.big) { G.ambDark = Math.max(G.ambDark, 0.45); slowmo(0.6, 0.3); }
   h.state = { k: 'channel', t: 0, dur: o.dur, tick: 0, fn: (h, s, dt) => {
     const u = s.t / s.dur; let a = a0 + (u - 0.5) * o.sweep * dir;
-    if (h.ctrl === 'player' && h.inp && h.inp.auto < 2) { const ix = h.inp.mx, iy = h.inp.my; if (s.aim === undefined) s.aim = a0; if (ix || iy) s.aim += clamp(angDiff(Math.atan2(iy, ix), s.aim), -3 * dt, 3 * dt); a = s.aim; }
+    if (h.ctrl === 'player' && h.inp && h.inp.mv === 0) { const ix = h.inp.mx, iy = h.inp.my; if (s.aim === undefined) s.aim = a0; if (ix || iy) s.aim += clamp(angDiff(Math.atan2(iy, ix), s.aim), -3 * dt, 3 * dt); a = s.aim; }
     const ex = h.x + Math.cos(a) * 7, ey = h.y - 10, [x1, y1] = rayEnd(ex, ey, a);
     const w = o.w * Math.min(1, u * 8, (1 - u) * 8) * (0.88 + 0.12 * Math.sin(s.t * 55));
     h.face = Math.cos(a) < 0 ? -1 : 1; h.vx = damp(h.vx, -Math.cos(a) * 6, 4, dt); h.vy = damp(h.vy, -Math.sin(a) * 4, 4, dt);
@@ -246,18 +247,32 @@ function heroBrain(h, foes) {
 const DEFAULT_BASIC = { warrior: 'SLASH', pyro: 'EMBER BOLT', storm: 'SPARK', druid: 'PEBBLE' };
 function basicOf(h) { const n = sbOf(h).basic[h.key] || DEFAULT_BASIC[h.key]; return SPELLBOOK[h.key].find(s => s.name === n); }
 function heroAI(h, dt) {
-  if (h.dead) { h.deadT += dt; return; }
+  const I = h.ctrl === 'player' ? h.inp : null; // a player on AUTO MOVE or AUTOPILOT still sends spells and dodges
+  if (h.dead) { h.deadT += dt; if (I) I.castQ.length = 0; return; }
   for (const k in h.cd) h.cd[k] -= dt;
   h.ult = ultUnlocked(h) ? Math.min(100, h.ult + dt * 2.6) : 0;
   if (h.regen && (h.regen.t -= dt) > 0) { if ((h.regen.tick -= dt) <= 0) { h.regen.tick = 0.5; heal(h, h.regen.per); } localFx(() => regenFx(h, dt)); } else h.regen = null;
   if (h.z > 0 && G.phase !== 'fight') return;
+  if (I && I.dashQ) { I.dashQ = false; if (canDash(h)) { h.state = null; const [dx, dy] = escapeDir(h, live(G.mons)); doDash(h, dx, dy); } else dashFail(h); }
   if (h.stun > 0) { h.stun -= dt; h.vx = damp(h.vx, 0, 8, dt); h.vy = damp(h.vy, 0, 8, dt); return; }
   if (h.state) { heroState(h, dt); return; }
   const foes = live(G.mons);
+  if (I) { while (I.castQ.length && !h.state) tryCast(h, I.castQ.shift(), foes); if (h.state) return; }
   if (!foes.length || G.phase !== 'fight') { const i = G.heroes.indexOf(h), tx = (ARENA.pw / 2) + (i - 1.5) * 20, ty = ARENA.y0 + (ARENA.y1 - ARENA.y0) * 0.6 + (i % 2) * 10; steer(h, tx, ty, h.def.spd * 0.7, dt, 4); return; }
-  if (heroBrain(h, foes)) return;
+  if ((!I || I.mv === 2) && aiDodge(h, foes, dt)) return;
+  if ((!I || I.sp) && heroBrain(h, foes)) return;
   const basic = basicOf(h);
-  if (h.def.role === 'melee') {
+  if (h.def.role === 'melee' && h.fleeT > 0) { h.fleeT -= dt; kite(h, foes, dt, 80); } // badly hurt and swarmed: back off a moment
+  else if (h.def.skirm) {
+    // hit and run: a close-range basic darts in, strikes and springs back out; a reaching basic keeps its distance
+    const reach = (basic.reach || 14) * md(basic.name).size, ranged = reach > 40, n = nearest(h, foes);
+    if (h.hitRun > 0) { h.hitRun -= dt; kite(h, foes, dt, 75); }
+    else if (ranged) kite(h, foes, dt, reach * 0.8);
+    else if (n) steer(h, n.x, n.y, h.def.spd, dt, h.r + n.r + 6);
+    const t = nearest(h, foes, h.r + reach + 6);
+    if (t && !(h.cd.slash > 0)) { h.cd.slash = basic.cd * md(basic.name).cd * (h.frenzyT > 0 ? 0.5 : 1); basic.cast(h, t); if (!ranged) h.hitRun = h.frenzyT > 0 ? 0.3 : 0.6; }
+  }
+  else if (h.def.role === 'melee') {
     const others = G.heroes.filter(x => x !== h && !x.dead), cx = others.length ? others.reduce((a, c) => a + c.x, 0) / others.length : h.x, cy = others.length ? others.reduce((a, c) => a + c.y, 0) / others.length : h.y;
     let t = nearest({ x: cx, y: cy }, foes, 70) || nearest(h, foes); if (G.boss && alive(G.boss) && G.boss.spawnT <= 0 && chance(0.02)) t = G.boss; if (h.target && alive(h.target) && dist(h.x, h.y, h.target.x, h.target.y) < 40) t = h.target; h.target = t;
     const d = steer(h, t.x, t.y, h.def.spd, dt, h.r + t.r + 8);
