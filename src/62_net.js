@@ -100,7 +100,7 @@ function netWrap() {
 function defIdOf(d) { let id = NET.defIds.get(d); if (id === undefined) { id = NET.defs.length; NET.defIds.set(d, id); const o = {}; for (const k in d) { const v = d[k]; if (v === null || (typeof v !== 'object' && typeof v !== 'function')) o[k] = v; } NET.defs.push(o); NET.newDefs.push([id, o]); } return id; }
 const statOf = u => [u.id, defIdOf(u.def), u.spr, u.team, u.key || 0, u.rank || 0, u.title || 0, u.pid === undefined ? -1 : u.pid, u.pname || 0, r1(u.r), u.boss ? 1 : 0];
 const dynOf = u => [u.id, r1(u.x), r1(u.y), r1(u.z), r1(u.vx), r1(u.vy), r2(u.anim), u.face, Math.round(u.hp), Math.round(u.maxHp), r2(u.flash), r2(u.lunge), r2(u.la), r2(u.squash), r2(u.stun), r2(u.spawnT), r2(u.scale), Math.round(u.ult || 0),
-  (u.dead ? 1 : 0) | (u.moving ? 2 : 0) | (u.iframe > 0 ? 4 : 0) | (u.inp && u.inp.mv >= 2 ? 8 : 0) | (u.away ? 16 : 0) | (u.regen ? 32 : 0) | (u.carried === 2 ? 64 : 0), u.state && u.state.k === 'cast' && u.state.sp ? u.state.sp.tier + 1 : 0, u.state && u.state.k === 'cast' ? r2(u.state.t / u.state.dur) : 0];
+  (u.dead ? 1 : 0) | (u.moving ? 2 : 0) | (u.iframe > 0 ? 4 : 0) | (u.inp && u.inp.mv >= 2 ? 8 : 0) | (u.away ? 16 : 0) | (u.regen ? 32 : 0) | (u.carried === 2 ? 64 : 0) | (u.frozen > 0 ? 128 : 0) | (u.chill > 0 ? 256 : 0), u.state && u.state.k === 'cast' && u.state.sp ? u.state.sp.tier + 1 : 0, u.state && u.state.k === 'cast' ? r2(u.state.t / u.state.dur) : 0];
 const PK = ['k', 'x', 'y', 'z', 'vx', 'vy', 'vz', 't', 'big', 'sz', 'rk', 'mud', 'shot', 'tint', 'col', 'life'];
 function pickO(o, keys) { const r = {}; for (const k of keys) { const v = o[k]; if (v !== undefined && v !== null && typeof v !== 'object' && typeof v !== 'function') r[k] = typeof v === 'number' ? r2(v) : v; } return r; }
 // a zone's own drawing state (smoothed flight and the like, keys starting with _) survives each new snapshot
@@ -204,6 +204,7 @@ function hostMsg(c, m) {
 function hostJoin(c, m) {
   if (c.h || !HERO_DEFS[m.hero]) return; const k = m.hero, h = mkUnit('hero', HERO_DEFS[k], 0, 0);
   Object.assign(h, { key: k, ult: 0, strafe: chance(0.5) ? 1 : -1, pid: c.pid, pname: 'P' + (c.pid + 1), ctrl: 'player', inp: newInp(), sb: newSB(k), dashN: DASH_N, dashT: 0, token: c.token || 0 });
+  const ev = HERO_PROG[k].evolve; if (ev && G.lvl >= ev.lvl) h.spr = ev.spr; // late arrivals skip the level-up that evolves
   const b = SPELLBOOK[k].find(s => s.basic && s.name === m.basic); if (b) { h.sb.known.delete(h.sb.basic[k]); h.sb.basic[k] = b.name; h.sb.known.add(b.name); }
   const sk = SPELLBOOK[k].find(s => s.name === m.skill && s.tier === 1); if (sk) asHero(h, () => learnSpell({ sp: sk }));
   const a = (G.me && !G.me.dead && G.me) || G.heroes.find(x => !x.dead);
@@ -402,7 +403,7 @@ function applySnap(m) {
       if (!u) { const st = NET.stat.get(id); if (!st) { if (!NET.skip.has(id)) NET.skip.set(id, now); continue; } NET.skip.delete(id); u = { id, x: a[1], y: a[2], z: a[3], kx: 0, ky: 0, vz: 0, cd: {}, state: null, mul: 1, anim: a[6] }; setStat(u, st); NET.mir.set(id, u); }
       u.sx = a[1]; u.sy = a[2]; u.sz = a[3]; u.vx = a[4]; u.vy = a[5]; if (!(Math.abs(u.anim - a[6]) < 0.4)) u.anim = a[6];
       u.face = a[7]; u.hp = a[8]; u.maxHp = a[9]; u.flash = a[10]; u.lunge = a[11]; u.la = a[12]; u.squash = a[13]; u.stun = a[14]; u.spawnT = a[15]; u.scale = a[16]; u.ult = a[17];
-      const f = a[18]; u.dead = !!(f & 1); u.moving = !!(f & 2); u.iframe = f & 4 ? 1 : 0; u.autoNet = !!(f & 8); u.away = !!(f & 16); u.regenOn = !!(f & 32); u.carried = f & 64 ? 2 : 0; u.castT = a[19] || 0; u.castU = a[20] || 0; seen.add(id);
+      const f = a[18]; u.dead = !!(f & 1); u.moving = !!(f & 2); u.iframe = f & 4 ? 1 : 0; u.autoNet = !!(f & 8); u.away = !!(f & 16); u.regenOn = !!(f & 32); u.carried = f & 64 ? 2 : 0; u.frozen = f & 128 ? 1 : 0; u.chill = f & 256 ? 1 : 0; u.castT = a[19] || 0; u.castU = a[20] || 0; seen.add(id);
     }
     // a unit that just left (died) stays findable for 2 s, so its death shatter still plays when that event arrives a moment later
     for (const [id, u] of [...NET.mir]) if (!seen.has(id)) { NET.mir.delete(id); NET.grave.set(id, { u, t: now }); }

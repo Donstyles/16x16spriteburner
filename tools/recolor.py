@@ -6,6 +6,7 @@ The creature packs have no vampire, priest or angel, so these are palette swaps 
   Priest       <- ProficientBard     (white and gold vestments, gold-rimmed cross shield)
   Archpriest   <- WiseWizard         (white robe, gold staff)
   Angel        <- MagicalFairy       (white-gold wings and dress)
+  Tidecaller   <- DeftSorceress      (ice-white hair, sea-blue cloak, driftwood staff)
 Usage: python3 -I tools/recolor.py   (from the repository root)
 """
 import json
@@ -25,6 +26,10 @@ MAPS = {
     'Archpriest': ('WiseWizard', {
         '6fbdd5': 'f6f1e4', '6e95a9': 'dcd0b4', '5a748d': 'b8a888', '925c33': 'c9a227', '424961': '8a7a5a', '373448': '5a4e3a',
         'be8f47': 'ffd75a', '659257': 'ffe680', '694026': '8a6a20'}),
+    'Tidecaller': ('DeftSorceress', {
+        'e5c989': 'e8f6ff', '9c8850': '8cb8d8', 'c5c57f': 'c4e4f8', '1e5459': '14365e', '238585': '1f5f9e', '04aeae': '38a8f0',
+        '30b3a7': '5cc8ff', '432b23': '24344e', '925c33': '5a7ea6', 'a15735': '3a6a9a', 'cb804a': '7aaad0', '625353': '34405a',
+        '897a71': '56688a', 'ffc200': 'a8f0ff'}),
     'Angel': ('MagicalFairy', {
         '4ddbc2': 'fff2c8', '86f1d6': 'ffffff', '30b3a7': 'f0d890', 'a5e5da': 'fffbe8', '7c2c52': 'e8dcc0', '4e1740': 'b8a070',
         'e17676': 'ffffff', 'ca4464': 'f6efd8'}),

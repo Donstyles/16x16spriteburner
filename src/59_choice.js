@@ -139,11 +139,11 @@ function drawChoice(c) {
   c.globalAlpha = fade; c.fillStyle = 'rgba(6,4,10,0.78)'; c.fillRect(0, 0, W, H);
   const wide = W >= 620, top = Math.max(14, S.t + 8);
   font(c, 900, wide ? 34 : 26, F_DISP); c.shadowColor = 'rgba(255,200,90,0.8)'; c.shadowBlur = 18; const tierPick = ch.kind !== 'draft' && ch.opts[0] && ch.opts[0].type === 'spell' ? ch.opts[0].sp.tier : 0;
-  label(c, ch.kind === 'draft' ? ['', 'WHO GOES DOWN?', 'YOUR FIRST BLOW', 'A SPARK OF POWER'][ch.step] : tierPick ? 'YOUR ' + TIER_LABEL[tierPick] + ' SPELL' : 'SPOILS OF THE DEEP', W / 2, top + (wide ? 30 : 24), '#fff1d0', { align: 'center' }); c.shadowBlur = 0;
-  font(c, 500, 15, F_HUD); spaced(c, ch.kind === 'draft' ? ch.title + (ch.step === 3 ? '   ·   KEPT FOR THE WHOLE RUN' : '') + '   ·   ' + ch.step + ' OF 3' : tierPick ? 'CHOOSE ONE   ·   IT STAYS ON BUTTON ' + (tierPick < 4 ? tierPick : 'R') + ' FOR THE WHOLE RUN' : (ch.kind === 'floor' ? (ch.title || 'FLOOR CLEARED') : 'THE BEAST IS SLAIN') + '   ·   PICK ONE UPGRADE', W / 2, top + (wide ? 50 : 42), 3, '#c8a878', 'center');
+  label(c, ch.kind === 'draft' ? ['', 'PICK YOUR HERO', 'PICK YOUR BASIC ATTACK', 'PICK YOUR LOW SPELL'][ch.step] : tierPick ? 'PICK YOUR ' + TIER_LABEL[tierPick] + ' SPELL' : 'PICK AN UPGRADE', W / 2, top + (wide ? 30 : 24), '#fff1d0', { align: 'center' }); c.shadowBlur = 0;
+  font(c, 500, 15, F_HUD); spaced(c, (ch.kind === 'draft' ? ['', 'YOU PLAY THIS HERO FOR THE WHOLE RUN', 'IT FIRES BY ITSELF AT THE NEAREST FOE', 'IT GOES ON BUTTON 1 FOR THE WHOLE RUN'][ch.step] + '   ·   STEP ' + ch.step + ' OF 3' : tierPick ? (tierPick < 4 ? 'IT GOES ON BUTTON ' + tierPick : 'IT GOES ON THE ULTIMATE BUTTON') + ' FOR THE WHOLE RUN' : (ch.kind === 'floor' ? (ch.title || 'FLOOR CLEARED') : 'THE BEAST IS SLAIN') + '   ·   MAKES ONE OF YOUR SPELLS STRONGER'), W / 2, top + (wide ? 50 : 42), 3, '#c8a878', 'center');
   const n = ch.opts.length, gap = 12, areaTop = top + (wide ? 62 : 52), areaH = H - areaTop - Math.max(40, S.b + 34) - (!wide && ch.kind === 'draft' ? 34 : 0);
   // more than four cards (the six heroes) on a wide screen: a 3 x 2 grid of compact cards
-  const grid = wide && n > 4, gc = 3, gr = Math.ceil(n / gc);
+  const grid = wide && n > 4, gc = n > 6 ? 4 : 3, gr = Math.ceil(n / gc);
   const cw = grid ? Math.min(290, (W - 2 * Math.max(16, S.l + 8) - gap * (gc - 1)) / gc) : wide ? Math.min(230, (W - 2 * Math.max(16, S.l + 8) - gap * (n - 1)) / n) : Math.min(W - 32, 460), chh = grid ? (areaH - gap * (gr - 1)) / gr : wide ? Math.min(areaH, 250) : (areaH - gap * (n - 1)) / n;
   const x0 = grid ? W / 2 - (cw * gc + gap * (gc - 1)) / 2 : wide ? W / 2 - (cw * n + gap * (n - 1)) / 2 : W / 2 - cw / 2, wideCards = wide && !grid;
   ch.rects = [];
@@ -164,8 +164,8 @@ function drawChoice(c) {
     if (!wide) ty = y + 56;
     const title = o.type === 'mod' ? o.mod.name : o.sp.name; font(c, 900, wide ? 21 : 18, F_DISP); for (const ln of wrapText(c, title, tw).slice(0, 2)) { label(c, ln, tx, ty, '#fff4e0'); ty += wide ? 21 : 18; }
     font(c, 500, wide ? 15 : 14, F_HUD); const desc = o.type === 'hero' ? HERO_BLURB[o.hero][1] : o.type === 'mod' ? o.sp.name + ': ' + o.mod.desc : (SPELL_INFO[o.sp.name] || '');
-    for (const ln of wrapText(c, desc, tw).slice(0, wide ? 4 : 2)) { label(c, ln, tx, ty + 2, '#cbbd9f'); ty += wide ? 16 : 15; }
-    if (o.type === 'hero') { font(c, 500, wide ? 14 : 13, F_HUD); label(c, HERO_QUOTE[o.hero], tx, ty + 6, '#d8b06a'); ty += 14; }
+    const dl = wide ? 4 : clamp(Math.floor((y + chh - ty - (o.type === 'hero' ? 22 : 10)) / 15), 2, 4); for (const ln of wrapText(c, desc, tw).slice(0, dl)) { label(c, ln, tx, ty + 2, '#cbbd9f'); ty += wide ? 16 : 15; }
+    if (o.type === 'hero') { let fq = wide ? 14 : 13; font(c, 500, fq, F_HUD); const qw = c.measureText(HERO_QUOTE[o.hero]).width; if (qw > tw) { fq = Math.max(9.5, fq * tw / qw); font(c, 500, fq, F_HUD); } label(c, HERO_QUOTE[o.hero], tx, ty + 6, '#d8b06a'); ty += 14; }
     const ups = o.type === 'hero' ? HERO_BLURB[o.hero][2].map(n => [n]) : MODS[o.sp.name] || [], taken = G.modsTaken[o.sp.name] || [], room = (y + chh - 8) - (ty + 10);
     if (ups.length && room > 30) { ty += 10; font(c, 600, 11, F_HUD); spaced(c, o.type === 'hero' ? 'SIGNATURE SPELLS' : o.type === 'mod' ? 'ALL UPGRADES' : 'POSSIBLE UPGRADES', tx, ty, 1.5, '#7f7466'); ty += 4; for (const [mn] of ups) { if (ty + 14 > y + chh - 6) break; ty += 14; const got = taken.includes(mn), now = o.type === 'mod' && o.mod.name === mn; font(c, 500, 13, F_HUD); label(c, (got ? '✓ ' : now ? '▸ ' : '· ') + mn, tx, ty, now ? hex : got ? '#9fd8a0' : '#a89a84'); } }
     if (o.type === 'mod') { const taken = (G.modsTaken[o.sp.name] || []).length; for (let k = 0; k < 3; k++) { c.fillStyle = k < taken ? hex : k === taken ? '#ffffff' : 'rgba(255,255,255,0.15)'; c.fillRect(x + cw - 14 - (2 - k) * 10, y + chh - 12, 7, 5); } }
@@ -187,7 +187,7 @@ function drawBook(c) {
   c.fillStyle = 'rgba(6,4,10,0.95)'; c.fillRect(0, 0, W, H);
   const h = G.me || G.heroes[0]; if (!h) return; const k = h.key, hd = HERO_DEFS[k], hc = `rgb(${COL[hd.col]})`, book = SPELLBOOK[k], solo = NP() === 1, now = performance.now();
   font(c, 900, 24, F_DISP); label(c, hd.name + '’s Spellbook', L, top + 22, hc); const tw = c.measureText(hd.name + '’s Spellbook').width;
-  font(c, 500, 13, F_HUD); spaced(c, 'LEVEL ' + G.lvl + '  ·  ONE SPELL PER TIER, KEPT FOR THE WHOLE RUN', L + tw + 14, top + 20, 1.2, '#a89a84');
+  font(c, 500, 13, F_HUD); const ev = HERO_PROG[k].evolve; spaced(c, 'LEVEL ' + G.lvl + '  ·  ONE SPELL PER TIER, KEPT FOR THE WHOLE RUN' + (ev && G.lvl < ev.lvl ? '  ·  EVOLVES AT LEVEL ' + ev.lvl : ''), L + tw + 14, top + 20, 1.2, '#a89a84');
   if (W >= 800) { font(c, 500, 12, F_HUD); spaced(c, 'TAP OUTSIDE TO CLOSE', R, top + 20, 1.2, '#7a6f60', 'right'); }
   const detH = 40, y0 = top + 34, rowsH = B - detH - 6 - y0, gap = 5, rh = (rowsH - gap * 4) / 5, lw = clamp(W * 0.14, 96, 132);
   for (let t = 0; t < 5; t++) {

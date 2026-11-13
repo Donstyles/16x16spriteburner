@@ -2,7 +2,7 @@
 const INPUT = { keys: new Set(), stick: null, castQ: [], dashQ: false, pad: null, padPrev: [], lastT: -1e9, touch: ('ontouchstart' in window) || navigator.maxTouchPoints > 0, dest: null, tapId: null };
 // movement schemes: drag anywhere (invisible stick) · tap to move (tap a spot, hold and drag to steer) · fixed stick (bottom left)
 const SCHEMES = ['drag', 'tap', 'stick'], SCHEME_LABEL = { drag: 'DRAG ANYWHERE', tap: 'TAP TO MOVE', stick: 'FIXED STICK' };
-INPUT.scheme = (() => { try { const v = localStorage.getItem('cor-controls'); return SCHEMES.includes(v) ? v : 'drag'; } catch (e) { return 'drag'; } })();
+INPUT.scheme = (() => { try { const v = localStorage.getItem('cor-controls'); return SCHEMES.includes(v) ? v : 'tap'; } catch (e) { return 'tap'; } })(); // new players start with tap to move
 function cycleScheme() { INPUT.scheme = SCHEMES[(SCHEMES.indexOf(INPUT.scheme) + 1) % SCHEMES.length]; try { localStorage.setItem('cor-controls', INPUT.scheme); } catch (e) { } INPUT.dest = null; INPUT.stick = null; INPUT.moved = false; netSay('MOVEMENT: ' + SCHEME_LABEL[INPUT.scheme], 3); }
 function moveHint() { return !INPUT.touch && INPUT.scheme !== 'tap' ? 'MOVE WITH WASD OR THE ARROW KEYS' : INPUT.scheme === 'tap' ? (INPUT.touch ? 'TAP WHERE YOU WANT TO GO' : 'CLICK WHERE YOU WANT TO GO') : INPUT.scheme === 'stick' ? 'USE THE STICK AT THE BOTTOM LEFT' : 'TOUCH ANYWHERE AND DRAG TO MOVE'; }
 function toWorld(px, py) { const s = CAM.z * (1 + CAM.kick); return [(px - VIEW.w / 2 - SH.x) / s + CAM.x, (py - VIEW.h / 2 - SH.y) / s + CAM.y]; }

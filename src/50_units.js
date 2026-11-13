@@ -54,13 +54,14 @@ function hurt(u, amt, src, o = {}) {
   if (!u || u.dead || u.spawnT > 0 || u.carried === 2) return 0;
   if (u.iframe > 0 && u.team === 'hero') { if (chance(0.2)) textPop(u.x, u.y, 18, 'DODGE', 'gold', false); return 0; }
   let d = amt * rand(0.88, 1.12) * (o.crit ? 2 : 1);
+  if (u.frozen > 0 && u.team === 'mon') { d *= o.shatter ? 2.5 : u.brittle ? 1.6 : 1.25; if (o.shatter) { u.frozen = 0; u.brittle = false; HFX.iceBreak(u.x, u.y, u.scale); } } // ice blocks crack
   if (u.team === 'hero') { d *= G.heroDmgTaken * (TUT.on ? 0.4 : 1) * (u.blessT > 0 ? 0.5 : 1); d *= u.def.armor || (u.def.role === 'melee' ? 0.72 : 1); }
   d = Math.max(1, Math.round(d)); u.hp -= d; u.flash = 0.12;
   if (src && src.team === 'hero' && u.team === 'mon' && src.def.leech && !src.dead) src.hp = Math.min(src.maxHp, src.hp + d * src.def.leech * (src.frenzyT > 0 ? (src.leechMul || 2) : 1)); // vampires heal from every wound
   const km = u.boss ? 0.12 : u.scale > 1.2 ? 0.45 : 1; if (o.kx || o.ky) { u.kx += (o.kx || 0) * km; u.ky += (o.ky || 0) * km; }
   if (o.up && !u.boss) u.vz = Math.max(u.vz, o.up * (u.scale > 1.2 ? 0.55 : 1));
   if (o.stun) u.stun = Math.max(u.stun, o.stun * (u.boss ? 0.15 : u.scale > 1.2 ? 0.5 : 1));
-  if (o.elem === 'bolt') u.shock = 0.9; if (o.elem === 'fire') u.burn = Math.max(u.burn, 1.6);
+  if (o.elem === 'bolt') u.shock = 0.9; if (o.elem === 'fire') u.burn = Math.max(u.burn, 1.6); if (o.elem === 'ice' && u.team === 'mon') { u.slow = Math.max(u.slow, 1.6); u.chill = Math.max(u.chill || 0, 1.6); }
   number(u.x, u.y, u.z + 16 * u.scale, d, u.team === 'hero' ? 'red' : (o.elem || 'white'), o.crit || d > 90);
   if (src && src.team === 'hero' && u.team === 'mon' && ultUnlocked(src)) src.ult = Math.min(100, src.ult + d * 0.05);
   if (u.team === 'hero') { if (ultUnlocked(u)) u.ult = Math.min(100, u.ult + d * 0.08); if (d > 20) shake(0.06); }
@@ -87,15 +88,17 @@ function kill(u, src, elem) {
 function deathFx(u, elem) {
   if (!MOBS[u.spr] || u.carried === 2) return; // carried off by bats: it dies out of sight
   const px = spritePixels(u.spr), sc = u.scale * (u.boss ? 1 : 1), fl = u.face < 0 ? -1 : 1, bl = BLOOD[u.def.blood || 'red'];
-  const mode = elem === 'bolt' ? 'zap' : elem === 'fire' ? 'burn' : 'smash', pw = Math.max(1, Math.round(sc));
+  const mode = elem === 'bolt' ? 'zap' : elem === 'fire' ? 'burn' : elem === 'ice' || u.frozen > 0 ? 'ice' : 'smash', pw = Math.max(1, Math.round(sc));
   const kx = clamp(u.kx * 0.4, -120, 120), ky = clamp(u.ky * 0.4, -120, 120), step = px.length > 200 ? 2 : 1;
   for (let i = 0; i < px.length; i += step) {
     const p = px[i], wx = u.x + p.x * sc * fl, h = -p.y * sc + u.z, a = Math.atan2(-h * 0.3, p.x * fl) + rand(-0.5, 0.5);
     if (mode === 'zap') part({ k: 'pixa', x: wx, y: u.y + rand(-1, 1), z: h, vx: Math.cos(a) * rand(30, 110) + kx, vy: rand(-50, 50) + ky, vz: rand(-20, 80), drag: 2.4, life: rand(0.4, 1), s0: pw, col: 'bolt', c2: chance(0.5) ? '#ffffff' : p.c });
     else if (mode === 'burn') { if (chance(0.55)) part({ k: 'ember', x: wx, y: u.y, z: h, vx: rand(-20, 20) + kx * 0.3, vy: rand(-10, 10), vz: rand(30, 90), drag: 1.5, life: rand(0.6, 1.6), s0: rand(1.2, 2), s1: 0.3, col: chance(0.5) ? 'ember' : 'fire' }); else part({ k: 'pix', x: wx, y: u.y, z: h, vx: rand(-30, 30) + kx, vy: rand(-20, 20) + ky, vz: rand(20, 80), g: 300, bounce: 0.3, drag: 1.4, life: rand(0.8, 1.5), s0: pw, col: '#1a1410' }); }
+    else if (mode === 'ice') part({ k: 'pix', x: wx, y: u.y + rand(-1, 1), z: h, vx: Math.cos(a) * rand(40, 160) + kx, vy: rand(-70, 70) + ky, vz: rand(50, 180), g: 440, bounce: 0.3, drag: 1, life: rand(0.8, 1.8), s0: pw, col: chance(0.45) ? p.c : chance(0.5) ? '#dff4ff' : '#8fd0ff' });
     else part({ k: 'pix', x: wx, y: u.y + rand(-1, 1), z: h, vx: Math.cos(a) * rand(30, 140) + kx, vy: rand(-60, 60) + ky, vz: rand(40, 170), g: 420, bounce: 0.35, drag: 1.1, life: rand(1, 2.2), s0: pw, col: p.c });
   }
   if (mode === 'zap') { sparks(u.x, u.y, 8 * sc, 14, 'bolt', 160, 120); flashLight(u.x, u.y, 60 * sc, 'bolt', 1.2, 0.3); scorch(u.x, u.y, 9 * sc, 0.5); SFX.shatter(panOf(u.x)); }
+  else if (mode === 'ice') { sparks(u.x, u.y, 8 * sc, 14, 'ice', 160, 120); flashLight(u.x, u.y, 55 * sc, 'ice', 1.1, 0.3); ring(u.x, u.y, 18 * sc, 'ice', 0.3, 3); SFX.shatter(panOf(u.x)); }
   else if (mode === 'burn') { smoke(u.x, u.y, 6, 'dark', 10 * sc, 14, 1.8, 20); glows(u.x, u.y, 8 * sc, 6, 'fire', 40, 6 * sc, 0.6); scorch(u.x, u.y, 10 * sc, 0.55); SFX.pop(panOf(u.x)); }
   else { debris(u.x, u.y, 10, bl, 140, 160, 1.8 * sc); if (!['rock', 'metal', 'fire'].includes(u.def.blood)) splat(u.x, u.y, bl[0], 7 + 4 * sc, 7 * sc); smoke(u.x, u.y, 3, u.def.blood === 'rock' ? 'dust' : 'grey', 8 * sc, 20, 1.2); SFX.pop(panOf(u.x)); }
   ring(u.x, u.y, 14 * sc, elem === 'bolt' ? 'bolt' : elem === 'fire' ? 'fire' : 'white', 0.25, 2);

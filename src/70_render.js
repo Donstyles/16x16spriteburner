@@ -53,17 +53,25 @@ function toScreen(x, y) { const s = CAM.z * (1 + CAM.kick); return [(x - CAM.x) 
 // ---------- sprites ----------
 function drawUnit(c, u) {
   const m = MOBS[u.spr]; if (!m) return; const sy = m[0], fw = m[1], fh = m[2], foot = footOf(u.spr);
-  const fr = u.dead ? 0 : ((u.anim * (u.moving ? 9 : 5)) | 0) % 4;
+  const fr = u.dead || u.frozen > 0 ? 0 : ((u.anim * (u.moving ? 9 : 5)) | 0) % 4;
   let sc = u.scale; if (u.spawnT > 0) sc *= 1 - (u.spawnT / 0.35) * 0.85;
   const lx = u.lunge > 0 ? Math.cos(u.la) * u.lunge * 14 : 0, ly = u.lunge > 0 ? Math.sin(u.la) * u.lunge * 10 : 0;
-  const bob = u.moving && u.z === 0 && !u.dead ? -Math.abs(Math.sin(u.anim * 11)) * 1.4 : 0, sq = u.squash, stunJit = u.stun > 0 && !u.dead ? Math.sin(u.anim * 50) * 0.6 : 0;
+  const bob = u.moving && u.z === 0 && !u.dead ? -Math.abs(Math.sin(u.anim * 11)) * 1.4 : 0, sq = u.squash, stunJit = u.stun > 0 && !u.dead && !(u.frozen > 0) ? Math.sin(u.anim * 50) * 0.6 : 0;
   c.save(); c.translate(u.x + lx + stunJit, u.y + ly - u.z + bob);
   if (u.dead) { c.rotate(1.45 * (u.face < 0 ? -1 : 1)); c.globalAlpha = 0.55; c.translate(0, -2); }
   c.scale(sc * (1 + sq) * (u.face < 0 ? -1 : 1), sc * (1 - sq));
   c.drawImage(IMG.mobs, fr * fw, sy, fw, fh, -fw / 2, -foot - 1, fw, fh);
   if (u.flash > 0) { c.globalAlpha = Math.min(1, u.flash * 9); c.drawImage(IMG.mobsW, fr * fw, sy, fw, fh, -fw / 2, -foot - 1, fw, fh); }
+  if (u.frozen > 0 && !u.dead) { // the ice block: front face, a lit top, a darker side and two glints
+    const bw = fw * 0.86, bh = foot + 2, bx = -bw / 2, by = -foot - 1; c.globalAlpha = 1;
+    c.fillStyle = 'rgba(160,222,255,0.52)'; c.fillRect(bx, by, bw, bh);
+    c.fillStyle = 'rgba(225,245,255,0.62)'; c.beginPath(); c.moveTo(bx, by); c.lineTo(bx + 3, by - 2.5); c.lineTo(bx + bw + 3, by - 2.5); c.lineTo(bx + bw, by); c.fill();
+    c.fillStyle = 'rgba(90,160,230,0.45)'; c.beginPath(); c.moveTo(bx + bw, by); c.lineTo(bx + bw + 3, by - 2.5); c.lineTo(bx + bw + 3, by + bh - 2.5); c.lineTo(bx + bw, by + bh); c.fill();
+    c.strokeStyle = 'rgba(240,252,255,0.95)'; c.lineWidth = 0.8; c.strokeRect(bx, by, bw, bh); c.beginPath(); c.moveTo(bx + 2, by + bh * 0.7); c.lineTo(bx + bw * 0.45, by + 2); c.moveTo(bx + bw * 0.55, by + bh - 2); c.lineTo(bx + bw - 2, by + bh * 0.45); c.stroke();
+  }
   c.restore(); c.globalAlpha = 1;
   if (u.dead) return;
+  if (u.chill > 0 && !(u.frozen > 0)) { c.strokeStyle = 'rgba(160,225,255,0.75)'; c.lineWidth = 0.8; c.beginPath(); c.ellipse(u.x, u.y, u.r * 1.3, u.r * 0.5, 0, 0, TAU); c.stroke(); c.fillStyle = 'rgba(225,246,255,0.95)'; for (let k = 0; k < 3; k++) { const a = G.time * 2 + k * 2.1 + u.id; c.fillRect(u.x + Math.cos(a) * u.r * 1.2 - 0.5, u.y - u.z - 6 * u.scale + Math.sin(a * 1.3) * 4 - 0.5, 1, 1); } }
   const showBar = u.team === 'hero' || (!u.boss && u.hp < u.maxHp && u.maxHp >= 60);
   if (showBar) { const w = u.team === 'hero' ? 14 : 10 * u.scale, x = u.x - w / 2, y = u.y + 3; c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(x - 0.5, y - 0.5, w + 1, 2.5); const f = clamp(u.hp / u.maxHp, 0, 1); c.fillStyle = u.team === 'hero' ? (f > 0.5 ? '#6cf08a' : f > 0.25 ? '#ffd24a' : '#ff4a3a') : '#e8443a'; c.fillRect(x, y, w * f, 1.5); }
 }
