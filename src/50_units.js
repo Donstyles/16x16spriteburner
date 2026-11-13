@@ -71,8 +71,8 @@ function hurt(u, amt, src, o = {}) {
   if (u.hp <= 0) kill(u, src, o.elem);
   return d;
 }
-// a vampire's stolen life lands at once and is shown as one pink number a moment later (one per hit would be a blur)
-function leech(h, amt) { if (!alive(h) || !(amt > 0)) return; const g = Math.min(h.maxHp - h.hp, amt); if (g <= 0) return; h.hp += g; h.leechAcc = (h.leechAcc || 0) + g; }
+// a vampire's stolen life heals at once; what was drunk over the next second is shown as one green +N (one per hit would be a blur)
+function leech(h, amt) { if (!alive(h) || !(amt > 0)) return; const g = Math.min(h.maxHp - h.hp, amt); if (g <= 0) return; h.hp += g; if (!(h.leechAcc > 0)) h.leechT = 1; h.leechAcc = (h.leechAcc || 0) + g; }
 function heal(u, amt) { if (!alive(u)) return; const h = Math.min(u.maxHp - u.hp, Math.round(amt)); if (h <= 0) return; u.hp += h; number(u.x, u.y, 18, '+' + h, 'heal', h > 60); healFx(u.x, u.y); }
 function kill(u, src, elem) {
   u.dead = true; u.hp = 0;

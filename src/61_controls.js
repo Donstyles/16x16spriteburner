@@ -197,7 +197,7 @@ function drawHeroFrame(c, L, T) {
   const s = hpChip(h), f = s.last, now = performance.now(), bx = L + 46 + (s.big > 0 ? Math.sin(now / 18) * 2 * s.big : 0), by = T + 16, bw = 146, bh = 9;
   c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(bx, by, bw, bh); c.fillStyle = f > 0.5 ? '#5ee07e' : f > 0.25 ? '#ffd24a' : '#ff4a3a'; c.fillRect(bx, by, bw * f, bh);
   if (s.trail > f) { c.globalAlpha = now - s.hitAt < 420 ? 1 : 0.85; c.fillStyle = '#ffffff'; c.fillRect(bx + bw * f, by, bw * (s.trail - f), bh); c.globalAlpha = 1; } // what the last hit took
-  if (s.healA > 0 && f > s.healFrom) { c.globalAlpha = s.healA; c.fillStyle = h.def.leech ? '#ff8ac8' : '#d0ffe0'; c.fillRect(bx + bw * s.healFrom, by, bw * (f - s.healFrom), bh); c.globalAlpha = 1; }
+  if (s.healA > 0 && f > s.healFrom) { c.globalAlpha = s.healA; c.fillStyle = '#d0ffe0'; c.fillRect(bx + bw * s.healFrom, by, bw * (f - s.healFrom), bh); c.globalAlpha = 1; }
   c.fillStyle = 'rgba(255,255,255,0.35)'; c.fillRect(bx, by, bw * f, 2);
   const step = h.maxHp > 1500 ? 250 : 100; c.fillStyle = 'rgba(0,0,0,0.32)'; for (let v = step; v < h.maxHp; v += step) c.fillRect(bx + Math.round(bw * v / h.maxHp), by, 1, bh); // a notch every 100 health
   if (f > 0 && f < 0.25) { c.strokeStyle = `rgba(255,70,50,${0.5 + 0.5 * Math.sin(now / 150)})`; c.lineWidth = 1.5; c.strokeRect(bx - 1, by - 1, bw + 2, bh + 2); }
