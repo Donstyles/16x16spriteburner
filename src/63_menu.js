@@ -83,11 +83,10 @@ function drawMenus(c) {
     mbtn(c, x0, y, bw, bh, 'PLAY SOLO', 'One hero against the cellar', startSolo, { hot: true });
     mbtn(c, x0 + (bw + gap), y, bw, bh, 'HOST CO-OP', 'Open a room for up to 3 friends', startHost);
     mbtn(c, x0 + 2 * (bw + gap), y, bw, bh, 'JOIN CO-OP', 'Type a friend’s room code', startJoin);
-    mbtn(c, 450 - 244, 310, 220, 34, 'HOW TO PLAY', '', () => startSolo(true), { size: 16 });
-    mbtn(c, 450 + 14, 310, 230, 34, 'CONTROLS: ' + SCHEME_LABEL[INPUT.scheme], '', cycleScheme, { size: 16 });
+    mbtn(c, 450 - 110, 310, 220, 34, 'HOW TO PLAY', '', () => startSolo(true), { size: 16 });
     font(c, 500, 15, F_HUD); c.globalAlpha = 0.8;
     spaced(c, [MENU.best > 1 ? 'DEEPEST FLOOR REACHED · ' + MENU.best : '', SFX.ctx ? '' : 'TAP FOR SOUND'].filter(Boolean).join('   ·   '), 450, 370, 2, '#cdb890', 'center');
-    font(c, 500, 14, F_HUD); spaced(c, INPUT.touch ? moveHint() + '  ·  » DODGES  ·  SPELLS ON THE RIGHT' : 'WASD MOVE  ·  SPACE DODGE  ·  1-4 SPELLS  ·  R ULTIMATE  ·  ESC MENU', 450, 394, 2, '#8a7c66', 'center'); c.globalAlpha = 1;
+    font(c, 500, 14, F_HUD); spaced(c, INPUT.touch ? moveHint() + '  ·  » DODGES  ·  SPELLS ON THE RIGHT' : 'WASD MOVE  ·  SPACE DODGE  ·  1-3 SPELLS  ·  R ULTIMATE  ·  ESC MENU', 450, 394, 2, '#8a7c66', 'center'); c.globalAlpha = 1;
   } else if (G.mode === 'join') {
     font(c, 900, 46, F_DISP); label(c, 'Join a Room', 450, 58, '#f8ecd6', { align: 'center' });
     font(c, 500, 16, F_HUD); spaced(c, 'TYPE THE 4 LETTERS ON YOUR FRIEND’S SCREEN', 450, 84, 2, '#bfae90', 'center');

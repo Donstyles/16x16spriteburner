@@ -205,7 +205,7 @@ function hostJoin(c, m) {
   if (c.h || !HERO_DEFS[m.hero]) return; const k = m.hero, h = mkUnit('hero', HERO_DEFS[k], 0, 0);
   Object.assign(h, { key: k, ult: 0, strafe: chance(0.5) ? 1 : -1, pid: c.pid, pname: 'P' + (c.pid + 1), ctrl: 'player', inp: newInp(), sb: newSB(k), dashN: DASH_N, dashT: 0, token: c.token || 0 });
   const b = SPELLBOOK[k].find(s => s.basic && s.name === m.basic); if (b) { h.sb.known.delete(h.sb.basic[k]); h.sb.basic[k] = b.name; h.sb.known.add(b.name); }
-  const sk = SPELLBOOK[k].find(s => s.name === m.skill && s.tier === 1 && !s.free); if (sk) asHero(h, () => learnSpell({ sp: sk }));
+  const sk = SPELLBOOK[k].find(s => s.name === m.skill && s.tier === 1); if (sk) asHero(h, () => learnSpell({ sp: sk }));
   const a = (G.me && !G.me.dead && G.me) || G.heroes.find(x => !x.dead);
   h.x = a ? clamp(a.x + rand(-16, 16), ARENA.x0 + 8, ARENA.x1 - 8) : ARENA.pw / 2; h.y = a ? clamp(a.y + rand(-10, 10), ARENA.y0 + 8, ARENA.y1 - 4) : ARENA.y1 - 30; h.z = 160;
   G.heroes.push(h); G.units.push(h); c.h = h; scaleParty(); h.hp = h.maxHp;
@@ -230,7 +230,7 @@ function choiceEffect(h, o) {
   if (!h || !o) return;
   asHero(h, () => {
     if (o.type === 'basic') applyPick(o);
-    else if (o.type === 'spell') { learnSpell(o); pushBanner({ a: o.sp.name, b: (h.pname ? h.pname + ' · ' : '') + h.def.name + ' LEARNS A ' + TIER_LABEL[o.sp.tier] + ' SPELL' + (o.replace ? ' · FORGETS ' + o.replace : ''), col: h.def.col, keep: true, life: 2.1 }); }
+    else if (o.type === 'spell') { learnSpell(o); pushBanner({ a: o.sp.name, b: (h.pname ? h.pname + ' · ' : '') + h.def.name + ' CHOOSES A ' + TIER_LABEL[o.sp.tier] + ' SPELL' + (o.replace ? ' · FORGETS ' + o.replace : ''), col: h.def.col, keep: true, life: 2.1 }); }
     else if (o.type === 'mod') { (G.modsTaken[o.sp.name] = G.modsTaken[o.sp.name] || []).push(o.mod.name); applyMod(o.sp.name, o.mod.eff); pushBanner({ a: o.mod.name, b: o.sp.name + ' UPGRADED · ' + o.mod.desc.toUpperCase(), col: h.def.col, keep: true, life: 2.1 }); }
   });
   if (!h.dead) { column(h.x, h.y, h.def.col, 1.2, 12); ring(h.x, h.y, 36, h.def.col, 0.5, 4); flashLight(h.x, h.y, 110, h.def.col, 1.5, 0.6); }

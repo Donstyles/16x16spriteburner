@@ -18,7 +18,7 @@ const CTRL = { buttons: [], top: [], fx: {}, topLeft: 1e9 };
 const MOVE_LABEL = ['MANUAL', 'AUTO MOVE', 'AUTOPILOT'], MOVE_SUB = ['YOU STEER AND DODGE', 'YOUR HERO WALKS BY ITSELF · YOU DODGE · DRAG TO TAKE OVER', 'YOUR HERO WALKS AND DODGES ON ITS OWN'];
 const SPELL_LABEL = ['MANUAL', 'AUTO'], SPELL_SUB = ['TAP A SKILL TO CAST IT', 'SKILLS CAST THEMSELVES · TAP ONE TO CAST IT NOW'];
 const SCHEME_SHORT = { drag: 'DRAG', tap: 'TAP TO MOVE', stick: 'STICK' };
-const DASH_N = 3, DASH_T = 1.6; // dodge charges, and the seconds each one takes to come back
+const DASH_N = 1, DASH_T = 15; // one dodge, then a long wait before the next
 const HEALS = new Set(['MEND', 'REJUVENATE', 'MASS HEAL']);
 const HERO_BLURB = {
   warrior: ['STEEL · MELEE', 'Wades into the horde with cleaves, dashes, flurries and floor-splitting slams.', ['WHIRLWIND', 'THOUSAND CUTS', 'CATACLYSM']],
@@ -56,7 +56,7 @@ function setupControls() {
     if (NET.panel) { netPanelTap(x, y); return; }
     if (UI.menuOpen) { pauseTap(x, y); return; }
     if (TUT.skipRect && inRect(TUT.skipRect, x, y)) { tutEnd(); return; }
-    if (UI.bookOpen) { UI.bookOpen = false; return; }
+    if (UI.bookOpen) { if (!bookTap(x, y)) UI.bookOpen = false; return; }
     if (NET.indRect && inRect(NET.indRect, x, y)) { NET.detail = !NET.detail; return; }
     for (const b of CTRL.top) if (inRect(b.r, x, y)) { b.fn(); return; }
     if (G.choice) { if (G.choice.picked < 0) { if (G.choice.kind === 'draft' && inRect(UI.draftRect, x, y)) { G.acted = true; autoDraft(); return; } const i = choiceAt(x, y); if (i >= 0) pickChoice(i, true); } return; }
@@ -80,7 +80,7 @@ function setupControls() {
     if (c === 'KeyB') { UI.bookOpen = !UI.bookOpen; return; } if (c === 'Escape' && TUT.on && !UI.bookOpen) { tutEnd(); return; } if (c === 'Escape') { if (UI.bookOpen) UI.bookOpen = false; else if (NET.panel) NET.panel = false; else UI.menuOpen = !UI.menuOpen; return; } if (UI.bookOpen || UI.menuOpen) return;
     if (G.choice) { if (G.choice.picked < 0 && /^Digit[1-3]$/.test(c)) pickChoice(+c.slice(5) - 1, true); return; }
     if (c === 'Space' || c === 'ShiftLeft' || c === 'ShiftRight') { INPUT.dashQ = true; e.preventDefault(); }
-    if (/^Digit[1-4]$/.test(c)) INPUT.castQ.push(+c.slice(5) - 1);
+    if (/^Digit[1-3]$/.test(c)) INPUT.castQ.push(+c.slice(5) - 1);
     if (c === 'KeyR' || c === 'KeyQ') INPUT.castQ.push('ult');
     if (c === 'KeyT') cycleMove(); if (c === 'KeyG') cycleSpells(); if (c === 'KeyC') cycleScheme(); if (c === 'KeyM') SFX.toggle();
     if (/^(Key[WASD]|Arrow)/.test(c)) { INPUT.keys.add(c); INPUT.dest = null; e.preventDefault(); }
@@ -97,7 +97,7 @@ function pollPad() {
   if (ax || ay || gp.buttons.some(b => b.pressed)) touched();
   if (edge(9)) UI.bookOpen = !UI.bookOpen; if (edge(8)) cycleMove(); if (edge(10)) cycleSpells();
   if (G.choice) { if (G.choice.picked < 0) [2, 3, 1].forEach((b, i) => { if (edge(b)) pickChoice(i, true); }); }
-  else if (!UI.bookOpen) { if (edge(0)) INPUT.dashQ = true; [2, 3, 1, 5].forEach((b, i) => { if (edge(b)) INPUT.castQ.push(i); }); if (edge(7) || edge(4)) INPUT.castQ.push('ult'); }
+  else if (!UI.bookOpen) { if (edge(0)) INPUT.dashQ = true; [2, 3, 1].forEach((b, i) => { if (edge(b)) INPUT.castQ.push(i); }); if (edge(7) || edge(4)) INPUT.castQ.push('ult'); }
   INPUT.padPrev = gp.buttons.map(b => b.pressed);
 }
 // ---------- the hero, driven by the player ----------
@@ -111,7 +111,7 @@ function tryCast(h, slot, foes) {
   if (sp.tier === 4) { h.ult = 0; G.ultCd = 4; } else setCd(h, sp.name, sp.cd * md(sp.name).cd);
   beginCast(h, { ...sp, wind: (sp.wind || 0) * 0.6, free: true }, t === true ? null : t); if (h === G.me) TUT.cast = true;
 }
-// dodging: three charges that come back one at a time
+// dodging: DASH_N charges, each coming back after DASH_T seconds
 function canDash(h) { const st = h.state; return (h.dashN === undefined ? DASH_N : h.dashN) > 0 && !(h.stun > 0) && !(st && (st.k === 'cuts' || st.k === 'leap' || st.k === 'dash' || (st.k === 'cast' && st.sp && st.sp.tier >= 4))); }
 function dashTick(h, dt) { if (h.dashN === undefined) { h.dashN = DASH_N; h.dashT = 0; } if (h.dashN < DASH_N && (h.dashT -= dt) <= 0) { h.dashN++; h.dashT = h.dashN < DASH_N ? DASH_T : 0; } }
 function dashFail(h) { if (h === G.me) (CTRL.fx.dash = CTRL.fx.dash || {}).shake = 0.3; }
@@ -173,11 +173,8 @@ function selectHero(k) {
   keep.pid = 0; keep.pname = 'P1'; keep.inp = newInp(); keep.sb = newSB(k); keep.dashN = DASH_N; keep.dashT = 0; G.me = keep;
   scaleParty(); keep.hp = keep.maxHp;
 }
-function weakestSlot() { let best = 0, bs = 1e9; G.slots.forEach((n, i) => { const sp = n && SPELLBOOK[G.heroKey].find(s => s.name === n), s = sp ? sp.tier * 10 + (G.modsTaken[n] || []).length * 3 + i * 0.1 : -1; if (s < bs) { bs = s; best = i; } }); return G.slots[best]; }
-function learnSpell(o) {
-  const name = o.sp.name; G.known.add(name); if (o.sp.tier >= 4 || o.sp.tier === 0 || !G.slots) return;
-  let i = G.slots.indexOf(null); if (i < 0) { i = Math.max(0, G.slots.indexOf(o.replace || weakestSlot())); G.known.delete(G.slots[i]); } G.slots[i] = name;
-}
+// button 1 holds the Low spell, 2 the Medium, 3 the High; the ultimate has its own button. Nothing is ever replaced.
+function learnSpell(o) { const name = o.sp.name, t = o.sp.tier; G.known.add(name); if (t >= 1 && t <= 3 && G.slots) G.slots[t - 1] = name; }
 // ---------- HUD for one hero ----------
 function ctrlScale() { return clamp(Math.min(VIEW.w, VIEW.h) / 430, 0.85, 1.35); }
 const initials = n => n.split(' ').length > 1 ? n.split(' ').map(w => w[0]).join('').slice(0, 3) : n.slice(0, 2);
@@ -199,9 +196,12 @@ function drawTopButtons(c, R, T) {
   CTRL.top = []; const items = [], ml = moveLevel(), sa = spellAuto();
   items.push({ t: 'MENU', fn: () => { UI.menuOpen = true; UI.leaveT = 0; } });
   items.push({ t: 'SPELLBOOK', fn: () => { UI.bookOpen = true; } });
+  if (G.choice) { items.length = 1; items.push({ t: 'SPELLBOOK', fn: () => { UI.bookOpen = true; } }); } // while cards are up: just the book and the menu
+  else {
   items.push({ cap: 'CONTROLS', t: SCHEME_SHORT[INPUT.scheme], fn: cycleScheme });
   items.push({ cap: 'SPELLS', t: sa && !G.spellMode ? 'AUTO · IDLE' : SPELL_LABEL[G.spellMode], hot: !!sa, fn: cycleSpells });
   items.push({ cap: 'MOVEMENT', t: ml === 2 && G.moveMode < 2 ? 'AUTOPILOT · IDLE' : MOVE_LABEL[G.moveMode], hot: ml > 0, fn: cycleMove });
+  }
   if (MENU.update) { const sure = MENU.sureT > performance.now(); items.push({ t: sure ? 'TAP AGAIN · ENDS THIS RUN' : 'UPDATE READY', hot: true, pulse: !sure, fn: () => { if (MENU.sureT > performance.now()) location.reload(); else MENU.sureT = performance.now() + 3000; } }); }
   const wOf = s => { let w = 0; for (const ch of s) w += c.measureText(ch).width + 1; return w - 1; };
   let x = R;
@@ -215,7 +215,7 @@ function drawTopButtons(c, R, T) {
   }
   CTRL.topLeft = x; // the wave counter moves down when the bar reaches the middle
 }
-// the dodge button: three pips for the charges and a gold sweep while the next one comes back
+// the dodge button: a gold sweep while it recovers (and pips if there is ever more than one charge)
 function drawDashBtn(c, b, h) {
   const fx = CTRL.fx.dash || {}, sc = ctrlScale(), x = b.x + (fx.shake > 0 ? Math.sin(performance.now() / 20) * 4 * fx.shake / 0.3 : 0), y = b.y, r = b.r;
   if (fx.shake > 0) fx.shake -= 1 / 60; if (fx.flash > 0) fx.flash -= 1 / 60;
@@ -226,7 +226,7 @@ function drawDashBtn(c, b, h) {
   if (fx.flash > 0) { c.fillStyle = `rgba(255,255,255,${fx.flash * 3})`; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill(); }
   if (ready) { font(c, 900, 18 * sc, F_DISP); label(c, '»', x, y + 6 * sc, '#fff4e0', { align: 'center' }); }
   else { c.fillStyle = 'rgba(0,0,0,0.45)'; c.beginPath(); c.arc(x, y, r - 2, 0, TAU); c.fill(); font(c, 600, 17 * sc, F_HUD); label(c, t.toFixed(1), x, y + 6 * sc, '#ffffff', { align: 'center', stroke: 3 }); }
-  for (let i = 0; i < DASH_N; i++) { const px = x + (i - (DASH_N - 1) / 2) * 10 * sc, py = y - r - 8 * sc; c.beginPath(); c.arc(px, py, 3.2 * sc, 0, TAU); if (i < n) { c.fillStyle = '#ffd860'; c.fill(); } else { c.strokeStyle = 'rgba(255,216,96,0.55)'; c.lineWidth = 1.2; c.stroke(); } }
+  if (DASH_N > 1) for (let i = 0; i < DASH_N; i++) { const px = x + (i - (DASH_N - 1) / 2) * 10 * sc, py = y - r - 8 * sc; c.beginPath(); c.arc(px, py, 3.2 * sc, 0, TAU); if (i < n) { c.fillStyle = '#ffd860'; c.fill(); } else { c.strokeStyle = 'rgba(255,216,96,0.55)'; c.lineWidth = 1.2; c.stroke(); } }
   if (!INPUT.touch && b.key) { font(c, 600, 11, F_HUD); label(c, b.key, x + r * 0.72, y - r * 0.62, '#ffd860', { align: 'center', stroke: 3 }); }
 }
 function drawSkillBtn(c, b, h) {
@@ -234,7 +234,7 @@ function drawSkillBtn(c, b, h) {
   const fx = CTRL.fx[b.id] || {}, sh = fx.shake > 0 ? Math.sin(performance.now() / 20) * 4 * fx.shake / 0.3 : 0, x = b.x + sh, y = b.y, r = b.r, sp = b.sp;
   if (fx.shake > 0) fx.shake -= 1 / 60; if (fx.flash > 0) fx.flash -= 1 / 60;
   c.fillStyle = 'rgba(14,10,18,0.66)'; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
-  if (!sp) { c.setLineDash([3, 4]); c.strokeStyle = 'rgba(255,255,255,0.22)'; c.lineWidth = 1.5; c.beginPath(); c.arc(x, y, r - 1, 0, TAU); c.stroke(); c.setLineDash([]); font(c, 500, 11 * ctrlScale(), F_HUD); label(c, b.slot === 'ult' ? 'LV ' + TIER_MIN[4] : 'EMPTY', x, y + 4, 'rgba(255,255,255,0.3)', { align: 'center' }); return; }
+  if (!sp) { c.setLineDash([3, 4]); c.strokeStyle = 'rgba(255,255,255,0.22)'; c.lineWidth = 1.5; c.beginPath(); c.arc(x, y, r - 1, 0, TAU); c.stroke(); c.setLineDash([]); const tt = b.slot === 'ult' ? 4 : b.slot + 1; font(c, 600, 10.5 * ctrlScale(), F_HUD); label(c, TIER_LABEL[tt], x, y - 1, TIER_HEX[tt], { align: 'center' }); font(c, 500, 10.5 * ctrlScale(), F_HUD); label(c, G.lvl >= TIER_MIN[tt] ? 'AFTER FLOOR' : 'LV ' + TIER_MIN[tt], x, y + 10 * ctrlScale(), 'rgba(255,255,255,0.4)', { align: 'center' }); return; }
   const hex = b.id === 'dash' ? '#e8d8b8' : TIER_HEX[sp.tier], cdLeft = b.id === 'dash' ? (h.dashCd || 0) : sp.tier === 4 ? 0 : (h.cd[sp.name] || 0), cdMax = b.id === 'dash' ? (h.dashMax || 2.2) : (h.cdMax && h.cdMax[sp.name]) || sp.cd || 1;
   const ready = b.slot === 'ult' ? h.ult >= 100 : cdLeft <= 0;
   if (b.slot === 'ult') { c.strokeStyle = 'rgba(255,255,255,0.15)'; c.lineWidth = 4; c.beginPath(); c.arc(x, y, r - 2, 0, TAU); c.stroke(); c.strokeStyle = hex; c.beginPath(); c.arc(x, y, r - 2, -Math.PI / 2, -Math.PI / 2 + TAU * h.ult / 100); c.stroke(); if (ready) { c.shadowColor = hex; c.shadowBlur = 18 + 8 * Math.sin(performance.now() / 150); c.stroke(); c.shadowBlur = 0; } }
@@ -251,14 +251,14 @@ function drawControls(c) {
   const W = VIEW.w, H = VIEW.h, S = VIEW.safe, sc = ctrlScale(), R = W - Math.max(14, S.r + 10), B = H - Math.max(12, S.b + 8), L = Math.max(14, S.l + 10);
   const ux = R - 38 * sc, uy = B - 38 * sc, rad = 96 * sc, list = [];
   list.push({ id: 'ult', slot: 'ult', x: ux, y: uy, r: 30 * sc, sp: slotSpell(h, 'ult'), key: 'R', press: () => INPUT.castQ.push('ult') });
-  [180, 210, 240, 270].forEach((a, i) => { const t = a * Math.PI / 180; list.push({ id: i, slot: i, x: ux + Math.cos(t) * rad, y: uy + Math.sin(t) * rad, r: 23 * sc, sp: slotSpell(h, i), key: String(i + 1), press: () => INPUT.castQ.push(i) }); });
+  [180, 225, 270].forEach((a, i) => { const t = a * Math.PI / 180; list.push({ id: i, slot: i, x: ux + Math.cos(t) * rad, y: uy + Math.sin(t) * rad, r: 25 * sc, sp: slotSpell(h, i), key: String(i + 1), press: () => INPUT.castQ.push(i) }); });
   list.push({ id: 'dash', slot: 'dash', x: ux - rad - 62 * sc, y: uy + 6 * sc, r: 24 * sc, sp: { name: 'DASH', tier: 0 }, key: 'SPACE', press: () => { if (G.me && G.me.dashN === 0) dashFail(G.me); else INPUT.dashQ = true; } });
-  const ml = moveLevel(), sa = spellAuto(); for (const b of list) { c.globalAlpha = b.id === 'dash' ? (ml === 2 ? 0.5 : 1) : sa ? 0.62 : 1; drawSkillBtn(c, b, h); } c.globalAlpha = 1; CTRL.buttons = list;
+  for (const b of list) drawSkillBtn(c, b, h); CTRL.buttons = list; // always pressable, whatever MOVEMENT and SPELLS are set to
   // the stick is invisible: touch anywhere that isn't a button and drag; a hint shows until the first real move
   if (INPUT.touch && !INPUT.moved && !TUT.on && G.phase === 'fight' && !G.choice) { font(c, 600, 15, F_HUD); c.globalAlpha = 0.45 + 0.25 * Math.sin(performance.now() / 400); spaced(c, moveHint(), VIEW.w / 2, B - 8, 3, '#f0e0c0', 'center'); c.globalAlpha = 1; }
   // tap to move: where the hero is heading
   if (INPUT.dest && G.me && !G.me.dead) { const [dx, dy] = toScreen(INPUT.dest.x, INPUT.dest.y), t = performance.now() / 1000, pr = (6 + 3 * Math.sin(t * 8)) * CAM.z / 2.4; c.strokeStyle = 'rgba(255,216,96,0.85)'; c.lineWidth = 2; c.beginPath(); c.ellipse(dx, dy, pr * 1.6, pr * 0.7, 0, 0, TAU); c.stroke(); c.globalAlpha = 0.5; c.beginPath(); c.ellipse(dx, dy, pr * 2.6, pr * 1.1, 0, 0, TAU); c.stroke(); c.globalAlpha = 1; }
   // fixed stick: always on screen at the bottom left
   if (INPUT.scheme === 'stick') { const [bx, by, R] = stickBase(), s2 = INPUT.stick && INPUT.stick.fixed ? INPUT.stick : null; c.globalAlpha = s2 ? 0.75 : 0.4; c.fillStyle = 'rgba(255,255,255,0.07)'; c.strokeStyle = 'rgba(255,240,210,0.5)'; c.lineWidth = 2; c.beginPath(); c.arc(bx, by, R, 0, TAU); c.fill(); c.stroke(); c.fillStyle = 'rgba(255,240,210,0.55)'; c.beginPath(); c.arc(bx + (s2 ? s2.vx * R : 0), by + (s2 ? s2.vy * R : 0), R * 0.42, 0, TAU); c.fill(); c.globalAlpha = 1; }
-  else if (!INPUT.touch && G.phase === 'fight') { font(c, 500, 12, F_HUD); c.globalAlpha = 0.6; spaced(c, 'WASD MOVE  ·  SPACE DODGE  ·  1-4 SKILLS  ·  R ULTIMATE  ·  T MOVEMENT  ·  G SPELLS  ·  C CONTROLS  ·  ESC MENU', L, B - 4, 1, '#c8b48c'); c.globalAlpha = 1; }
+  else if (!INPUT.touch && G.phase === 'fight') { font(c, 500, 12, F_HUD); c.globalAlpha = 0.6; spaced(c, 'WASD MOVE  ·  SPACE DODGE  ·  1-3 SPELLS  ·  R ULTIMATE  ·  T MOVEMENT  ·  G SPELLS  ·  C CONTROLS  ·  ESC MENU', L, B - 4, 1, '#c8b48c'); c.globalAlpha = 1; }
 }

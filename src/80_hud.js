@@ -57,7 +57,7 @@ function drawHUD() {
   drawControls(c);
   drawTut(c);
   drawChoice(c);
-  if (!(narrow && G.choice)) drawTopButtons(c, R, narrow ? T + 66 : T);
+  drawTopButtons(c, R, narrow ? T + 66 : T);
   drawBook(c);
   drawPause(c);
   drawNetPanel(c);

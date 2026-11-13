@@ -6,7 +6,7 @@ HERO_DEFS.vampire = { name: 'KAZIMIR', title: 'VAMPIRE', spr: 'Vampire', hp: 360
 HERO_DEFS.priest = { name: 'SERAPHINE', title: 'PRIEST', spr: 'Priest', hp: 310, spd: 46, r: 5, role: 'support', col: 'holy', dmg: 25 };
 HERO_PROG.vampire = { titles: [[1, 'FLEDGLING'], [5, 'NIGHTSTALKER'], [10, 'VAMPIRE LORD'], [15, 'ELDER OF THE BLOOD']], ult: 'CRIMSON MOON', evolve: { lvl: 10, spr: 'VampireLord' } };
 HERO_PROG.priest = { titles: [[1, 'ACOLYTE'], [5, 'PRIEST'], [10, 'ARCHPRIEST'], [15, 'VOICE OF HEAVEN']], ult: 'JUDGMENT', evolve: { lvl: 10, spr: 'Archpriest' } };
-DEFAULT_BASIC.vampire = 'CLAW'; DEFAULT_BASIC.priest = 'SMITE'; START_SPELL.priest = 'LAY ON HANDS';
+DEFAULT_BASIC.vampire = 'CLAW'; DEFAULT_BASIC.priest = 'SMITE';
 HERO_CLASS.vampire = 'THE VAMPIRE'; HERO_CLASS.priest = 'THE PRIEST';
 HERO_BLURB.vampire = ['BLOOD · HIT AND RUN', 'Darts in, drinks, and is gone again: blood whips, bats that carry foes away, and a crimson moon.', ['BAT SWARM', 'ABDUCTION', 'CRIMSON MOON']];
 HERO_BLURB.priest = ['HOLY · SUPPORT', 'Calls down the light: smites, sanctified ground and guardian angels.', ['GUARDIAN ANGEL', 'HOLY NOVA', 'JUDGMENT']];

@@ -52,7 +52,7 @@ async function boot() {
   setupControls(); netWrap(); loadModes();
   startRun(true); G.mode = 'menu'; G.card = null; UI.titleT = 99; const ld = document.getElementById('loading'); if (ld) ld.hidden = true;
   const rq = new URLSearchParams(location.search).get('room'); if (rq) setTimeout(() => netJoin(rq), 400);
-  window.CR = { G, FX, CAM, Q, SFX, VIEW, ARENA: () => ARENA, startRun, startFloor, startWave, beginCast, SPELLBOOK, live, pickChoice, md, MODS, UI, autoDraft, INPUT, CTRL, NET, MENU, startSolo, TUT, cycleScheme, toWorld, logText, shareLog, NLOG, startHost, startJoin, lobbyPick, lobbyStart, netJoin, hostOpen, netCloseRoom, tryCast, autoLevel, moveLevel, spellAuto, cycleMove, cycleSpells, backToMenu, DASH_N, HERO_PROG, SPELL_INFO, DEFAULT_BASIC, START_SPELL, TIER_MIN, HERO_BLURB, HERO_CLASS, selectHero, gainXp, levelUp, xpFor, spawnBoss, meteorStorm, thunderstorm, earthquake, cataclysm, explode, MON_DEFS, HERO_DEFS };
+  window.CR = { G, FX, CAM, Q, SFX, VIEW, ARENA: () => ARENA, startRun, startFloor, startWave, beginCast, SPELLBOOK, live, pickChoice, md, MODS, UI, autoDraft, INPUT, CTRL, NET, MENU, startSolo, TUT, cycleScheme, toWorld, logText, shareLog, NLOG, startHost, startJoin, lobbyPick, lobbyStart, netJoin, hostOpen, netCloseRoom, tryCast, queueChoice, openTier, autoLevel, moveLevel, spellAuto, cycleMove, cycleSpells, backToMenu, DASH_N, HERO_PROG, SPELL_INFO, DEFAULT_BASIC, START_SPELL, TIER_MIN, HERO_BLURB, HERO_CLASS, selectHero, gainXp, levelUp, xpFor, spawnBoss, meteorStorm, thunderstorm, earthquake, cataclysm, explode, MON_DEFS, HERO_DEFS };
   requestAnimationFrame(frame);
 }
 boot().catch(e => { const ld = document.getElementById('loading'); if (ld) ld.textContent = 'Failed to start: ' + e.message; console.error(e); });

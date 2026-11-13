@@ -2,18 +2,19 @@
 
 One hero fights down an endless cellar, floor by floor. Steer it yourself, hand parts of the job to the hero, or bring up to three friends.
 
-The main menu offers **PLAY SOLO**, **HOST CO-OP** and **JOIN CO-OP**, plus **HOW TO PLAY** and **CONTROLS**. Your first solo game starts with a short hands-on tutorial (move, automatic attacks, casting, dodging, growing stronger); each step ends when you do it, SKIP ends it at any time, and HOW TO PLAY replays it. Enemies take it easy on you while the tutorial runs.
+The main menu offers **PLAY SOLO**, **HOST CO-OP** and **JOIN CO-OP**, plus **HOW TO PLAY**. Your first solo game starts with a short hands-on tutorial (move, automatic attacks, casting, dodging, growing stronger); each step ends when you do it, SKIP ends it at any time, and HOW TO PLAY replays it. Enemies take it easy on you while the tutorial runs.
 
 ## Spells and progression
-- **Before the first wave** you pick a hero, its basic attack (it fires by itself at the nearest foe) and a first spell (three random Low spells). Mossa and Seraphine also start with a heal on button 1.
-- **After every floor** (on boss floors: after the boss) you pick one of three cards: usually two new spells and one upgrade. Unpicked cards pick themselves after 18 seconds.
-- **Levels** give no cards. Each level heals 35% and raises health and damage; at levels 2, 5, 9 and 12 the Low, Medium, High and Ultimate spells join the card pool. Most heroes evolve at level 10 (Voltaire at 12).
-- **Four buttons plus an ultimate.** When all four are full, a new spell replaces the weakest one (the card names it); its upgrades are kept in case you learn it again.
-- **Upgrades:** three per spell, basic attacks included. Damage, size and duration upgrades multiply; extra projectiles or targets add up.
-- **Ultimate:** a card from level 12; once learned its ring fills as you fight, and a full ring casts it.
-- The SPELLBOOK (button, the hero frame, or B) shows every skill you know and its upgrades; the battle pauses while it is open.
+Every hero holds **one basic attack, one Low, one Medium and one High spell, and one Ultimate**. Each is chosen once, from every spell of that tier, and kept for the whole run; nothing is ever replaced.
 
-| Hero | Basic attacks (pick one) | Low (level 2+) | Medium (5+) | High (9+) | Ultimate (12+) |
+- **Before the first wave** you pick a hero, its basic attack (it fires by itself at the nearest foe) and its Low spell (button 1).
+- **Levels 5, 9 and 12** open the Medium, High and Ultimate tiers. When that floor is cleared, the cards show every spell of the new tier: Medium goes on button 2, High on button 3, the Ultimate on its own button.
+- **Every other cleared floor** (on boss floors: after the boss) offers three upgrades for spells you hold, basic attack included. Each spell has three upgrades; damage, size and duration upgrades multiply, extra projectiles or targets add up. Unpicked cards pick themselves after 18 seconds.
+- **Levels** heal 35% and raise health and damage. Most heroes evolve at level 10 (Voltaire at 12).
+- Once learned, the ultimate's ring fills as you fight, and a full ring casts it.
+- The SPELLBOOK (button, the hero frame, or B) shows all five tiers with every spell of the hero: yours lit with its upgrades, the rest dimmed, locked tiers with the level they open at. Tap a spell for details. The battle pauses while it is open.
+
+| Hero | Basic attack (pick one) | Low (pick one at the start) | Medium (level 5) | High (level 9) | Ultimate (level 12) |
 |---|---|---|---|---|---|
 | Brandt, steel, melee | Slash, Cleave, Quick Stab | Shield Bash, Lunge, Rising Slash | Blade Flurry, Sword Wave, Ground Pound, Charge | Whirlwind, Thousand Cuts | CATACLYSM |
 | Ignis, fire, ranged | Ember Bolt, Fire Orb, Flame Jet | Cinder Spray, Immolate, Blazing Darts | Flame Wall, Heat Ray, Fire Serpents, Magma Pools | Fireball, Flame Nova | METEOR STORM |
@@ -30,23 +31,23 @@ The game is always landscape. On a phone held upright it is drawn sideways, so j
 | | Touch | Keyboard | Gamepad |
 |---|---|---|---|
 | Move | depends on CONTROLS: **drag anywhere** (invisible stick), **tap to move** (tap a spot, hold and drag to steer) or a **fixed stick** at the bottom left | WASD / arrows (or click to move) | left stick |
-| Dodge (untouchable mid-dodge) | » button: three charges, each refills in 1.6 s | Space / Shift | A |
-| Skills 1-4 | the four round buttons | 1-4 | X, Y, B, RB |
+| Dodge (untouchable mid-dodge, then 15 s to recover) | » button | Space / Shift | A |
+| Spells (Low, Medium, High) | the three round buttons; they work in every mode, autopilot included | 1-3 | X, Y, B |
 | Ultimate (when the ring is full) | big corner button | R or Q | RT / LB |
 | MOVEMENT: MANUAL / AUTO MOVE / AUTOPILOT | top bar | T | Select |
 | SPELLS: MANUAL / AUTO | top bar | G | L3 |
-| CONTROLS: DRAG / TAP TO MOVE / STICK | top bar or main menu | C | |
+| CONTROLS: DRAG / TAP TO MOVE / STICK | top bar | C | |
 | Spellbook | SPELLBOOK or the hero frame | B | Start |
 | Menu (pause, co-op, sound, back to the main menu) | MENU | Esc | |
 
-**AUTO MOVE** walks the hero for you; you still dodge, and dragging takes over for a moment. **AUTOPILOT** walks and dodges by itself: it steps out of telegraphed slams, sidesteps shots about to land and breaks out when surrounded and badly hurt. **AUTO SPELLS** casts your skills for you; tapping one still fires it at once. If you don't touch anything for 10 seconds during a fight, autopilot with auto spells takes over until you do. MENU pauses a solo game; in co-op the fight goes on.
+**AUTO MOVE** walks the hero for you; you still dodge, and dragging takes over for a moment. **AUTOPILOT** walks and dodges by itself: it steps out of telegraphed slams, sidesteps shots about to land and breaks out when surrounded and badly hurt. **AUTO SPELLS** casts your spells for you. The spell buttons always work: tapping one fires it at once, whatever MOVEMENT and SPELLS are set to. If you don't touch anything for 10 seconds during a fight, autopilot with auto spells takes over until you do. MENU pauses a solo game; in co-op the fight goes on.
 
 Tap once for sound. On Android the game also goes fullscreen and big hits vibrate.
 
 ## Co-op (up to 4 heroes)
 Choose **HOST CO-OP** on the menu to open **The Cellar Door**, the lobby: a 4-letter room code, **SEND INVITE LINK**, and four seats that fill as friends arrive, each showing the hero that player picked. Friends tap the invite link, or **JOIN CO-OP** and type the code on the letter pad. When everyone is ready the host taps **DESCEND**; each player then picks a basic attack and a first spell. Friends who arrive later drop straight into the fight. A room can also be opened mid-run from **MENU → PLAY TOGETHER**.
 
-- XP and levels are shared; each player gets their own cards after every floor and boss, and picking never pauses the fight.
+- XP and levels are shared; each player makes their own picks after every floor and boss, and picking never pauses the fight.
 - A fallen hero comes back after 9 seconds while anyone is still standing.
 - If a guest's connection drops, their hero fights on by itself and they get it back when the page reconnects. The host's phone runs the game, so it must stay open in the foreground.
 - The connection indicator under the top bar shows round trip, packet loss and sync state; tap it for details.
