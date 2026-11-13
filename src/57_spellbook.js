@@ -192,21 +192,7 @@ const SPELLBOOK = {
     { name: 'FLAME NOVA', lvl: 11, tier: 3, cd: 8, wind: 0.55, pick: (h, f) => within(h.x, h.y, 44, f).length >= 3 ? true : null, cast: flameNova },
     { name: 'METEOR STORM', lvl: 13, tier: 4, wind: 0.9, pick: () => true, cast: meteorStorm },
   ],
-  storm: [
-    { name: 'SPARK', lvl: 1, tier: 0, basic: true, cd: 1.25, pick: (h, f) => nearestFoe(h, f, 160), cast: spark },
-    { name: 'ARC WHIP', lvl: 1, tier: 0, basic: true, cd: 1, range: 62, pick: (h, f) => nearestFoe(h, f, 72 * md('ARC WHIP').size), cast: arcWhip },
-    { name: 'STORM BOLT', lvl: 1, tier: 0, basic: true, cd: 2, pick: (h, f) => nearestFoe(h, f, 170), cast: stormBolt },
-    { name: 'STATIC CHARGE', lvl: 2, tier: 1, cd: 4, wind: 0.2, pick: (h, f) => nearestFoe(h, f, 80), cast: staticCharge },
-    { name: 'SHOCK ORB', lvl: 3, tier: 1, cd: 5, wind: 0.3, pick: (h, f) => nearestFoe(h, f, 170), cast: shockOrb },
-    { name: 'GUST', lvl: 4, tier: 1, cd: 6, wind: 0.25, pick: (h, f) => within(h.x, h.y, 55, f).length >= 2 ? nearestFoe(h, f, 55) : null, cast: gust },
-    { name: 'LIGHTNING LANCE', lvl: 6, tier: 2, cd: 7, wind: 0.5, pick: (h, f) => lineTarget(h, f, 170, 2), cast: lightningLance },
-    { name: 'TESLA COIL', lvl: 7, tier: 2, cd: 11, wind: 0.5, pick: (h, f) => cluster(h, f, 40, 4, 160), cast: teslaCoil },
-    { name: 'ARC FIELD', lvl: 9, tier: 2, cd: 10, wind: 0.5, pick: (h, f) => cluster(h, f, 36, 5, 170), cast: arcField },
-    { name: 'CHAIN LIGHTNING', lvl: 10, tier: 3, cd: 3.2, wind: 0.55, pick: (h, f) => nearestFoe(h, f, 170), cast: (h, t) => chainLightning(h, t) },
-    { name: 'BALL LIGHTNING', lvl: 11, tier: 3, cd: 9, wind: 0.6, pick: (h, f) => f.length >= 4 ? nearestFoe(h, f, 170) : null, cast: ballLightning },
-    { name: 'ARC CANNON', lvl: 12, tier: 3, cd: 13, wind: 0.8, pick: (h, f) => lineTarget(h, f, 200, 3), cast: arcCannon },
-    { name: 'THUNDERSTORM', lvl: 14, tier: 4, wind: 1, pick: () => true, cast: thunderstorm },
-  ],
+  storm: [], // Voltaire's wind and thunder book is in 67_windcaller.js
   druid: [
     { name: 'PEBBLE', lvl: 1, tier: 0, basic: true, cd: 1.3, pick: (h, f) => nearestFoe(h, f, 150), cast: pebble },
     { name: 'THORN DART', lvl: 1, tier: 0, basic: true, cd: 1, pick: (h, f) => nearestFoe(h, f, 160), cast: thornDart },

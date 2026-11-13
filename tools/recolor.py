@@ -7,6 +7,8 @@ The creature packs have no vampire, priest or angel, so these are palette swaps 
   Archpriest   <- WiseWizard         (white robe, gold staff)
   Angel        <- MagicalFairy       (white-gold wings and dress)
   Tidecaller   <- DeftSorceress      (ice-white hair, sea-blue cloak, driftwood staff)
+  Stormcaller  <- CapableCryomancer  (storm-violet hood and robe, dark storm tome, lightning-yellow crystal)
+  StormLord    <- WiseWizard         (the same storm palette for Voltaire's level-12 form)
 Usage: python3 -I tools/recolor.py   (from the repository root)
 """
 import json
@@ -30,6 +32,11 @@ MAPS = {
         'e5c989': 'e8f6ff', '9c8850': '8cb8d8', 'c5c57f': 'c4e4f8', '1e5459': '14365e', '238585': '1f5f9e', '04aeae': '38a8f0',
         '30b3a7': '5cc8ff', '432b23': '24344e', '925c33': '5a7ea6', 'a15735': '3a6a9a', 'cb804a': '7aaad0', '625353': '34405a',
         '897a71': '56688a', 'ffc200': 'a8f0ff'}),
+    'Stormcaller': ('CapableCryomancer', {
+        'a9d4fb': 'cfc8ee', '789eec': '8e84cc', '586dd0': '5e529e', '5042ac': '3a3468', '353287': '26213f', '048e8e': '4a4870',
+        '005050': '2a2842', '006f6f': '3a385a', 'a5e5da': 'fff3a0', 'abd5da': 'fff8c8', '6e95a9': '9a92c8'}),
+    'StormLord': ('WiseWizard', {
+        '6fbdd5': 'c0b6ee', '6e95a9': '8e84cc', '5a748d': '5e529e', '424961': '3a3468', '373448': '26213f', '659257': 'ffe066'}),
     'Angel': ('MagicalFairy', {
         '4ddbc2': 'fff2c8', '86f1d6': 'ffffff', '30b3a7': 'f0d890', 'a5e5da': 'fffbe8', '7c2c52': 'e8dcc0', '4e1740': 'b8a070',
         'e17676': 'ffffff', 'ca4464': 'f6efd8'}),

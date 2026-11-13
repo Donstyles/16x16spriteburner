@@ -31,7 +31,7 @@ function levelUp() {
 function ascend(h, spr) {
   h.spr = spr; h.flash = 0.6; h.squash = 0.4;
   column(h.x, h.y, h.def.col, 2, 22); ring(h.x, h.y, 70, h.def.col, 0.7, 6); ring(h.x, h.y, 40, 'white', 0.4, 4); flashLight(h.x, h.y, 200, h.def.col, 2, 0.8);
-  sparks(h.x, h.y, 10, 40, h.def.col === 'bolt' ? 'bolt' : 'fire', 200, 220); glows(h.x, h.y, 10, 30, h.def.col, 120, 6, 1);
+  sparks(h.x, h.y, 10, 40, SPARK_PAL[h.def.col] ? h.def.col : 'fire', 200, 220); glows(h.x, h.y, 10, 30, h.def.col, 120, 6, 1);
   flash('white', 0.35); shake(0.4); hitstop(0.1); SFX.braam();
 }
 function nextUnlocks() { const t = TIER_MIN.findIndex((l, i) => i > 0 && l > G.lvl); return t > 0 ? { lvl: TIER_MIN[t], names: [TIER_LABEL[t] + ' SPELLS'] } : null; }

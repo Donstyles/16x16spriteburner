@@ -54,6 +54,7 @@ function hurt(u, amt, src, o = {}) {
   if (!u || u.dead || u.spawnT > 0 || u.carried === 2) return 0;
   if (u.iframe > 0 && u.team === 'hero') { if (chance(0.2)) textPop(u.x, u.y, 18, 'DODGE', 'gold', false); return 0; }
   let d = amt * rand(0.88, 1.12) * (o.crit ? 2 : 1);
+  if (u.air && o.elem === 'bolt') d *= 1.5; // airborne foes are easy prey for lightning
   if (u.frozen > 0 && u.team === 'mon') { d *= o.shatter ? 2.5 : u.brittle ? 1.6 : 1.25; if (o.shatter) { u.frozen = 0; u.brittle = false; HFX.iceBreak(u.x, u.y, u.scale); } } // ice blocks crack
   if (u.team === 'hero') { d *= G.heroDmgTaken * (TUT.on ? 0.4 : 1) * (u.blessT > 0 ? 0.5 : 1); d *= u.def.armor || (u.def.role === 'melee' ? 0.72 : 1); }
   d = Math.max(1, Math.round(d)); u.hp -= d; u.flash = 0.12;
@@ -106,8 +107,8 @@ function deathFx(u, elem) {
 // physics: knockback, knock-up and collisions with walls, pillars and each other
 function moveUnit(u, dt) {
   const sl = u.slow > 0 ? 0.5 : 1; if (u.slow > 0) u.slow -= dt; u.x += (u.vx * sl + u.kx) * dt; u.y += (u.vy * sl + u.ky) * dt; const f = Math.exp(-5 * dt); u.kx *= f; u.ky *= f;
-  if (u.z > 0 || u.vz > 0) { u.vz -= 560 * dt; u.z += u.vz * dt; if (u.z <= 0) { if (u.vz < -150) { u.squash = 0.35; debris(u.x, u.y, 3, ['#5a5048', '#7d7064'], 50, 60, 1.2); smoke(u.x, u.y, 2, 'dust', 6, 14, 0.8); if (u.vz < -260 && !u.dead) hurt(u, 6, null, { quiet: true }); } u.z = 0; u.vz = 0; } }
-  const A = ARENA; if (u.x < A.x0 + u.r) { u.x = A.x0 + u.r; u.kx = Math.abs(u.kx) * 0.3; } if (u.x > A.x1 - u.r) { u.x = A.x1 - u.r; u.kx = -Math.abs(u.kx) * 0.3; }
+  if (u.z > 0 || u.vz > 0) { u.vz -= 560 * dt; u.z += u.vz * dt; if (u.z <= 0) { u.air = 0; if (u.dropDmg) { const dd = u.dropDmg; u.dropDmg = 0; if (!u.dead) { hurt(u, dd, u.dropSrc, { elem: 'wind' }); HFX.thud(u.x, u.y); } } if (u.vz < -150) { u.squash = 0.35; debris(u.x, u.y, 3, ['#5a5048', '#7d7064'], 50, 60, 1.2); smoke(u.x, u.y, 2, 'dust', 6, 14, 0.8); if (u.vz < -260 && !u.dead) hurt(u, 6, null, { quiet: true }); } u.z = 0; u.vz = 0; } }
+  const A = ARENA; if (u.windT > 0) { u.windT -= dt; windWall(u, A); } if (u.x < A.x0 + u.r) { u.x = A.x0 + u.r; u.kx = Math.abs(u.kx) * 0.3; } if (u.x > A.x1 - u.r) { u.x = A.x1 - u.r; u.kx = -Math.abs(u.kx) * 0.3; }
   if (u.y < A.y0 + u.r * 0.4) { u.y = A.y0 + u.r * 0.4; u.ky = Math.abs(u.ky) * 0.3; } if (u.y > A.y1) { u.y = A.y1; u.ky = -Math.abs(u.ky) * 0.3; }
   for (const p of A.props) { if (!p.solid || p.dead) continue; const dx = u.x - p.x, dy = u.y - p.cy, d = Math.hypot(dx, dy), m = u.r + p.r; if (d < m) { const nx = d > 0.01 ? dx / d : 1, ny = d > 0.01 ? dy / d : 0; u.x = p.x + nx * m; u.y = p.cy + ny * m; } }
   if (u.squash > 0) u.squash = Math.max(0, u.squash - dt * 2.5);

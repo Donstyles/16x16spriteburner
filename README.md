@@ -18,7 +18,7 @@ Every hero holds **one basic attack, one Low, one Medium and one High spell, and
 |---|---|---|---|---|---|
 | Brandt, steel, melee | Slash, Cleave, Quick Stab | Shield Bash, Lunge, Rising Slash | Blade Flurry, Sword Wave, Ground Pound, Charge | Whirlwind, Thousand Cuts | CATACLYSM |
 | Ignis, fire, ranged | Ember Bolt, Fire Orb, Flame Jet | Cinder Spray, Immolate, Blazing Darts | Flame Wall, Heat Ray, Fire Serpents, Magma Pools | Fireball, Flame Nova | METEOR STORM |
-| Voltaire, lightning, ranged | Spark, Arc Whip, Storm Bolt | Static Charge, Shock Orb, Gust | Lightning Lance, Tesla Coil, Arc Field | Chain Lightning, Ball Lightning, Arc Cannon | THUNDERSTORM |
+| Voltaire, wind and thunder, ranged: whooshes hurl foes into walls, tornadoes spin them into the air, lightning hits airborne foes 50% harder | Wind Blade, Gale, Spark | Whoosh, Dust Devil, Static Charge, Crosswind | Tornado, Lightning Lance, Downdraft, Eye Of The Storm | Hurricane, Chain Lightning, Thunderclap | TEMPEST |
 | Mossa, earth, support | Pebble, Thorn Dart, Mud Ball | Mend, Thorn Lash, Rejuvenate, Entangle | Stone Fist, Insect Swarm, Boulder Roll | Stone Spikes, Mass Heal, Resurrection | EARTHQUAKE |
 | Kazimir, blood, hit and run, heals from every hit | Claw, Blood Whip, Bat Bite | Bat Swarm, Hemorrhage, Shadow Step, Blood Mist | Crimson Lance, Blood Nova, Bat Cloud, Drain Life | Abduction, Vampiric Frenzy, Night Wings, Exsanguinate | CRIMSON MOON |
 | Seraphine, holy, support | Smite, Holy Bolt, Censer | Lay On Hands, Blessing, Consecrate, Radiant Spear | Holy Nova, Guardian Angel, Chains Of Light, Sacred Flame | Divine Beam, Sanctuary, Miracle | JUDGMENT |
@@ -60,7 +60,7 @@ Open `index.html` (it is self-contained), or add the GitHub Pages site to your H
 ## Build
 ```
 python3 -I tools/pack.py <extracted cellar tileset zip> <extracted creature packs> .
-python3 -I tools/recolor.py   # vampire, vampire lord, priest, archpriest, tidecaller and angel sprites (palette swaps)
+python3 -I tools/recolor.py   # vampire, vampire lord, priest, archpriest, tidecaller, stormcaller, storm lord and angel sprites (palette swaps)
 node tools/build.js
 ```
 `src/*.js` is concatenated into `index.html` (Pages / Home Screen) and `dist/artifact.html`.
