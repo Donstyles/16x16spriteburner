@@ -10,7 +10,7 @@ Every hero holds **one basic attack, one Low, one Medium and one High spell, and
 - **Before the first wave** you pick a hero, its basic attack (it fires by itself at the nearest foe) and its Low spell (button 1).
 - **Levels 5, 9 and 12** open the Medium, High and Ultimate tiers. When that floor is cleared, the cards show every spell of the new tier: Medium goes on button 2, High on button 3, the Ultimate on its own button.
 - **Every other cleared floor** (on boss floors: after the boss) offers three upgrades for spells you hold, basic attack included. Each spell has three upgrades; damage, size and duration upgrades multiply, extra projectiles or targets add up. Unpicked cards pick themselves after 18 seconds.
-- **Levels** heal 35% and raise health and damage. Ignis, Kazimir, Seraphine and Nerida take a new form at level 10, Voltaire at 12; Brandt and Mossa keep theirs.
+- **Levels** heal 35% and raise health and damage. Ignis, Kazimir, Seraphine, Nerida and Aldric take a new form at level 10, Voltaire at 12; Brandt and Mossa keep theirs.
 - Once learned, the ultimate's ring fills as you fight, and a full ring casts it.
 - The SPELLBOOK (button, the hero frame, or B) shows all five tiers with every spell of the hero: yours lit with its upgrades, the rest dimmed, locked tiers with the level they open at. Tap a spell for details. The battle pauses while it is open.
 
@@ -23,6 +23,7 @@ Every hero holds **one basic attack, one Low, one Medium and one High spell, and
 | Kazimir, blood, hit and run, heals from every hit | Claw, Blood Whip, Bat Bite | Bat Swarm, Hemorrhage, Shadow Step, Blood Mist | Crimson Lance, Blood Nova, Bat Cloud, Drain Life | Abduction, Vampiric Frenzy, Night Wings, Exsanguinate | CRIMSON MOON |
 | Seraphine, holy, support | Smite, Holy Bolt, Censer | Lay On Hands, Blessing, Consecrate, Radiant Spear | Holy Nova, Guardian Angel, Chains Of Light, Sacred Flame | Divine Beam, Sanctuary, Miracle | JUDGMENT |
 | Nerida, ice and water, ranged: waves sweep foes to the far wall, frost freezes them into ice blocks | Frost Shard, Water Whip, Bubble | Frost Nova, Tidal Push, Ice Lance, Chilling Mist | Flash Freeze, Riptide, Glacial Spikes, Hail | Great Wave, Deep Freeze, Frozen Tomb | TSUNAMI |
+| Aldric, war and command, ranged: marks a target and calls in archers on the wall, cannons, wolf cavalry and banners that make heroes hit harder (nothing fights beside him: every order is an effect) | Mark Target, Sabre, Pistol | Arrow Volley, War Standard, Rallying Cry, Caltrops | Cannon Shot, Grapeshot, Fire Arrows, Cavalry Charge | Bombardment, Banner Of Kings, Arrowstorm | TOTAL WAR |
 
 Every fourth floor a boss rises. When a floor is cleared it collapses and the hero drops to the next one. If the hero falls, the floor starts over.
 
@@ -60,7 +61,7 @@ Open `index.html` (it is self-contained), or add the GitHub Pages site to your H
 ## Build
 ```
 python3 -I tools/pack.py <extracted cellar tileset zip> <extracted creature packs> .
-python3 -I tools/recolor.py   # vampire, vampire lord, priest, archpriest, tidecaller, stormcaller, storm lord and angel sprites (palette swaps)
+python3 -I tools/recolor.py   # vampire, priest, tidecaller, stormcaller, general and their evolved forms, the general's archers and riders, angels (palette swaps)
 node tools/build.js
 ```
 `src/*.js` is concatenated into `index.html` (Pages / Home Screen) and `dist/artifact.html`.

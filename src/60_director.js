@@ -118,7 +118,7 @@ function heroState(h, dt) {
 }
 function monAI(m, dt, heroes) {
   if (m.carried) { m.moving = m.carried === 2; return; } // in the claws of a bat flock
-  if (m.chill > 0) m.chill -= dt;
+  if (m.chill > 0) m.chill -= dt; if (m.markT > 0) m.markT -= dt;
   if (m.frozen > 0) { if ((m.frozen -= dt) <= 0) { m.frozen = 0; m.brittle = false; } m.vx = damp(m.vx, 0, 10, dt); m.vy = damp(m.vy, 0, 10, dt); m.moving = false; return; } // a block of ice
   if (m.spawnT > 0) { m.spawnT -= dt; return; }
   for (const k in m.cd) m.cd[k] -= dt;

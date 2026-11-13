@@ -9,6 +9,10 @@ The creature packs have no vampire, priest or angel, so these are palette swaps 
   Tidecaller   <- DeftSorceress      (ice-white hair, sea-blue cloak, driftwood staff)
   Stormcaller  <- CapableCryomancer  (storm-violet hood and robe, dark storm tome, lightning-yellow crystal)
   StormLord    <- WiseWizard         (the same storm palette for Voltaire's level-12 form)
+  General      <- SilentRanger       (scarlet officer's coat, gold braid)
+  FieldMarshal <- SilentRanger       (navy coat and gold for Aldric's level-10 form)
+  Bowman       <- HalflingRanger     (the general's archers, in scarlet)
+  Cavalry      <- GoblinWolfRider    (the general's wolf riders: human riders in scarlet)
 Usage: python3 -I tools/recolor.py   (from the repository root)
 """
 import json
@@ -37,6 +41,14 @@ MAPS = {
         '005050': '2a2842', '006f6f': '3a385a', 'a5e5da': 'fff3a0', 'abd5da': 'fff8c8', '6e95a9': '9a92c8'}),
     'StormLord': ('WiseWizard', {
         '6fbdd5': 'c0b6ee', '6e95a9': '8e84cc', '5a748d': '5e529e', '424961': '3a3468', '373448': '26213f', '659257': 'ffe066'}),
+    'General': ('SilentRanger', {
+        'b0bb5b': 'e0503a', '659257': 'a82a22', '64754a': '701a18', 'ffdfbf': 'ffd860'}),
+    'FieldMarshal': ('SilentRanger', {
+        'b0bb5b': '5a6ac8', '659257': '34449a', '64754a': '222c6a', 'ffdfbf': 'ffe066', 'd31212': 'ffd860'}),
+    'Bowman': ('HalflingRanger', {
+        '72e27f': 'f06a4a', '53a96f': 'd84a3a', '327962': 'a82a22', '1b4b4f': '701a18', '6d7d59': '8a6a3a', '44563e': '5a4428'}),
+    'Cavalry': ('GoblinWolfRider', {
+        '72e27f': 'f0c0a8', '53a96f': 'de9e8c', '327962': 'a86a50', '1b4b4f': 'a82a22'}),
     'Angel': ('MagicalFairy', {
         '4ddbc2': 'fff2c8', '86f1d6': 'ffffff', '30b3a7': 'f0d890', 'a5e5da': 'fffbe8', '7c2c52': 'e8dcc0', '4e1740': 'b8a070',
         'e17676': 'ffffff', 'ca4464': 'f6efd8'}),

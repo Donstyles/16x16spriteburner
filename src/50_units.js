@@ -55,6 +55,8 @@ function hurt(u, amt, src, o = {}) {
   if (u.iframe > 0 && u.team === 'hero') { if (chance(0.2)) textPop(u.x, u.y, 18, 'DODGE', 'gold', false); return 0; }
   let d = amt * rand(0.88, 1.12) * (o.crit ? 2 : 1);
   if (u.air && o.elem === 'bolt') d *= 1.5; // airborne foes are easy prey for lightning
+  if (u.team === 'mon' && src && src.team === 'hero') { if (u.markT > 0 && src.key === 'general') d *= 1.25; if (src.rallyT > 0) d *= src.rallyBig ? 1.5 : 1.3; } // the general's mark; fighting under a standard
+  if (u.team === 'hero' && u.rallyT > 0) d *= u.rallyBig ? 0.65 : 0.8;
   if (u.frozen > 0 && u.team === 'mon') { d *= o.shatter ? 2.5 : u.brittle ? 1.6 : 1.25; if (o.shatter) { u.frozen = 0; u.brittle = false; HFX.iceBreak(u.x, u.y, u.scale); } } // ice blocks crack
   if (u.team === 'hero') { d *= G.heroDmgTaken * (TUT.on ? 0.4 : 1) * (u.blessT > 0 ? 0.5 : 1); d *= u.def.armor || (u.def.role === 'melee' ? 0.72 : 1); }
   d = Math.max(1, Math.round(d)); u.hp -= d; u.flash = 0.12;
