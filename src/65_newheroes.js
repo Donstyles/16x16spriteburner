@@ -109,7 +109,7 @@ const HAZDRAW = {
 };
 // ---------- the new zones on the host: damage, healing, following ----------
 const HAZSIM = {
-  bleed(z, dt, tick) { const m = z.m; if (!m || m.dead) { if (m && !z.burst) { z.burst = true; HFX.bloodBurst(z.x, z.y, z.bloom ? 1.2 : 0.7); if (alive(z.src)) z.src.hp = Math.min(z.src.maxHp, z.src.hp + z.src.maxHp * 0.05); if (z.bloom) for (const u of within(z.x, z.y, 34, G.mons)) hurt(u, z.dmg * 3, z.src, { elem: 'crimson' }); } z.dead = true; return; } z.x = m.x; z.y = m.y; if (tick) hurt(m, z.dmg, z.src, { elem: 'crimson', quiet: true }); },
+  bleed(z, dt, tick) { const m = z.m; if (!m || m.dead) { if (m && !z.burst) { z.burst = true; HFX.bloodBurst(z.x, z.y, z.bloom ? 1.2 : 0.7); if (alive(z.src)) leech(z.src, z.src.maxHp * 0.05); if (z.bloom) for (const u of within(z.x, z.y, 34, G.mons)) hurt(u, z.dmg * 3, z.src, { elem: 'crimson' }); } z.dead = true; return; } z.x = m.x; z.y = m.y; if (tick) hurt(m, z.dmg, z.src, { elem: 'crimson', quiet: true }); },
   holyflame(z, dt, tick) { const m = z.m; if (!m || m.dead) { if (m && (z.jumps || 0) > 0) { const n = nearest(m, live(G.mons), 70); if (n) { hazard({ ...z, m: n, x: n.x, y: n.y, t: 0, tick: 0, hit: new Set(), jumps: z.jumps - 1 }); HFX.chain(z.x, z.y, n.x, n.y); } } z.dead = true; return; } z.x = m.x; z.y = m.y; if (tick) hurt(m, z.dmg, z.src, { elem: 'holy', quiet: true }); },
   // bats carry a foe over the walls; a boss or warlord is too heavy: they strain, lift it, and drop it
   abduct(z, dt) {
@@ -129,7 +129,7 @@ const HAZSIM = {
       if (t < 0.35) u.z = Math.min(12, u.z + 40 * dt);
       else { z.sp = Math.min(260, z.sp + 480 * dt); u.x += z.dx * z.sp * dt; u.y += z.dy * z.sp * dt * 0.75; u.z += (50 + z.sp * 0.45) * dt; }
       u.vx = u.vy = 0; u.moving = true;
-      const A = ARENA; if (u.z > 170 || u.x < A.x0 - 60 || u.x > A.x1 + 60 || u.y < A.y0 - 60 || u.y > A.y1 + 60 || t > 4) { kill(u, z.src, 'crimson'); if (alive(z.src)) heal(z.src, z.src.maxHp * (z.feed ? 0.08 : 0.03)); z.dead = true; return; }
+      const A = ARENA; if (u.z > 170 || u.x < A.x0 - 60 || u.x > A.x1 + 60 || u.y < A.y0 - 60 || u.y > A.y1 + 60 || t > 4) { kill(u, z.src, 'crimson'); if (alive(z.src)) leech(z.src, z.src.maxHp * (z.feed ? 0.08 : 0.03)); z.dead = true; return; }
     }
     z.x = u.x; z.y = u.y; z.h = u.z;
   },
@@ -163,14 +163,14 @@ function crimsonLance(h, t) {
     for (const u of live(G.mons)) if (segDist(u.x, u.y - 6, h.x, h.y - 6, x1, y1) < 10 * m.size + u.r) hurt(u, D(h) * 1.6 * m.dmg, h, { elem: 'crimson', kx: Math.cos(a) * 160, ky: Math.sin(a) * 120, stun: m.f.stun ? 1 : 0 }); }
   shake(0.25);
 }
-function bloodNova(h) { const m = md('BLOOD NOVA'), R = 50 * m.size, pulse = () => { let n = 0; for (const u of within(h.x, h.y, R, G.mons)) { const a = angTo(h.x, h.y, u.x, u.y); hurt(u, D(h) * 1.6 * m.dmg, h, { elem: 'crimson', kx: Math.cos(a) * 220, ky: Math.sin(a) * 170, up: 80 }); n++; } h.hp = Math.min(h.maxHp, h.hp + h.maxHp * 0.03 * Math.min(n, 5) * (m.f.feast ? 2 : 1)); HFX.bloodNova(h.x, h.y, R); shake(0.4); SFX.boom(0.6, panOf(h.x)); }; pulse(); for (let k = 1; k <= m.count; k++) after(k * 0.4, () => { if (alive(h)) pulse(); }); }
+function bloodNova(h) { const m = md('BLOOD NOVA'), R = 50 * m.size, pulse = () => { let n = 0; for (const u of within(h.x, h.y, R, G.mons)) { const a = angTo(h.x, h.y, u.x, u.y); hurt(u, D(h) * 1.6 * m.dmg, h, { elem: 'crimson', kx: Math.cos(a) * 220, ky: Math.sin(a) * 170, up: 80 }); n++; } leech(h, h.maxHp * 0.03 * Math.min(n, 5) * (m.f.feast ? 2 : 1)); HFX.bloodNova(h.x, h.y, R); shake(0.4); SFX.boom(0.6, panOf(h.x)); }; pulse(); for (let k = 1; k <= m.count; k++) after(k * 0.4, () => { if (alive(h)) pulse(); }); }
 function batCloud(h, p) { const m = md('BAT CLOUD'), R = 30 * m.size; hazard({ k: 'batcloud', x: p.x, y: p.y, r: R, life: 4 * m.dur, rate: 0.3, dmg: D(h) * 0.45 * m.dmg, src: h, bats: Array.from({ length: 14 + m.count * 6 }, () => [rand(TAU), rand(6, R), rand(2, 4) * (chance(0.5) ? 1 : -1)]) }); HFX.batBurst(p.x, p.y, 10); }
 function drainLife(h, t) {
   const m = md('DRAIN LIFE'), dur = 2.5 * m.dur; SFX.beam(dur, 0.6); emitFx('drain', { u: h, tg: t }, dur);
   h.state = { k: 'channel', t: 0, dur, tick: 0, fn: (h, s, dt) => {
     if (!alive(t)) { s.t = s.dur; return; } h.vx = damp(h.vx, 0, 10, dt); h.vy = damp(h.vy, 0, 10, dt); h.face = t.x < h.x ? -1 : 1;
     if (!s.beam || !FX.beams.includes(s.beam)) { s.beam = { col: 'crimson', steady: true, cap: true }; FX.beams.push(s.beam); } Object.assign(s.beam, { x0: h.x, y0: h.y - 8, x1: t.x, y1: t.y - 6, w: 2.2 * (0.85 + 0.15 * Math.sin(s.t * 40)), t: 0, life: 0.2 });
-    s.tick -= dt; if (s.tick <= 0) { s.tick = 0.2; hurt(t, D(h) * 0.5 * m.dmg, h, { elem: 'crimson', quiet: true }); h.hp = Math.min(h.maxHp, h.hp + D(h) * 0.3 * m.dmg * (m.f.siphon ? 2 : 1)); }
+    s.tick -= dt; if (s.tick <= 0) { s.tick = 0.2; hurt(t, D(h) * 0.5 * m.dmg, h, { elem: 'crimson', quiet: true }); leech(h, D(h) * 0.3 * m.dmg * (m.f.siphon ? 2 : 1)); }
   } };
 }
 function vampiricFrenzy(h) { const m = md('VAMPIRIC FRENZY'), dur = 5 * m.dur; h.frenzyT = dur; h.leechMul = m.f.gorge ? 3 : 2; emitFx('frenzy', { u: h }, dur); banner('VAMPIRIC FRENZY', h); HFX.bloodBurst(h.x, h.y, 1); SFX.braam(); }
@@ -179,7 +179,7 @@ function nightWings(h, t) {
   HFX.batBurst(h.x, h.y, 12); emitFx('battrail', { u: h }, m.f.back ? 0.8 : 0.4); h.iframe = Math.max(h.iframe || 0, 0.4);
   dash(h, h.x + Math.cos(a) * 120 * m.size, h.y + Math.sin(a) * 90 * m.size, 0.35, { r: 14 * m.size, col: 'crimson', onHit: hit, onEnd: () => { HFX.batBurst(h.x, h.y, 10); if (m.f.back) dash(h, x0, y0, 0.3, { r: 14 * m.size, col: 'crimson', onHit: hit }); } });
 }
-function exsanguinate(h) { const m = md('EXSANGUINATE'), R = 90 * m.size, ts = within(h.x, h.y, R, G.mons); banner('EXSANGUINATE', h); let total = 0; for (const u of ts) { FX.beams.push({ x0: u.x, y0: u.y - 6, x1: h.x, y1: h.y - 8, w: 1.6, col: 'crimson', t: 0, life: 0.6, cap: true }); total += hurt(u, D(h) * 2.2 * m.dmg, h, { elem: 'crimson', up: 60 }) || 0; } HFX.exsang(h.x, h.y, R); h.hp = Math.min(h.maxHp, h.hp + total * 0.2); if (m.f.share) for (const x of G.heroes) if (!x.dead && x !== h) heal(x, total * 0.1); flash('crimson', 0.3); slowmo(0.5, 0.35); shake(0.6); SFX.braam(); }
+function exsanguinate(h) { const m = md('EXSANGUINATE'), R = 90 * m.size, ts = within(h.x, h.y, R, G.mons); banner('EXSANGUINATE', h); let total = 0; for (const u of ts) { FX.beams.push({ x0: u.x, y0: u.y - 6, x1: h.x, y1: h.y - 8, w: 1.6, col: 'crimson', t: 0, life: 0.6, cap: true }); total += hurt(u, D(h) * 2.2 * m.dmg, h, { elem: 'crimson', up: 60 }) || 0; } HFX.exsang(h.x, h.y, R); leech(h, total * 0.2); if (m.f.share) for (const x of G.heroes) if (!x.dead && x !== h) heal(x, total * 0.1); flash('crimson', 0.3); slowmo(0.5, 0.35); shake(0.6); SFX.braam(); }
 function crimsonMoon(h) { const m = md('CRIMSON MOON'), dur = 5 * m.dur; banner('CRIMSON MOON', h); SFX.braam(); SFX.quake(1.5); G.ambDark = 1; flash('crimson', 0.5); quake(1.5, 0.6); hazard({ k: 'moon', x: ARENA.pw / 2, y: ARENA.y0 + 6, r: 0, life: dur, rate: 0.12 / Math.max(1, m.count * 0.5 + 1), dmg: D(h) * 1.6 * m.dmg, src: h, share: !!m.f.share }); emitFx('batsweep', { x0: ARENA.x0, x1: ARENA.x1, y0: ARENA.y0, y1: ARENA.y1 }, dur); }
 // ---------- Seraphine's spells ----------
 function smite(h, t) { const m = md('SMITE'), ts = [t, ...live(G.mons).filter(x => x !== t).sort((a, b) => dist(t.x, t.y, a.x, a.y) - dist(t.x, t.y, b.x, b.y)).slice(0, m.count)]; for (const u of ts) { HFX.holyPillar(u.x, u.y, 0.7); hurt(u, D(h) * 1.2 * m.dmg, h, { elem: 'holy' }); } SFX.zap(panOf(t.x)); }

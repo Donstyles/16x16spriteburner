@@ -1,7 +1,7 @@
 // ===================== main menu, room-code keypad and the co-op lobby =====================
 // All three screens are laid out on a 900×420 board scaled into the safe area, so they look the same on every phone.
 const MENU = { rects: [], k: 1, ox: 0, oy: 0, code: '', back: 'menu', flash: {}, best: 0, seatsKey: '' };
-try { MENU.best = +localStorage.getItem('cor-best') || 0; } catch (e) { }
+try { MENU.best = +localStorage.getItem('cor-best') || 0; MENU.iosSeen = localStorage.getItem('cor-iostip') === '1'; } catch (e) { }
 function saveBest() { if (G.best > MENU.best) { MENU.best = G.best; try { localStorage.setItem('cor-best', String(G.best)); } catch (e) { } } }
 const HERO_QUOTE = { warrior: '“Steel first. Questions never.”', pyro: '“Everything burns, if you are patient.”', storm: '“The sky owes me a favour.”', druid: '“The roots remember every grave.”' };
 const FLOOR_LINES = ['The roots down here drink more than water.', 'Salt keeps meat fresh. It keeps other things too.', 'The water rose once. Something swam in with it.', 'Every bone is labelled. Someone keeps the ledger.',
@@ -24,7 +24,7 @@ function mbtn(c, x, y, w, h, title, sub, fn, o = {}) {
 function shade(c, a = 0.72) { const W = VIEW.w, H = VIEW.h, g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, `rgba(4,3,6,${a})`); g.addColorStop(0.5, `rgba(4,3,6,${a * 0.6})`); g.addColorStop(1, `rgba(4,3,6,${Math.min(0.95, a + 0.15)})`); c.fillStyle = g; c.fillRect(0, 0, W, H); }
 function sprite(c, spr, x, y, s, a = 1) { const m = MOBS[spr]; if (!m) return; c.imageSmoothingEnabled = false; c.globalAlpha = a; c.drawImage(IMG.mobs, ((performance.now() / 180) | 0) % 4 * m[1], m[0], m[1], m[2], x, y, s, s * m[2] / m[1]); c.globalAlpha = 1; }
 // ---------- start buttons ----------
-function beginPlay() { G.mode = 'play'; UI.titleT = 99; G.fade = 1; G.card = { t: 0, life: 2.8, a: 'FLOOR ' + G.floor, b: ARENA.name, c: floorLine(G.floor) }; }
+function beginPlay() { MENU.iosSeen = true; try { localStorage.setItem('cor-iostip', '1'); } catch (e) { } G.mode = 'play'; UI.titleT = 99; G.fade = 1; G.card = { t: 0, life: 2.8, a: 'FLOOR ' + G.floor, b: ARENA.name, c: floorLine(G.floor) }; }
 function startSolo(tut) { loadModes(); beginPlay(); queueDraft(); TUT.pending = tut === true || !tutSeen; }
 function startHost() { loadModes(); G.mode = 'lobby'; NET.lobby = { started: false, picks: {} }; MENU.flash = {}; hostOpen(); }
 function startJoin() { loadModes(); MENU.back = G.mode === 'play' ? 'play' : 'menu'; MENU.code = ''; G.mode = 'join'; NET.panel = false; }
@@ -86,7 +86,7 @@ function drawMenus(c) {
     mbtn(c, 450 - 110, 310, 220, 34, 'HOW TO PLAY', '', () => startSolo(true), { size: 16 });
     font(c, 500, 15, F_HUD); c.globalAlpha = 0.8;
     spaced(c, [MENU.best > 1 ? 'DEEPEST FLOOR REACHED · ' + MENU.best : '', SFX.ctx ? '' : 'TAP FOR SOUND'].filter(Boolean).join('   ·   '), 450, 370, 2, '#cdb890', 'center');
-    const iosUp = VIEW.rot && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+    const iosUp = !MENU.iosSeen && VIEW.rot && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
     if (iosUp) { font(c, 600, 14, F_HUD); spaced(c, 'IPHONE: TURN ROTATION LOCK OFF AND HOLD THE PHONE SIDEWAYS · IOS THEN HIDES THE CLOCK AND BATTERY', 450, 394, 1.5, '#ffd860', 'center'); }
     else { font(c, 500, 14, F_HUD); spaced(c, INPUT.touch ? moveHint() + '  ·  » DODGES  ·  SPELLS ON THE RIGHT' : 'WASD MOVE  ·  SPACE DODGE  ·  1-3 SPELLS  ·  R ULTIMATE  ·  ESC MENU', 450, 394, 2, '#8a7c66', 'center'); } c.globalAlpha = 1;
   } else if (G.mode === 'join') {

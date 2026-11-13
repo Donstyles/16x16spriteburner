@@ -1,6 +1,6 @@
 // ===================== HUD: spectator overlay, banners, numbers =====================
 const F_DISP = '"Grenze Gotisch", "Palatino Linotype", Palatino, "Book Antiqua", serif', F_HUD = 'Teko, "Arial Narrow", "Avenir Next Condensed", sans-serif';
-const NUMCOL = { fire: '#ffb04a', bolt: '#b4d0ff', heal: '#7cff9c', red: '#ff5a46', earth: '#ffc27a', white: '#ffffff', phys: '#ffffff', gold: '#ffd860', arcane: '#d49cff', poison: '#a8ff60', crimson: '#ff5a70', holy: '#fff0a0', ice: '#bfeaff', water: '#7ac0ff', wind: '#e8eeff', storm: '#c8b8ff' };
+const NUMCOL = { fire: '#ffb04a', bolt: '#b4d0ff', heal: '#7cff9c', red: '#ff5a46', earth: '#ffc27a', white: '#ffffff', phys: '#ffffff', gold: '#ffd860', arcane: '#d49cff', poison: '#a8ff60', crimson: '#ff5a70', holy: '#fff0a0', ice: '#bfeaff', water: '#7ac0ff', wind: '#e8eeff', storm: '#c8b8ff', leech: '#ff7ab8' };
 const UI = { soundRect: null, titleT: 0, bookOpen: false, bookFocus: null, bookRect: null, plateRects: [], draftRect: null };
 function pushBanner(b) { b.t = 0; b.at = performance.now() / 1000; b.life = b.life || 1.8; if (!G.banner) G.banner = b; else { G.bq.push(b); if (G.bq.length > 6) G.bq.shift(); } }
 function banner(title, hero, sub, col) { pushBanner({ a: title, b: hero ? hero.def.name + ' · ' + heroTitle(hero) : (sub || ''), col: col || (hero ? hero.def.col : 'gold'), life: 1.7 }); }
@@ -27,6 +27,10 @@ function drawHUD() {
   }
   c.globalAlpha = 1;
   const narrow = W < 560, crowd = !narrow && CTRL.topLeft < W / 2 + 80, TC = narrow ? T + 98 : crowd ? T + 30 : T, TK = narrow ? T + 76 : T;
+  const me = G.me; if (me && !me.dead && me.hp < me.maxHp * 0.25 && G.phase === 'fight' && !G.choice) { // close to death: the edges of the screen pulse red, a heartbeat
+    const p = 0.5 + 0.5 * Math.sin(performance.now() / 160), g = c.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.66); g.addColorStop(0, 'rgba(150,0,0,0)'); g.addColorStop(1, `rgba(170,10,10,${0.26 + 0.16 * p})`); c.fillStyle = g; c.fillRect(0, 0, W, H);
+    if (performance.now() > (UI.beatT || 0)) { UI.beatT = performance.now() + 900; SFX.heart(); }
+  }
   drawHeroFrame(c, L, T);
   // wave pips (top centre)
   if (G.phase === 'fight' && G.wave > 0 && !(G.boss && alive(G.boss))) { const n = G.waves, gap = 13, x0 = W / 2 - (n - 1) * gap / 2, y = TC + 8; for (let k = 0; k < n; k++) { const done = k < G.wave - 1, cur = k === G.wave - 1, s = cur ? 4.5 + Math.sin(G.time * 6) : 3.5; c.save(); c.translate(x0 + k * gap, y); c.rotate(Math.PI / 4); c.fillStyle = done ? '#ffd860' : cur ? '#ff7a4a' : 'rgba(255,255,255,0.18)'; c.fillRect(-s / 2, -s / 2, s, s); c.restore(); } font(c, 500, 13, F_HUD); spaced(c, (G.wave === n ? 'FINAL WAVE' : 'WAVE ' + G.wave + ' OF ' + n) + (G.spawnQ.length ? '  ·  ' + G.spawnQ.length + ' INBOUND' : ''), W / 2, y + 18, 1.6, G.wave === n ? '#ff7a4a' : '#bfae90', 'center'); }

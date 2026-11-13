@@ -178,13 +178,29 @@ function learnSpell(o) { const name = o.sp.name, t = o.sp.tier; G.known.add(name
 // ---------- HUD for one hero ----------
 function ctrlScale() { return clamp(Math.min(VIEW.w, VIEW.h) / 430, 0.85, 1.35); }
 const initials = n => n.split(' ').length > 1 ? n.split(' ').map(w => w[0]).join('').slice(0, 3) : n.slice(0, 2);
+function hpChip(h) {
+  const now = performance.now(), f = h.dead ? 0 : clamp(h.hp / h.maxHp, 0, 1); let s = h.hpc; if (!s) s = h.hpc = { last: f, trail: f, hitAt: 0, healFrom: f, healA: 0, big: 0, t: now };
+  const dt = Math.min(0.1, (now - s.t) / 1000); s.t = now;
+  if (f < s.last - 1e-4) { if (s.trail < s.last) s.trail = s.last; s.hitAt = now; if (s.last - f > 0.06) s.big = 1; }
+  else if (f > s.last + 1e-4) { s.healFrom = s.healA > 0.05 ? Math.min(s.healFrom, s.last) : s.last; s.healA = 1; }
+  s.last = f;
+  if (s.trail > f && now - s.hitAt > 420) s.trail = Math.max(f, s.trail - dt * Math.max(0.3, (s.trail - f) * 2.5));
+  if (s.trail < f) s.trail = f; s.healA = Math.max(0, s.healA - dt * 1.3); s.big = Math.max(0, s.big - dt * 3);
+  return s;
+}
 function drawHeroFrame(c, L, T) {
   const h = G.me; const m = h && MOBS[h.spr], col = h && COL[h.def.col], solo = !!h;
   if (!solo) { font(c, 900, 24, F_DISP); label(c, 'Floor ' + G.floor, L, T + 20, '#ecc878', { stroke: 4 }); font(c, 500, 14, F_HUD); spaced(c, ARENA.name, L, T + 36, 1.6, '#bfae90'); UI.frameRect = null; return; }
   c.fillStyle = 'rgba(10,8,12,0.62)'; c.fillRect(L - 6, T - 6, 204, 58); UI.frameRect = [L - 6, T - 6, 204, 58];
   c.imageSmoothingEnabled = false; c.fillStyle = `rgba(${col},0.18)`; c.fillRect(L - 2, T - 2, 42, 42); c.globalAlpha = h.dead ? 0.4 : 1; c.drawImage(IMG.mobs, 0, m[0], m[1], m[2], L, T, 38, 38 * m[2] / m[1]); c.globalAlpha = 1;
   font(c, 900, 16, F_DISP); label(c, h.def.name, L + 46, T + 11, `rgb(${col})`); const nw = c.measureText(h.def.name).width; font(c, 500, 11, F_HUD); label(c, heroTitle(h), L + 52 + nw, T + 11, '#a89a84');
-  const f = h.dead ? 0 : clamp(h.hp / h.maxHp, 0, 1); c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(L + 46, T + 16, 146, 9); c.fillStyle = f > 0.5 ? '#5ee07e' : f > 0.25 ? '#ffd24a' : '#ff4a3a'; c.fillRect(L + 46, T + 16, 146 * f, 9); c.fillStyle = 'rgba(255,255,255,0.35)'; c.fillRect(L + 46, T + 16, 146 * f, 2);
+  const s = hpChip(h), f = s.last, now = performance.now(), bx = L + 46 + (s.big > 0 ? Math.sin(now / 18) * 2 * s.big : 0), by = T + 16, bw = 146, bh = 9;
+  c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(bx, by, bw, bh); c.fillStyle = f > 0.5 ? '#5ee07e' : f > 0.25 ? '#ffd24a' : '#ff4a3a'; c.fillRect(bx, by, bw * f, bh);
+  if (s.trail > f) { c.globalAlpha = now - s.hitAt < 420 ? 1 : 0.85; c.fillStyle = '#ffffff'; c.fillRect(bx + bw * f, by, bw * (s.trail - f), bh); c.globalAlpha = 1; } // what the last hit took
+  if (s.healA > 0 && f > s.healFrom) { c.globalAlpha = s.healA; c.fillStyle = h.def.leech ? '#ff8ac8' : '#d0ffe0'; c.fillRect(bx + bw * s.healFrom, by, bw * (f - s.healFrom), bh); c.globalAlpha = 1; }
+  c.fillStyle = 'rgba(255,255,255,0.35)'; c.fillRect(bx, by, bw * f, 2);
+  const step = h.maxHp > 1500 ? 250 : 100; c.fillStyle = 'rgba(0,0,0,0.32)'; for (let v = step; v < h.maxHp; v += step) c.fillRect(bx + Math.round(bw * v / h.maxHp), by, 1, bh); // a notch every 100 health
+  if (f > 0 && f < 0.25) { c.strokeStyle = `rgba(255,70,50,${0.5 + 0.5 * Math.sin(now / 150)})`; c.lineWidth = 1.5; c.strokeRect(bx - 1, by - 1, bw + 2, bh + 2); }
   font(c, 600, 11, F_HUD); label(c, Math.max(0, Math.round(h.hp)) + ' / ' + h.maxHp, L + 49, T + 24.5, '#10120e');
   const xa = xpFor(G.lvl), xb = xpFor(G.lvl + 1), xf = clamp((G.xp - xa) / (xb - xa), 0, 1); c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(L + 74, T + 31, 118, 4); c.fillStyle = '#ffd860'; c.fillRect(L + 74, T + 31, 118 * xf, 4);
   font(c, 600, 13, F_HUD); label(c, 'LV ' + G.lvl, L + 46, T + 36, '#ffd860');

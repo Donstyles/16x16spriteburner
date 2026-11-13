@@ -58,7 +58,7 @@ function hurt(u, amt, src, o = {}) {
   if (u.frozen > 0 && u.team === 'mon') { d *= o.shatter ? 2.5 : u.brittle ? 1.6 : 1.25; if (o.shatter) { u.frozen = 0; u.brittle = false; HFX.iceBreak(u.x, u.y, u.scale); } } // ice blocks crack
   if (u.team === 'hero') { d *= G.heroDmgTaken * (TUT.on ? 0.4 : 1) * (u.blessT > 0 ? 0.5 : 1); d *= u.def.armor || (u.def.role === 'melee' ? 0.72 : 1); }
   d = Math.max(1, Math.round(d)); u.hp -= d; u.flash = 0.12;
-  if (src && src.team === 'hero' && u.team === 'mon' && src.def.leech && !src.dead) src.hp = Math.min(src.maxHp, src.hp + d * src.def.leech * (src.frenzyT > 0 ? (src.leechMul || 2) : 1)); // vampires heal from every wound
+  if (src && src.team === 'hero' && u.team === 'mon' && src.def.leech && !src.dead) leech(src, d * src.def.leech * (src.frenzyT > 0 ? (src.leechMul || 2) : 1)); // vampires heal from every wound
   const km = u.boss ? 0.12 : u.scale > 1.2 ? 0.45 : 1; if (o.kx || o.ky) { u.kx += (o.kx || 0) * km; u.ky += (o.ky || 0) * km; }
   if (o.up && !u.boss) u.vz = Math.max(u.vz, o.up * (u.scale > 1.2 ? 0.55 : 1));
   if (o.stun) u.stun = Math.max(u.stun, o.stun * (u.boss ? 0.15 : u.scale > 1.2 ? 0.5 : 1));
@@ -71,6 +71,8 @@ function hurt(u, amt, src, o = {}) {
   if (u.hp <= 0) kill(u, src, o.elem);
   return d;
 }
+// a vampire's stolen life lands at once and is shown as one pink number a moment later (one per hit would be a blur)
+function leech(h, amt) { if (!alive(h) || !(amt > 0)) return; const g = Math.min(h.maxHp - h.hp, amt); if (g <= 0) return; h.hp += g; h.leechAcc = (h.leechAcc || 0) + g; }
 function heal(u, amt) { if (!alive(u)) return; const h = Math.min(u.maxHp - u.hp, Math.round(amt)); if (h <= 0) return; u.hp += h; number(u.x, u.y, 18, '+' + h, 'heal', h > 60); healFx(u.x, u.y); }
 function kill(u, src, elem) {
   u.dead = true; u.hp = 0;
