@@ -133,6 +133,7 @@ function updateChoice(rdt) {
   c.t += rdt; if (c.picked < 0) { if (c.t >= c.auto) { if (c.kind === 'draft' && !G.acted) autoDraft(); else pickChoice(c.kind === 'draft' ? randi(0, c.opts.length - 1) : autoIndex(c)); } } else if ((c.pickT += rdt) > (c.kind === 'draft' ? 0.35 : 0.6)) G.choice = null;
 }
 // ---------- drawing ----------
+function fitFont(c, w, size, fam, s, maxW, min = 9) { font(c, w, size, fam); const m = c.measureText(s).width; if (m > maxW && maxW > 0) font(c, w, Math.max(min, size * maxW / m), fam); }
 function wrapText(c, s, w) { const out = []; let line = ''; for (const word of s.split(' ')) { const t = line ? line + ' ' + word : word; if (c.measureText(t).width > w && line) { out.push(line); line = word; } else line = t; } if (line) out.push(line); return out; }
 function drawChoice(c) {
   const ch = G.choice; if (!ch) return; const W = VIEW.w, H = VIEW.h, S = VIEW.safe, fade = Math.min(1, ch.t * 4) * (ch.picked >= 0 ? 1 - Math.min(1, ch.pickT / 0.6) : 1);
@@ -148,7 +149,7 @@ function drawChoice(c) {
   const x0 = grid ? W / 2 - (cw * gc + gap * (gc - 1)) / 2 : wide ? W / 2 - (cw * n + gap * (n - 1)) / 2 : W / 2 - cw / 2, wideCards = wide && !grid;
   ch.rects = [];
   ch.opts.forEach((o, i) => {
-    const wide = wideCards; // grid cards use the compact side-by-side layout
+    const wide = wideCards || grid; // grid cards stack their text under the portrait too
     const x = grid ? x0 + (i % gc) * (cw + gap) : wide ? x0 + i * (cw + gap) : x0, y = grid ? areaTop + Math.floor(i / gc) * (chh + gap) : wide ? areaTop : areaTop + i * (chh + gap), hov = ch.hover === i, pk = ch.picked === i, tier = o.sp.tier, hex = o.type === 'hero' ? `rgb(${COL[HERO_DEFS[o.hero].col]})` : TIER_HEX[tier], hd = HERO_DEFS[o.hero], hu = G.heroes.find(h => h.key === o.hero), m = MOBS[hu ? hu.spr : hd.spr];
     ch.rects.push([x, y, cw, chh]);
     c.save(); c.globalAlpha = fade * (ch.picked >= 0 && !pk ? 0.35 : 1); const lift = (hov || pk ? -4 : 0) + (ch.t < 0.35 ? (1 - ch.t / 0.35) * 30 * (i + 1) : 0); c.translate(0, lift);
@@ -156,16 +157,21 @@ function drawChoice(c) {
     if (pk || hov) { c.shadowColor = hex; c.shadowBlur = 24; c.strokeRect(x + 0.5, y + 0.5, cw - 1, chh - 1); c.shadowBlur = 0; }
     c.fillStyle = hex; c.fillRect(x, y, cw, 18); font(c, 600, 13, F_HUD); c.fillStyle = '#16101a'; c.textAlign = 'left'; c.fillText(o.type === 'hero' ? 'HERO' : o.type === 'basic' ? 'BASIC ATTACK' : o.type === 'mod' ? 'UPGRADE · ' + (tier ? TIER_LABEL[tier] + ' SPELL' : 'BASIC ATTACK') : TIER_LABEL[tier] + ' SPELL', x + 8, y + 14);
     c.textAlign = 'right'; c.fillText(String(i + 1), x + cw - 8, y + 14);
-    const sz = wide ? 52 : Math.min(48, chh - 34), sx = x + 10, sy = y + 24; c.imageSmoothingEnabled = false; c.fillStyle = `rgba(${COL[hd.col]},0.18)`; c.fillRect(sx - 2, sy - 2, sz + 4, sz + 4); c.drawImage(IMG.mobs, 0, m[0], m[1], m[2], sx, sy, sz, sz * m[2] / m[1]);
-    const tx = wide ? x + 12 : sx + sz + 12, tw = wide ? cw - 24 : cw - (sz + 34);
-    let ty = wide ? sy + sz + 22 : y + 40;
-    font(c, 600, 13, F_HUD); label(c, hd.name, wide ? sx + sz + 10 : tx, wide ? sy + 16 : y + 34, `rgb(${COL[hd.col]})`);
-    font(c, 500, 11, F_HUD); label(c, o.type === 'hero' ? HERO_BLURB[o.hero][0] : hu ? heroTitle(hu) : '', wide ? sx + sz + 10 : tx + c.measureText(hd.name).width * 1.25 + 8, wide ? sy + 30 : y + 34, '#8f8472');
-    if (!wide) ty = y + 56;
-    const title = o.type === 'mod' ? o.mod.name : o.sp.name; font(c, 900, wide ? 21 : 18, F_DISP); for (const ln of wrapText(c, title, tw).slice(0, 2)) { label(c, ln, tx, ty, '#fff4e0'); ty += wide ? 21 : 18; }
-    font(c, 500, wide ? 15 : 14, F_HUD); const desc = o.type === 'hero' ? HERO_BLURB[o.hero][1] : o.type === 'mod' ? o.sp.name + ': ' + o.mod.desc : (SPELL_INFO[o.sp.name] || '');
-    const dl = wide ? 4 : clamp(Math.floor((y + chh - ty - (o.type === 'hero' ? 22 : 10)) / 15), 2, 4); for (const ln of wrapText(c, desc, tw).slice(0, dl)) { label(c, ln, tx, ty + 2, '#cbbd9f'); ty += wide ? 16 : 15; }
-    if (o.type === 'hero') { let fq = wide ? 14 : 13; font(c, 500, fq, F_HUD); const qw = c.measureText(HERO_QUOTE[o.hero]).width; if (qw > tw) { fq = Math.max(9.5, fq * tw / qw); font(c, 500, fq, F_HUD); } label(c, HERO_QUOTE[o.hero], tx, ty + 6, '#d8b06a'); ty += 14; }
+    const sz = wide ? (grid ? 40 : 52) : Math.min(48, chh - 34), sx = x + 10, sy = y + 24; c.imageSmoothingEnabled = false; c.fillStyle = `rgba(${COL[hd.col]},0.18)`; c.fillRect(sx - 2, sy - 2, sz + 4, sz + 4); c.drawImage(IMG.mobs, 0, m[0], m[1], m[2], sx, sy, sz, sz * m[2] / m[1]);
+    const tx = wide ? x + 12 : sx + sz + 12, tw = wide ? cw - 24 : cw - (sz + 34), nx = wide ? sx + sz + 10 : tx, nw = x + cw - 8 - nx, hero = o.type === 'hero';
+    let ty = wide ? sy + sz + (grid ? 20 : 22) : y + 56;
+    // every line is fitted to its card: nothing runs over the edge
+    fitFont(c, 600, 13, F_HUD, hd.name, nw, 9); label(c, hd.name, nx, wide ? sy + 16 : y + 34, `rgb(${COL[hd.col]})`); const nmw = c.measureText(hd.name).width;
+    const tag = hero ? HERO_BLURB[o.hero][0] : hu ? heroTitle(hu) : '';
+    if (wide) { fitFont(c, 500, 11, F_HUD, tag, nw, 8); label(c, tag, nx, sy + 30, '#8f8472'); } else { fitFont(c, 500, 11, F_HUD, tag, x + cw - 8 - (nx + nmw + 8), 8); label(c, tag, nx + nmw + 8, y + 34, '#8f8472'); }
+    const title = o.type === 'mod' ? o.mod.name : o.sp.name; let ts = wide ? (grid ? 19 : 21) : 18; font(c, 900, ts, F_DISP);
+    const longest = Math.max(...title.split(' ').map(wd => c.measureText(wd).width)); if (longest > tw) { ts = Math.max(11, ts * tw / longest); font(c, 900, ts, F_DISP); }
+    for (const ln of wrapText(c, title, tw).slice(0, 2)) { label(c, ln, tx, ty, '#fff4e0'); ty += ts; }
+    const desc = hero ? HERO_BLURB[o.hero][1] : o.type === 'mod' ? o.sp.name + ': ' + o.mod.desc : (SPELL_INFO[o.sp.name] || ''), droom = y + chh - ty - (hero ? 20 : 10);
+    let ds = wide && !grid ? 15 : 14, lines = []; for (;;) { font(c, 500, ds, F_HUD); lines = wrapText(c, desc, tw); if (lines.length * (ds + 1) <= droom || ds <= 11) break; ds -= 1; }
+    const dl = Math.max(1, Math.min(lines.length, Math.floor(droom / (ds + 1)), hero ? 6 : 4)); if (lines.length > dl) { lines = lines.slice(0, dl); lines[dl - 1] = lines[dl - 1].replace(/\W*\S*$/, '') + '…'; }
+    for (const ln of lines) { label(c, ln, tx, ty + 2, '#cbbd9f'); ty += ds + 1; }
+    if (hero) { fitFont(c, 500, 13, F_HUD, HERO_QUOTE[o.hero], tw, 9); label(c, HERO_QUOTE[o.hero], tx, Math.max(ty + 6, y + chh - 9), '#d8b06a'); ty += 14; }
     const ups = o.type === 'hero' ? HERO_BLURB[o.hero][2].map(n => [n]) : MODS[o.sp.name] || [], taken = G.modsTaken[o.sp.name] || [], room = (y + chh - 8) - (ty + 10);
     if (ups.length && room > 30) { ty += 10; font(c, 600, 11, F_HUD); spaced(c, o.type === 'hero' ? 'SIGNATURE SPELLS' : o.type === 'mod' ? 'ALL UPGRADES' : 'POSSIBLE UPGRADES', tx, ty, 1.5, '#7f7466'); ty += 4; for (const [mn] of ups) { if (ty + 14 > y + chh - 6) break; ty += 14; const got = taken.includes(mn), now = o.type === 'mod' && o.mod.name === mn; font(c, 500, 13, F_HUD); label(c, (got ? '✓ ' : now ? '▸ ' : '· ') + mn, tx, ty, now ? hex : got ? '#9fd8a0' : '#a89a84'); } }
     if (o.type === 'mod') { const taken = (G.modsTaken[o.sp.name] || []).length; for (let k = 0; k < 3; k++) { c.fillStyle = k < taken ? hex : k === taken ? '#ffffff' : 'rgba(255,255,255,0.15)'; c.fillRect(x + cw - 14 - (2 - k) * 10, y + chh - 12, 7, 5); } }

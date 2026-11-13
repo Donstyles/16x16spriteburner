@@ -21,10 +21,10 @@ const SCHEME_SHORT = { drag: 'DRAG', tap: 'TAP TO MOVE', stick: 'STICK' };
 const DASH_N = 1, DASH_T = 15; // one dodge, then a long wait before the next
 const HEALS = new Set(['MEND', 'REJUVENATE', 'MASS HEAL']);
 const HERO_BLURB = {
-  warrior: ['STEEL · MELEE', 'Wades into the horde with cleaves, dashes, flurries and floor-splitting slams.', ['WHIRLWIND', 'THOUSAND CUTS', 'CATACLYSM']],
-  pyro: ['FIRE · RANGED', 'Burns everything from range: walls of fire, lava, lasers and meteors.', ['HEAT RAY', 'FIREBALL', 'METEOR STORM']],
+  warrior: ['STEEL · MELEE', 'Wades into the horde with cleaves, flurries and floor-splitting slams.', ['WHIRLWIND', 'THOUSAND CUTS', 'CATACLYSM']],
+  pyro: ['FIRE · RANGED', 'Burns everything from range: fire walls, lava, lasers and meteors.', ['HEAT RAY', 'FIREBALL', 'METEOR STORM']],
   storm: ['LIGHTNING · RANGED', 'Chains, stuns and sweeps the room with lightning lasers.', ['LIGHTNING LANCE', 'ARC CANNON', 'THUNDERSTORM']],
-  druid: ['EARTH · SUPPORT', 'Self-healing tank: roots, stone fists and rolling boulders grind foes down.', ['STONE FIST', 'BOULDER ROLL', 'EARTHQUAKE']],
+  druid: ['EARTH · SUPPORT', 'Self-healing tank: roots, stone fists and rolling boulders.', ['STONE FIST', 'BOULDER ROLL', 'EARTHQUAKE']],
 };
 // screen point → game point (the canvas may be turned 90° on an upright phone)
 const ptr = e => VIEW.rot ? [e.clientY, VIEW.iw - e.clientX] : [e.clientX, e.clientY];

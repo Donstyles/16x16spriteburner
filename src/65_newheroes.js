@@ -8,8 +8,8 @@ HERO_PROG.vampire = { titles: [[1, 'FLEDGLING'], [5, 'NIGHTSTALKER'], [10, 'VAMP
 HERO_PROG.priest = { titles: [[1, 'ACOLYTE'], [5, 'PRIEST'], [10, 'ARCHPRIEST'], [15, 'VOICE OF HEAVEN']], ult: 'JUDGMENT', evolve: { lvl: 10, spr: 'Archpriest' } };
 DEFAULT_BASIC.vampire = 'CLAW'; DEFAULT_BASIC.priest = 'SMITE';
 HERO_CLASS.vampire = 'THE VAMPIRE'; HERO_CLASS.priest = 'THE PRIEST';
-HERO_BLURB.vampire = ['BLOOD · HIT AND RUN', 'Darts in, drinks, and is gone again: blood whips, bats that carry foes away, and a crimson moon.', ['BAT SWARM', 'ABDUCTION', 'CRIMSON MOON']];
-HERO_BLURB.priest = ['HOLY · SUPPORT', 'Calls down the light: smites, sanctified ground and guardian angels.', ['GUARDIAN ANGEL', 'HOLY NOVA', 'JUDGMENT']];
+HERO_BLURB.vampire = ['BLOOD · HIT AND RUN', 'Darts in, drinks, darts out. His bats carry foes off into the night.', ['BAT SWARM', 'ABDUCTION', 'CRIMSON MOON']];
+HERO_BLURB.priest = ['HOLY · SUPPORT', 'Heals the party, smites the dark and calls down guardian angels.', ['GUARDIAN ANGEL', 'HOLY NOVA', 'JUDGMENT']];
 HERO_QUOTE.vampire = '“The night is young. You are not.”'; HERO_QUOTE.priest = '“Kneel and be forgiven. Or don’t.”';
 for (const n of ['LAY ON HANDS', 'BLESSING', 'MIRACLE', 'BLOOD MIST']) HEALS.add(n);
 // ---------- pixel bats ----------

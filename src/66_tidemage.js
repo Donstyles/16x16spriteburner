@@ -6,7 +6,7 @@ SPARK_PAL.ice = ['#ffffff', '#e8f8ff', '#a8e4ff', '#4aa8e0']; SPARK_PAL.water = 
 HERO_DEFS.tide = { name: 'NERIDA', title: 'TIDECALLER', spr: 'Tidecaller', hp: 320, spd: 47, r: 5, role: 'caster', col: 'ice', dmg: 27 };
 HERO_PROG.tide = { titles: [[1, 'ICE ADEPT'], [5, 'TIDECALLER'], [10, 'FROST MAGUS'], [15, 'QUEEN OF THE DEEP']], ult: 'TSUNAMI', evolve: { lvl: 10, spr: 'FrostMagus' } };
 DEFAULT_BASIC.tide = 'FROST SHARD'; HERO_CLASS.tide = 'THE TIDECALLER';
-HERO_BLURB.tide = ['ICE · WATER · RANGED', 'Waves sweep the horde against the far wall; frost slows it and freezes it into blocks of ice.', ['GREAT WAVE', 'FLASH FREEZE', 'TSUNAMI']];
+HERO_BLURB.tide = ['ICE · WATER · RANGED', 'Waves sweep the horde into the far wall; frost turns it to ice.', ['GREAT WAVE', 'FLASH FREEZE', 'TSUNAMI']];
 HERO_QUOTE.tide = '“Hold your breath. The tide is coming.”';
 SFX.freeze = function (pan = 0) { if (!this.ok('freeze', 0.08)) return; this.noise(this.white, 0.35, 'highpass', 4000, 9000, 0.8, 0.22, pan); this.tone('sine', 2400, 3600, 0.25, 0.05, pan); this.tone('triangle', 1600, 2100, 0.3, 0.04, pan, 0.04); };
 SFX.wave = function (pan = 0, big = 1) { if (!this.ok('wave', 0.3)) return; this.noise(this.white, 1.1 * big, 'lowpass', 500, 2200, 0.7, 0.3 * big, pan, 0, 0.25); this.noise(this.brown, 1.3 * big, 'lowpass', 260, 90, 1, 0.45 * big, pan, 0.05, 0.3); };

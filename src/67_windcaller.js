@@ -7,7 +7,7 @@ SPARK_PAL.wind = ['#ffffff', '#f4f7ff', '#d6e0ff', '#a0a8d8']; SPARK_PAL.storm =
 Object.assign(HERO_DEFS.storm, { spr: 'Stormcaller', col: 'storm' });
 HERO_PROG.storm = { titles: [[1, 'WIND ADEPT'], [5, 'STORMCALLER'], [12, 'LORD OF THE GALE']], ult: 'TEMPEST', evolve: { lvl: 12, spr: 'StormLord' } };
 DEFAULT_BASIC.storm = 'WIND BLADE';
-HERO_BLURB.storm = ['WIND · THUNDER · RANGED', 'Whooshes hurl the horde into the walls, tornadoes spin it into the air, and lightning finds whatever flies.', ['WHOOSH', 'TORNADO', 'TEMPEST']];
+HERO_BLURB.storm = ['WIND · THUNDER · RANGED', 'Whooshes hurl foes into walls; tornadoes spin them up for the lightning.', ['WHOOSH', 'TORNADO', 'TEMPEST']];
 
 // ---------- wind physics ----------
 // a cone of wind: everything inside is hurled away; whoever hits a wall while still flying takes the slam
