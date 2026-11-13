@@ -74,6 +74,7 @@ function drawProp(c, p) {
 }
 function drawProjBodies(c) {
   for (const p of G.proj) {
+    if (p.k === 'bat') { drawBat(c, p.x, p.y - p.z, 0.95, (p.t || 0) + p.x * 0.01); continue; }
     if (p.k === 'glob') { c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(p.x, p.y, 4, 1.6, 0, 0, TAU); c.fill(); if (p.mud) { c.fillStyle = '#5a4028'; c.beginPath(); c.arc(p.x, p.y - p.z, 3, 0, TAU); c.fill(); c.fillStyle = '#8a6a48'; c.fillRect(p.x - 1.5, p.y - p.z - 2, 1.5, 1.5); } }
     if (p.k === 'mshot' && (p.shot === 'arrow' || p.shot === 'stone')) { const a = Math.atan2(p.vy, p.vx); if (p.shot === 'arrow') { c.strokeStyle = p.tint || '#d9c9a2'; c.lineWidth = 1; c.beginPath(); c.moveTo(p.x - Math.cos(a) * 7, p.y - p.z - Math.sin(a) * 7); c.lineTo(p.x, p.y - p.z); c.stroke(); c.fillStyle = '#fff'; c.fillRect(p.x - 0.5, p.y - p.z - 0.5, 1.4, 1.4); } else { c.fillStyle = '#8a8076'; c.fillRect(p.x - 1.5, p.y - p.z - 1.5, 3, 3); } }
     else if (p.k === 'meteor' || p.k === 'boulder') {

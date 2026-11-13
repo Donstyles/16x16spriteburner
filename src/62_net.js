@@ -89,6 +89,7 @@ function netWrap() {
   healFx = fxWrap('healFx', healFx); novaFx = fxWrap('novaFx', novaFx); summonFx = fxWrap('summonFx', summonFx); gustFx = fxWrap('gustFx', gustFx); lashFx = fxWrap('lashFx', lashFx); riseFx = fxWrap('riseFx', riseFx);
   bashFx = fxWrap('bashFx', bashFx); jetFx = fxWrap('jetFx', jetFx); levelFx = fxWrap('levelFx', levelFx); deathFx = fxWrap('deathFx', deathFx); slamFx = fxWrap('slamFx', slamFx); emitFx = fxWrap('emitFx', emitFx);
   hitstop = fxWrap('hitstop', hitstop); slowmo = fxWrap('slowmo', slowmo);
+  for (const k of Object.keys(HFX)) HFX[k] = fxWrap('h.' + k, HFX[k], HFX);
   pushBanner = fxWrap('pushBanner', pushBanner); textBanner = fxWrap('textBanner', textBanner); banner = fxWrap('banner', banner);
   for (const k of ['boom', 'thunder', 'zap', 'quake', 'slash', 'clang', 'hit', 'fire', 'whoosh', 'summon', 'pop', 'shatter', 'drum', 'beam', 'charge', 'heal', 'braam', 'drone', 'levelup']) if (typeof SFX[k] === 'function') SFX[k] = fxWrap('sfx.' + k, SFX[k], SFX);
   const _light = light; light = function (x, y, r, col, a = 1) { if (NET.rec && !NET.depth) NET.lightsCur.push(r1(x), r1(y), r1(r), col, r2(a)); return _light(x, y, r, col, a); };

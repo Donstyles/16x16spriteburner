@@ -4,7 +4,8 @@ const DEFMOD = { dmg: 1, size: 1, dur: 1, count: 0, cd: 1, f: {} };
 let MDH = null;
 function md(name) { const v = MDH && MDH.sb ? MDH.sb.modv : G.modv; return (v && v[name]) || DEFMOD; }
 // a hero's spell profile: what it knows, its four skill buttons, its basic attack, its upgrades
-function newSB(k) { const basic = { ...DEFAULT_BASIC }; return { known: new Set(k ? [DEFAULT_BASIC[k], ...(k === 'druid' ? ['MEND'] : [])] : [...STARTING, ...Object.values(basic)]), slots: k ? [k === 'druid' ? 'MEND' : null, null, null, null] : null, basic, mods: {}, modv: {} }; }
+const START_SPELL = { druid: 'MEND' }; // supports begin with a heal on button 1
+function newSB(k) { const basic = { ...DEFAULT_BASIC }, st = k && START_SPELL[k]; return { known: new Set(k ? [DEFAULT_BASIC[k], ...(st ? [st] : [])] : [...STARTING, ...Object.values(basic)]), slots: k ? [st || null, null, null, null] : null, basic, mods: {}, modv: {} }; }
 function applyMod(name, eff) { const m = G.modv[name] || (G.modv[name] = { dmg: 1, size: 1, dur: 1, count: 0, cd: 1, f: {} }); if (eff.dmg) m.dmg *= eff.dmg; if (eff.size) m.size *= eff.size; if (eff.dur) m.dur *= eff.dur; if (eff.count) m.count += eff.count; if (eff.cd) m.cd *= eff.cd; if (eff.f) m.f[eff.f] = true; }
 const TIER_MIN = [1, 2, 5, 9, 12], TIER_LABEL = ['BASIC', 'LOW', 'MEDIUM', 'HIGH', 'ULTIMATE'], TIER_HEX = ['#c8b48c', '#d8a060', '#8fb8ff', '#ffd860', '#ff6a4a'];
 const STARTING = ['MEND'];
@@ -74,7 +75,7 @@ function resetSpells() { G.sb0 = newSB(); G.me = null; G.draftKey = null; G.choi
 const HERO_CLASS = { warrior: 'THE BATTLEMAGE', pyro: 'THE PYROMANCER', storm: 'THE STORMCALLER', druid: 'THE DRUID' };
 // before the first wave: pick a hero, then that hero's basic attack and first skill
 function queueDraft(skipHero) {
-  if (!skipHero) G.choiceQ.push({ kind: 'draft', step: 1, title: 'CHOOSE YOUR HERO', opts: ['warrior', 'pyro', 'storm', 'druid'].map(k => ({ type: 'hero', hero: k, sp: { name: HERO_CLASS[k], tier: 3 } })) });
+  if (!skipHero) G.choiceQ.push({ kind: 'draft', step: 1, title: 'CHOOSE YOUR HERO', opts: Object.keys(HERO_DEFS).map(k => ({ type: 'hero', hero: k, sp: { name: HERO_CLASS[k], tier: 3 } })) });
   G.choiceQ.push({ kind: 'draft', step: 2, title: 'CHOOSE A BASIC ATTACK', optsFn: () => SPELLBOOK[G.heroKey].filter(s => s.basic).map(sp => ({ type: 'basic', hero: G.heroKey, sp })) });
   G.choiceQ.push({ kind: 'draft', step: 3, title: 'CHOOSE YOUR FIRST SPELL', optsFn: () => shuffle(SPELLBOOK[G.heroKey].filter(s => s.tier === 1 && !s.free)).slice(0, 3).map(sp => ({ type: 'spell', hero: G.heroKey, sp })) });
 }
@@ -144,11 +145,14 @@ function drawChoice(c) {
   font(c, 900, wide ? 34 : 26, F_DISP); c.shadowColor = 'rgba(255,200,90,0.8)'; c.shadowBlur = 18; label(c, ch.kind === 'level' ? 'LEVEL ' + G.lvl : ch.kind === 'draft' ? ['', 'WHO GOES DOWN?', 'YOUR FIRST BLOW', 'A SPARK OF POWER'][ch.step] : ch.kind === 'floor' ? 'SPOILS OF THE DEEP' : ch.title, W / 2, top + (wide ? 30 : 24), '#fff1d0', { align: 'center' }); c.shadowBlur = 0;
   font(c, 500, 15, F_HUD); spaced(c, ch.kind === 'level' ? 'CHOOSE A POWER' : ch.kind === 'draft' ? ch.title + '   ·   ' + ch.step + ' OF 3' : ch.kind === 'floor' ? (ch.title || 'FLOOR CLEARED') + '   ·   CLAIM ONE GIFT' : 'THE BEAST IS SLAIN   ·   CLAIM ONE GIFT', W / 2, top + (wide ? 50 : 42), 3, '#c8a878', 'center');
   const n = ch.opts.length, gap = 12, areaTop = top + (wide ? 62 : 52), areaH = H - areaTop - Math.max(40, S.b + 34) - (!wide && ch.kind === 'draft' ? 34 : 0);
-  const cw = wide ? Math.min(230, (W - 2 * Math.max(16, S.l + 8) - gap * (n - 1)) / n) : Math.min(W - 32, 460), chh = wide ? Math.min(areaH, 250) : (areaH - gap * (n - 1)) / n;
-  const x0 = wide ? W / 2 - (cw * n + gap * (n - 1)) / 2 : W / 2 - cw / 2;
+  // more than four cards (the six heroes) on a wide screen: a 3 x 2 grid of compact cards
+  const grid = wide && n > 4, gc = 3, gr = Math.ceil(n / gc);
+  const cw = grid ? Math.min(290, (W - 2 * Math.max(16, S.l + 8) - gap * (gc - 1)) / gc) : wide ? Math.min(230, (W - 2 * Math.max(16, S.l + 8) - gap * (n - 1)) / n) : Math.min(W - 32, 460), chh = grid ? (areaH - gap * (gr - 1)) / gr : wide ? Math.min(areaH, 250) : (areaH - gap * (n - 1)) / n;
+  const x0 = grid ? W / 2 - (cw * gc + gap * (gc - 1)) / 2 : wide ? W / 2 - (cw * n + gap * (n - 1)) / 2 : W / 2 - cw / 2, wideCards = wide && !grid;
   ch.rects = [];
   ch.opts.forEach((o, i) => {
-    const x = wide ? x0 + i * (cw + gap) : x0, y = wide ? areaTop : areaTop + i * (chh + gap), hov = ch.hover === i, pk = ch.picked === i, tier = o.sp.tier, hex = o.type === 'hero' ? `rgb(${COL[HERO_DEFS[o.hero].col]})` : TIER_HEX[tier], hd = HERO_DEFS[o.hero], hu = G.heroes.find(h => h.key === o.hero), m = MOBS[hu ? hu.spr : hd.spr];
+    const wide = wideCards; // grid cards use the compact side-by-side layout
+    const x = grid ? x0 + (i % gc) * (cw + gap) : wide ? x0 + i * (cw + gap) : x0, y = grid ? areaTop + Math.floor(i / gc) * (chh + gap) : wide ? areaTop : areaTop + i * (chh + gap), hov = ch.hover === i, pk = ch.picked === i, tier = o.sp.tier, hex = o.type === 'hero' ? `rgb(${COL[HERO_DEFS[o.hero].col]})` : TIER_HEX[tier], hd = HERO_DEFS[o.hero], hu = G.heroes.find(h => h.key === o.hero), m = MOBS[hu ? hu.spr : hd.spr];
     ch.rects.push([x, y, cw, chh]);
     c.save(); c.globalAlpha = fade * (ch.picked >= 0 && !pk ? 0.35 : 1); const lift = (hov || pk ? -4 : 0) + (ch.t < 0.35 ? (1 - ch.t / 0.35) * 30 * (i + 1) : 0); c.translate(0, lift);
     c.fillStyle = 'rgba(22,16,24,0.96)'; c.fillRect(x, y, cw, chh); c.strokeStyle = hex; c.lineWidth = pk ? 3 : hov ? 2.5 : 1.5; c.strokeRect(x + 0.5, y + 0.5, cw - 1, chh - 1);

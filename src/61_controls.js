@@ -122,8 +122,8 @@ function playerHero(h, dt) {
   while (I.castQ.length && !h.state) tryCast(h, I.castQ.shift(), foes);
   if (h.state || !foes.length) return;
   const basic = basicOf(h);
-  if (h.key === 'warrior') { const t = nearest(h, foes, h.r + (basic.reach || 14) + 10); if (t && !(h.cd.slash > 0)) { h.cd.slash = basic.cd * md(basic.name).cd; basic.cast(h, t); } }
-  else if (!(h.cd.basic > 0)) { const t = basic.pick(h, foes); if (t) { h.cd.basic = basic.cd * md(basic.name).cd; basic.cast(h, t); } }
+  if (h.def.role === 'melee') { const t = nearest(h, foes, h.r + (basic.reach || 14) + 10); if (t && !(h.cd.slash > 0)) { h.cd.slash = basic.cd * md(basic.name).cd * (h.frenzyT > 0 ? 0.5 : 1); basic.cast(h, t); } }
+  else if (!(h.cd.basic > 0)) { const t = basic.pick(h, foes); if (t) { h.cd.basic = basic.cd * md(basic.name).cd * (h.frenzyT > 0 ? 0.5 : 1); basic.cast(h, t); } }
 }
 // ---------- hero select and skill slots ----------
 function selectHero(k) {

@@ -31,6 +31,7 @@ function hazFx(z, dt) {
   else if (z.k === 'arc') { light(z.x, z.y, z.r * 2, 'bolt', 0.6 * live2 + 0.2); if (chance(0.7)) { const a = rand(TAU), r = rand(z.r * 0.8), b = rand(TAU), x0 = z.x + Math.cos(a) * r, y0 = z.y + Math.sin(a) * r * 0.72; bolt(x0, y0, x0 + Math.cos(b) * 16, y0 + Math.sin(b) * 12, { life: 0.1, w: 0.5, branches: 0 }); } }
   else if (z.k === 'boulder') { if (chance(0.6)) smoke(z.x, z.y + 4, 1, 'dust', 8, 10, 0.8, 4); if (chance(0.15)) cracks(z.x, z.y, 2, 10, 300, 0.4); }
   else if (z.k === 'wave') { light(z.x, z.y, 40, 'gold', 0.8); if (chance(0.6)) sparks(z.x, z.y, 6, 1, 'gold', 60, 40); }
+  else if (HAZFX[z.k]) HAZFX[z.k](z, dt);
 }
 function castFx(h, tier, u, dt) {
   const col = h.def.col;

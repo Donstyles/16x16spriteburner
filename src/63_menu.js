@@ -133,9 +133,10 @@ function drawRoom(c, inGame) {
   if (MENU.update && lobby) mbtn(c, 700, 10, 190, 30, 'NEW VERSION · RELOAD', '', () => location.reload(), { size: 13, hot: true });
   if (lobby) {
     const mine = (seats.find(s => s.pid === me) || {}).hero; font(c, 500, 13, F_HUD); spaced(c, 'YOUR HERO', x0, 296, 2, '#a8987e');
-    ['warrior', 'pyro', 'storm', 'druid'].forEach((k, i) => { const x = x0 + i * (sw + gap), y = 302, d = HERO_DEFS[k], on = mine === k;
+    const hk = Object.keys(HERO_DEFS), hg = 6, bw = (sw * 4 + gap * 3 - hg * (hk.length - 1)) / hk.length;
+    hk.forEach((k, i) => { const x = x0 + i * (bw + hg), y = 302, d = HERO_DEFS[k], on = mine === k, sw = bw;
       c.fillStyle = on ? 'rgba(58,38,16,0.94)' : 'rgba(18,13,20,0.9)'; c.fillRect(x, y, sw, 48); c.strokeStyle = on ? '#ffd860' : `rgba(${COL[d.col]},0.6)`; c.lineWidth = on ? 2 : 1.2; c.strokeRect(x + 0.5, y + 0.5, sw - 1, 47);
-      sprite(c, d.spr, x + 6, y + 4, 40); font(c, 900, 18, F_DISP); label(c, d.name, x + 52, y + 22, `rgb(${COL[d.col]})`); font(c, 500, 13, F_HUD); label(c, HERO_BLURB[k][0], x + 52, y + 40, '#a8987e'); vbtn(x, y, sw, 48, () => lobbyPick(k)); });
+      sprite(c, d.spr, x + 6, y + 4, 40); font(c, 900, 18, F_DISP); label(c, d.name, x + 52, y + 22, `rgb(${COL[d.col]})`); font(c, 500, 13, F_HUD); label(c, HERO_BLURB[k][0].split(' ')[0], x + 52, y + 40, '#a8987e'); vbtn(x, y, sw, 48, () => lobbyPick(k)); });
     mbtn(c, x0, 362, 130, 46, 'LEAVE', '', leaveLobby, { size: 18 });
     if (host) { const ready = !!NET.lobby.picks[0]; mbtn(c, 450 - 170, 360, 340, 50, ready ? 'DESCEND WITH ' + n + (n > 1 ? ' HEROES' : ' HERO') : 'CHOOSE YOUR HERO FIRST', ready ? 'late friends can still drop in' : '', lobbyStart, { size: 22, hot: ready, off: !ready }); }
     else { font(c, 600, 18, F_HUD); spaced(c, mine ? 'READY  ·  WAITING FOR THE HOST TO DESCEND' : 'PICK YOUR HERO WHILE YOU WAIT', 450 + 40, 390, 2, mine ? '#9fe0a0' : '#ffd860', 'center'); }

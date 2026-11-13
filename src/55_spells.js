@@ -176,6 +176,7 @@ function updateProj(dt) {
       if (p.k === 'fireball') { explode(p.x, p.y, p.R, p.dmg, p.src, { burn: p.burn }); if (p.cluster) { const px = p.x, py = p.y, s = p.src, dm = p.dmg; for (let i = 0; i < 4; i++) after(0.12 + i * 0.09, () => { const a = rand(TAU), r = rand(18, 34); explode(px + Math.cos(a) * r, py + Math.sin(a) * r * 0.75, 15, dm * 0.4, s); }); } }
       else if (p.shot === 'serpent') explode(p.x, p.y, p.ER || 17, p.dmg, p.src);
       else if (p.shot === 'sorb') { const BR = p.BR || 20; for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; bolt(p.x, p.y - p.z, p.x + Math.cos(a) * BR, p.y - p.z + Math.sin(a) * BR * 0.75, { life: 0.16, w: 0.6, branches: 0 }); } for (const u of within(p.x, p.y, BR, G.mons)) zapHit(u, p.src, p.dmg * (u === hitU ? 1 : 0.5), { stun: p.ST || 0.9 }); flashLight(p.x, p.y, 80, 'bolt2', 1.3, 0.2); }
+      else if (p.k === 'bat') { if (hitU) { hurt(hitU, p.dmg, p.src, { elem: 'crimson' }); HFX.bite(p.x, p.y); } else HFX.batBurst(p.x, p.y, 1); }
       else if (p.k === 'mshot') { if (hitU) hurt(hitU, p.dmg, p.src, { elem: p.col === 'bolt' ? 'bolt' : undefined, kx: p.vx * 0.3, ky: p.vy * 0.3 }); if (p.shot === 'orb' || p.shot === 'fire') { glows(p.x, p.y, p.z, 6, p.col, 60, 5, 0.4); flashLight(p.x, p.y, 40, p.col, 1, 0.15); } else sparks(p.x, p.y, p.z, 4, p.col === 'white' ? 'white' : p.col, 70, 50); }
     }
   }

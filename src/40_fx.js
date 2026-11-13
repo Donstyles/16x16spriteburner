@@ -93,12 +93,13 @@ function updateFx(dt) {
   removeIf(FX.cracks, c => c.t >= c.life);
 }
 // --- drawing ---
-const SPARK_PAL = { fire: ['#ffffff', '#fff1a8', '#ffa23a', '#ff4a18'], bolt: ['#ffffff', '#d8e8ff', '#88b0ff', '#4a6cff'], heal: ['#ffffff', '#d8ffe0', '#7cff9c', '#20c060'], arcane: ['#ffffff', '#f0d0ff', '#c070ff', '#7020d0'], white: ['#ffffff', '#ffffff', '#e0e0ff', '#9090c0'], gold: ['#ffffff', '#fff3c0', '#ffd060', '#c08020'], poison: ['#ffffff', '#e8ffc0', '#a0ff50', '#40a020'] };
+const SPARK_PAL = { fire: ['#ffffff', '#fff1a8', '#ffa23a', '#ff4a18'], bolt: ['#ffffff', '#d8e8ff', '#88b0ff', '#4a6cff'], heal: ['#ffffff', '#d8ffe0', '#7cff9c', '#20c060'], arcane: ['#ffffff', '#f0d0ff', '#c070ff', '#7020d0'], white: ['#ffffff', '#ffffff', '#e0e0ff', '#9090c0'], gold: ['#ffffff', '#fff3c0', '#ffd060', '#c08020'], poison: ['#ffffff', '#e8ffc0', '#a0ff50', '#40a020'], crimson: ['#ffffff', '#ffb0bc', '#ff3a5a', '#a00020'], holy: ['#ffffff', '#fffbe0', '#ffe080', '#d0a030'] };
 function drawWorldParts(ctx) { // normal blending: smoke, rubble, pixel shards (these get lit by the light map)
   for (const p of FX.P) {
     const k = p.k;
     if (k === 'smoke') { const u = p.t / p.life, s = p.s0 + (p.s1 - p.s0) * u; ctx.globalAlpha = p.a0 + (p.a1 - p.a0) * u; ctx.drawImage(SMOKE[p.col], p.x - s, p.y - p.z - s, s * 2, s * 2); }
     else if (k === 'spike') { const u = p.t / p.life, h = p.s0 * (u < 0.15 ? u / 0.15 : u > 0.7 ? (1 - u) / 0.3 : 1), w = p.s0 * 0.45; ctx.globalAlpha = 1; ctx.fillStyle = '#6b625a'; ctx.beginPath(); ctx.moveTo(p.x - w, p.y); ctx.lineTo(p.x + w * 0.2, p.y - h * 1.6); ctx.lineTo(p.x + w, p.y); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#9a8c7c'; ctx.beginPath(); ctx.moveTo(p.x - w, p.y); ctx.lineTo(p.x + w * 0.2, p.y - h * 1.6); ctx.lineTo(p.x - w * 0.1, p.y); ctx.closePath(); ctx.fill(); }
+    else if (k === 'bat') { const left = p.life - p.t; ctx.globalAlpha = left < 0.3 ? left / 0.3 : 1; drawBat(ctx, p.x, p.y - p.z, p.s0 || 0.8, p.t * 1.3 + (p.ph || 0)); }
     else if (k === 'debris' || k === 'pix') { const left = p.life - p.t; ctx.globalAlpha = left < 0.4 ? left / 0.4 : 1; ctx.fillStyle = p.col; const s = p.s0; ctx.fillRect(p.x - s / 2, p.y - p.z - s / 2, s, s * (k === 'debris' ? 0.75 : 1)); }
   }
   ctx.globalAlpha = 1;

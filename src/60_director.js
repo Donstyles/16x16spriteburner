@@ -14,7 +14,7 @@ function asHero(h, fn) { const m = G.me; G.me = h; try { return fn(); } finally 
 const NP = () => Math.max(1, Math.min(4, G.heroes.length)); // heroes in the fight, 1-4
 const newInp = () => ({ mx: 0, my: 0, castQ: [], dashQ: false, auto: 0 });
 function makeParty() {
-  const keys = ['warrior', 'pyro', 'storm', 'druid'];
+  const keys = Object.keys(HERO_DEFS);
   G.heroes = keys.map((k, i) => { const h = mkUnit('hero', HERO_DEFS[k], 0, 0); h.key = k; h.strafe = i % 2 ? 1 : -1; h.ult = 0; return h; });
 }
 function scaleForFloor() {
@@ -29,7 +29,7 @@ function startFloor(first) {
   for (const k in FX) FX[k].length = 0;
   scaleForFloor();
   const cx = ARENA.pw / 2, cy = ARENA.y1 - 30;
-  G.heroes.forEach((h, i) => { h.dead = false; if (h.hp <= 0) h.hp = h.maxHp; h.x = cx + (i - 1.5) * 18; h.y = cy - (i % 2) * 10; h.z = 180 + i * 30; h.vz = 0; h.kx = h.ky = 0; h.state = null; h.stun = 0; h.cd = {}; G.units.push(h); });
+  G.heroes.forEach((h, i) => { h.dead = false; if (h.hp <= 0) h.hp = h.maxHp; h.x = cx + (i - (G.heroes.length - 1) / 2) * 18; h.y = cy - (i % 2) * 10; h.z = 180 + i * 30; h.vz = 0; h.kx = h.ky = 0; h.state = null; h.stun = 0; h.cd = {}; G.units.push(h); });
   G.bossFloor = G.floor % 4 === 0; G.waves = waveCount(); G.wave = 0; G.waveT = first ? 4 : 3.4; G.cdn = first ? 3 : 0; G.fightT = 0; G.spawnQ = []; G.inten = 0; G.champ = null; G.addT = 8; G.phase = 'fight'; G.phaseT = 0;
   CAM.x = cx; CAM.y = ARENA.ph / 2; CAM.z = camFitZoom();
   G.card = { t: 0, life: 2.6, a: 'FLOOR ' + G.floor, b: G.bossFloor ? 'SOMETHING WAITS BELOW' : ARENA.name, c: floorLine(G.floor) };
@@ -93,7 +93,7 @@ function kite(h, foes, dt, pref) {
   if (d < pref * 0.65) { const a = angTo(n.x, n.y, h.x, h.y); tx = h.x + Math.cos(a) * 50; ty = h.y + Math.sin(a) * 40; }
   else if (d > pref * 1.35) { tx = n.x; ty = n.y; }
   else { const a = angTo(n.x, n.y, h.x, h.y) + 0.5 * h.strafe; tx = n.x + Math.cos(a) * pref; ty = n.y + Math.sin(a) * pref * 0.8; }
-  const W = G.heroes.find(x => x.key === 'warrior' && !x.dead); if (W && dist(tx, ty, W.x, W.y) > 110) { tx = (tx + W.x) / 2; ty = (ty + W.y) / 2; }
+  const W = G.heroes.find(x => x.def.role === 'melee' && !x.dead); if (W && dist(tx, ty, W.x, W.y) > 110) { tx = (tx + W.x) / 2; ty = (ty + W.y) / 2; }
   tx = clamp(tx, ARENA.x0 + 16, ARENA.x1 - 16); ty = clamp(ty, ARENA.y0 + 14, ARENA.y1 - 10);
   if ((h.flip = (h.flip || 0) - dt) <= 0) { h.flip = rand(2, 5); h.strafe = -h.strafe; }
   steer(h, tx, ty, h.def.spd, dt, 3); h.face = n.x < h.x ? -1 : 1;
@@ -121,7 +121,7 @@ function monAI(m, dt, heroes) {
   if (m.shock > 0) { m.shock -= dt; if (chance(dt * 10)) { const a = rand(TAU); bolt(m.x, m.y - 8 * m.scale, m.x + Math.cos(a) * 12, m.y - 8 * m.scale + Math.sin(a) * 10, { life: 0.08, w: 0.4, branches: 0 }); } }
   if (m.state) { monState(m, dt); return; }
   if (m.stun > 0) { m.stun -= dt; m.vx = damp(m.vx, 0, 8, dt); m.vy = damp(m.vy, 0, 8, dt); m.moving = false; return; }
-  let t = null, bd = 1e9; for (const h of heroes) { const d = dist(m.x, m.y, h.x, h.y) * (h.key === 'warrior' ? 0.7 : 1); if (d < bd) { bd = d; t = h; } }
+  let t = null, bd = 1e9; for (const h of heroes) { const d = dist(m.x, m.y, h.x, h.y) * (h.def.role === 'melee' ? 0.7 : 1); if (d < bd) { bd = d; t = h; } }
   if (!t) { m.vx = damp(m.vx, 0, 5, dt); m.vy = damp(m.vy, 0, 5, dt); return; }
   if (m.boss) return bossAI(m, dt, t);
   const d = dist(m.x, m.y, t.x, t.y), reach = m.r + t.r + (m.def.reach || 3), ai = m.def.ai;

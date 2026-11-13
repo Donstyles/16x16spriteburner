@@ -257,15 +257,15 @@ function heroAI(h, dt) {
   if (!foes.length || G.phase !== 'fight') { const i = G.heroes.indexOf(h), tx = (ARENA.pw / 2) + (i - 1.5) * 20, ty = ARENA.y0 + (ARENA.y1 - ARENA.y0) * 0.6 + (i % 2) * 10; steer(h, tx, ty, h.def.spd * 0.7, dt, 4); return; }
   if (heroBrain(h, foes)) return;
   const basic = basicOf(h);
-  if (h.key === 'warrior') {
+  if (h.def.role === 'melee') {
     const others = G.heroes.filter(x => x !== h && !x.dead), cx = others.length ? others.reduce((a, c) => a + c.x, 0) / others.length : h.x, cy = others.length ? others.reduce((a, c) => a + c.y, 0) / others.length : h.y;
     let t = nearest({ x: cx, y: cy }, foes, 70) || nearest(h, foes); if (G.boss && alive(G.boss) && G.boss.spawnT <= 0 && chance(0.02)) t = G.boss; if (h.target && alive(h.target) && dist(h.x, h.y, h.target.x, h.target.y) < 40) t = h.target; h.target = t;
     const d = steer(h, t.x, t.y, h.def.spd, dt, h.r + t.r + 8);
-    if (d < h.r + t.r + (basic.reach || 14) && !(h.cd.slash > 0)) { h.cd.slash = basic.cd * md(basic.name).cd; basic.cast(h, t); }
+    if (d < h.r + t.r + (basic.reach || 14) && !(h.cd.slash > 0)) { h.cd.slash = basic.cd * md(basic.name).cd * (h.frenzyT > 0 ? 0.5 : 1); basic.cast(h, t); }
     if (h.moving && chance(dt * 6) && G.lvl >= 5) ghost(h, 'gold', 0.2);
   } else {
-    kite(h, foes, dt, basic.range || (h.key === 'druid' ? 85 : 100));
-    if (!(h.cd.basic > 0)) { const t = basic.pick(h, foes); if (t) { h.cd.basic = basic.cd * md(basic.name).cd; basic.cast(h, t); } }
+    kite(h, foes, dt, basic.range || (h.def.role === 'support' ? 85 : 100));
+    if (!(h.cd.basic > 0)) { const t = basic.pick(h, foes); if (t) { h.cd.basic = basic.cd * md(basic.name).cd * (h.frenzyT > 0 ? 0.5 : 1); basic.cast(h, t); } }
   }
 }
 // spell states that heroState hands over to
@@ -312,6 +312,7 @@ function updateHazards(dt) {
       if (!inArena(z.x, z.y) || nearestSolid(z.x, z.y, z.r * 0.6)) { z.dead = true; if (z.k === 'boulder') { debris(z.x, z.y, 26, ['#5a5048', '#7d7064', '#3c342e'], 160, 220, 2.2); smoke(z.x, z.y, 6, 'dust', 12, 50, 1.4); ring(z.x, z.y, 40, 'earth', 0.35, 4); shake(0.3); SFX.boom(0.7, panOf(z.x)); hitProps(z.x, z.y, 16); } else sparks(z.x, z.y, 8, 14, 'gold', 180, 120); }
     }
   }
+  for (const z of FX.hz) { const f = HAZSIM[z.k]; if (f && !z.dead) f(z, dt, z.tick === (z.rate || 0.25)); } // the newer zones
   removeIf(FX.hz, z => z.dead || z.t >= z.life);
   for (const g of FX.ghosts) g.t += dt; removeIf(FX.ghosts, g => g.t >= g.life);
 }
@@ -322,6 +323,7 @@ function drawHazardsWorld(c) { // normal blend, lit
     else if (z.k === 'fist') { const u = z.t / z.life, S = z.sz || 1, h = (u < 0.15 ? u / 0.15 : u > 0.7 ? (1 - u) / 0.3 : 1) * 22 * S; c.save(); c.beginPath(); c.rect(z.x - 16 * S, z.y - 40 * S, 32 * S, 40 * S); c.clip(); c.drawImage(ROCKS[2], z.x - 12 * S, z.y - h - 6 * S, 24 * S, 24 * S); c.fillStyle = '#4a423c'; c.fillRect(z.x - 6, z.y - h + 12, 12, Math.max(0, h - 10)); c.restore(); }
     else if (z.k === 'roots') { const s = z.seed; c.strokeStyle = '#2a5a20'; c.lineWidth = 1.3; for (let i = 0; i < 5; i++) { const a = s + i * 1.3, r = 6 + (i % 2) * 2, up = 8 + Math.sin(G.time * 4 + i) * 2; c.beginPath(); c.moveTo(z.x + Math.cos(a) * r, z.y + Math.sin(a) * r * 0.5); c.quadraticCurveTo(z.x + Math.cos(a) * r * 0.4, z.y - up, z.x + Math.cos(a + 1) * 3, z.y - up * 0.6); c.stroke(); } c.strokeStyle = '#6a4a2a'; c.lineWidth = 0.8; c.beginPath(); c.ellipse(z.x, z.y - 4, 6, 3, 0, 0, TAU); c.stroke(); }
     else if (z.k === 'swarm') { c.fillStyle = '#1e2a14'; for (const d of z.dots) { const a = d[0] + G.time * d[2] * 0.5; c.fillRect(z.x + Math.cos(a) * d[1] - 0.6, z.y - 8 + Math.sin(a * 1.3) * d[1] * 0.6 - 0.6, 1.3, 1.3); } }
+    else if (HAZDRAW.world[z.k]) HAZDRAW.world[z.k](c, z);
   }
 }
 function drawHazardsFx(c) { // additive glow
@@ -332,6 +334,7 @@ function drawHazardsFx(c) { // additive glow
     else if (z.k === 'arc') { c.globalAlpha = 0.55 * live2 + 0.2; c.strokeStyle = rgba('bolt', 0.7); c.lineWidth = 1.2; c.beginPath(); c.ellipse(z.x, z.y, z.r, z.r * 0.72, 0, 0, TAU); c.stroke(); c.globalAlpha = 0.25; c.drawImage(GLOW.bolt, z.x - z.r, z.y - z.r * 0.72, z.r * 2, z.r * 1.44); }
     else if (z.k === 'wave') { c.globalAlpha = Math.min(1, live2 * 2); c.lineCap = 'round'; for (const [w, col] of [[6, rgba('gold', 0.35)], [2.2, rgba('fire2', 0.9)], [0.9, 'rgba(255,255,255,1)']]) { c.strokeStyle = col; c.lineWidth = w; c.beginPath(); c.ellipse(z.x, z.y - 6, 13 * (z.sz || 1), 10 * (z.sz || 1), 0, z.a - 1.3, z.a + 1.3); c.stroke(); } }
     else if (z.k === 'swarm') { c.globalAlpha = 0.35; c.drawImage(GLOW.poison, z.x - 14, z.y - 18, 28, 20); }
+    else if (HAZDRAW.fx[z.k]) HAZDRAW.fx[z.k](c, z);
   }
   c.globalAlpha = 1;
 }

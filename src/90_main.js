@@ -12,7 +12,7 @@ function update(dt) {
   const heroes = G.heroes.filter(alive);
   for (const u of G.units) { u.anim += dt; if (u.flash > 0) u.flash -= dt; if (u.lunge > 0) u.lunge -= dt * 1.8; }
   const me = G.me; if (me && me.inp && !me.remote) { const [x, y] = inputVec(), I = me.inp; I.mx = x; I.my = y; I.auto = autoLevel(); while (INPUT.castQ.length) I.castQ.push(INPUT.castQ.shift()); if (INPUT.dashQ) { I.dashQ = true; INPUT.dashQ = false; } }
-  for (const h of G.heroes) { MDH = h; if (h.iframe > 0) h.iframe -= dt; h.dashCd = (h.dashCd || 0) - dt; const auto = h.ctrl !== 'player' || !h.inp || h.inp.auto >= 2; if (auto && h.inp) { h.inp.castQ.length = 0; h.inp.dashQ = false; } (auto ? heroAI : playerHero)(h, dt); } MDH = null;
+  for (const h of G.heroes) { MDH = h; if (h.iframe > 0) h.iframe -= dt; if (h.blessT > 0) h.blessT -= dt; if (h.frenzyT > 0 && (h.frenzyT -= dt) <= 0) h.leechMul = 1; h.dashCd = (h.dashCd || 0) - dt; const auto = h.ctrl !== 'player' || !h.inp || h.inp.auto >= 2; if (auto && h.inp) { h.inp.castQ.length = 0; h.inp.dashQ = false; } (auto ? heroAI : playerHero)(h, dt); } MDH = null;
   if (G.heroes.length > 1 && G.phase === 'fight') for (const h of G.heroes) if (h.dead && h.pid !== undefined && h.deadT > 9) { const a = G.heroes.find(x => !x.dead); if (a) reviveHero(h, a); }
   for (const m of G.mons) monAI(m, dt, heroes);
   for (const u of G.units) { if (u.state && u.state.k === 'leap') continue; const wasAir = u.z > 0, vz = u.vz; moveUnit(u, dt); if (wasAir && u.z === 0 && u.team === 'hero' && vz < -300) { ring(u.x, u.y, 30, 'white', 0.3, 3); smoke(u.x, u.y, 5, 'dust', 9, 40, 1); debris(u.x, u.y, 8, ['#5a5048', '#7d7064'], 80, 100, 1.6); shake(0.15); SFX.hit(panOf(u.x)); } }

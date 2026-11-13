@@ -4,7 +4,7 @@ One hero fights down an endless cellar, floor by floor. Steer it yourself, leave
 
 The main menu offers PLAY SOLO, WATCH (autopilot from the first wave), HOST CO-OP and JOIN CO-OP. Your first solo game starts with a short hands-on tutorial (move, automatic attacks, casting, dashing, growing stronger, auto modes); each step ends when you do it, SKIP ends it at any time, and HOW TO PLAY on the menu replays it. Enemies take it easy on you while the tutorial runs.
 
-Before the first wave you pick a hero (Brandt the battlemage, Ignis the pyromancer, Voltaire the stormcaller or Mossa the druid), its basic attack and a first skill (or press AUTO-DRAFT). After that, every cleared floor (or slain boss) offers three cards: a new spell or an upgrade. Level-ups make the hero stronger and unlock the next tier of spells. Each spell has three upgrades. You hold four skills plus an ultimate; once all four buttons are full, a new spell replaces the weakest one (the card says which). Open the SPELLBOOK (button, the hero frame, or B) to see every skill and upgrade; the battle pauses while it is open.
+Before the first wave you pick a hero (Brandt the battlemage, Ignis the pyromancer, Voltaire the stormcaller, Mossa the druid, Kazimir the vampire or Seraphine the priest), its basic attack and a first skill (or press AUTO-DRAFT). After that, every cleared floor (or slain boss) offers three cards: a new spell or an upgrade. Level-ups make the hero stronger and unlock the next tier of spells. Each spell has three upgrades. You hold four skills plus an ultimate; once all four buttons are full, a new spell replaces the weakest one (the card says which). Open the SPELLBOOK (button, the hero frame, or B) to see every skill and upgrade; the battle pauses while it is open.
 
 The hero starts at level 1 and earns its spellbook: low spells first, then medium, then the high spells and the ultimate.
 
@@ -28,6 +28,8 @@ Basic attacks fire on their own at the nearest foe, and skills auto-aim. AUTO-CA
 | Ignis, fire | Ember Bolt / Fire Orb / Flame Jet, Cinder Spray, Immolate, Blazing Darts | Flame Wall, Heat Ray (laser), Fire Serpents, Magma Pools | Fireball, Flame Nova, METEOR STORM |
 | Voltaire, storm | Spark / Arc Whip / Storm Bolt, Static Charge, Shock Orb, Gust | Lightning Lance, Tesla Coil, Arc Field | Chain Lightning, Ball Lightning, Arc Cannon (laser), THUNDERSTORM |
 | Mossa, earth | Pebble / Thorn Dart / Mud Ball, Mend, Thorn Lash, Rejuvenate, Entangle | Stone Fist, Insect Swarm, Boulder Roll | Stone Spikes, Mass Heal, Resurrection, EARTHQUAKE |
+| Kazimir, blood (melee, heals from every hit) | Claw / Blood Whip / Bat Bite, Bat Swarm, Hemorrhage, Shadow Step, Blood Mist | Crimson Lance, Blood Nova, Bat Cloud, Drain Life | Vampiric Frenzy, Night Wings, Exsanguinate, CRIMSON MOON |
+| Seraphine, holy (support) | Smite / Holy Bolt / Censer, Lay on Hands, Blessing, Consecrate, Radiant Spear | Holy Nova, Guardian Angel, Chains of Light, Sacred Flame | Divine Beam, Sanctuary, Miracle, JUDGMENT |
 
 Every fourth floor a boss rises. When a floor is cleared it collapses and the hero drops to the next one. If the hero falls, the floor starts over.
 
@@ -47,6 +49,7 @@ Open `index.html` (it is self-contained), or add the GitHub Pages site to your H
 ## Build
 ```
 python3 -I tools/pack.py <extracted cellar tileset zip> <extracted creature packs> .
+python3 -I tools/recolor.py   # vampire, vampire lord, priest, archpriest and angel sprites (palette swaps)
 node tools/build.js
 ```
 `src/*.js` is concatenated into `index.html` (Pages / Home Screen) and `dist/artifact.html`.
