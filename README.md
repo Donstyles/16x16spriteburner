@@ -13,7 +13,7 @@ The game is always landscape. On a phone held upright it is drawn sideways, so j
 
 | | Touch | Keyboard | Gamepad |
 |---|---|---|---|
-| Move | touch anywhere and drag (the stick is invisible) | WASD / arrows | left stick |
+| Move | pick a scheme with MOVE on the menu: **drag anywhere** (invisible stick), **tap to move** (tap a spot, hold and drag to steer) or a **fixed stick** at the bottom left | WASD / arrows (or click to move) | left stick |
 | Dash (dodges damage) | » button | Space / Shift | A |
 | Skills 1-4 | the four round buttons | 1-4 | X, Y, B, RB |
 | Ultimate (when the ring is full) | big corner button | R or Q | RT / LB |

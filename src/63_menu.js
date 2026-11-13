@@ -85,10 +85,11 @@ function drawMenus(c) {
     mbtn(c, x0 + (bw + gap), y, bw, bh, 'WATCH', 'The cellar plays itself', startWatch);
     mbtn(c, x0 + 2 * (bw + gap), y, bw, bh, 'HOST CO-OP', 'Open a room for 3 friends', startHost);
     mbtn(c, x0 + 3 * (bw + gap), y, bw, bh, 'JOIN CO-OP', 'Type a friend’s room code', startJoin);
-    mbtn(c, 450 - 100, 310, 200, 34, 'HOW TO PLAY', '', () => startSolo(true), { size: 16 });
+    mbtn(c, 450 - 214, 310, 200, 34, 'HOW TO PLAY', '', () => startSolo(true), { size: 16 });
+    mbtn(c, 450 + 14, 310, 220, 34, 'MOVE: ' + SCHEME_LABEL[INPUT.scheme], '', cycleScheme, { size: 16 });
     font(c, 500, 15, F_HUD); c.globalAlpha = 0.8;
     spaced(c, [MENU.best > 1 ? 'DEEPEST FLOOR REACHED · ' + MENU.best : '', SFX.ctx ? '' : 'TAP FOR SOUND'].filter(Boolean).join('   ·   '), 450, 370, 2, '#cdb890', 'center');
-    font(c, 500, 14, F_HUD); spaced(c, INPUT.touch ? 'DRAG ANYWHERE TO MOVE  ·  SPELLS ON THE RIGHT  ·  BEST ON THE HOME SCREEN' : 'WASD MOVE  ·  SPACE DASH  ·  1-4 SPELLS  ·  R ULTIMATE', 450, 394, 2, '#8a7c66', 'center'); c.globalAlpha = 1;
+    font(c, 500, 14, F_HUD); spaced(c, INPUT.touch ? moveHint() + '  ·  SPELLS ON THE RIGHT  ·  BEST ON THE HOME SCREEN' : 'WASD MOVE  ·  SPACE DASH  ·  1-4 SPELLS  ·  R ULTIMATE', 450, 394, 2, '#8a7c66', 'center'); c.globalAlpha = 1;
   } else if (G.mode === 'join') {
     font(c, 900, 46, F_DISP); label(c, 'Join a Room', 450, 58, '#f8ecd6', { align: 'center' });
     font(c, 500, 16, F_HUD); spaced(c, 'TYPE THE 4 LETTERS ON YOUR FRIEND’S SCREEN', 450, 84, 2, '#bfae90', 'center');
@@ -113,7 +114,7 @@ function drawJoinState(c) { // the guest's view until the host answers
   const tail = NLOG.slice(-2); font(c, 500, 12, F_HUD); tail.forEach((ln, i) => label(c, ln.length > 105 ? ln.slice(0, 105) + '…' : ln, 450, 262 + i * 13, 'rgba(200,184,150,0.6)', { align: 'center' }));
 }
 function drawRoom(c, inGame) {
-  if (!(NET.role === 'client' && !NET.on)) mbtn(c, 742, 380, 148, 30, 'SHARE LOG', '', shareLog, { size: 13 }); // the lobby before the descent, and the same room view over a running fight
+  if (!(NET.role === 'client' && !NET.on)) { mbtn(c, 742, 380, 148, 30, 'SHARE LOG', '', shareLog, { size: 13 }); if (G.mode === 'lobby') mbtn(c, 742, 344, 148, 30, 'MOVE: ' + SCHEME_LABEL[INPUT.scheme].split(' ')[0], '', cycleScheme, { size: 13 }); } // the lobby before the descent, and the same room view over a running fight
   const seats = seatsNow(), host = NET.role === 'host', me = host ? 0 : NET.myPid, lobby = G.mode === 'lobby', n = seats.filter(s => s.here).length;
   const sk = seats.map(s => +s.here).join(''); if (sk !== MENU.seatsKey) { if (MENU.seatsKey && sk.split('1').length > MENU.seatsKey.split('1').length) { if (SFX.ctx) SFX.summon(); seats.forEach((s, i) => { if (s.here && MENU.seatsKey[i] === '0') MENU.flash[s.pid] = 1; }); } MENU.seatsKey = sk; }
   font(c, 900, 42, F_DISP); c.shadowColor = 'rgba(255,140,50,0.7)'; c.shadowBlur = 20; label(c, lobby ? 'The Cellar Door' : 'Your Room', 450, 46, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0;

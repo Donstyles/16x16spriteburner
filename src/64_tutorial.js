@@ -3,7 +3,7 @@
 const TUT = { on: false, pending: false, step: 0, t: 0, moved: 0, last: null, cast: false, dash: false, skipRect: null };
 let tutSeen = false; try { tutSeen = localStorage.getItem('cor-tut') === '1'; } catch (e) { }
 const TUT_STEPS = [
-  { a: 'MOVE', b: () => INPUT.touch ? 'Touch anywhere and drag. The stick is invisible.' : 'Move with WASD or the arrow keys.', done: () => TUT.moved > 60 },
+  { a: 'MOVE', b: () => INPUT.scheme === 'tap' ? (INPUT.touch ? 'Tap where you want to go. Hold and drag to steer.' : 'Click where you want to go, or use WASD.') : !INPUT.touch ? 'Move with WASD or the arrow keys.' : INPUT.scheme === 'stick' ? 'Use the stick at the bottom left.' : 'Touch anywhere and drag. The stick is invisible.', done: () => TUT.moved > 60 },
   { a: 'ATTACKS ARE AUTOMATIC', b: () => 'Your basic attack hits the nearest enemy by itself. Get close.', done: s => s.t > 5 },
   { a: 'CAST A SPELL', b: () => INPUT.touch ? 'Enemies near? Tap the glowing spell button.' : 'Enemies near? Press 1.', done: () => TUT.cast, btn: 0 },
   { a: 'DASH', b: () => (INPUT.touch ? 'Tap » to dash.' : 'Press Space to dash.') + ' Nothing can hurt you mid-dash.', done: () => TUT.dash, btn: 'dash' },

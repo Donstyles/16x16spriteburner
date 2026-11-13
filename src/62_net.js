@@ -16,7 +16,7 @@ const NLOG = [], NLOG_T0 = performance.now();
 function nlog(s) { const line = ((performance.now() - NLOG_T0) / 1000).toFixed(1) + 's ' + s; NLOG.push(line); if (NLOG.length > 600) NLOG.shift(); try { console.log('[net] ' + line); } catch (e) { } }
 function logText() {
   const c = navigator.connection, solo = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-  return ['CELLAR OF RUIN CONNECTION LOG', 'version ' + BUILD + ' · role ' + (NET.role || '-') + ' · room ' + (NET.code || '-'), 'device ' + navigator.userAgent, 'network ' + (c ? (c.type || '?') + ' ' + (c.effectiveType || '') : 'unknown') + ' · home-screen app ' + (solo ? 'yes' : 'no'),
+  return ['CELLAR OF RUIN CONNECTION LOG', 'version ' + BUILD + ' · role ' + (NET.role || '-') + ' · room ' + (NET.code || '-') + (NET.rtt ? ' · round trip ' + Math.round(NET.rtt * 1000) + ' ms' : ''), 'device ' + navigator.userAgent, 'network ' + (c ? (c.type || '?') + ' ' + (c.effectiveType || '') : 'unknown') + ' · home-screen app ' + (solo ? 'yes' : 'no'),
     'relay ' + (relayKey() ? (TURN_ICE ? 'loaded, ' + TURN_ICE.length + ' servers' : NET.turnErr ? 'key set, FAILED to load' : 'key set, not loaded') : 'no key on this phone') + ' · used this month ' + Math.round(relayUsed() / 1048576) + ' MB', '---', ...NLOG].join('\n');
 }
 function shareLog() { const text = logText(); if (navigator.share) navigator.share({ title: 'Cellar of Ruin log', text }).catch(() => copyLog(text)); else copyLog(text); }
@@ -108,17 +108,27 @@ function privOf(h) {
   if (!h || !h.sb) return null; const cd = {}; for (const k in h.cd) if (h.cd[k] > 0) cd[k] = r2(h.cd[k]);
   return { known: [...h.sb.known], slots: h.sb.slots, basic: h.sb.basic[h.key], mods: h.sb.mods, cd, cdMax: h.cdMax || {}, dashCd: r2(h.dashCd || 0) };
 }
-function snapshot(full) {
-  const nu = [], u = [];
-  for (const x of G.units) { const st = statOf(x); if (full) nu.push(st); else { const sk = JSON.stringify(st); if (NET.statCache.get(x.id) !== sk) { NET.statCache.set(x.id, sk); nu.push(st); } } u.push(dynOf(x)); }
+// 'tick': what changed since the last update · 'key': everything, for everyone, once a second (a phone that missed
+// anything is healed within a second) · 'welcome': everything, for one arriving phone, without touching the others' baseline
+function snapshot(kind) {
+  const all = kind !== 'tick', nu = [], u = [], defIds = new Set();
+  for (const x of G.units) {
+    const st = statOf(x); defIds.add(st[1]);
+    if (all) { nu.push(st); if (kind === 'key') NET.statCache.set(x.id, JSON.stringify(st)); }
+    else { const sk = JSON.stringify(st); if (NET.statCache.get(x.id) !== sk) { NET.statCache.set(x.id, sk); nu.push(st); } }
+    u.push(dynOf(x));
+  }
   if (NET.statCache.size > G.units.length * 3 + 50) { const ids = new Set(G.units.map(x => x.id)); for (const k of [...NET.statCache.keys()]) if (!ids.has(k)) NET.statCache.delete(k); }
-  const g0 = pickO(G, GK), g = {}; if (full) Object.assign(g, g0); else { const L = NET.lastG || {}; for (const k in g0) if (g0[k] !== L[k]) g[k] = g0[k]; } NET.lastG = g0; g.time = g0.time; g.boss = G.boss ? G.boss.id : 0; g.champ = G.champ ? G.champ.id : 0; g.eq = G.eq ? 1 : 0; g.storm = G.storm ? 1 : 0; g.sq = G.spawnQ.length;
+  const g0 = pickO(G, GK), g = {}; if (all) Object.assign(g, g0); else { const L = NET.lastG || {}; for (const k in g0) if (g0[k] !== L[k]) g[k] = g0[k]; }
+  if (kind !== 'welcome') NET.lastG = g0;
+  g.time = g0.time; g.boss = G.boss ? G.boss.id : 0; g.champ = G.champ ? G.champ.id : 0; g.eq = G.eq ? 1 : 0; g.storm = G.storm ? 1 : 0; g.sq = G.spawnQ.length;
   g.fo = G.focus && G.focus.t > 0 ? [r1(G.focus.x), r1(G.focus.y), r2(G.focus.w), r2(G.focus.t)] : 0;
-  if (full) { g.card = G.card ? plain(G.card) : null; g.callout = null; }
+  if (all) { g.card = G.card ? plain(G.card) : null; g.callout = G.callout ? plain(G.callout) : null; if (kind === 'key') { NET.lastCard = G.card; NET.lastCallout = G.callout; } }
   else { if (G.card !== NET.lastCard) { NET.lastCard = G.card; g.card = G.card ? plain(G.card) : null; } if (G.callout !== NET.lastCallout) { NET.lastCallout = G.callout; g.callout = G.callout ? plain(G.callout) : null; } }
-  const s = { t: 's', g, u, nu, p: G.proj.map(p => pickO(p, PK)), hz: FX.hz.map(plain), bm: FX.beams.map(plain), li: NET.lightsCur.slice(), rn: ARENA.runes.map(r => r2(r.glow || 0)), pd: ARENA.props.map((p, i) => p.dead ? i : -1).filter(i => i >= 0) };
-  if (full) { s.nd = NET.defs.map((d, i) => [i, d]); s.arena = NET.arena; s.ev = []; } else { s.nd = NET.newDefs; s.ev = NET.ev; }
-  if (!full) { NET.newDefs = []; NET.ev = []; NET.partN = 0; }
+  const s = { t: 's', g, u, nu, p: G.proj.map(p => pickO(p, PK)), hz: FX.hz.map(plain), bm: FX.beams.map(plain), li: NET.lightsCur.slice(), rn: ARENA.runes.map(r => r2(r.glow || 0)), pd: ARENA.props.map((p, i) => p.dead ? i : -1).filter(i => i >= 0), arena: NET.arena };
+  const nd = kind === 'welcome' ? [] : NET.newDefs.slice(); if (all) { const have = new Set(nd.map(d => d[0])); for (const id of defIds) if (!have.has(id)) nd.push([id, NET.defs[id]]); }
+  s.nd = nd; s.ev = kind === 'welcome' ? [] : NET.ev;
+  if (kind !== 'welcome') { NET.newDefs = []; NET.ev = []; NET.partN = 0; }
   return s;
 }
 function hostTick(rdt) {
@@ -126,7 +136,7 @@ function hostTick(rdt) {
   for (const [id, p] of NET.pend) { p.t += rdt; if (p.t > 30 || !NET.conns.has(p.pid)) { NET.pend.delete(id); choiceEffect(p.h, p.opts[asHero(p.h, () => autoIndex(p))]); } }
   NET.sendT += rdt; if (NET.sendT < 0.05) return; NET.sendT = 0;
   if (!NET.conns.size) { NET.ev = []; NET.newDefs = []; return; }
-  const s = snapshot(false);
+  const s = snapshot(((NET.tick || 0) + 1) % 20 === 0 ? 'key' : 'tick');
   if (window.CR_PROF) { const P = window.CR_PROF; for (const k in s) P[k] = (P[k] || 0) + JSON.stringify(s[k]).length; P.n = (P.n || 0) + 1; if (s.ev) for (const e of s.ev) { const nm = e[0] === 'A' ? 'A' : FXO[e[0]].name; P['ev:' + nm] = (P['ev:' + nm] || 0) + JSON.stringify(e).length; } }
   NET.tick = (NET.tick || 0) + 1;
   for (const c of NET.conns.values()) if (c.ok) {
@@ -155,13 +165,17 @@ function hostConn(conn) {
   conn.on('open', () => {
     nlog(who + ' connected');
     const gv = conn.metadata && conn.metadata.ver; if (gv && gv !== BUILD) { netSend(conn, { t: 'ver', ver: BUILD }); setTimeout(() => conn.close(), 800); netSay('A FRIEND HAS A DIFFERENT VERSION · BOTH SHOULD REOPEN THE GAME', 6); return; }
-    let h = c.token && G.heroes.find(x => x.token === c.token && x.away);
-    if (!h && freeSlot() < 0) { const away = G.heroes.find(x => x.away); if (away) dropHero(away); }
-    const pid = h ? h.pid : freeSlot(); if (pid < 0) { netSend(conn, { t: 'full' }); setTimeout(() => conn.close(), 800); return; }
+    // the same phone again (a retry or a rejoin): the newest connection takes over, older ones are closed quietly
+    const n = (conn.metadata && conn.metadata.n) || 0; c.n = n;
+    const old = c.token && [...NET.conns.values()].find(o => o !== c && o.token === c.token);
+    if (old) { if ((old.n || 0) > n) { nlog(who + ': stale connection, closed'); try { conn.close(); } catch (e) { } return; } nlog(who + ': replaces its earlier connection'); old.ok = false; NET.conns.delete(old.pid); try { old.conn.close(); } catch (e) { } }
+    let h = c.token && G.heroes.find(x => x.token === c.token); const wasAway = h && h.away;
+    if (!h && !old && freeSlot() < 0) { const away = G.heroes.find(x => x.away); if (away) dropHero(away); }
+    const pid = h ? h.pid : old ? old.pid : freeSlot(); if (pid < 0) { netSend(conn, { t: 'full' }); setTimeout(() => conn.close(), 800); return; }
     c.pid = pid; c.ok = true; NET.conns.set(pid, c);
-    const lob = !NET.lobby.started, s = snapshot(true); s.t = 'w'; s.ver = BUILD; s.pid = pid; s.code = NET.code; s.lobby = lob; s.draft = !h && !lob; netSend(conn, s);
+    const lob = !NET.lobby.started, s = snapshot('welcome'); s.t = 'w'; s.ver = BUILD; s.pid = pid; s.code = NET.code; s.lobby = lob; s.draft = !h && !lob; netSend(conn, s);
     if (lob) { MENU.flash[pid] = 1; if (SFX.ctx) SFX.summon(); lobbySync(); } else if (!h) netSay('P' + (pid + 1) + ' IS JOINING…', 3);
-    if (h) { c.h = h; h.away = false; h.inp.auto = 0; pushBanner({ a: h.pname + ' IS BACK', b: h.def.name + ' RETURNS TO THEIR CONTROL', col: h.def.col, keep: true, life: 1.8 }); }
+    if (h) { c.h = h; h.away = false; h.awayT = 0; h.inp.auto = 0; if (wasAway) pushBanner({ a: h.pname + ' IS BACK', b: h.def.name + ' RETURNS TO THEIR CONTROL', col: h.def.col, keep: true, life: 1.8 }); }
   });
   conn.on('data', d => { try { netRecv(conn, d, m => hostMsg(c, m)); } catch (e) { console.error(e); } });
   conn.on('close', () => { nlog(who + ': link closed'); hostDrop(c); }); conn.on('error', e => { nlog(who + ': link error ' + (e && (e.type || e.message) || e)); hostDrop(c); });
@@ -170,6 +184,7 @@ function hostMsg(c, m) {
   if (!m || !c.ok) return;
   if (m.t === 'in') { const h = c.h; if (!h || !h.inp) return; const I = h.inp; I.mx = clamp(+m.mx || 0, -1, 1); I.my = clamp(+m.my || 0, -1, 1); I.auto = clamp(m.auto | 0, 0, 2); if (m.d) I.dashQ = true; if (Array.isArray(m.c)) for (const s of m.c.slice(0, 6)) if (s === 'ult' || (s >= 0 && s < 4)) I.castQ.push(s); }
   else if (m.t === 'join') hostJoin(c, m);
+  else if (m.t === 'ping') netSend(c.conn, { t: 'pong', ts: m.ts });
   else if (m.t === 'lh') { if (NET.lobby && !NET.lobby.started && HERO_DEFS[m.hero]) { NET.lobby.picks[c.pid] = m.hero; MENU.flash[c.pid] = 1; lobbySync(); } }
   else if (m.t === 'pick') { const p = NET.pend.get(m.id); if (p && p.pid === c.pid && p.opts[m.i]) { NET.pend.delete(m.id); choiceEffect(p.h, p.opts[m.i]); } }
 }
@@ -276,7 +291,7 @@ function netToken(code) { const k = 'cor-token-' + code; let t = null; try { t =
 function netJoin(raw, relay, retry) {
   const code = String(raw || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4); if (code.length !== 4) { netSay('ROOM CODES HAVE 4 LETTERS', 3); return; }
   if (NET.role === 'host') netCloseRoom();
-  if (!retry) { NET.tries = 0; NET.attempt = 1; NET.reconnects = 0; nlog('join room ' + code + ' · version ' + BUILD); }
+  if (!retry || retry === 'rejoin') { NET.tries = 0; NET.attempt = 1; NET.reconnects = 0; nlog((retry ? 'rejoin' : 'join') + ' room ' + code + ' · version ' + BUILD); }
   Object.assign(NET, { role: 'client', code, on: false, lost: false, fail: null, relay: false, stage: 'MATCHMAKER', stageT: performance.now(), seats: retry ? NET.seats : null, panel: false });
   if (!retry) NET.lobbyPick = null; MENU.seatsKey = ''; G.mode = 'lobby';
   G.sched = []; G.proj = []; G.choice = null; G.choiceQ = []; UI.bookOpen = false; G.me = null; G.draftKey = null; NET.draft = {}; NET.mir.clear(); NET.stat.clear(); for (const k in FX) FX[k].length = 0;
@@ -300,11 +315,11 @@ function netJoin(raw, relay, retry) {
 function connectHost(peer, code) {
   if (NET.host) { try { NET.host.close(); } catch (e) { } }
   nlog('connecting to the host · try ' + (NET.attempt || 1));
-  const conn = peer.connect(NET_PREFIX + code, { reliable: true, serialization: 'raw', metadata: { token: netToken(code), ver: BUILD } }); NET.host = conn; NET.stage = 'HOST'; NET.stageT = performance.now();
+  const conn = peer.connect(NET_PREFIX + code, { reliable: true, serialization: 'raw', metadata: { token: netToken(code), ver: BUILD, n: NET.connSeq = (NET.connSeq || 0) + 1 } }); NET.host = conn; NET.stage = 'HOST'; NET.stageT = performance.now();
   NET.cand = NET.cand || {}; NET.candErr = NET.candErr || ''; const pc = conn.peerConnection;
   if (pc) { pc.addEventListener('icecandidate', e => { const m = e.candidate && / typ (\w+)/.exec(e.candidate.candidate); if (m) NET.cand[m[1]] = (NET.cand[m[1]] || 0) + 1; }); pc.addEventListener('icecandidateerror', e => { NET.candErr = e.errorCode + (e.url ? ' ' + e.url.split(':')[0] : ''); }); }
   watchPc(conn, 'link');
-  conn.on('open', () => { if (NET.host !== conn) return; NET.on = true; NET.stage = 'OK'; NET.tries = 0; nlog('connected to the host'); netSay('CONNECTED TO ROOM ' + code, 2); });
+  conn.on('open', () => { if (NET.host !== conn) return; NET.on = true; NET.stage = 'OK'; NET.tries = 0; NET.rejoinT = 0; NET.rx = performance.now(); nlog('connected to the host'); netSay('CONNECTED TO ROOM ' + code, 2); });
   conn.on('data', d => { NET.rx = performance.now(); try { netRecv(conn, d, guestMsg); } catch (e) { console.error(e); } });
   conn.on('close', () => { if (NET.host === conn) { nlog('link closed'); guestLost('CONNECTION LOST', true); } });
   conn.on('error', e => { nlog('link error: ' + (e && (e.type || e.message) || e)); if (NET.host === conn && NET.on) guestLost('CONNECTION LOST', true); });
@@ -323,10 +338,13 @@ function joinWatch() { // a link that never opens: one retry through the relay, 
   }
 }
 function guestLost(why, retry) {
-  if (NET.role !== 'client' || NET.lost || NET.fail) return; NET.lost = true;
-  // a dropped connection (screen lock, weak signal) rejoins the same room and gets the same hero back; anything else returns to solo
-  const again = retry && !/[?&]retry=/.test(location.search); netSay(why + (again ? ' · REJOINING…' : ' · BACK TO SOLO…'), 10);
-  setTimeout(() => { location.href = location.pathname + (again ? '?room=' + NET.code + '&retry=1' + peerQuery() : peerQuery().replace('&', '?')); }, 2200);
+  if (NET.role !== 'client' || NET.lost || NET.fail) return;
+  if (!retry) return joinFail(why, 'Tap BACK TO MENU to play on your own, or TRY AGAIN.');
+  // a dropped link (screen lock, weak signal, a hiccup on the host's phone) rejoins the same room in place and gets the same hero back
+  NET.rejoinT = NET.rejoinT || performance.now();
+  if (performance.now() - NET.rejoinT > 90000) return joinFail('LOST THE HOST', 'Could not get back into room ' + NET.code + ' for 90 seconds. Is the host’s game still open on their screen?');
+  NET.lost = true; nlog('link lost (' + why + ') · rejoining'); netSay(why + ' · REJOINING…', 6);
+  setTimeout(() => { if (NET.role === 'client' && !NET.fail) netJoin(NET.code, false, 'rejoin'); }, 800);
 }
 function peerQuery() { const q = new URLSearchParams(location.search); return q.get('peerhost') ? '&peerhost=' + q.get('peerhost') + '&peerport=' + (q.get('peerport') || 9000) : ''; }
 function guestMsg(m) {
@@ -337,9 +355,10 @@ function guestMsg(m) {
   else if (m.t === 'go') { G.mode = 'play'; UI.titleT = 99; G.choiceQ = []; G.choice = null; NET.draft = {}; if (NET.lobbyPick) { NET.draft.hero = { type: 'hero', hero: NET.lobbyPick }; G.draftKey = NET.lobbyPick; queueDraft(true); } else queueDraft(); }
   else if (m.t === 'ch') G.choiceQ.push({ kind: m.kind, title: m.title || undefined, netId: m.id, opts: m.opts.map(decOpt).filter(Boolean) });
   else if (m.t === 'slow') NET.slow = true;
+  else if (m.t === 'pong') { const r = (performance.now() - m.ts) / 1000; NET.rtt = NET.rtt ? NET.rtt * 0.7 + r * 0.3 : r; }
   else if (m.t === 'relayout') { G.mode = 'lobby'; joinFail('THE HOST’S RELAY IS USED UP FOR THIS MONTH', 'Only phones that can link directly can play together until next month. Try the same Wi-Fi.'); }
-  else if (m.t === 'full') guestLost('ROOM ' + NET.code + ' IS FULL');
-  else if (m.t === 'bye') guestLost('THE HOST CLOSED THE ROOM');
+  else if (m.t === 'full') joinFail('ROOM ' + NET.code + ' IS FULL', 'Four heroes are already in. Wait for a seat or try another room.');
+  else if (m.t === 'bye') joinFail('THE HOST CLOSED THE ROOM', 'Tap BACK TO MENU to play on your own.');
 }
 function decOpt(o) {
   const sp = (SPELLBOOK[o.hero] || []).find(s => s.name === o.sp); if (!sp) return null;
@@ -357,7 +376,7 @@ function applySnap(m) {
   for (const [i, d] of m.nd || []) NET.defs[i] = d;
   for (const st of m.nu || []) { NET.stat.set(st[0], st); const u = NET.mir.get(st[0]); if (u) setStat(u, st); }
   // effects first: a new floor (arena event) must exist before this snapshot's units land on it
-  for (const e of m.ev || []) { if (e[0] === 'A') { guestArena(e[1], e[2]); continue; } const f = FXO[e[0]]; if (!f) continue; try { if (f.isPart) f.f(decPart(e[1])); else f.f.apply(f.self || null, e.slice(1).map(decA)); } catch (x) { } }
+  for (const e of m.ev || []) { if (e[0] === 'A') { if (!NET.arena || NET.arena.seed !== e[2]) guestArena(e[1], e[2]); continue; } const f = FXO[e[0]]; if (!f) continue; try { if (f.isPart) f.f(decPart(e[1])); else f.f.apply(f.self || null, e.slice(1).map(decA)); } catch (x) { } }
   const seen = new Set();
   for (const a of m.u) {
     const id = a[0]; let u = NET.mir.get(id);
@@ -385,12 +404,17 @@ function guestArena(floor, seed) {
   const cx = ARENA.pw / 2; CAM.x = cx; CAM.y = ARENA.ph / 2; CAM.z = camFitZoom(); G.fade = 1;
 }
 function guestFrame(rdt) {
+  if (NET.on && NET.host && (NET.pingT = (NET.pingT || 0) + rdt) > 2) { NET.pingT = 0; netSend(NET.host, { t: 'ping', ts: performance.now() }); }
+  // your own hero is drawn ahead of the host's last word by your input times the round trip, so it answers your thumb at once
+  const me = G.me; let lx = 0, ly = 0;
+  if (me && !me.dead && !me.castT && autoLevel() < 2) { const [ix, iy] = inputVec(), lead = clamp((NET.rtt || 0.12) / 2 + 0.06, 0.05, 0.3), sp = me.def.spd * 1.3; lx = ix * sp * lead; ly = iy * sp * lead; }
   // the host's clock: frozen during a hit-stop, slowed during slow motion — particles and motion keep in step with it
   let dt = rdt; if (G.hitstop > 0) { G.hitstop -= rdt; dt = 0; } else { if (G.slowT > 0) G.slowT -= rdt; else G.ts = damp(G.ts, 1, 3, rdt); dt = rdt * G.ts; }
   for (const u of G.units) {
     u.anim += dt; if (u.flash > 0) u.flash -= dt; if (u.lunge > 0) u.lunge -= dt * 1.8;
     if (u.sx === undefined) continue; u.sx += u.vx * dt; u.sy += u.vy * dt;
-    if (Math.hypot(u.sx - u.x, u.sy - u.y) > 48) { u.x = u.sx; u.y = u.sy; } else { u.x = damp(u.x, u.sx, 14, rdt); u.y = damp(u.y, u.sy, 14, rdt); }
+    const tx = u === me ? u.sx + lx : u.sx, ty = u === me ? u.sy + ly : u.sy, k = u === me ? 20 : 14;
+    if (Math.hypot(tx - u.x, ty - u.y) > 48) { u.x = tx; u.y = ty; } else { u.x = damp(u.x, tx, k, rdt); u.y = damp(u.y, ty, k, rdt); }
     u.z = damp(u.z, u.sz, 14, rdt);
   }
   for (const p of G.proj) { p.x += (p.vx || 0) * dt; p.y += (p.vy || 0) * dt; if (p.vz) p.z = Math.max(0, p.z + p.vz * dt); p.t = (p.t || 0) + dt; }
@@ -400,7 +424,7 @@ function guestFrame(rdt) {
   if (dt > 0) { for (const p of G.proj) projFx(p, dt); for (const z of FX.hz) if (z.life) hazFx(z, dt); for (const h of G.heroes) { if (h.dead) continue; if (h.castT) castFx(h, h.castT - 1, h.castU, dt); if (h.regenOn) regenFx(h, dt); } }
   updateEmitters(dt);
   const L = NET.lights; for (let i = 0; i < L.length; i += 5) FX.lights.push(L[i], L[i + 1], L[i + 2], L[i + 3], L[i + 4]);
-  if (NET.on && NET.rx && performance.now() - NET.rx > 5000) guestLost('CONNECTION LOST', true);
+  if (NET.on && NET.rx && performance.now() - NET.rx > 10000) guestLost('CONNECTION LOST', true);
   joinWatch();
   NET.inT += rdt;
   if (NET.on && NET.host && G.me && (NET.inT >= (NET.slow ? 0.066 : 0.033) || INPUT.castQ.length || INPUT.dashQ)) {

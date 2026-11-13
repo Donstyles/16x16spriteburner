@@ -1,5 +1,18 @@
 // ===================== one hero, real controls: thumb-stick, dash, skill buttons, keyboard, gamepad =====================
-const INPUT = { keys: new Set(), stick: null, castQ: [], dashQ: false, pad: null, padPrev: [], lastT: -1e9, touch: ('ontouchstart' in window) || navigator.maxTouchPoints > 0 };
+const INPUT = { keys: new Set(), stick: null, castQ: [], dashQ: false, pad: null, padPrev: [], lastT: -1e9, touch: ('ontouchstart' in window) || navigator.maxTouchPoints > 0, dest: null, tapId: null };
+// movement schemes: drag anywhere (invisible stick) · tap to move (tap a spot, hold and drag to steer) · fixed stick (bottom left)
+const SCHEMES = ['drag', 'tap', 'stick'], SCHEME_LABEL = { drag: 'DRAG ANYWHERE', tap: 'TAP TO MOVE', stick: 'FIXED STICK' };
+INPUT.scheme = (() => { try { const v = localStorage.getItem('cor-controls'); return SCHEMES.includes(v) ? v : 'drag'; } catch (e) { return 'drag'; } })();
+function cycleScheme() { INPUT.scheme = SCHEMES[(SCHEMES.indexOf(INPUT.scheme) + 1) % SCHEMES.length]; try { localStorage.setItem('cor-controls', INPUT.scheme); } catch (e) { } INPUT.dest = null; INPUT.stick = null; INPUT.moved = false; netSay('MOVEMENT: ' + SCHEME_LABEL[INPUT.scheme], 3); }
+function moveHint() { return !INPUT.touch && INPUT.scheme !== 'tap' ? 'MOVE WITH WASD OR THE ARROW KEYS' : INPUT.scheme === 'tap' ? (INPUT.touch ? 'TAP WHERE YOU WANT TO GO' : 'CLICK WHERE YOU WANT TO GO') : INPUT.scheme === 'stick' ? 'USE THE STICK AT THE BOTTOM LEFT' : 'TOUCH ANYWHERE AND DRAG TO MOVE'; }
+function toWorld(px, py) { const s = CAM.z * (1 + CAM.kick); return [(px - VIEW.w / 2 - SH.x) / s + CAM.x, (py - VIEW.h / 2 - SH.y) / s + CAM.y]; }
+function setDest(px, py) { if (!ARENA) return; const [wx, wy] = toWorld(px, py); INPUT.dest = { x: clamp(wx, ARENA.x0 + 4, ARENA.x1 - 4), y: clamp(wy, ARENA.y0 + 2, ARENA.y1 - 2), at: performance.now() }; INPUT.moved = true; }
+function stickBase() { const S = VIEW.safe, sc = ctrlScale(); return [Math.max(14, S.l + 10) + 80 * sc, VIEW.h - Math.max(12, S.b + 8) - 80 * sc, 52 * sc]; }
+function stickMove(s, px, py) {
+  const R = s.fixed ? stickBase()[2] : 48 * ctrlScale(); let dx = px - s.ox, dy = py - s.oy, d = Math.hypot(dx, dy);
+  if (!s.fixed && d > R * 1.5) { s.ox += dx / d * (d - R * 1.5); s.oy += dy / d * (d - R * 1.5); dx = px - s.ox; dy = py - s.oy; d = Math.hypot(dx, dy); }
+  const k = Math.min(d, R) / R; s.vx = d > 5 ? dx / d * k : 0; s.vy = d > 5 ? dy / d * k : 0; s.x = px; s.y = py; if (k > 0.4) INPUT.moved = true;
+}
 const CTRL = { buttons: [], top: [], fx: {} };
 const AUTO_LABEL = ['MANUAL', 'AUTO-CAST', 'AUTOPILOT'];
 const HEALS = new Set(['MEND', 'REJUVENATE', 'MASS HEAL']);
@@ -12,13 +25,15 @@ const HERO_BLURB = {
 // screen point → game point (the canvas may be turned 90° on an upright phone)
 const ptr = e => VIEW.rot ? [e.clientY, VIEW.iw - e.clientX] : [e.clientX, e.clientY];
 function touched() { INPUT.lastT = performance.now(); }
-const idle = () => performance.now() - INPUT.lastT > 10000;
+const idle = () => !INPUT.dest && performance.now() - INPUT.lastT > (INPUT.scheme === 'tap' ? 30000 : 10000); // tap players touch the screen less often
 function autoLevel() { return G.autoMode === 2 || (idle() && G.phase === 'fight' && G.wave >= 1 && !G.choice) ? 2 : G.autoMode; }
 function cycleAuto() { G.autoMode = (G.autoMode + 1) % 3; touched(); textBanner(AUTO_LABEL[G.autoMode], ['YOU MOVE AND CAST', 'YOU MOVE, SKILLS CAST THEMSELVES', 'THE HERO FIGHTS ON THEIR OWN'][G.autoMode], 'gold', true); }
 function inputVec() {
   let x = 0, y = 0;
-  if (INPUT.stick) { x = INPUT.stick.vx; y = INPUT.stick.vy; }
+  if (INPUT.stick) { x = INPUT.stick.vx; y = INPUT.stick.vy; INPUT.dest = null; }
   else { const k = INPUT.keys; if (k.has('KeyA') || k.has('ArrowLeft')) x -= 1; if (k.has('KeyD') || k.has('ArrowRight')) x += 1; if (k.has('KeyW') || k.has('ArrowUp')) y -= 1; if (k.has('KeyS') || k.has('ArrowDown')) y += 1; if (!x && !y && INPUT.pad) { x = INPUT.pad.x; y = INPUT.pad.y; } }
+  if ((x || y) && INPUT.dest && !INPUT.stick) INPUT.dest = null;
+  const me = G.me, D = INPUT.dest; if (!x && !y && D && me) { const dx = D.x - me.x, dy = D.y - me.y, d = Math.hypot(dx, dy); if (d < 3 || me.dead || performance.now() - D.at > 6000) INPUT.dest = null; else { const k = Math.min(1, d / 10); x = dx / d * k; y = dy / d * k; } }
   const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } return [x, y];
 }
 // ---------- input events ----------
@@ -35,16 +50,16 @@ function setupControls() {
     if (G.choice) { if (G.choice.picked < 0) { if (G.choice.kind === 'draft' && inRect(UI.draftRect, x, y)) { G.acted = true; autoDraft(); return; } const i = choiceAt(x, y); if (i >= 0) pickChoice(i, true); } return; }
     for (const b of CTRL.buttons) if (Math.hypot(x - b.x, y - b.y) <= b.r + 10) { b.press(); (CTRL.fx[b.id] = CTRL.fx[b.id] || {}).flash = 0.15; return; }
     if (inRect(UI.frameRect, x, y)) { UI.bookOpen = true; return; }
+    if (INPUT.scheme === 'tap') { setDest(x, y); INPUT.tapId = e.pointerId; return; }
+    if (INPUT.scheme === 'stick') { const [bx, by, R] = stickBase(); if (!INPUT.stick && Math.hypot(x - bx, y - by) < R * 1.9) { INPUT.stick = { id: e.pointerId, ox: bx, oy: by, x, y, vx: 0, vy: 0, fixed: true }; stickMove(INPUT.stick, x, y); } return; }
     if (!INPUT.stick) INPUT.stick = { id: e.pointerId, ox: x, oy: y, x, y, vx: 0, vy: 0 };
   });
   addEventListener('pointermove', e => {
     if (G.choice) G.choice.hover = choiceAt(...ptr(e));
-    const s = INPUT.stick; if (!s || e.pointerId !== s.id) return; touched();
-    const R = 48 * ctrlScale(), [px, py] = ptr(e); let dx = px - s.ox, dy = py - s.oy, d = Math.hypot(dx, dy);
-    if (d > R * 1.5) { s.ox += dx / d * (d - R * 1.5); s.oy += dy / d * (d - R * 1.5); dx = px - s.ox; dy = py - s.oy; d = Math.hypot(dx, dy); }
-    const k = Math.min(d, R) / R; s.vx = d > 5 ? dx / d * k : 0; s.vy = d > 5 ? dy / d * k : 0; s.x = px; s.y = py; if (k > 0.4) INPUT.moved = true;
+    if (INPUT.tapId !== null && e.pointerId === INPUT.tapId && G.mode === 'play' && !G.choice) { touched(); setDest(...ptr(e)); return; }
+    const s = INPUT.stick; if (!s || e.pointerId !== s.id) return; touched(); stickMove(s, ...ptr(e));
   });
-  const up = e => { if (INPUT.stick && e.pointerId === INPUT.stick.id) INPUT.stick = null; };
+  const up = e => { if (INPUT.stick && e.pointerId === INPUT.stick.id) INPUT.stick = null; if (e.pointerId === INPUT.tapId) INPUT.tapId = null; };
   addEventListener('pointerup', up); addEventListener('pointercancel', up); addEventListener('contextmenu', e => e.preventDefault());
   addEventListener('keydown', e => {
     const c = e.code; touched(); first();
@@ -56,7 +71,7 @@ function setupControls() {
     if (/^Digit[1-4]$/.test(c)) INPUT.castQ.push(+c.slice(5) - 1);
     if (c === 'KeyR' || c === 'KeyQ') INPUT.castQ.push('ult');
     if (c === 'KeyT') cycleAuto(); if (c === 'KeyM') SFX.toggle();
-    if (/^(Key[WASD]|Arrow)/.test(c)) { INPUT.keys.add(c); e.preventDefault(); }
+    if (/^(Key[WASD]|Arrow)/.test(c)) { INPUT.keys.add(c); INPUT.dest = null; e.preventDefault(); }
   });
   addEventListener('keyup', e => INPUT.keys.delete(e.code));
   addEventListener('blur', () => { INPUT.keys.clear(); INPUT.stick = null; });
@@ -175,6 +190,10 @@ function drawControls(c) {
   list.push({ id: 'dash', slot: 'dash', x: ux - rad - 62 * sc, y: uy + 6 * sc, r: 24 * sc, sp: { name: 'DASH', tier: 0 }, key: 'SPACE', press: () => { INPUT.dashQ = true; } });
   const al = autoLevel(); c.globalAlpha = al === 2 ? 0.45 : 1; for (const b of list) drawSkillBtn(c, b, h); c.globalAlpha = 1; CTRL.buttons = list;
   // the stick is invisible: touch anywhere that isn't a button and drag; a hint shows until the first real move
-  if (INPUT.touch && !INPUT.moved && !TUT.on && G.phase === 'fight' && !G.choice) { font(c, 600, 15, F_HUD); c.globalAlpha = 0.45 + 0.25 * Math.sin(performance.now() / 400); spaced(c, 'TOUCH ANYWHERE AND DRAG TO MOVE', VIEW.w / 2, B - 8, 3, '#f0e0c0', 'center'); c.globalAlpha = 1; }
+  if (INPUT.touch && !INPUT.moved && !TUT.on && G.phase === 'fight' && !G.choice) { font(c, 600, 15, F_HUD); c.globalAlpha = 0.45 + 0.25 * Math.sin(performance.now() / 400); spaced(c, moveHint(), VIEW.w / 2, B - 8, 3, '#f0e0c0', 'center'); c.globalAlpha = 1; }
+  // tap to move: where the hero is heading
+  if (INPUT.dest && G.me && !G.me.dead) { const [dx, dy] = toScreen(INPUT.dest.x, INPUT.dest.y), t = performance.now() / 1000, pr = (6 + 3 * Math.sin(t * 8)) * CAM.z / 2.4; c.strokeStyle = 'rgba(255,216,96,0.85)'; c.lineWidth = 2; c.beginPath(); c.ellipse(dx, dy, pr * 1.6, pr * 0.7, 0, 0, TAU); c.stroke(); c.globalAlpha = 0.5; c.beginPath(); c.ellipse(dx, dy, pr * 2.6, pr * 1.1, 0, 0, TAU); c.stroke(); c.globalAlpha = 1; }
+  // fixed stick: always on screen at the bottom left
+  if (INPUT.scheme === 'stick') { const [bx, by, R] = stickBase(), s2 = INPUT.stick && INPUT.stick.fixed ? INPUT.stick : null; c.globalAlpha = s2 ? 0.75 : 0.4; c.fillStyle = 'rgba(255,255,255,0.07)'; c.strokeStyle = 'rgba(255,240,210,0.5)'; c.lineWidth = 2; c.beginPath(); c.arc(bx, by, R, 0, TAU); c.fill(); c.stroke(); c.fillStyle = 'rgba(255,240,210,0.55)'; c.beginPath(); c.arc(bx + (s2 ? s2.vx * R : 0), by + (s2 ? s2.vy * R : 0), R * 0.42, 0, TAU); c.fill(); c.globalAlpha = 1; }
   else if (!INPUT.touch && G.phase === 'fight') { font(c, 500, 12, F_HUD); c.globalAlpha = 0.6; spaced(c, 'WASD MOVE  ·  SPACE DASH  ·  1-4 SKILLS  ·  R ULTIMATE  ·  T AUTO  ·  B BOOK', L, B - 4, 1, '#c8b48c'); c.globalAlpha = 1; }
 }

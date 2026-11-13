@@ -69,7 +69,7 @@ const { chromium } = require('playwright'); const path = require('path');
   const before = await host.evaluate(() => CR.G.heroes.find(x => x.pid === 1).id);
   await guest.evaluate(() => CR.NET.host.close());
   await host.waitForFunction(() => CR.G.heroes.some(x => x.pid === 1 && x.away), null, { timeout: 15000 }).then(() => console.log('host: guest hero is away, on autopilot')).catch(() => console.log('host never saw the drop'));
-  await guest.waitForURL(/retry=1/, { timeout: 20000 }).catch(() => console.log('guest did not reload'));
+  await guest.waitForFunction(() => CR.NET.connSeq >= 2 && !CR.NET.lost, null, { timeout: 30000 }).catch(() => console.log('guest did not rejoin'));
   await guest.waitForFunction(() => window.CR && CR.NET && CR.NET.on && CR.G.me, null, { timeout: 40000 }).catch(() => console.log('guest did not come back'));
   const after = await host.evaluate(() => { const h = CR.G.heroes.find(x => x.pid === 1); return h && { id: h.id, away: !!h.away }; });
   console.log('rejoin:', JSON.stringify(after), 'same hero', after && after.id === before, 'guest url', guest.url().replace(/^.*index.html/, ''));
