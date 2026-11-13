@@ -8,6 +8,11 @@ HERO_PROG.tide = { titles: [[1, 'ICE ADEPT'], [5, 'TIDECALLER'], [10, 'FROST MAG
 DEFAULT_BASIC.tide = 'FROST SHARD'; HERO_CLASS.tide = 'THE TIDECALLER';
 HERO_BLURB.tide = ['ICE · WATER · RANGED', 'Waves sweep the horde into the far wall; frost turns it to ice.', ['GREAT WAVE', 'FLASH FREEZE', 'TSUNAMI']];
 HERO_QUOTE.tide = '“Hold your breath. The tide is coming.”';
+// pixel-art water: Nerida's own palette, drawn in whole world pixels like the creatures, dithered instead of blended
+const WATER = { foam: '#e8f6ff', hi: '#5cc8ff', light: '#38a8f0', mid: '#1f5f9e', deep: '#14365e', abyss: '#0a1f3a' };
+const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5], DITHER = new Map();
+function dither(c, col, dens) { const k = col + dens; let p = DITHER.get(k); if (!p) { const cv = mkCanvas(4, 4), g = cv.getContext('2d'); g.fillStyle = col; for (let i = 0; i < 16; i++) if (BAYER4[i] < dens * 16) g.fillRect(i % 4, (i / 4) | 0, 1, 1); p = c.createPattern(cv, 'repeat'); DITHER.set(k, p); } return p; }
+const hash2 = (a, b) => { let h = Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 SFX.freeze = function (pan = 0) { if (!this.ok('freeze', 0.08)) return; this.noise(this.white, 0.35, 'highpass', 4000, 9000, 0.8, 0.22, pan); this.tone('sine', 2400, 3600, 0.25, 0.05, pan); this.tone('triangle', 1600, 2100, 0.3, 0.04, pan, 0.04); };
 SFX.wave = function (pan = 0, big = 1) { if (!this.ok('wave', 0.3)) return; this.noise(this.white, 1.1 * big, 'lowpass', 500, 2200, 0.7, 0.3 * big, pan, 0, 0.25); this.noise(this.brown, 1.3 * big, 'lowpass', 260, 90, 1, 0.45 * big, pan, 0.05, 0.3); };
 SFX.splash = function (pan = 0) { if (!this.ok('splash', 0.05)) return; this.noise(this.white, 0.3, 'bandpass', 1400, 600, 1.1, 0.25, pan); this.noise(this.brown, 0.25, 'lowpass', 500, 120, 1, 0.3, pan); };
@@ -37,7 +42,7 @@ Object.assign(HFX, {
   },
   frostNova(x, y, R) { ring(x, y, R, 'ice', 0.45, 6); ring(x, y, R * 0.6, 'white', 0.3, 3); for (let i = 0; i < 26; i++) { const a = i / 26 * TAU; part({ k: 'spark', x, y, z: 6, vx: Math.cos(a) * R * 3.4, vy: Math.sin(a) * R * 2.4, drag: 3, life: 0.45, col: 'ice' }); } flashLight(x, y, R * 2.2, 'ice', 1.4, 0.4); SFX.freeze(panOf(x)); },
   whip(x, y, a, s) { for (let i = 0; i < 16; i++) { const aa = a + rand(-0.55, 0.55) * s, sp = rand(120, 220) * s; part({ k: 'pix', x: x + Math.cos(a) * 6, y: y + Math.sin(a) * 4, z: rand(4, 10), vx: Math.cos(aa) * sp, vy: Math.sin(aa) * sp * 0.75, vz: rand(10, 60), g: 300, drag: 2.2, life: rand(0.3, 0.55), s0: rand(1, 1.8), col: chance(0.5) ? '#9fd4ff' : '#e0f4ff' }); } SFX.whoosh(panOf(x)); },
-  waveStart(x, y, big) { for (let i = 0; i < 20 * big; i++) part({ k: 'glow', x: x + rand(-6, 6), y: y + rand(-30, 30) * big, z: rand(0, 20), vz: rand(30, 90), drag: 1, life: rand(0.5, 1), s0: rand(2, 4), s1: 0, col: chance(0.5) ? 'water' : 'ice' }); SFX.wave(panOf(x), big); },
+  waveStart(x, y, big) { for (let i = 0; i < 26 * big; i++) part({ k: 'pix', x: x + rand(-4, 4), y: y + rand(-30, 30) * big, z: rand(0, 14), vx: rand(-20, 20), vz: rand(50, 130), g: 360, life: rand(0.5, 1), s0: chance(0.3) ? 2 : 1, col: chance(0.5) ? WATER.foam : WATER.hi }); SFX.wave(panOf(x), big); },
   crash(x, y, h, dir) {
     for (let i = 0; i < Math.min(70, h * 0.5); i++) { const yy = y + rand(-h / 2, h / 2); part({ k: 'pix', x: x + rand(-3, 3), y: yy, z: rand(4, 26), vx: -dir * rand(40, 160), vy: rand(-30, 30), vz: rand(80, 220), g: 420, drag: 0.7, life: rand(0.7, 1.4), s0: rand(1.2, 2.4), col: chance(0.4) ? '#ffffff' : chance(0.5) ? '#9fd4ff' : '#4a98e8' }); }
     for (let k = 0; k < 4; k++) flashLight(x, y + (k - 1.5) * h / 4, 70, 'water', 1, 0.4); SFX.splash(panOf(x)); SFX.hit(panOf(x));
@@ -54,37 +59,50 @@ Object.assign(HFX, {
 Object.assign(HAZFX, {
   tide(z, dt) {
     z._x = z._x === undefined ? z.x : damp(z._x + z.dir * z.spd * dt, z.x, 3, dt);
-    if (z.crashed) return; const x = z._x, n = Math.max(1, (z.y1 - z.y0) / 30);
-    for (let i = 0; i < n; i++) if (chance(dt * 14)) part({ k: 'glow', x: x + rand(-3, 3), y: rand(z.y0, z.y1), z: rand(8, z.big ? 30 : 20), vx: z.dir * rand(20, 70), vz: rand(20, 70), drag: 1.5, life: rand(0.35, 0.7), s0: rand(1.5, 3), s1: 0, col: chance(0.5) ? 'white' : 'ice', a0: 0.8, a1: 0 });
-    for (let k = 0; k < 3; k++) light(x, z.y0 + (z.y1 - z.y0) * (k + 0.5) / 3, 60, 'water', 0.6);
+    if (z.crashed) return; const x = z._x, n = Math.max(1, (z.y1 - z.y0) / 24);
+    for (let i = 0; i < n; i++) if (chance(dt * 16)) part({ k: 'pix', x: x + z.dir * rand(0, 3), y: rand(z.y0, z.y1), z: rand(4, z.big ? 22 : 12), vx: z.dir * rand(30, 100), vy: rand(-8, 8), vz: rand(30, 100), g: 330, life: rand(0.35, 0.7), s0: chance(0.3) ? 2 : 1, col: chance(0.55) ? WATER.foam : WATER.hi });
+    for (let k = 0; k < 3; k++) light(x, z.y0 + (z.y1 - z.y0) * (k + 0.5) / 3, 60, 'water', 0.55);
   },
   bubble(z, dt) { light(z.x, z.y, 22, 'water', 0.5); },
-  whirl(z, dt) { light(z.x, z.y, z.r * 1.5, 'water', 0.6); if (chance(dt * 18)) { const a = rand(TAU), r = rand(z.r * 0.4, z.r); part({ k: 'glow', x: z.x + Math.cos(a) * r, y: z.y + Math.sin(a) * r * 0.6, z: 2, vx: -Math.sin(a) * 60, vy: Math.cos(a) * 36, drag: 1, life: 0.5, s0: 2, s1: 0, col: chance(0.5) ? 'water' : 'white', a0: 0.7, a1: 0 }); } },
+  whirl(z, dt) { light(z.x, z.y, z.r * 1.5, 'water', 0.55); if (chance(dt * 22)) { const a = rand(TAU), r = rand(z.r * 0.5, z.r); part({ k: 'pix', x: z.x + Math.cos(a) * r, y: z.y + Math.sin(a) * r * 0.55, z: rand(1, 4), vx: -Math.sin(a) * 70, vy: Math.cos(a) * 40, vz: rand(10, 40), g: 200, life: rand(0.3, 0.5), s0: 1, col: chance(0.6) ? WATER.foam : WATER.hi }); } },
   frostmist(z, dt) { light(z.x, z.y, z.r * 1.4, 'ice', 0.45); if (chance(dt * 10)) part({ k: 'glow', x: z.x + rand(-z.r, z.r), y: z.y + rand(-z.r, z.r) * 0.6, z: rand(2, 10), vx: rand(-8, 8), vz: rand(4, 12), life: rand(1, 1.6), s0: rand(6, 10), s1: rand(10, 14), col: 'ice', a0: 0.18, a1: 0 }); },
 });
 Object.assign(HAZDRAW.world, {
   // a wall of water seen from above: a wet sheet trailing behind, the standing crest, and foam along its lip
   tide(c, z) {
-    const x = z._x === undefined ? z.x : z._x, d = z.dir, y0 = z.y0, y1 = z.y1, H = z.big ? 40 : 20, w = z.big ? 40 : 18, fade = z.crashed ? clamp((z.life - z.t) / 0.35, 0, 1) : clamp(z.t * 5, 0, 1), T = G.time;
-    c.save(); c.globalAlpha = fade;
-    const g = c.createLinearGradient(x - d * w * 4, 0, x, 0); g.addColorStop(0, 'rgba(40,110,200,0)'); g.addColorStop(1, 'rgba(60,140,230,0.42)');
-    c.fillStyle = g; c.fillRect(Math.min(x, x - d * w * 4), y0 - 2, w * 4, y1 - y0 + 4);
-    const g2 = c.createLinearGradient(x - d * w, 0, x, 0); g2.addColorStop(0, 'rgba(30,90,190,0.55)'); g2.addColorStop(0.75, 'rgba(90,180,255,0.85)'); g2.addColorStop(1, 'rgba(210,240,255,0.95)');
-    c.fillStyle = g2; c.beginPath();
-    for (let y = y0 - H; y <= y1; y += 3) c.lineTo(x + Math.sin(y * 0.17 + T * 9) * 2.4 * d, y);
-    for (let y = y1; y >= y0 - H; y -= 3) c.lineTo(x - d * w + Math.sin(y * 0.11 + T * 6) * 3 * d, y);
-    c.closePath(); c.fill();
-    c.strokeStyle = 'rgba(255,255,255,0.9)'; c.lineWidth = 1.6; c.beginPath();
-    for (let y = y0 - H; y <= y1; y += 3) c.lineTo(x + Math.sin(y * 0.17 + T * 9) * 2.4 * d + d * Math.abs(Math.sin(y * 0.5 + T * 14)), y);
-    c.stroke();
-    c.fillStyle = 'rgba(240,250,255,0.9)'; for (let y = y0 - H; y < y1; y += 7) { const f = Math.sin(y * 0.9 + T * 11); if (f > 0.2) c.fillRect(x + d * (1 + f * 2) - 1, y + Math.cos(y + T * 8) * 1.5, 2, 2); }
+    const x = Math.round(z._x === undefined ? z.x : z._x), d = z.dir, y0 = Math.round(z.y0), y1 = Math.round(z.y1), big = !!z.big, H = big ? 24 : 12, W = big ? 30 : 16, T = G.time, fr = Math.floor(T * 12);
+    const fade = z.crashed ? clamp((z.life - z.t) / 0.35, 0, 1) : clamp(z.t * 6, 0, 1); if (fade <= 0) return;
+    const wob = ry => Math.round(Math.sin(ry * 0.23 + T * 7) * 1.6 + Math.sin(ry * 0.07 - T * 3) * 1.2), span = (a, len, ry, h) => c.fillRect(d > 0 ? a - len : a, ry, len, h);
+    c.save(); c.globalAlpha = fade; c.imageSmoothingEnabled = false;
+    // the wet floor it leaves behind: dithered water that thins out
+    for (let ry = y0; ry <= y1; ry += 2) { const back = x + d * wob(ry) - d * W; c.fillStyle = dither(c, WATER.light, 0.5); span(back, W, ry, 2); c.fillStyle = dither(c, WATER.mid, 0.25); span(back - d * W, W, ry, 2); c.fillStyle = dither(c, WATER.hi, 0.125); span(back - d * 2 * W, W >> 1, ry, 2); }
+    // the standing wave: a whitecap on top, then foam, cyan, light and mid blue back from the front
+    for (let ry = y0 - H; ry <= y1; ry++) {
+      const xf = x + d * wob(ry);
+      if (ry < y0 - H + 2) { c.fillStyle = WATER.foam; span(xf, W, ry, 1); continue; }
+      c.fillStyle = WATER.foam; span(xf, 2, ry, 1); c.fillStyle = WATER.hi; span(xf - d * 2, 3, ry, 1); c.fillStyle = WATER.light; span(xf - d * 5, 5, ry, 1); c.fillStyle = WATER.mid; span(xf - d * 10, W - 10, ry, 1);
+      if (hash2(ry, fr) < 0.14) { c.fillStyle = WATER.foam; span(xf - d * (3 + Math.floor(hash2(fr, ry) * (W - 6))), 2, ry, 1); } // foam flecks
+      if (hash2(ry + 7, fr) < 0.06) { c.fillStyle = WATER.foam; span(xf + d * 2, 1, ry, 1); } // spray just ahead of the front
+    }
     c.restore();
   },
-  bubble(c, z) { const s = z.R0 || 6, wob = Math.sin(G.time * 9 + z.id) * 0.6, y = z.y - 9 + Math.sin(G.time * 4 + z.id) * 1.5; c.fillStyle = 'rgba(120,200,255,0.28)'; c.strokeStyle = 'rgba(210,240,255,0.85)'; c.lineWidth = 0.9; c.beginPath(); c.ellipse(z.x, y, s + wob, s - wob, 0, 0, TAU); c.fill(); c.stroke(); c.fillStyle = 'rgba(255,255,255,0.85)'; c.fillRect(z.x - s * 0.45, y - s * 0.5, 1.6, 1.6); c.fillStyle = 'rgba(0,0,0,0.2)'; c.beginPath(); c.ellipse(z.x, z.y, s * 0.8, s * 0.3, 0, 0, TAU); c.fill(); },
+  bubble(c, z) {
+    const r = Math.round(z.R0 || 6), cx = Math.round(z.x), cy = Math.round(z.y - 9 + Math.sin(G.time * 4 + z.id) * 1.5); c.save(); c.imageSmoothingEnabled = false;
+    c.fillStyle = 'rgba(0,0,0,0.22)'; c.fillRect(cx - r + 1, Math.round(z.y), r * 2 - 2, 1);
+    c.fillStyle = dither(c, WATER.light, 0.25); for (let dy = -r; dy <= r; dy++) { const hw = Math.round(r * Math.sqrt(1 - (dy / r) ** 2)); if (hw > 0) c.fillRect(cx - hw, cy + dy, hw * 2, 1); }
+    for (let i = 0; i < 24; i++) { const a = i / 24 * TAU; c.fillStyle = a > 3.5 && a < 4.7 ? WATER.foam : WATER.hi; c.fillRect(Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r), 1, 1); }
+    c.fillStyle = WATER.foam; c.fillRect(cx - Math.round(r * 0.45), cy - Math.round(r * 0.5), 2, 1); c.restore();
+  },
   whirl(c, z) {
-    const T = G.time, life = Math.min(1, z.t * 3, (z.life - z.t) * 3); c.save(); c.globalAlpha = life;
-    c.fillStyle = 'rgba(30,90,170,0.35)'; c.beginPath(); c.ellipse(z.x, z.y, z.r, z.r * 0.6, 0, 0, TAU); c.fill();
-    for (let k = 0; k < 4; k++) { const r = z.r * (0.25 + k * 0.22), a0 = T * (5 - k) + k; c.strokeStyle = k % 2 ? 'rgba(220,245,255,0.75)' : 'rgba(110,190,255,0.7)'; c.lineWidth = 1.3; c.beginPath(); c.ellipse(z.x, z.y, r, r * 0.6, 0, a0, a0 + 4.2); c.stroke(); }
+    const cx = Math.round(z.x), cy = Math.round(z.y), R = Math.round(z.r), ry = Math.max(3, Math.round(z.r * 0.55)), T = G.time, life = Math.min(1, z.t * 3, (z.life - z.t) * 3); if (life <= 0) return;
+    c.save(); c.globalAlpha = life; c.imageSmoothingEnabled = false;
+    const disc = (rx, rr, fill) => { c.fillStyle = fill; for (let dy = -rr; dy <= rr; dy++) { const hw = Math.round(rx * Math.sqrt(Math.max(0, 1 - (dy / rr) ** 2))); if (hw > 0) c.fillRect(cx - hw, cy + dy, hw * 2, 1); } };
+    // stacked rings of water, darker toward the hole in the middle
+    disc(R + 3, ry + 2, dither(c, WATER.mid, 0.5)); disc(R, ry, WATER.mid); disc(Math.round(R * 0.72), Math.round(ry * 0.72), dither(c, WATER.deep, 0.75)); disc(Math.round(R * 0.5), Math.round(ry * 0.5), WATER.deep); disc(Math.round(R * 0.22), Math.round(ry * 0.22), WATER.abyss);
+    // three arms of foam spiralling in
+    for (let k = 0; k < 3; k++) for (let i = 0; i <= 28; i++) { const s = i / 28, r = R * (0.2 + 0.8 * s), a = -T * 4.5 + k * TAU / 3 + s * 3.4; c.fillStyle = s > 0.6 ? WATER.foam : WATER.hi; c.fillRect(Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r * 0.55), s > 0.45 ? 2 : 1, 1); }
+    // a broken ring of foam around the rim
+    for (let i = 0; i < 32; i++) { if ((i + Math.floor(T * 8)) % 4 === 0) continue; const a = T * 2 + i / 32 * TAU; c.fillStyle = i % 3 ? WATER.hi : WATER.foam; c.fillRect(Math.round(cx + Math.cos(a) * R), Math.round(cy + Math.sin(a) * ry), i % 2 ? 2 : 1, 1); }
     c.restore();
   },
 });
