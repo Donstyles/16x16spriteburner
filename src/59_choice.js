@@ -179,7 +179,7 @@ function drawChoice(c) {
   });
   c.globalAlpha = fade;
   if (ch.picked < 0) { const left = Math.max(0, ch.auto - ch.t), bw = Math.min(W * 0.5, 320), by = H - Math.max(22, S.b + 18); c.fillStyle = 'rgba(255,255,255,0.12)'; c.fillRect(W / 2 - bw / 2, by, bw, 3); c.fillStyle = '#ffd860'; c.fillRect(W / 2 - bw / 2, by, bw * left / ch.auto, 3); font(c, 500, 14, F_HUD); spaced(c, 'TAP A CARD  ·  ' + (ch.kind === 'draft' && !G.acted ? 'OR LET FATE DECIDE IN ' : 'FATE CHOOSES IN ') + Math.ceil(left), W / 2, by - 6, 2, '#bfae90', 'center');
-    if (ch.kind === 'draft') { font(c, 600, 14, F_HUD); const tx = 'AUTO-DRAFT', tw = c.measureText(tx).width + 22, bx = wide ? Math.max(16, S.l + 8) : W / 2 - tw / 2, byy = wide ? by - 20 : by - 52; c.strokeStyle = '#c8a050'; c.lineWidth = 1.2; c.strokeRect(bx, byy, tw, 24); spaced(c, tx, bx + 11, byy + 17, 1, '#ffd860'); UI.draftRect = [bx, byy, tw, 24]; } else UI.draftRect = null; }
+    UI.draftRect = null; }
   c.globalAlpha = 1;
 }
 function choiceAt(x, y) { const ch = G.choice; if (!ch) return -1; for (let i = 0; i < ch.rects.length; i++) { const [rx, ry, rw, rh] = ch.rects[i]; if (x >= rx && x <= rx + rw && y >= ry - 6 && y <= ry + rh + 6) return i; } return -1; }

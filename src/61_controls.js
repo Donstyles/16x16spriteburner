@@ -6,7 +6,7 @@ INPUT.scheme = (() => { try { const v = localStorage.getItem('cor-controls'); re
 function cycleScheme() { INPUT.scheme = SCHEMES[(SCHEMES.indexOf(INPUT.scheme) + 1) % SCHEMES.length]; try { localStorage.setItem('cor-controls', INPUT.scheme); } catch (e) { } INPUT.dest = null; INPUT.stick = null; INPUT.moved = false; netSay('MOVEMENT: ' + SCHEME_LABEL[INPUT.scheme], 3); }
 function moveHint() { return !INPUT.touch && INPUT.scheme !== 'tap' ? 'MOVE WITH WASD OR THE ARROW KEYS' : INPUT.scheme === 'tap' ? (INPUT.touch ? 'TAP WHERE YOU WANT TO GO' : 'CLICK WHERE YOU WANT TO GO') : INPUT.scheme === 'stick' ? 'USE THE STICK AT THE BOTTOM LEFT' : 'TOUCH ANYWHERE AND DRAG TO MOVE'; }
 function toWorld(px, py) { const s = CAM.z * (1 + CAM.kick); return [(px - VIEW.w / 2 - SH.x) / s + CAM.x, (py - VIEW.h / 2 - SH.y) / s + CAM.y]; }
-function setDest(px, py) { if (!ARENA) return; const [wx, wy] = toWorld(px, py); INPUT.dest = { x: clamp(wx, ARENA.x0 + 4, ARENA.x1 - 4), y: clamp(wy, ARENA.y0 + 2, ARENA.y1 - 2), at: performance.now() }; INPUT.moved = true; }
+function setDest(px, py) { if (!ARENA || moveLevel() >= 1) return; const [wx, wy] = toWorld(px, py); INPUT.dest = { x: clamp(wx, ARENA.x0 + 4, ARENA.x1 - 4), y: clamp(wy, ARENA.y0 + 2, ARENA.y1 - 2), at: performance.now() }; INPUT.moved = true; }
 function stickBase() { const S = VIEW.safe, sc = ctrlScale(); return [Math.max(14, S.l + 10) + 80 * sc, VIEW.h - Math.max(12, S.b + 8) - 80 * sc, 52 * sc]; }
 function stickMove(s, px, py) {
   const R = s.fixed ? stickBase()[2] : 48 * ctrlScale(); let dx = px - s.ox, dy = py - s.oy, d = Math.hypot(dx, dy);
@@ -15,7 +15,7 @@ function stickMove(s, px, py) {
 }
 const CTRL = { buttons: [], top: [], fx: {}, topLeft: 1e9 };
 // three separate switches: who moves the hero, who casts the spells, and how a touch steers
-const MOVE_LABEL = ['MANUAL', 'AUTO MOVE', 'AUTOPILOT'], MOVE_SUB = ['YOU STEER AND DODGE', 'YOUR HERO WALKS BY ITSELF · YOU DODGE · DRAG TO TAKE OVER', 'YOUR HERO WALKS AND DODGES ON ITS OWN'];
+const MOVE_LABEL = ['MANUAL', 'AUTO MOVE', 'AUTOPILOT'], MOVE_SUB = ['YOU STEER AND DODGE', 'YOUR HERO WALKS BY ITSELF · YOU DODGE', 'YOUR HERO WALKS AND DODGES ON ITS OWN'];
 const SPELL_LABEL = ['MANUAL', 'AUTO'], SPELL_SUB = ['TAP A SKILL TO CAST IT', 'SKILLS CAST THEMSELVES · TAP ONE TO CAST IT NOW'];
 const SCHEME_SHORT = { drag: 'DRAG', tap: 'TAP TO MOVE', stick: 'STICK' };
 const DASH_N = 1, DASH_T = 15; // one dodge, then a long wait before the next
@@ -271,10 +271,11 @@ function drawControls(c) {
   list.push({ id: 'dash', slot: 'dash', x: ux - rad - 62 * sc, y: uy + 6 * sc, r: 24 * sc, sp: { name: 'DASH', tier: 0 }, key: 'SPACE', press: () => { if (G.me && G.me.dashN === 0) dashFail(G.me); else INPUT.dashQ = true; } });
   for (const b of list) drawSkillBtn(c, b, h); CTRL.buttons = list; // always pressable, whatever MOVEMENT and SPELLS are set to
   // the stick is invisible: touch anywhere that isn't a button and drag; a hint shows until the first real move
-  if (INPUT.touch && !INPUT.moved && !TUT.on && G.phase === 'fight' && !G.choice) { font(c, 600, 15, F_HUD); c.globalAlpha = 0.45 + 0.25 * Math.sin(performance.now() / 400); spaced(c, moveHint(), VIEW.w / 2, B - 8, 3, '#f0e0c0', 'center'); c.globalAlpha = 1; }
+  const manual = moveLevel() === 0; if (!manual) INPUT.dest = null;
+  if (manual && INPUT.touch && !INPUT.moved && !TUT.on && G.phase === 'fight' && !G.choice) { font(c, 600, 15, F_HUD); c.globalAlpha = 0.45 + 0.25 * Math.sin(performance.now() / 400); spaced(c, moveHint(), VIEW.w / 2, B - 8, 3, '#f0e0c0', 'center'); c.globalAlpha = 1; }
   // tap to move: where the hero is heading
-  if (INPUT.dest && G.me && !G.me.dead) { const [dx, dy] = toScreen(INPUT.dest.x, INPUT.dest.y), t = performance.now() / 1000, pr = (6 + 3 * Math.sin(t * 8)) * CAM.z / 2.4; c.strokeStyle = 'rgba(255,216,96,0.85)'; c.lineWidth = 2; c.beginPath(); c.ellipse(dx, dy, pr * 1.6, pr * 0.7, 0, 0, TAU); c.stroke(); c.globalAlpha = 0.5; c.beginPath(); c.ellipse(dx, dy, pr * 2.6, pr * 1.1, 0, 0, TAU); c.stroke(); c.globalAlpha = 1; }
+  if (manual && INPUT.dest && G.me && !G.me.dead) { const [dx, dy] = toScreen(INPUT.dest.x, INPUT.dest.y), t = performance.now() / 1000, pr = (6 + 3 * Math.sin(t * 8)) * CAM.z / 2.4; c.strokeStyle = 'rgba(255,216,96,0.85)'; c.lineWidth = 2; c.beginPath(); c.ellipse(dx, dy, pr * 1.6, pr * 0.7, 0, 0, TAU); c.stroke(); c.globalAlpha = 0.5; c.beginPath(); c.ellipse(dx, dy, pr * 2.6, pr * 1.1, 0, 0, TAU); c.stroke(); c.globalAlpha = 1; }
   // fixed stick: always on screen at the bottom left
-  if (INPUT.scheme === 'stick') { const [bx, by, R] = stickBase(), s2 = INPUT.stick && INPUT.stick.fixed ? INPUT.stick : null; c.globalAlpha = s2 ? 0.75 : 0.4; c.fillStyle = 'rgba(255,255,255,0.07)'; c.strokeStyle = 'rgba(255,240,210,0.5)'; c.lineWidth = 2; c.beginPath(); c.arc(bx, by, R, 0, TAU); c.fill(); c.stroke(); c.fillStyle = 'rgba(255,240,210,0.55)'; c.beginPath(); c.arc(bx + (s2 ? s2.vx * R : 0), by + (s2 ? s2.vy * R : 0), R * 0.42, 0, TAU); c.fill(); c.globalAlpha = 1; }
+  if (manual && INPUT.scheme === 'stick') { const [bx, by, R] = stickBase(), s2 = INPUT.stick && INPUT.stick.fixed ? INPUT.stick : null; c.globalAlpha = s2 ? 0.75 : 0.4; c.fillStyle = 'rgba(255,255,255,0.07)'; c.strokeStyle = 'rgba(255,240,210,0.5)'; c.lineWidth = 2; c.beginPath(); c.arc(bx, by, R, 0, TAU); c.fill(); c.stroke(); c.fillStyle = 'rgba(255,240,210,0.55)'; c.beginPath(); c.arc(bx + (s2 ? s2.vx * R : 0), by + (s2 ? s2.vy * R : 0), R * 0.42, 0, TAU); c.fill(); c.globalAlpha = 1; }
   else if (!INPUT.touch && G.phase === 'fight') { font(c, 500, 12, F_HUD); c.globalAlpha = 0.6; spaced(c, 'WASD MOVE  ·  SPACE DODGE  ·  1-3 SPELLS  ·  R ULTIMATE  ·  T MOVEMENT  ·  G SPELLS  ·  C CONTROLS  ·  ESC MENU', L, B - 4, 1, '#c8b48c'); c.globalAlpha = 1; }
 }

@@ -499,21 +499,21 @@ function syncState() {
 function netBars(rtt, loss, age) { if (age > 2000) return 0; return rtt < 0.1 && loss < 0.02 && age < 300 ? 4 : rtt < 0.18 && loss < 0.05 && age < 500 ? 3 : rtt < 0.3 && loss < 0.12 && age < 1000 ? 2 : 1; }
 function drawNetIndicator(c, R, y) {
   NET.indRect = null; if (!NET.role) return;
-  let bars, txt, col;
+  let bars, warn = '';
   if (NET.role === 'client') {
-    const N = NET.nm, age = performance.now() - (N.lastUpd || 0), [st, sc] = syncState();
-    bars = NET.on ? netBars(NET.rtt || 0, N.loss || 0, age) : 0; col = sc;
-    txt = (NET.rtt ? Math.round(NET.rtt * 1000) + ' MS' : '— MS') + ' · ' + (N.lossSet ? (N.loss * 100).toFixed(N.loss < 0.1 ? 1 : 0) + '% LOSS' : 'LOSS —') + ' · ' + st;
+    const N = NET.nm, age = performance.now() - (N.lastUpd || 0), [st] = syncState();
+    bars = NET.on ? netBars(NET.rtt || 0, N.loss || 0, age) : 0; if (st !== 'IN SYNC' && st !== 'RESYNCED') warn = st;
   } else {
-    const fr = [...NET.conns.values()].filter(x => x.ok), now = performance.now(); if (!fr.length) { bars = 4; col = '#bfae90'; txt = NET.on ? 'ROOM ' + NET.code + ' · NO FRIENDS YET' : 'OPENING…'; }
-    else { let worst = 4, wr = 0, wl = 0; for (const x of fr) { const m = x.nm, stale = !m || now - m.at > 6000, b = stale ? 1 : netBars(m.rtt / 1000, m.loss / 100, m.sync === 'IN SYNC' || m.sync === 'RESYNCED' ? 0 : 600); if (b < worst) worst = b; if (m) { wr = Math.max(wr, m.rtt); wl = Math.max(wl, m.loss); } }
-      bars = worst; col = worst >= 3 ? '#9fe0a0' : worst === 2 ? '#ffd24a' : '#ff7a6a'; txt = fr.length + (fr.length === 1 ? ' FRIEND' : ' FRIENDS') + ' · ' + (wr ? wr + ' MS' : '— MS') + ' · ' + wl.toFixed(wl < 10 ? 1 : 0) + '% LOSS'; }
+    const fr = [...NET.conns.values()].filter(x => x.ok), now = performance.now(); if (!fr.length) return; // nobody to measure yet
+    let worst = 4; for (const x of fr) { const m = x.nm, stale = !m || now - m.at > 6000, b = stale ? 1 : netBars(m.rtt / 1000, m.loss / 100, m.sync === 'IN SYNC' || m.sync === 'RESYNCED' ? 0 : 600); if (b < worst) worst = b; }
+    bars = worst; if (worst <= 1) warn = 'A FRIEND IS LAGGING';
   }
-  font(c, 600, 12, F_HUD); let w = 0; for (const ch of txt) w += c.measureText(ch).width + 1.2; const bw = 22, x = R - w - bw - 14, h = 18;
-  c.fillStyle = 'rgba(10,8,12,0.7)'; c.fillRect(x - 6, y - 13, w + bw + 20, h + 2); NET.indRect = [x - 10, y - 18, w + bw + 28, h + 12];
-  for (let i = 0; i < 4; i++) { c.fillStyle = i < bars ? (bars >= 3 ? '#9fe0a0' : bars === 2 ? '#ffd24a' : '#ff7a6a') : 'rgba(255,255,255,0.18)'; c.fillRect(x + i * 5, y + 1 - (i + 1) * 3, 3.5, (i + 1) * 3); }
-  spaced(c, txt, x + bw, y, 1.2, col);
-  if (NET.detail) drawNetDetail(c, R, y + 12);
+  const col = bars >= 3 ? '#cfe8cf' : bars === 2 ? '#ffd24a' : '#ff7a6a', x = R - 15, by = y + 2;
+  c.globalAlpha = bars >= 3 && !warn ? 0.4 : 0.9;
+  for (let i = 0; i < 4; i++) { c.fillStyle = i < bars ? col : 'rgba(255,255,255,0.25)'; c.fillRect(x + i * 4, by - (i + 1) * 3, 3, (i + 1) * 3); }
+  if (warn) { font(c, 600, 11, F_HUD); spaced(c, warn, x - 6, by, 1, col, 'right'); }
+  c.globalAlpha = 1; NET.indRect = [x - 14, by - 20, 34, 26];
+  if (NET.detail) drawNetDetail(c, R, by + 6);
 }
 function drawNetDetail(c, R, y) {
   const lines = [], N = NET.nm, now = performance.now();
@@ -530,9 +530,9 @@ function drawNetDetail(c, R, y) {
     for (const x of fr) { const m = x.nm, h = x.h, name = 'P' + (x.pid + 1) + (h ? ' ' + h.def.name : ''); lines.push([name, !m ? 'CONNECTING…' : now - m.at > 6000 ? 'NO REPORT FOR ' + Math.round((now - m.at) / 1000) + ' S' : (m.route || '?') + ' · ' + m.rtt + ' MS · ' + m.loss + '% LOSS · ' + m.ups + ' UPD/S · ' + m.sync + (x.relayed ? ' · VIA YOUR RELAY' : '')]); }
     lines.push(['RELAY', relayKey() ? Math.round(relayUsed() / 1048576) + ' / 400 MB THIS MONTH' : 'NO KEY ON THIS PHONE']);
   }
-  font(c, 500, 12, F_HUD); const wv = Math.max(...lines.map(l => c.measureText(l[1]).width)), W = Math.min(VIEW.w - 24, wv + 120), x = R - W, H = lines.length * 16 + 12;
-  c.fillStyle = 'rgba(14,10,16,0.94)'; c.fillRect(x, y, W, H); c.strokeStyle = 'rgba(200,160,80,0.5)'; c.lineWidth = 1; c.strokeRect(x + 0.5, y + 0.5, W - 1, H - 1);
-  lines.forEach((l, i) => { font(c, 600, 11, F_HUD); spaced(c, l[0], x + 10, y + 18 + i * 16, 1.2, '#a8987e'); font(c, 500, 12, F_HUD); label(c, l[1], x + 104, y + 18 + i * 16, '#f0e4cc'); });
+  font(c, 500, 12, F_HUD); const wv = Math.max(...lines.map(l => c.measureText(l[1]).width)), W = Math.min(VIEW.w - 24, wv + 112), x = R - W, H = lines.length * 15 + 10;
+  c.fillStyle = 'rgba(8,6,10,0.72)'; c.fillRect(x, y, W, H);
+  lines.forEach((l, i) => { font(c, 500, 10, F_HUD); spaced(c, l[0], x + 10, y + 17 + i * 15, 1, 'rgba(200,190,170,0.6)'); font(c, 500, 11, F_HUD); label(c, l[1], x + 100, y + 17 + i * 15, 'rgba(240,230,210,0.85)'); });
 }
 // ---------- co-op panel and name tags ----------
 function netInvite() {
