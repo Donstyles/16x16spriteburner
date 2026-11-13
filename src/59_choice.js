@@ -130,7 +130,7 @@ function pickChoice(i, byPlayer) {
 function updateChoice(rdt) {
   const c = G.choice;
   if (!c) { const q = G.choiceQ[0]; if (q && (G.phase === 'fight' || G.phase === 'clear') && !G.card && G.fade < 0.2 && (q.kind !== 'draft' || UI.titleT > 3.6)) openChoice(G.choiceQ.shift()); return; }
-  c.t += rdt; if (c.picked < 0) { if (c.t >= c.auto) { if (c.kind === 'draft' && !G.acted) autoDraft(); else pickChoice(c.kind === 'draft' ? randi(0, c.opts.length - 1) : autoIndex(c)); } } else if ((c.pickT += rdt) > (c.kind === 'draft' ? 0.35 : 0.6)) G.choice = null;
+  c.t += rdt; if (c.picked < 0) { if (c.t >= c.auto && !G.training) { if (c.kind === 'draft' && !G.acted) autoDraft(); else pickChoice(c.kind === 'draft' ? randi(0, c.opts.length - 1) : autoIndex(c)); } } else if ((c.pickT += rdt) > (c.kind === 'draft' ? 0.35 : 0.6)) G.choice = null;
 }
 // ---------- drawing ----------
 function fitFont(c, w, size, fam, s, maxW, min = 9) { font(c, w, size, fam); const m = c.measureText(s).width; if (m > maxW && maxW > 0) font(c, w, Math.max(min, size * maxW / m), fam); }
@@ -140,8 +140,8 @@ function drawChoice(c) {
   c.globalAlpha = fade; c.fillStyle = 'rgba(6,4,10,0.78)'; c.fillRect(0, 0, W, H);
   const wide = W >= 620, top = Math.max(14, S.t + 8);
   font(c, 900, wide ? 34 : 26, F_DISP); c.shadowColor = 'rgba(255,200,90,0.8)'; c.shadowBlur = 18; const tierPick = ch.kind !== 'draft' && ch.opts[0] && ch.opts[0].type === 'spell' ? ch.opts[0].sp.tier : 0;
-  label(c, ch.kind === 'draft' ? ['', 'PICK YOUR HERO', 'PICK YOUR BASIC ATTACK', 'PICK YOUR LOW SPELL'][ch.step] : tierPick ? 'PICK YOUR ' + TIER_LABEL[tierPick] + ' SPELL' : 'PICK AN UPGRADE', W / 2, top + (wide ? 30 : 24), '#fff1d0', { align: 'center' }); c.shadowBlur = 0;
-  font(c, 500, 15, F_HUD); spaced(c, (ch.kind === 'draft' ? ['', 'YOU PLAY THIS HERO FOR THE WHOLE RUN', 'IT FIRES BY ITSELF AT THE NEAREST FOE', 'IT GOES ON BUTTON 1 FOR THE WHOLE RUN'][ch.step] + '   ·   STEP ' + ch.step + ' OF 3' : tierPick ? (tierPick < 4 ? 'IT GOES ON BUTTON ' + tierPick : 'IT GOES ON THE ULTIMATE BUTTON') + ' FOR THE WHOLE RUN' : (ch.kind === 'floor' ? (ch.title || 'FLOOR CLEARED') : 'THE BEAST IS SLAIN') + '   ·   MAKES ONE OF YOUR SPELLS STRONGER'), W / 2, top + (wide ? 50 : 42), 3, '#c8a878', 'center');
+  label(c, ch.kind === 'draft' ? ['', G.training ? 'PICK A HERO TO TRAIN' : 'PICK YOUR HERO', 'PICK YOUR BASIC ATTACK', 'PICK YOUR LOW SPELL'][ch.step] : tierPick ? 'PICK YOUR ' + TIER_LABEL[tierPick] + ' SPELL' : 'PICK AN UPGRADE', W / 2, top + (wide ? 30 : 24), '#fff1d0', { align: 'center' }); c.shadowBlur = 0;
+  font(c, 500, 15, F_HUD); spaced(c, (G.training ? 'ANY HERO ARRIVES AT LEVEL ' + TRAIN.lvl + '  ·  SPELLS AND UPGRADES CHANGE ANY TIME IN THE LOADOUT' : ch.kind === 'draft' ? ['', 'YOU PLAY THIS HERO FOR THE WHOLE RUN', 'IT FIRES BY ITSELF AT THE NEAREST FOE', 'IT GOES ON BUTTON 1 FOR THE WHOLE RUN'][ch.step] + '   ·   STEP ' + ch.step + ' OF 3' : tierPick ? (tierPick < 4 ? 'IT GOES ON BUTTON ' + tierPick : 'IT GOES ON THE ULTIMATE BUTTON') + ' FOR THE WHOLE RUN' : (ch.kind === 'floor' ? (ch.title || 'FLOOR CLEARED') : 'THE BEAST IS SLAIN') + '   ·   MAKES ONE OF YOUR SPELLS STRONGER'), W / 2, top + (wide ? 50 : 42), 3, '#c8a878', 'center');
   const n = ch.opts.length, gap = 12, areaTop = top + (wide ? 62 : 52), areaH = H - areaTop - Math.max(40, S.b + 34) - (!wide && ch.kind === 'draft' ? 34 : 0);
   // more than four cards (the six heroes) on a wide screen: a 3 x 2 grid of compact cards
   const grid = wide && n > 4, gc = n > 6 ? 4 : 3, gr = Math.ceil(n / gc);
@@ -178,7 +178,8 @@ function drawChoice(c) {
     c.restore();
   });
   c.globalAlpha = fade;
-  if (ch.picked < 0) { const left = Math.max(0, ch.auto - ch.t), bw = Math.min(W * 0.5, 320), by = H - Math.max(22, S.b + 18); c.fillStyle = 'rgba(255,255,255,0.12)'; c.fillRect(W / 2 - bw / 2, by, bw, 3); c.fillStyle = '#ffd860'; c.fillRect(W / 2 - bw / 2, by, bw * left / ch.auto, 3); font(c, 500, 14, F_HUD); spaced(c, 'TAP A CARD  ·  ' + (ch.kind === 'draft' && !G.acted ? 'OR LET FATE DECIDE IN ' : 'FATE CHOOSES IN ') + Math.ceil(left), W / 2, by - 6, 2, '#bfae90', 'center');
+  if (ch.picked < 0 && G.training) { font(c, 500, 14, F_HUD); spaced(c, 'TAP A CARD', W / 2, H - Math.max(22, S.b + 18) - 6, 2, '#bfae90', 'center'); }
+  else if (ch.picked < 0) { const left = Math.max(0, ch.auto - ch.t), bw = Math.min(W * 0.5, 320), by = H - Math.max(22, S.b + 18); c.fillStyle = 'rgba(255,255,255,0.12)'; c.fillRect(W / 2 - bw / 2, by, bw, 3); c.fillStyle = '#ffd860'; c.fillRect(W / 2 - bw / 2, by, bw * left / ch.auto, 3); font(c, 500, 14, F_HUD); spaced(c, 'TAP A CARD  ·  ' + (ch.kind === 'draft' && !G.acted ? 'OR LET FATE DECIDE IN ' : 'FATE CHOOSES IN ') + Math.ceil(left), W / 2, by - 6, 2, '#bfae90', 'center');
     UI.draftRect = null; }
   c.globalAlpha = 1;
 }

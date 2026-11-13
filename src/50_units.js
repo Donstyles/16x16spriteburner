@@ -59,7 +59,7 @@ function hurt(u, amt, src, o = {}) {
   if (u.team === 'hero' && u.rallyT > 0) d *= u.rallyBig ? 0.65 : 0.8;
   if (u.frozen > 0 && u.team === 'mon') { d *= o.shatter ? 2.5 : u.brittle ? 1.6 : 1.25; if (o.shatter) { u.frozen = 0; u.brittle = false; HFX.iceBreak(u.x, u.y, u.scale); } } // ice blocks crack
   if (u.team === 'hero') { d *= G.heroDmgTaken * (TUT.on ? 0.4 : 1) * (u.blessT > 0 ? 0.5 : 1); d *= u.def.armor || (u.def.role === 'melee' ? 0.72 : 1); }
-  d = Math.max(1, Math.round(d)); u.hp -= d; u.flash = 0.12;
+  d = Math.max(1, Math.round(d)); u.hp -= d; u.flash = 0.12; if (u.dummy) trainHit(d);
   if (src && src.team === 'hero' && u.team === 'mon' && src.def.leech && !src.dead) leech(src, d * src.def.leech * (src.frenzyT > 0 ? (src.leechMul || 2) : 1)); // vampires heal from every wound
   const km = u.boss ? 0.12 : u.scale > 1.2 ? 0.45 : 1; if (o.kx || o.ky) { u.kx += (o.kx || 0) * km; u.ky += (o.ky || 0) * km; }
   if (o.up && !u.boss) u.vz = Math.max(u.vz, o.up * (u.scale > 1.2 ? 0.55 : 1));

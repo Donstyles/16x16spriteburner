@@ -83,7 +83,8 @@ function drawMenus(c) {
     mbtn(c, x0, y, bw, bh, 'PLAY SOLO', 'One hero against the cellar', startSolo, { hot: true });
     mbtn(c, x0 + (bw + gap), y, bw, bh, 'HOST CO-OP', 'Open a room for up to 3 friends', startHost);
     mbtn(c, x0 + 2 * (bw + gap), y, bw, bh, 'JOIN CO-OP', 'Type a friend’s room code', startJoin);
-    mbtn(c, 450 - 110, 310, 220, 34, 'HOW TO PLAY', '', () => startSolo(true), { size: 16 });
+    mbtn(c, 450 - 232, 310, 220, 34, 'HOW TO PLAY', '', () => startSolo(true), { size: 16 });
+    mbtn(c, 450 + 12, 310, 220, 34, 'TRAINING GROUND', '', startTraining, { size: 16 });
     font(c, 500, 15, F_HUD); c.globalAlpha = 0.8;
     spaced(c, [MENU.best > 1 ? 'DEEPEST FLOOR REACHED · ' + MENU.best : '', SFX.ctx ? '' : 'TAP FOR SOUND'].filter(Boolean).join('   ·   '), 450, 370, 2, '#cdb890', 'center');
     const iosUp = !MENU.iosSeen && VIEW.rot && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
@@ -158,12 +159,13 @@ function drawPause(c) {
   UI.pauseRects = []; if (!UI.menuOpen || G.mode !== 'play') return;
   MENU.rects = []; const k = vbox(); shade(c, 0.84); c.save(); c.translate(MENU.ox, MENU.oy); c.scale(k, k);
   const guest = NET.role === 'client', live = guest || (NET.role === 'host' && NET.conns.size > 0), sure = UI.leaveT > performance.now();
-  font(c, 900, 50, F_DISP); c.shadowColor = 'rgba(255,140,50,0.7)'; c.shadowBlur = 20; label(c, live ? 'The Fight Goes On' : 'Paused', 450, 76, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0;
-  font(c, 500, 18, F_HUD); label(c, 'Floor ' + G.floor + (ARENA ? ' · ' + ARENA.name : '') + ' · Level ' + G.lvl + ' · ' + G.kills.toLocaleString() + ' slain', 450, 108, '#cbbd9f', { align: 'center' });
+  font(c, 900, 50, F_DISP); c.shadowColor = 'rgba(255,140,50,0.7)'; c.shadowBlur = 20; label(c, live ? 'The Fight Goes On' : G.training ? 'Training Ground' : 'Paused', 450, 76, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0;
+  font(c, 500, 18, F_HUD); label(c, G.training ? (G.me ? G.me.def.name + ' · Level ' + G.lvl + ' · ' : '') + 'Nothing here counts toward a run' : 'Floor ' + G.floor + (ARENA ? ' · ' + ARENA.name : '') + ' · Level ' + G.lvl + ' · ' + G.kills.toLocaleString() + ' slain', 450, 108, '#cbbd9f', { align: 'center' });
   mbtn(c, 140, 136, 300, 84, 'RESUME', live ? 'Your friends are still fighting' : 'The battle waits for you', () => { UI.menuOpen = false; }, { hot: !sure });
-  mbtn(c, 460, 136, 300, 84, NET.on ? 'ROOM ' + NET.code : 'PLAY TOGETHER', NET.role ? 'Who is here, invite link, relay' : 'Open a room or join a friend', () => { UI.menuOpen = false; NET.panel = true; });
+  if (G.training) mbtn(c, 460, 136, 300, 84, 'LOADOUT', 'Spells, upgrades, level, dummies', () => { UI.menuOpen = false; if (TRAIN.ready) TRAIN.open = true; });
+  else mbtn(c, 460, 136, 300, 84, NET.on ? 'ROOM ' + NET.code : 'PLAY TOGETHER', NET.role ? 'Who is here, invite link, relay' : 'Open a room or join a friend', () => { UI.menuOpen = false; NET.panel = true; });
   mbtn(c, 140, 236, 300, 72, !SFX.ctx ? 'SOUND: TAP TO START' : SFX.on ? 'SOUND: ON' : 'SOUND: OFF', '', () => { if (SFX.ctx) SFX.toggle(); }, { size: 20 });
-  mbtn(c, 460, 236, 300, 72, sure ? 'TAP AGAIN TO LEAVE' : 'MAIN MENU', sure ? (NET.role === 'host' ? 'The room closes for everyone' : guest ? 'You leave this room' : 'This run ends here') : '', () => { if (UI.leaveT > performance.now()) backToMenu(); else UI.leaveT = performance.now() + 3000; }, { size: 20, hot: sure });
+  mbtn(c, 460, 236, 300, 72, sure ? 'TAP AGAIN TO LEAVE' : 'MAIN MENU', sure ? (NET.role === 'host' ? 'The room closes for everyone' : guest ? 'You leave this room' : G.training ? 'Leave the training ground' : 'This run ends here') : '', () => { if (UI.leaveT > performance.now()) backToMenu(); else UI.leaveT = performance.now() + 3000; }, { size: 20, hot: sure });
   font(c, 500, 15, F_HUD); label(c, INPUT.touch ? 'Tap outside the buttons to resume' : 'ESC resumes  ·  T movement  ·  G spells  ·  C controls  ·  B spellbook', 450, 348, '#8f8472', { align: 'center' });
   c.restore(); UI.pauseRects = MENU.rects.slice();
 }
@@ -172,6 +174,6 @@ function backToMenu() {
   UI.menuOpen = false; UI.bookOpen = false; NET.panel = false; UI.leaveT = 0;
   if (NET.role === 'client') { location.href = location.pathname + peerQuery().replace('&', '?'); return; } // a guest starts clean
   if (NET.role === 'host') netCloseRoom();
-  saveBest(); TUT.on = false; TUT.pending = false; INPUT.dest = null; INPUT.stick = null; INPUT.castQ.length = 0; INPUT.dashQ = false;
+  if (G.training) { G.training = false; TRAIN.open = false; TRAIN.ready = false; } else saveBest(); TUT.on = false; TUT.pending = false; INPUT.dest = null; INPUT.stick = null; INPUT.castQ.length = 0; INPUT.dashQ = false;
   startRun(true); G.mode = 'menu'; G.card = null; G.banner = null; G.bq.length = 0; G.choice = null; G.choiceQ = []; UI.titleT = 99; loadModes();
 }

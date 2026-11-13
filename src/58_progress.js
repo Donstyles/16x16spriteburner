@@ -20,7 +20,7 @@ function scaleParty() {
   const n = NP() - 1;
   for (const h of G.heroes) { h.mul = (1 + 0.21 * (L - 1)) * [1.9, 1.45, 1.2, 1][n]; const mx = Math.round(h.def.hp * (0.65 + 0.095 * (L - 1)) * [2.4, 1.75, 1.3, 1][n]); h.hp = h.dead ? 0 : Math.max(1, Math.round(h.hp / h.maxHp * mx)); h.maxHp = mx; }
 }
-function gainXp(n) { G.xp += n; let ups = 0; while (G.xp >= xpFor(G.lvl + 1) && ups < 3) { ups++; levelUp(); } }
+function gainXp(n) { if (G.training) return; G.xp += n; let ups = 0; while (G.xp >= xpFor(G.lvl + 1) && ups < 3) { ups++; levelUp(); } }
 function levelUp() {
   G.lvl++; scaleParty(); const L = G.lvl;
   for (const h of G.heroes) {

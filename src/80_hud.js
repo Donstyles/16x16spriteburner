@@ -62,7 +62,9 @@ function drawHUD() {
   drawTut(c);
   drawChoice(c);
   drawTopButtons(c, R, narrow ? T + 66 : T);
+  drawTrainMeter(c, W, TC + 14);
   drawBook(c);
+  drawLoadout(c);
   drawPause(c);
   drawNetPanel(c);
 }

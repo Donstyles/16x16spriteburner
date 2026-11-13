@@ -24,7 +24,7 @@ function scaleForFloor() {
   const pity = Math.pow(0.85, G.floorFalls || 0); G.monHp = (1.4 + 0.32 * f) * pity; G.monDmg = (1 + 0.16 * f) * pity; scaleParty();
 }
 function startRun(noDraft) {
-  G.run++; G.floor = 1; G.lvl = 1; G.xp = 0; resetSpells(); makeParty(); startFloor(true); if (!noDraft) queueDraft();
+  G.training = false; G.run++; G.floor = 1; G.lvl = 1; G.xp = 0; resetSpells(); makeParty(); startFloor(true); if (!noDraft) queueDraft();
 }
 function startFloor(first) {
   buildArena(G.floor); G.units = []; G.proj = []; G.sched = []; G.pending = 0; G.storm = null; G.eq = null; G.boss = null;
@@ -124,6 +124,7 @@ function monAI(m, dt, heroes) {
   for (const k in m.cd) m.cd[k] -= dt;
   if (m.burn > 0) { m.burn -= dt; if (chance(dt * 14)) glows(m.x, m.y, rand(4, 14) * m.scale, 1, 'fire', 20, 3, 0.4); if ((m.burnT = (m.burnT || 0) - dt) <= 0) { m.burnT = 0.5; hurt(m, m.burnDmg || 3 * G.floor ** 0.5, m.immo || null, { quiet: true }); } } else m.burnDmg = 0;
   if (m.shock > 0) { m.shock -= dt; if (chance(dt * 10)) { const a = rand(TAU); bolt(m.x, m.y - 8 * m.scale, m.x + Math.cos(a) * 12, m.y - 8 * m.scale + Math.sin(a) * 10, { life: 0.08, w: 0.4, branches: 0 }); } }
+  if (m.dummy) return dummyAI(m, dt);
   if (m.state) { monState(m, dt); return; }
   if (m.stun > 0) { m.stun -= dt; m.vx = damp(m.vx, 0, 8, dt); m.vy = damp(m.vy, 0, 8, dt); m.moving = false; return; }
   let t = null, bd = 1e9; for (const h of heroes) { const d = dist(m.x, m.y, h.x, h.y) * (h.def.role === 'melee' ? 0.7 : 1); if (d < bd) { bd = d; t = h; } }

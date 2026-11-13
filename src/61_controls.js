@@ -55,10 +55,12 @@ function setupControls() {
     if (G.mode !== 'play') { menuTap(x, y); return; }
     if (NET.panel) { netPanelTap(x, y); return; }
     if (UI.menuOpen) { pauseTap(x, y); return; }
+    if (TRAIN.open) { trainTap(x, y); return; }
     if (TUT.skipRect && inRect(TUT.skipRect, x, y)) { tutEnd(); return; }
     if (UI.bookOpen) { if (!bookTap(x, y)) UI.bookOpen = false; return; }
     if (NET.indRect && inRect(NET.indRect, x, y)) { NET.detail = !NET.detail; return; }
     for (const b of CTRL.top) if (inRect(b.r, x, y)) { b.fn(); return; }
+    if (TRAIN.meterRect && inRect(TRAIN.meterRect, x, y)) { trainReset(); return; }
     if (G.choice) { if (G.choice.picked < 0) { if (G.choice.kind === 'draft' && inRect(UI.draftRect, x, y)) { G.acted = true; autoDraft(); return; } const i = choiceAt(x, y); if (i >= 0) pickChoice(i, true); } return; }
     for (const b of CTRL.buttons) if (Math.hypot(x - b.x, y - b.y) <= b.r + 10) { b.press(); (CTRL.fx[b.id] = CTRL.fx[b.id] || {}).flash = 0.15; return; }
     if (inRect(UI.frameRect, x, y)) { UI.bookOpen = true; return; }
@@ -77,7 +79,7 @@ function setupControls() {
     const c = e.code; touched(); first();
     if (G.mode === 'join') { if (/^Key[A-Z]$/.test(c)) codeKey(c.slice(3)); else if (c === 'Backspace') codeKey('DEL'); else if (c === 'Enter' && MENU.code.length === 4) netJoin(MENU.code); else if (c === 'Escape') G.mode = MENU.back; return; }
     if (G.mode === 'menu') { if (c === 'Enter') startSolo(); return; } if (G.mode !== 'play') return;
-    if (c === 'KeyB') { UI.bookOpen = !UI.bookOpen; return; } if (c === 'Escape' && TUT.on && !UI.bookOpen) { tutEnd(); return; } if (c === 'Escape') { if (UI.bookOpen) UI.bookOpen = false; else if (NET.panel) NET.panel = false; else UI.menuOpen = !UI.menuOpen; return; } if (UI.bookOpen || UI.menuOpen) return;
+    if (c === 'KeyB') { UI.bookOpen = !UI.bookOpen; return; } if (c === 'Escape' && TUT.on && !UI.bookOpen) { tutEnd(); return; } if (c === 'Escape') { if (TRAIN.open) TRAIN.open = false; else if (UI.bookOpen) UI.bookOpen = false; else if (NET.panel) NET.panel = false; else UI.menuOpen = !UI.menuOpen; return; } if (c === 'KeyL' && G.training && TRAIN.ready) { TRAIN.open = !TRAIN.open; return; } if (UI.bookOpen || UI.menuOpen || TRAIN.open) return;
     if (G.choice) { if (G.choice.picked < 0 && /^Digit[1-3]$/.test(c)) pickChoice(+c.slice(5) - 1, true); return; }
     if (c === 'Space' || c === 'ShiftLeft' || c === 'ShiftRight') { INPUT.dashQ = true; e.preventDefault(); }
     if (/^Digit[1-3]$/.test(c)) INPUT.castQ.push(+c.slice(5) - 1);
@@ -190,7 +192,7 @@ function hpChip(h) {
 }
 function drawHeroFrame(c, L, T) {
   const h = G.me; const m = h && MOBS[h.spr], col = h && COL[h.def.col], solo = !!h;
-  if (!solo) { font(c, 900, 24, F_DISP); label(c, 'Floor ' + G.floor, L, T + 20, '#ecc878', { stroke: 4 }); font(c, 500, 14, F_HUD); spaced(c, ARENA.name, L, T + 36, 1.6, '#bfae90'); UI.frameRect = null; return; }
+  if (!solo) { font(c, 900, 24, F_DISP); label(c, G.training ? 'Training' : 'Floor ' + G.floor, L, T + 20, '#ecc878', { stroke: 4 }); font(c, 500, 14, F_HUD); spaced(c, G.training ? 'NOTHING HERE COUNTS' : ARENA.name, L, T + 36, 1.6, '#bfae90'); UI.frameRect = null; return; }
   c.fillStyle = 'rgba(10,8,12,0.62)'; c.fillRect(L - 6, T - 6, 204, 58); UI.frameRect = [L - 6, T - 6, 204, 58];
   c.imageSmoothingEnabled = false; c.fillStyle = `rgba(${col},0.18)`; c.fillRect(L - 2, T - 2, 42, 42); c.globalAlpha = h.dead ? 0.4 : 1; c.drawImage(IMG.mobs, 0, m[0], m[1], m[2], L, T, 38, 38 * m[2] / m[1]); c.globalAlpha = 1;
   font(c, 900, 16, F_DISP); label(c, h.def.name, L + 46, T + 11, `rgb(${col})`); const nw = c.measureText(h.def.name).width; font(c, 500, 11, F_HUD); label(c, heroTitle(h), L + 52 + nw, T + 11, '#a89a84');
@@ -203,8 +205,8 @@ function drawHeroFrame(c, L, T) {
   font(c, 600, 11, F_HUD); label(c, Math.max(0, Math.round(h.hp)) + ' / ' + h.maxHp, L + 49, T + 24.5, '#10120e');
   const xa = xpFor(G.lvl), xb = xpFor(G.lvl + 1), xf = clamp((G.xp - xa) / (xb - xa), 0, 1); c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(L + 74, T + 31, 118, 4); c.fillStyle = '#ffd860'; c.fillRect(L + 74, T + 31, 118 * xf, 4);
   font(c, 600, 13, F_HUD); label(c, 'LV ' + G.lvl, L + 46, T + 36, '#ffd860');
-  font(c, 500, 12, F_HUD); label(c, 'FLOOR ' + G.floor + ' · ' + ARENA.name, L + 46, T + 48, '#bfae90');
-  font(c, 500, 12, F_HUD); spaced(c, G.kills.toLocaleString() + ' SLAIN' + (G.falls ? '  ·  FALLEN ' + G.falls + '×' : ''), L, T + 66, 1.1, '#8f8472');
+  font(c, 500, 12, F_HUD); label(c, G.training ? 'TRAINING GROUND' : 'FLOOR ' + G.floor + ' · ' + ARENA.name, L + 46, T + 48, '#bfae90');
+  font(c, 500, 12, F_HUD); if (!G.training) spaced(c, G.kills.toLocaleString() + ' SLAIN' + (G.falls ? '  ·  FALLEN ' + G.falls + '×' : ''), L, T + 66, 1.1, '#8f8472');
 }
 function drawTopButtons(c, R, T) {
   // right to left: MENU · SPELLBOOK · CONTROLS · SPELLS · MOVEMENT (· UPDATE)
@@ -213,6 +215,7 @@ function drawTopButtons(c, R, T) {
   items.push({ t: 'SPELLBOOK', fn: () => { UI.bookOpen = true; } });
   if (G.choice) { items.length = 1; items.push({ t: 'SPELLBOOK', fn: () => { UI.bookOpen = true; } }); } // while cards are up: just the book and the menu
   else {
+  if (G.training && TRAIN.ready) items.push({ t: 'LOADOUT', hot: true, fn: () => { TRAIN.open = true; } });
   items.push({ cap: 'CONTROLS', t: SCHEME_SHORT[INPUT.scheme], fn: cycleScheme });
   items.push({ cap: 'SPELLS', t: sa && !G.spellMode ? 'AUTO · IDLE' : SPELL_LABEL[G.spellMode], hot: !!sa, fn: cycleSpells });
   items.push({ cap: 'MOVEMENT', t: ml === 2 && G.moveMode < 2 ? 'AUTOPILOT · IDLE' : MOVE_LABEL[G.moveMode], hot: ml > 0, fn: cycleMove });

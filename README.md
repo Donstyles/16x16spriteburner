@@ -2,7 +2,9 @@
 
 One hero fights down an endless cellar, floor by floor. Steer it yourself, hand parts of the job to the hero, or bring up to three friends.
 
-The main menu offers **PLAY SOLO**, **HOST CO-OP** and **JOIN CO-OP**, plus **HOW TO PLAY**. Your first solo game starts with a short hands-on tutorial (move, automatic attacks, casting, dodging, growing stronger); each step ends when you do it, SKIP ends it at any time, and HOW TO PLAY replays it. Enemies take it easy on you while the tutorial runs.
+The main menu offers **PLAY SOLO**, **HOST CO-OP** and **JOIN CO-OP**, plus **HOW TO PLAY** and **TRAINING GROUND**. Your first solo game starts with a short hands-on tutorial (move, automatic attacks, casting, dodging, growing stronger); each step ends when you do it, SKIP ends it at any time, and HOW TO PLAY replays it. Enemies take it easy on you while the tutorial runs.
+
+**TRAINING GROUND** is a solo sandbox for trying spells. Pick any hero; it arrives at level 12 with the first spell of every tier and its ultimate, facing a training dummy that never falls and never strikes back (it springs back to its post after knockbacks, tornadoes and freezes). **LOADOUT** (top right, or L) equips any basic attack, Low, Medium and High spell and switches each spell's three upgrades on and off. It also sets the level (1–20) and switches between 1, 6 and 12 dummies. Cooldowns are real so the damage numbers mean something, but closing the loadout makes every spell ready again, the ultimate included; COOLDOWNS: OFF lets every spell fire nonstop. The bar at the top shows damage per second over the last five seconds, total damage and the biggest hit; tap it to reset. Nothing in the training ground counts toward a run.
 
 ## Spells and progression
 Every hero holds **one basic attack, one Low, one Medium and one High spell, and one Ultimate**. Each is chosen once, from every spell of that tier, and kept for the whole run; nothing is ever replaced.
