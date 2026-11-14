@@ -315,7 +315,6 @@ function updateHazards(dt) {
   }
   for (const z of FX.hz) { const f = HAZSIM[z.k]; if (f && !z.dead) f(z, dt, z.tick === (z.rate || 0.25)); } // the newer zones
   removeIf(FX.hz, z => z.dead || z.t >= z.life);
-  for (const g of FX.ghosts) g.t += dt; removeIf(FX.ghosts, g => g.t >= g.life);
 }
 function drawHazardsWorld(c) { // normal blend, lit
   for (const z of FX.hz) {

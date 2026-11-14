@@ -85,6 +85,7 @@ function updateFx(dt) {
   for (const b of FX.bolts) { b.t += dt; b.regen -= dt; if (b.regen <= 0) { b.regen = 0.045; boltShape(b); } }
   removeIf(FX.bolts, b => b.t >= b.life);
   for (const L of [FX.rings, FX.arcs, FX.beams, FX.flights, FX.tele, FX.columns, FX.circles]) { for (const o of L) o.t += dt; removeIf(L, o => o.t >= o.life); }
+  for (const g of FX.ghosts) g.t += dt; removeIf(FX.ghosts, g => g.t >= g.life); // afterimages fade on every phone, guests included
   for (const n of FX.nums) { n.t += dt; n.z += n.vz * dt; n.vz -= 90 * dt; n.x += n.vx * dt; }
   removeIf(FX.nums, n => n.t >= n.life);
   const g = ARENA && ARENA.g;
