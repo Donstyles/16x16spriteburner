@@ -13,16 +13,17 @@ function explode(x, y, R, dmg, src, o = {}) {
   for (const u of within(x, y, R, foes)) { const d = dist(x, y, u.x, u.y), f = 1 - 0.45 * Math.min(1, d / R), a = angTo(x, y, u.x, u.y); hurt(u, dmg * f, src, { elem: o.elem || 'fire', kx: Math.cos(a) * 230 * big, ky: Math.sin(a) * 170 * big, up: 150 * big, crit: chance(0.15) }); if (o.burn && !u.dead) { u.burn = 2.5; u.burnDmg = dmg * 0.15; u.immo = src; } }
   hitProps(x, y, R);
   if (o.fx === 'pop') { emberPop(x, y, R); return; } // a basic ember: a small burst, no shake, no pause, no flash
+  if (o.fx === 'light') { orbBurst(x, y, R); return; } // a fire orb: a compact burst, a little bigger than an ember's
   part({ k: 'glow', x, y, z: 6, life: 0.14, s0: R * 1.1, s1: R * 1.6, col: 'hot', a0: 0.9, a1: 0 });
   glows(x, y, 8, 18 * big, 'fire', 150 * big, 9 * big, 0.75, 1); glows(x, y, 8, 8 * big, 'fire2', 90 * big, 7 * big, 0.45, 0); glows(x, y, 10, 10 * big, 'ember', 200 * big, 6 * big, 0.9, 0);
   sparks(x, y, 6, 46 * big, 'fire', 260 * big, 240 * big); embers(x, y, 20 * big, 'ember', 80 * big);
   smoke(x, y, 7 * big, 'dark', 16 * big, 46 * big, 2.4, 18); debris(x, y, 12 * big, ['#5a5048', '#7d7064', '#3c342e', '#241c18'], 170 * big, 240 * big, 2);
   ring(x, y, R * 2.3, 'fire2', 0.4, 6); ring(x, y, R * 1.2, 'white', 0.2, 3);
   flashLight(x, y, R * 5, 'fire', 1.6, 0.5); flashLight(x, y, R * 1.8, 'hot', 1, 0.12);
-  scorch(x, y, R * 0.95, 0.75); if (big >= 0.95 && o.fx !== 'light') cracks(x, y, randi(4, 7), R * 1.4, 320, 1.8);
-  if (o.fx === 'light') { shake(0.1 * big); SFX.boom(big * 0.7, panOf(x)); return; } // a basic attack's blast: no pause, no flash
+  scorch(x, y, R * 0.95, 0.75); if (big >= 0.95) cracks(x, y, randi(4, 7), R * 1.4, 320, 1.8);
   shake(0.32 * big); hitstop(0.04 * big); kick(0.05 * big); flash('fire', 0.1 * big); SFX.boom(big, panOf(x)); buzz(Math.round(30 * big));
 }
+function orbBurst(x, y, R) { part({ k: 'glow', x, y, z: 6, life: 0.13, s0: R * 0.8, s1: R * 1.1, col: 'hot', a0: 0.85, a1: 0 }); glows(x, y, 6, 7, 'fire', 70, 4.5, 0.4, 1); glows(x, y, 6, 3, 'fire2', 50, 3.5, 0.3, 0); sparks(x, y, 6, 10, 'fire', 100, 90); embers(x, y, 3, 'ember', 40); smoke(x, y, 1, 'dark', 5, 12, 1, 8); ring(x, y, R, 'fire2', 0.2, 2); flashLight(x, y, R * 2.5, 'fire', 1, 0.14); scorch(x, y, R * 0.7, 0.5); shake(0.04); SFX.boom(0.3, panOf(x)); }
 function emberPop(x, y, R) { part({ k: 'glow', x, y, z: 6, life: 0.12, s0: R * 0.7, s1: R, col: 'hot', a0: 0.8, a1: 0 }); glows(x, y, 6, 5, 'fire', 60, 4, 0.35, 1); sparks(x, y, 6, 8, 'fire', 120, 100); ring(x, y, R * 0.9, 'fire2', 0.18, 2); flashLight(x, y, R * 2.2, 'fire', 0.9, 0.12); scorch(x, y, R * 0.45, 0.4); SFX.fire(panOf(x)); }
 function castFireball(h, tx, ty, big = 1, dm = 1.5, o = {}) {
   const a = angTo(h.x, h.y, tx, ty), s = o.speed || 200; h.lunge = 0.2; h.la = a;
