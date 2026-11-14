@@ -5,7 +5,9 @@
 const TRAIN = { ready: false, open: false, wasOpen: false, dummies: 1, noCd: false, noBasic: false, mute: {}, lvl: 12, hits: [], total: 0, best: 0, rects: [], meterRect: null, respawnT: null };
 const DUMMY_DEF = { name: 'TRAINING DUMMY', spr: 'ScarecrowGolem', hp: 1, spd: 0, dmg: 0, ai: 'dummy', tier: 1, blood: 'straw' };
 function startTraining() {
-  loadModes(); TUT.pending = false; startRun(true); G.training = true; G.cdn = 0; TRAIN.ready = false; TRAIN.open = false; trainReset(); beginPlay(); G.wave = 0;
+  loadModes(); TUT.pending = false; startRun(true); G.training = true; G.cdn = 0;
+  // an open floor: nothing between the hero and the dummies
+  removeIf(ARENA.props, p => p.kind === 'pillar'); TRAIN.ready = false; TRAIN.open = false; trainReset(); beginPlay(); G.wave = 0;
   G.card = { t: 0, life: 2.6, a: 'Training Ground', b: 'ANY SPELL  ·  ANY UPGRADE  ·  A DUMMY THAT NEVER FALLS', c: '' };
   G.choiceQ.push({ kind: 'draft', step: 1, title: 'CHOOSE YOUR HERO', opts: Object.keys(HERO_DEFS).map(k => ({ type: 'hero', hero: k, sp: { name: HERO_CLASS[k], tier: 3 } })) });
 }

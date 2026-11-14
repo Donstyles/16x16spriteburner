@@ -31,10 +31,13 @@ function buildArena(floor) {
   const spots = pat === 0 ? [[0.27, 0.42], [0.73, 0.42], [0.27, 0.76], [0.73, 0.76]] : pat === 1 ? [[0.2, 0.45], [0.5, 0.45], [0.8, 0.45], [0.2, 0.8], [0.5, 0.8], [0.8, 0.8]] : [[0.35, 0.55], [0.65, 0.55]];
   for (const [fx, fy] of spots) { const tx = Math.round(1 + fx * (W - 3)), ty = Math.max(5, Math.round(2 + fy * (H - 4))); A.props.push({ kind: 'pillar', tile: P, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 6, solid: true, hp: 1e9 }); }
   // barrels, sacks and crates crowd the corners; chests sit by the walls
-  const corner = (cx, cy) => { for (let i = 0; i < randi(2, 4); i++) { const tx = clamp(cx + randi(-1, 1), 1, W - 2), ty = clamp(cy + randi(-1, 1), 2, H - 2); if (A.props.some(p => Math.abs(p.x - (tx * TS + 8)) < 10 && Math.abs(p.y - (ty * TS + 14)) < 10)) continue; const t = pick([[24, 8], [25, 8], [26, 8], [27, 8], [22, 8], [28, 8], [30, 8]]); A.props.push({ kind: t[0] >= 28 ? 'chest' : 'barrel', tile: t, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 40 }); } };
-  corner(1, 2); corner(W - 2, 2); corner(1, H - 2); corner(W - 2, H - 2);
-  // braziers in two corners light the room
+  const corner = (cx, cy) => { for (let i = 0; i < randi(2, 4); i++) { const tx = clamp(cx + randi(-1, 1), 1, W - 2), ty = clamp(cy + randi(-1, 1), 2, H - 2); if (A.props.some(p => Math.abs(p.x - (tx * TS + 8)) < 10 && Math.abs(p.y - (ty * TS + 14)) < 10)) continue; const t = pick([[24, 8], [25, 8], [26, 8], [27, 8], [22, 8], [28, 8], [30, 8]]);
+    // tiles 22 and 23 of that row are one picture, a cluster of three pots two tiles wide: it needs both tiles free
+    if (t[0] === 22) { const tx2 = tx + (tx >= W - 2 ? -1 : 0), x = tx2 * TS + 16; if (A.props.some(p => Math.abs(p.x - x) < 18 && Math.abs(p.y - (ty * TS + 14)) < 10)) continue; A.props.push({ kind: 'barrel', tile: t, tw: 2, x, y: ty * TS + 14, cy: ty * TS + 10, r: 9, solid: true, hp: 60 }); continue; }
+    A.props.push({ kind: t[0] >= 28 ? 'chest' : 'barrel', tile: t, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 40 }); } };
+  // braziers in two corners light the room; they go first, so the corner clutter steers around them instead of landing on them
   for (const [tx, ty] of [[2, H - 3], [W - 3, 3]]) A.props.push({ kind: 'brazier', x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, f: randi(0, 3) });
+  corner(1, 2); corner(W - 2, 2); corner(1, H - 2); corner(W - 2, H - 2);
   return A;
 }
 function inArena(x, y) { return ARENA && x > ARENA.x0 - 4 && x < ARENA.x1 + 4 && y > ARENA.y0 - 8 && y < ARENA.y1 + 4; }
