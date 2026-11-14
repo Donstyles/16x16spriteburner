@@ -60,7 +60,7 @@ function drawUnit(c, u) {
   c.save(); c.translate(u.x + lx + stunJit, u.y + ly - u.z + bob);
   if (u.dead) { c.rotate(1.45 * (u.face < 0 ? -1 : 1)); c.globalAlpha = 0.55; c.translate(0, -2); }
   c.scale(sc * (1 + sq) * (u.face < 0 ? -1 : 1), sc * (1 - sq));
-  c.drawImage(IMG.mobs, fr * fw, sy, fw, fh, -fw / 2, -foot - 1, fw, fh);
+  c.drawImage(u.team === 'folk' ? mobsDim() : IMG.mobs, fr * fw, sy, fw, fh, -fw / 2, -foot - 1, fw, fh);
   if (u.flash > 0) { c.globalAlpha = Math.min(1, u.flash * 9); c.drawImage(IMG.mobsW, fr * fw, sy, fw, fh, -fw / 2, -foot - 1, fw, fh); }
   if (u.frozen > 0 && !u.dead) { // the ice block: front face, a lit top, a darker side and two glints
     const bw = fw * 0.86, bh = foot + 2, bx = -bw / 2, by = -foot - 1; c.globalAlpha = 1;
@@ -75,7 +75,7 @@ function drawUnit(c, u) {
   if (u.markT > 0) { const hx = Math.round(u.x), hy = Math.round(u.y - u.z - 17 * u.scale - 8 + Math.sin(G.time * 5)); c.fillStyle = '#3a2414'; c.fillRect(hx, hy, 1, 7); c.fillStyle = '#e0503a'; c.fillRect(hx + 1, hy, 4, 3); c.fillStyle = '#ffd860'; c.fillRect(hx + 2, hy + 1, 1, 1); }
   if (u.rallyT > 0 && u.team === 'hero') { for (let i = 0; i < 14; i++) { if ((i + Math.floor(G.time * 8)) % 4 === 0) continue; const a = i / 14 * TAU + G.time; c.fillStyle = '#ffd860'; c.fillRect(Math.round(u.x + Math.cos(a) * 8), Math.round(u.y + Math.sin(a) * 3), 1, 1); } }
   if (u.chill > 0 && !(u.frozen > 0)) { c.strokeStyle = 'rgba(160,225,255,0.75)'; c.lineWidth = 0.8; c.beginPath(); c.ellipse(u.x, u.y, u.r * 1.3, u.r * 0.5, 0, 0, TAU); c.stroke(); c.fillStyle = 'rgba(225,246,255,0.95)'; for (let k = 0; k < 3; k++) { const a = G.time * 2 + k * 2.1 + u.id; c.fillRect(u.x + Math.cos(a) * u.r * 1.2 - 0.5, u.y - u.z - 6 * u.scale + Math.sin(a * 1.3) * 4 - 0.5, 1, 1); } }
-  const showBar = u.team === 'hero' || u.team === 'folk' || (!u.boss && !u.dummy && u.hp < u.maxHp && u.maxHp >= 60);
+  const showBar = u.team === 'hero' || (!u.boss && u.team !== 'folk' && !u.dummy && u.hp < u.maxHp && u.maxHp >= 60);
   if (showBar) { const w = u.team === 'hero' ? 14 : 10 * u.scale, x = u.x - w / 2, y = u.y - u.z + 3; c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(x - 0.5, y - 0.5, w + 1, 2.5); const f = clamp(u.hp / u.maxHp, 0, 1); c.fillStyle = u.team !== 'mon' ? (f > 0.5 ? '#6cf08a' : f > 0.25 ? '#ffd24a' : '#ff4a3a') : '#e8443a'; c.fillRect(x, y, w * f, 1.5); if (u.team === 'hero') { const s = hpChip(u); if (s.trail > f) { c.fillStyle = '#ffffff'; c.fillRect(x + w * f, y, w * (s.trail - f), 1.5); } } }
 }
 function drawProp(c, p) {

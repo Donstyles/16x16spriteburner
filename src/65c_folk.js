@@ -6,7 +6,17 @@ const FOLK_DEFS = [['OverworkedVillager', 'THE FARMHAND'], ['GentleShepard', 'TH
   .map(([spr, name]) => ({ spr, name, hp: 110, spd: 44, r: 4, role: 'folk' }));
 const FOLK_THANKS = ['THANK YOU!', 'YOU CAME!', 'BLESS YOU!', 'I KNEW IT!', 'HOME, HOME!', 'THANK YOU, HEROES!'];
 const FOLK_N = 3;
+// villagers are switched off for now; with FOLK_ON = true they come back exactly as described above
+const FOLK_ON = false;
+// villagers are background people, not game pieces: drawn with their colours washed out (half grey), and no health bar
+let MOBS_DIM = null;
+function mobsDim() {
+  if (MOBS_DIM) return MOBS_DIM; const s = IMG.mobs, cv = mkCanvas(s.width, s.height), x = cv.getContext('2d'); x.drawImage(s, 0, 0);
+  const id = x.getImageData(0, 0, cv.width, cv.height), d = id.data; for (let i = 0; i < d.length; i += 4) { const l = d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11; for (let k = 0; k < 3; k++) d[i + k] = Math.round(d[i + k] * 0.5 + l * 0.5); }
+  x.putImageData(id, 0, 0); return (MOBS_DIM = cv);
+}
 function spawnFolk(n = FOLK_N) {
+  if (!FOLK_ON) return;
   const A = ARENA, cx = A.pw / 2, cy = A.y1 - 34, used = new Set(); G.folkTotal = n;
   for (let i = 0; i < n; i++) {
     let d; do d = pick(FOLK_DEFS); while (used.has(d.spr) && used.size < FOLK_DEFS.length); used.add(d.spr);
