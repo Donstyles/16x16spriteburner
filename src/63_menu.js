@@ -7,7 +7,7 @@ const HERO_QUOTE = { warrior: '“Steel first. Questions never.”', pyro: '“E
 const FLOOR_LINES = ['The roots down here drink more than water.', 'Salt keeps meat fresh. It keeps other things too.', 'The water rose once. Something swam in with it.', 'Every bone is labelled. Someone keeps the ledger.',
   'The kiln sat cold for a hundred years. It is warm now.', 'The wine went bad. So did the ones who drank it.', 'Listen. The walls are breathing.', 'No lantern ever reached this far before.',
   'The farmhouse is only a lid. You are under it.', 'Old tallies scratched in the stone. All of them stop.', 'Even the rats have stopped running.', 'Deeper still. The dark has a heartbeat.'];
-const floorLine = f => f % 4 === 0 ? 'Its breathing shakes the dust from the ceiling.' : FLOOR_LINES[(f - 1) % FLOOR_LINES.length];
+const floorLine = f => f % 4 === 0 ? 'Its breathing shakes the dust from the ceiling.' : zoneOf(f) ? ZONE_LINES[zoneOf(f)][(f - 1) % 4] : FLOOR_LINES[(f - 1) % FLOOR_LINES.length];
 const CODE_ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 function vbox() { const S = VIEW.safe, W = VIEW.w - S.l - S.r, H = VIEW.h - S.t - S.b, k = Math.min(W / 900, H / 420); MENU.k = k; MENU.ox = S.l + (W - 900 * k) / 2; MENU.oy = S.t + (H - 420 * k) / 2; return k; }
 function vbtn(x, y, w, h, fn) { MENU.rects.push({ r: [MENU.ox + x * MENU.k, MENU.oy + y * MENU.k, w * MENU.k, h * MENU.k], fn }); }

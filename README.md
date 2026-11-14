@@ -29,6 +29,20 @@ Every hero holds **one basic attack, one Low, one Medium and one High spell, and
 
 Every fourth floor a boss rises. When a floor is cleared it collapses and the hero drops to the next one. If the hero falls, the floor starts over.
 
+## The depths
+Every four floors the cellar changes, each stretch ending in a boss floor:
+
+| Floors | Where | Who lives there | Boss |
+|---|---|---|---|
+| 1–4 | The cellar | vermin (mice, ticks, roaches, ants, beetles, bats), goblins, halflings | The Mithril Colossus |
+| 5–8 | The crypts | the dead (bones, ghouls, crawlers, scarabs, revenants), witches, necromancers | The All-Seeing |
+| 9–12 | The flooded deep | merfolk, elves, wyverns and drakes, lizardfolk, nagas | The Green Wyrm |
+| 13–16 | The seal | the holy order that sealed it, its golems, young dragons | The Bronze Hoard-Keeper |
+| 17–20 | The abyss | demons | The Pit Balor, the thing under the farmhouse |
+| 21+ | Everything at once | all 98 kinds | the White Wyrm, Emberclaw and the older bosses in turn |
+
+On the cellar floors a frightened villager or child hides against a wall; nothing in the fight can touch them, and when the floor is cleared they thank you and run for the stairs.
+
 ## Controls
 The game is always landscape. On a phone held upright it is drawn sideways, so just turn the phone (this works with rotation lock on).
 
@@ -62,11 +76,11 @@ Open `index.html` (it is self-contained), or add the GitHub Pages site to your H
 
 ## Build
 ```
-python3 -I tools/pack.py <extracted cellar tileset zip> <extracted creature packs> .
+python3 -I tools/pack.py <extracted cellar tileset zip> <folder with every extracted creature pack> .
 python3 -I tools/recolor.py   # vampire, priest, tidecaller, stormcaller, general and their evolved forms, the general's archers and riders, angels (palette swaps)
 node tools/build.js
 ```
 `src/*.js` is concatenated into `index.html` (Pages / Home Screen) and `dist/artifact.html`.
 Checks: `node tools/shots.js`, `node tools/scenes.js`, `node tools/soak.js` against a local server on port 8787.
 
-Art: Farm Game Dungeon Cellar tileset (rooms and props) and the earlier creature packs (heroes and monsters).
+Art: the Dungeon Cellar tileset by ELV Games (rooms and props), and the 16x16 creature packs by Deep Dive Game Studio: Magical, Humanoid, Humanoid II, Vermin, Undead, Demon, Dragon and Holy (heroes, monsters, angels and villagers; some heroes are palette swaps of their sprites).

@@ -103,7 +103,7 @@ function deathFx(u, elem) {
   if (mode === 'zap') { sparks(u.x, u.y, 8 * sc, 14, 'bolt', 160, 120); flashLight(u.x, u.y, 60 * sc, 'bolt', 1.2, 0.3); scorch(u.x, u.y, 9 * sc, 0.5); SFX.shatter(panOf(u.x)); }
   else if (mode === 'ice') { sparks(u.x, u.y, 8 * sc, 14, 'ice', 160, 120); flashLight(u.x, u.y, 55 * sc, 'ice', 1.1, 0.3); ring(u.x, u.y, 18 * sc, 'ice', 0.3, 3); SFX.shatter(panOf(u.x)); }
   else if (mode === 'burn') { smoke(u.x, u.y, 6, 'dark', 10 * sc, 14, 1.8, 20); glows(u.x, u.y, 8 * sc, 6, 'fire', 40, 6 * sc, 0.6); scorch(u.x, u.y, 10 * sc, 0.55); SFX.pop(panOf(u.x)); }
-  else { debris(u.x, u.y, 10, bl, 140, 160, 1.8 * sc); if (!['rock', 'metal', 'fire'].includes(u.def.blood)) splat(u.x, u.y, bl[0], 7 + 4 * sc, 7 * sc); smoke(u.x, u.y, 3, u.def.blood === 'rock' ? 'dust' : 'grey', 8 * sc, 20, 1.2); SFX.pop(panOf(u.x)); }
+  else { debris(u.x, u.y, 10, bl, 140, 160, 1.8 * sc); if (!['rock', 'metal', 'fire', 'bone'].includes(u.def.blood)) splat(u.x, u.y, bl[0], 7 + 4 * sc, 7 * sc); smoke(u.x, u.y, 3, u.def.blood === 'rock' ? 'dust' : 'grey', 8 * sc, 20, 1.2); SFX.pop(panOf(u.x)); }
   ring(u.x, u.y, 14 * sc, elem === 'bolt' ? 'bolt' : elem === 'fire' ? 'fire' : 'white', 0.25, 2);
 }
 // physics: knockback, knock-up and collisions with walls, pillars and each other

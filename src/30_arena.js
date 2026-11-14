@@ -16,7 +16,7 @@ function buildArena(floor) {
     const fx = x === 0 ? 5 : x === W - 1 ? 7 : 6, fy = y === 0 ? 0 : y === 1 ? 1 : y === H - 1 ? 3 : 2;
     if (fx === 6 && fy === 2) continue; tileAt(g, fx, fy + th.fy, x * TS, y * TS);
   }
-  const A = ARENA = { w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, props: [], torches: [], runes: [], x0: TS + 5, x1: (W - 1) * TS - 5, y0: 2 * TS + 4, y1: (H - 1) * TS - 3, name: FLOOR_NAMES[(floor - 1) % FLOOR_NAMES.length] };
+  const A = ARENA = { w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, props: [], torches: [], runes: [], x0: TS + 5, x1: (W - 1) * TS - 5, y0: 2 * TS + 4, y1: (H - 1) * TS - 3, name: floorName(floor) };
   // the stairway we came down, in the north wall
   const sx = Math.floor(W / 2) - 1; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 12, (sx + i) * TS, 0); tileAt(g, th.stairs + i, 13, (sx + i) * TS, TS); }
   const used = new Set([sx, sx + 1, sx + 2]);

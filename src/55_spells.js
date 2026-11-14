@@ -122,7 +122,7 @@ function cataclysm(h) {
 }
 // ---------- MONSTERS AND BOSSES ----------
 function monShot(m, t) {
-  const k = m.def.shot, a = angTo(m.x, m.y, t.x, t.y), s = k === 'arrow' || k === 'stone' ? 175 : 115, col = { arcane: 'arcane', poison: 'poison', fire: 'fire', zap: 'bolt' }[k] || 'white';
+  const k = m.def.shot, a = angTo(m.x, m.y, t.x, t.y), s = k === 'arrow' || k === 'stone' ? 175 : 115, col = { arcane: 'arcane', poison: 'poison', fire: 'fire', zap: 'bolt', ice: 'ice', holy: 'holy', void: 'void' }[k] || 'white';
   m.lunge = 0.2; m.la = a;
   if (k === 'zap') { bolt(m.x, m.y - 8, t.x, t.y - 6, { life: 0.22, w: 0.8, col: 'arcane', branches: 1 }); hurt(t, m.def.dmg * m.mul, m, { elem: 'bolt' }); sparks(t.x, t.y, 8, 8, 'arcane', 120, 80); flashLight(t.x, t.y, 50, 'arcane', 1, 0.15); SFX.zap(panOf(t.x)); return; }
   proj({ k: 'mshot', shot: k, x: m.x, y: m.y, z: 8, vx: Math.cos(a) * s, vy: Math.sin(a) * s, team: 'mon', src: m, dmg: m.def.dmg * m.mul, col, life: 2.4, r: 3, home: k !== 'arrow' && k !== 'stone' ? t : null });
@@ -133,7 +133,7 @@ function bossMove(b, mv, t) {
   if (mv === 'slam') { const x = t.x, y = t.y; teleg(x, y, 46, 0.95); after(0.45, () => { if (alive(b)) b.state = { k: 'leap', t: 0, dur: 0.5, x0: b.x, y0: b.y, x1: x, y1: y }; }); }
   else if (mv === 'charge') { const a = angTo(b.x, b.y, t.x, t.y); for (let i = 1; i < 9; i++) teleg(b.x + Math.cos(a) * i * 22, b.y + Math.sin(a) * i * 16, 14, 0.6); b.state = { k: 'windup', t: 0, dur: 0.6, next: { k: 'charge', t: 0, dur: 0.85, a } }; SFX.summon(panOf(b.x)); }
   else if (mv === 'volley') { for (let w = 0; w < 3; w++) after(w * 0.35, () => { if (!alive(b)) return; const n = 16, off = rand(TAU); for (let i = 0; i < n; i++) { const a = off + i / n * TAU; proj({ k: 'mshot', shot: 'orb', x: b.x, y: b.y - 6, z: 10, vx: Math.cos(a) * 105, vy: Math.sin(a) * 85, team: 'mon', src: b, dmg: 16 * b.mul, col: c, life: 3, r: 4 }); } ring(b.x, b.y, 50, c, 0.3, 4); flashLight(b.x, b.y, 110, c, 1.3, 0.25); SFX.fire(panOf(b.x)); }); }
-  else if (mv === 'summon') { ring(b.x, b.y, 80, c, 0.5, 5); shake(0.3); SFX.summon(0); const pool = Object.values(MON_DEFS).filter(d => d.tier <= Math.min(3, 1 + (G.floor >> 2))); for (let i = 0; i < 4; i++) { const r = pick(ARENA.runes); summonMon(pick(pool), r.x + rand(-8, 8), r.y + rand(-6, 6), i * 0.15); } }
+  else if (mv === 'summon') { ring(b.x, b.y, 80, c, 0.5, 5); shake(0.3); SFX.summon(0); const pool = zonePool().filter(d => d.tier <= Math.min(3, 1 + (G.floor >> 2))); for (let i = 0; i < 4; i++) { const r = pick(ARENA.runes); summonMon(pick(pool), r.x + rand(-8, 8), r.y + rand(-6, 6), i * 0.15); } }
   else if (mv === 'beam') { const a = angTo(b.x, b.y, t.x, t.y), dir = chance(0.5) ? 1 : -1; b.state = { k: 'beam', t: 0, dur: 2.0, a0: a - 1.0 * dir, a1: a + 1.0 * dir, tick: 0 }; G.ambDark = Math.max(G.ambDark, 0.4); SFX.braam(); }
 }
 function bossDeath(b) {

@@ -44,14 +44,15 @@ function waveCount() { return G.bossFloor ? 6 : Math.min(9, 5 + Math.floor((G.fl
 // queue a wave: it pours out of the runes in packs, bigger and nastier toward the end of the floor
 function startWave() {
   G.wave++; G.gapT = 0; const N = G.waves, i = G.wave - 1, last = G.wave === N, f = G.floor;
+  if (G.wave === 1 && zoneOf(f) === 'cellar' && !G.training && !TUT.on) spawnVillager(); // someone is hiding down here
   G.inten = G.wave / N;
   if (G.bossFloor && last) { spawnBoss(); return; }
   const maxTier = f <= 2 ? 1 : f <= 4 ? 2 : f <= 7 ? 3 : 4, prog = N > 1 ? i / (N - 1) : 1;
   let budget = (17 + 6.5 * f) * (0.55 + 0.9 * prog) * [0.5, 0.7, 0.85, 1][NP() - 1];
-  const pool = Object.values(MON_DEFS).filter(d => d.tier <= (prog < 0.34 && maxTier > 1 ? maxTier - 1 : maxTier)), list = [];
+  const zp = zonePool(f), pool = zp.filter(d => d.tier <= (prog < 0.34 && maxTier > 1 ? maxTier - 1 : maxTier)), list = [];
   let guard = 0; while (budget > 0 && guard++ < 400) { const d = pick(pool), c = TIER_COST[d.tier]; if (c > budget + 1.5 && list.length) continue; list.push({ def: d }); budget -= c; }
-  const top = Object.values(MON_DEFS).filter(d => d.tier === maxTier);
-  const fodder = Object.values(MON_DEFS).filter(d => d.tier <= Math.min(2, maxTier) && d.ai === 'melee'); for (let k = 0; k < Math.round((4 + f * 1.5) * (0.6 + 0.8 * prog) * [0.5, 0.7, 0.85, 1][NP() - 1]); k++) list.push({ def: pick(fodder) });
+  const top = zp.filter(d => d.tier === maxTier);
+  const fodder = zp.filter(d => d.tier <= Math.min(2, maxTier) && d.ai === 'melee'); for (let k = 0; k < Math.round((4 + f * 1.5) * (0.6 + 0.8 * prog) * [0.5, 0.7, 0.85, 1][NP() - 1]); k++) list.push({ def: pick(fodder) });
   if (prog >= 0.5) for (let k = 0; k < 1 + (prog >= 0.8 ? 1 : 0) + Math.floor(f / 6); k++) list.push({ def: pick(top), elite: true });
   if (last) list.push({ def: pick(top.filter(d => d.ai !== 'caster').length ? top.filter(d => d.ai !== 'caster') : top), warlord: true });
   for (let k = list.length - 1; k > 0; k--) { const j = randi(0, k); [list[k], list[j]] = [list[j], list[k]]; }
@@ -182,7 +183,7 @@ function updateDirector(dt) {
       if (G.wave >= G.waves) { if (!left) { G.phase = 'clear'; G.phaseT = 0; } }
       else if (nextIsLast ? left === 0 : left <= Math.max(3, Math.round(G.waveSize * 0.35))) { G.gapT += dt; if (nextIsLast && G.gapT > 1.2) { G.ambDark = Math.max(G.ambDark, Math.min(0.6, G.gapT * 0.25)); if (chance(dt * 4)) quake(0.3, 0.3); } if (G.gapT > (nextIsLast ? 3.2 : 1.8)) startWave(); }
     }
-    if (G.boss && alive(G.boss) && (G.addT = (G.addT || 8) - dt) <= 0) { G.addT = G.boss.enraged ? 7 : 11; if (G.mons.length < 24) { const pool = Object.values(MON_DEFS).filter(d => d.tier <= Math.min(3, 1 + (G.floor >> 2))); for (let k = 0; k < 4 + (G.boss.enraged ? 3 : 0); k++) G.spawnQ.push({ def: pick(pool) }); G.packT = 0; } }
+    if (G.boss && alive(G.boss) && (G.addT = (G.addT || 8) - dt) <= 0) { G.addT = G.boss.enraged ? 7 : 11; if (G.mons.length < 24) { const pool = zonePool().filter(d => d.tier <= Math.min(3, 1 + (G.floor >> 2))); for (let k = 0; k < 4 + (G.boss.enraged ? 3 : 0); k++) G.spawnQ.push({ def: pick(pool) }); G.packT = 0; } }
     if (SFX.on && G.wave > 0 && (G.drumT = (G.drumT || 0) - dt) <= 0) { G.drumT = lerp(1.0, 0.4, clamp(G.inten, 0, 1)); SFX.drum(G.inten); }
   } else if (G.phase === 'clear') {
     if (G.phaseT > 0.6 && !G.cleared) { G.cleared = true; textBanner('FLOOR ' + G.floor + ' CLEARED', G.combo > 5 ? 'BEST STREAK ' + G.combo : '', 'gold'); if (!G.bossFloor) queueChoice('floor', 'FLOOR ' + G.floor + ' CLEARED'); }
