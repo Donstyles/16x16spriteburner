@@ -37,7 +37,7 @@ function laser(h, t, o) {
 }
 // ---------- FIRE: Ignis ----------
 const fan = (n, spread) => Array.from({ length: n }, (_, i) => n === 1 ? 0 : (i / (n - 1) - 0.5) * spread);
-function emberBolt(h, t) { const m = md('EMBER BOLT'), a = angTo(h.x, h.y, t.x, t.y), d = dist(h.x, h.y, t.x, t.y); for (const o of fan(1 + m.count, 0.5)) castFireball(h, h.x + Math.cos(a + o) * d, h.y + Math.sin(a + o) * d, 0.42, 1.1 * m.dmg, { burn: m.f.burn }); }
+function emberBolt(h, t) { const m = md('EMBER BOLT'), a = angTo(h.x, h.y, t.x, t.y), d = dist(h.x, h.y, t.x, t.y); for (const o of fan(1 + m.count, 0.5)) castFireball(h, h.x + Math.cos(a + o) * d, h.y + Math.sin(a + o) * d, 0.42, 1.1 * m.dmg, { burn: m.f.burn, fx: 'pop' }); }
 function cinderSpray(h, t) {
   const m = md('CINDER SPRAY'), a = angTo(h.x, h.y, t.x, t.y), cone = 0.4 * m.size, R = 72 * m.size; SFX.fire(panOf(h.x)); emitFx('spray', { u: h, a, cone, sz: m.size }, 0.8 * m.dur);
   h.state = { k: 'channel', t: 0, dur: 0.8 * m.dur, tick: 0, fn: (h, s, dt) => {
@@ -149,7 +149,7 @@ function quickStab(h, t) {
   const stab = () => { if (!alive(t) || !alive(h)) return; FX.beams.push({ x0: h.x + Math.cos(a) * 4, y0: h.y - 6, x1: t.x, y1: t.y - 6, w: 0.5, col: 'gold', t: 0, life: 0.1 }); const crit = chance(m.f.crit ? 0.6 : 0.35); hurt(t, D(h) * 0.7 * m.dmg, h, { elem: 'phys', crit, kx: Math.cos(a) * 50, ky: Math.sin(a) * 40 }); sparks(t.x, t.y, 8, crit ? 8 : 3, 'gold', 150, 80, a, 0.8); if (crit) hitstop(0.03); };
   stab(); for (let i = 1; i <= m.count; i++) after(i * 0.08, stab); SFX.slash(panOf(h.x));
 }
-function fireOrb(h, t) { const m = md('FIRE ORB'), a0 = angTo(h.x, h.y, t.x, t.y), d = dist(h.x, h.y, t.x, t.y); for (const o of fan(1 + m.count, 0.45)) castFireball(h, h.x + Math.cos(a0 + o) * d, h.y + Math.sin(a0 + o) * d, 0.75 * m.size, 1.9 * m.dmg, { speed: 120 }); }
+function fireOrb(h, t) { const m = md('FIRE ORB'), a0 = angTo(h.x, h.y, t.x, t.y), d = dist(h.x, h.y, t.x, t.y); for (const o of fan(1 + m.count, 0.45)) castFireball(h, h.x + Math.cos(a0 + o) * d, h.y + Math.sin(a0 + o) * d, 0.55 * m.size, 1.3 * m.dmg, { speed: 120, fx: 'light' }); }
 function flameJet(h, t) {
   const m = md('FLAME JET'), a = angTo(h.x, h.y, t.x, t.y), R = 66 * m.size; h.lunge = 0.15; h.la = a;
   jetFx(h.x, h.y, a, m.size);
@@ -231,7 +231,7 @@ function heroBrain(h, foes) {
   return false;
 }
 const DEFAULT_BASIC = { warrior: 'SLASH', pyro: 'EMBER BOLT', storm: 'SPARK', druid: 'PEBBLE' };
-function basicOf(h) { const n = sbOf(h).basic[h.key] || DEFAULT_BASIC[h.key]; return SPELLBOOK[h.key].find(s => s.name === n); }
+function basicOf(h) { const n = sbOf(h).basic[h.key] || DEFAULT_BASIC[h.key], sp = SPELLBOOK[h.key].find(s => s.name === n); return G.training && TRAIN.noBasic && sp ? (TRAIN.mute[n] || (TRAIN.mute[n] = { ...sp, cast: () => { } })) : sp; }
 function heroAI(h, dt) {
   const I = h.ctrl === 'player' ? h.inp : null; // a player on AUTO MOVE or AUTOPILOT still sends spells and dodges
   if (h.dead) { h.deadT += dt; if (I) I.castQ.length = 0; return; }

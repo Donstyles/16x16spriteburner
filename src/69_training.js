@@ -2,7 +2,7 @@
 // Solo only. No waves, no XP, the hero cannot fall. LOADOUT equips any spell of each tier and toggles every upgrade;
 // the meter at the top measures damage per second on the dummies. Cooldowns are real (so the meter means something),
 // but closing the loadout makes everything ready again, the ultimate too; COOLDOWNS: OFF lets every spell fire nonstop.
-const TRAIN = { ready: false, open: false, wasOpen: false, dummies: 1, noCd: false, lvl: 12, hits: [], total: 0, best: 0, rects: [], meterRect: null, respawnT: null };
+const TRAIN = { ready: false, open: false, wasOpen: false, dummies: 1, noCd: false, noBasic: false, mute: {}, lvl: 12, hits: [], total: 0, best: 0, rects: [], meterRect: null, respawnT: null };
 const DUMMY_DEF = { name: 'TRAINING DUMMY', spr: 'ScarecrowGolem', hp: 1, spd: 0, dmg: 0, ai: 'dummy', tier: 1, blood: 'straw' };
 function startTraining() {
   loadModes(); TUT.pending = false; startRun(true); G.training = true; G.cdn = 0; TRAIN.ready = false; TRAIN.open = false; trainReset(); beginPlay(); G.wave = 0;
@@ -57,12 +57,15 @@ function drawLoadout(c) {
   const W = VIEW.w, H = VIEW.h, S = VIEW.safe, top = Math.max(10, S.t + 6), L = Math.max(14, S.l + 8), R = W - Math.max(14, S.r + 8), B = H - Math.max(8, S.b + 6);
   c.fillStyle = 'rgba(6,4,10,0.95)'; c.fillRect(0, 0, W, H);
   const h = G.me, k = h.key, hd = HERO_DEFS[k], book = SPELLBOOK[k], btn = (x, y, w, t, fn, hot) => { c.fillStyle = hot ? 'rgba(58,38,16,0.95)' : 'rgba(26,19,28,0.96)'; c.fillRect(x, y, w, 24); c.strokeStyle = hot ? '#ffd860' : 'rgba(200,160,80,0.55)'; c.lineWidth = 1; c.strokeRect(x + 0.5, y + 0.5, w - 1, 23); font(c, 600, 13, F_HUD); spaced(c, t, x + w / 2, y + 17, 1, hot ? '#ffd860' : '#e8d8b8', 'center'); TRAIN.rects.push({ r: [x, y - 3, w, 30], fn }); };
-  font(c, 900, 22, F_DISP); label(c, hd.name + '’s Loadout', L, top + 20, `rgb(${COL[hd.col]})`);
-  // the switches along the top: done, dummies, cooldowns, level
-  let bx = R - 70; btn(bx, top + 3, 70, 'DONE', () => { TRAIN.open = false; }, true);
-  bx -= 112; btn(bx, top + 3, 106, 'DUMMIES: ' + TRAIN.dummies, () => { TRAIN.dummies = TRAIN.dummies === 1 ? 6 : TRAIN.dummies === 6 ? 12 : 1; placeDummies(); trainReset(); });
-  bx -= 142; btn(bx, top + 3, 136, 'COOLDOWNS: ' + (TRAIN.noCd ? 'OFF' : 'ON'), () => { TRAIN.noCd = !TRAIN.noCd; });
-  bx -= 30; btn(bx, top + 3, 26, '+', () => trainLevel(TRAIN.lvl + 1)); bx -= 56; font(c, 600, 14, F_HUD); spaced(c, 'LEVEL ' + TRAIN.lvl, bx + 28, top + 20, 1, '#e8d8b8', 'center'); bx -= 30; btn(bx, top + 3, 26, '–', () => trainLevel(TRAIN.lvl - 1));
+  // the switches along the top, right to left: done, dummies, cooldowns, basic attack, level; each as wide as its words
+  font(c, 600, 13, F_HUD); const wOf = t => { let w = 0; for (const ch of t) w += c.measureText(ch).width + 1; return Math.ceil(w) + 18; };
+  let bx = R; const next = (t, fn, hot) => { const w = Math.max(26, wOf(t)); bx -= w; btn(bx, top + 3, w, t, fn, hot); bx -= 6; };
+  next('DONE', () => { TRAIN.open = false; }, true);
+  next('DUMMIES: ' + TRAIN.dummies, () => { TRAIN.dummies = TRAIN.dummies === 1 ? 6 : TRAIN.dummies === 6 ? 12 : 1; placeDummies(); trainReset(); });
+  next('COOLDOWNS: ' + (TRAIN.noCd ? 'OFF' : 'ON'), () => { TRAIN.noCd = !TRAIN.noCd; });
+  next('BASIC ATTACK: ' + (TRAIN.noBasic ? 'OFF' : 'ON'), () => { TRAIN.noBasic = !TRAIN.noBasic; trainReset(); }, TRAIN.noBasic);
+  next('+', () => trainLevel(TRAIN.lvl + 1)); bx -= 50; font(c, 600, 14, F_HUD); spaced(c, 'LEVEL ' + TRAIN.lvl, bx + 25, top + 20, 1, '#e8d8b8', 'center'); font(c, 600, 13, F_HUD); next('–', () => trainLevel(TRAIN.lvl - 1));
+  fitFont(c, 900, 22, F_DISP, hd.name + '’s Loadout', bx - L - 6, 11); label(c, hd.name + '’s Loadout', L, top + 20, `rgb(${COL[hd.col]})`);
   const y0 = top + 36, gap = 5, rh = (B - y0 - gap * 4) / 5, lw = clamp(W * 0.12, 84, 118);
   for (let t = 0; t < 5; t++) {
     const y = y0 + t * (rh + gap), hex = TIER_HEX[t], list = book.filter(s => (t === 0 ? s.basic : s.tier === t && !s.basic)), eq = t === 0 ? G.basic[k] : t < 4 ? G.slots[t - 1] : HERO_PROG[k].ult;

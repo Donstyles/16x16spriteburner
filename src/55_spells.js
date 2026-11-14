@@ -12,18 +12,21 @@ function explode(x, y, R, dmg, src, o = {}) {
   const big = R / 26, team = src ? src.team : 'hero', foes = team === 'hero' ? G.mons : G.heroes;
   for (const u of within(x, y, R, foes)) { const d = dist(x, y, u.x, u.y), f = 1 - 0.45 * Math.min(1, d / R), a = angTo(x, y, u.x, u.y); hurt(u, dmg * f, src, { elem: o.elem || 'fire', kx: Math.cos(a) * 230 * big, ky: Math.sin(a) * 170 * big, up: 150 * big, crit: chance(0.15) }); if (o.burn && !u.dead) { u.burn = 2.5; u.burnDmg = dmg * 0.15; u.immo = src; } }
   hitProps(x, y, R);
+  if (o.fx === 'pop') { emberPop(x, y, R); return; } // a basic ember: a small burst, no shake, no pause, no flash
   part({ k: 'glow', x, y, z: 6, life: 0.14, s0: R * 1.1, s1: R * 1.6, col: 'hot', a0: 0.9, a1: 0 });
   glows(x, y, 8, 18 * big, 'fire', 150 * big, 9 * big, 0.75, 1); glows(x, y, 8, 8 * big, 'fire2', 90 * big, 7 * big, 0.45, 0); glows(x, y, 10, 10 * big, 'ember', 200 * big, 6 * big, 0.9, 0);
   sparks(x, y, 6, 46 * big, 'fire', 260 * big, 240 * big); embers(x, y, 20 * big, 'ember', 80 * big);
   smoke(x, y, 7 * big, 'dark', 16 * big, 46 * big, 2.4, 18); debris(x, y, 12 * big, ['#5a5048', '#7d7064', '#3c342e', '#241c18'], 170 * big, 240 * big, 2);
   ring(x, y, R * 2.3, 'fire2', 0.4, 6); ring(x, y, R * 1.2, 'white', 0.2, 3);
   flashLight(x, y, R * 5, 'fire', 1.6, 0.5); flashLight(x, y, R * 1.8, 'hot', 1, 0.12);
-  scorch(x, y, R * 0.95, 0.75); if (big >= 0.95) cracks(x, y, randi(4, 7), R * 1.4, 320, 1.8);
+  scorch(x, y, R * 0.95, 0.75); if (big >= 0.95 && o.fx !== 'light') cracks(x, y, randi(4, 7), R * 1.4, 320, 1.8);
+  if (o.fx === 'light') { shake(0.1 * big); SFX.boom(big * 0.7, panOf(x)); return; } // a basic attack's blast: no pause, no flash
   shake(0.32 * big); hitstop(0.04 * big); kick(0.05 * big); flash('fire', 0.1 * big); SFX.boom(big, panOf(x)); buzz(Math.round(30 * big));
 }
+function emberPop(x, y, R) { part({ k: 'glow', x, y, z: 6, life: 0.12, s0: R * 0.7, s1: R, col: 'hot', a0: 0.8, a1: 0 }); glows(x, y, 6, 5, 'fire', 60, 4, 0.35, 1); sparks(x, y, 6, 8, 'fire', 120, 100); ring(x, y, R * 0.9, 'fire2', 0.18, 2); flashLight(x, y, R * 2.2, 'fire', 0.9, 0.12); scorch(x, y, R * 0.45, 0.4); SFX.fire(panOf(x)); }
 function castFireball(h, tx, ty, big = 1, dm = 1.5, o = {}) {
   const a = angTo(h.x, h.y, tx, ty), s = o.speed || 200; h.lunge = 0.2; h.la = a;
-  proj({ k: 'fireball', x: h.x + Math.cos(a) * 6, y: h.y + Math.sin(a) * 3, z: 11, vx: Math.cos(a) * s, vy: Math.sin(a) * s, team: 'hero', src: h, dmg: h.def.dmg * h.mul * dm, R: 26 * big, big, tx, ty, life: 2.2, r: 4 * big, burn: o.burn, cluster: o.cluster });
+  proj({ k: 'fireball', x: h.x + Math.cos(a) * 6, y: h.y + Math.sin(a) * 3, z: 11, vx: Math.cos(a) * s, vy: Math.sin(a) * s, team: 'hero', src: h, dmg: h.def.dmg * h.mul * dm, R: 26 * big, big, tx, ty, life: 2.2, r: 4 * big, burn: o.burn, cluster: o.cluster, fx: o.fx });
   glows(h.x + Math.cos(a) * 8, h.y, 11, 8, 'fire', 60, 5, 0.3); SFX.fire(panOf(h.x));
 }
 function flameNova(h) { const m = md('FLAME NOVA'); for (let k = 0; k <= m.count; k++) after(k * 0.42, () => { if (alive(h)) novaPulse(h, m); }); }
@@ -173,7 +176,7 @@ function updateProj(dt) {
     if (p.k === 'ball') { if (p.t >= p.life || wall) { p.dead = true; const DR = p.DR || 46; for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; bolt(p.x, p.y - p.z, p.x + Math.cos(a) * DR, p.y + Math.sin(a) * DR * 0.74, { life: 0.25, w: 0.9, branches: 1 }); } for (const u of within(p.x, p.y, DR, G.mons)) zapHit(u, p.src, p.dmg * 2.5, { stun: 0.6 }); ring(p.x, p.y, 60, 'bolt', 0.35, 5); flash('bolt2', 0.2); flashLight(p.x, p.y, 140, 'bolt2', 1.6, 0.3); shake(0.25); SFX.thunder(panOf(p.x), 0.6); } continue; }
     if (hitU || wall || reached || p.t >= p.life) {
       p.dead = true;
-      if (p.k === 'fireball') { explode(p.x, p.y, p.R, p.dmg, p.src, { burn: p.burn }); if (p.cluster) { const px = p.x, py = p.y, s = p.src, dm = p.dmg; for (let i = 0; i < 4; i++) after(0.12 + i * 0.09, () => { const a = rand(TAU), r = rand(18, 34); explode(px + Math.cos(a) * r, py + Math.sin(a) * r * 0.75, 15, dm * 0.4, s); }); } }
+      if (p.k === 'fireball') { explode(p.x, p.y, p.R, p.dmg, p.src, { burn: p.burn, fx: p.fx }); if (p.cluster) { const px = p.x, py = p.y, s = p.src, dm = p.dmg; for (let i = 0; i < 4; i++) after(0.12 + i * 0.09, () => { const a = rand(TAU), r = rand(18, 34); explode(px + Math.cos(a) * r, py + Math.sin(a) * r * 0.75, 15, dm * 0.4, s); }); } }
       else if (p.shot === 'serpent') explode(p.x, p.y, p.ER || 17, p.dmg, p.src);
       else if (p.shot === 'sorb') { const BR = p.BR || 20; for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; bolt(p.x, p.y - p.z, p.x + Math.cos(a) * BR, p.y - p.z + Math.sin(a) * BR * 0.75, { life: 0.16, w: 0.6, branches: 0 }); } for (const u of within(p.x, p.y, BR, G.mons)) zapHit(u, p.src, p.dmg * (u === hitU ? 1 : 0.5), { stun: p.ST || 0.9 }); flashLight(p.x, p.y, 80, 'bolt2', 1.3, 0.2); }
       else if (p.k === 'bat') { if (hitU) { hurt(hitU, p.dmg, p.src, { elem: 'crimson' }); HFX.bite(p.x, p.y); } else HFX.batBurst(p.x, p.y, 1); }
