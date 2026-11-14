@@ -69,16 +69,20 @@ Choose **HOST CO-OP** on the menu to open **The Cellar Door**, the lobby: a 4-le
 - The connection indicator under the top bar shows round trip, packet loss and sync state; tap it for details.
 - Matchmaking uses the free public PeerJS server; phones then talk directly, or through a relay when a network blocks direct connections. Co-op runs on the GitHub Pages / Home Screen version, not inside claude.ai.
 
+## Cellar of Ruin II (the sequel, in progress)
+A dungeon crawl built on the same heroes, spells, creatures and co-op, in `crawler/` (on GitHub Pages at `/crawler/`). Each floor is a set of rooms joined by corridors, hidden until someone walks in (a map in the top right corner shows what has been seen). Walk into a room with monsters and its doors shut, **but only once every hero is inside**; until then the others are told who they are waiting for. The waves are sized to the room; clear them and the doors open, the party heals a quarter and anyone who fell gets up. A treasure room holds a chest that opens when you walk up to it. The end room is the warlord's hall (on every fourth floor, the boss's): clear it and the way down opens in its north wall. Runs work as before: a fresh dungeon every floor, and a fallen party starts the floor again. Heroes on autopilot follow a player who steers by hand, or explore on their own when nobody does. There is no tutorial yet. Best floor and co-op rooms are kept apart from the first game; control settings are shared.
+
 ## Run it
-Open `index.html` (it is self-contained), or add the GitHub Pages site to your Home Screen.
+Open `index.html` (it is self-contained), or add the GitHub Pages site to your Home Screen. The sequel is `crawler/index.html`.
 
 ## Build
 ```
 python3 -I tools/pack.py <extracted cellar tileset zip> <folder with every extracted creature pack> .
 python3 -I tools/recolor.py   # vampire, priest, tidecaller, stormcaller, general and their evolved forms, the general's archers and riders, angels (palette swaps)
 node tools/build.js
+node tools/build.js crawler   # the sequel
 ```
-`src/*.js` is concatenated into `index.html` (Pages / Home Screen) and `dist/artifact.html`.
-Checks: `node tools/shots.js`, `node tools/scenes.js`, `node tools/soak.js` against a local server on port 8787.
+`src/*.js` is concatenated into `index.html` (Pages / Home Screen) and `dist/artifact.html`; `crawler/src/*.js` into `crawler/index.html` and `crawler/dist/artifact.html` (it also inlines `crawler/assets/cellar_doors.png`).
+Checks: `node tools/shots.js`, `node tools/scenes.js`, `node tools/soak.js` against a local server on port 8787; `GAME_URL=http://127.0.0.1:8787/crawler/index.html` points `soak.js` and `cooptest.js` at the sequel.
 
-Art: the Dungeon Cellar tileset by ELV Games (rooms and props), and the 16x16 creature packs by Deep Dive Game Studio: Magical, Humanoid, Humanoid II, Vermin, Undead, Demon, Dragon and Holy (heroes, monsters and angels; some heroes are palette swaps of their sprites).
+Art: the Dungeon Cellar tileset and its doors by ELV Games (rooms and props), and the 16x16 creature packs by Deep Dive Game Studio: Magical, Humanoid, Humanoid II, Vermin, Undead, Demon, Dragon and Holy (heroes, monsters and angels; some heroes are palette swaps of their sprites).

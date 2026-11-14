@@ -1,0 +1,157 @@
+// ===================== the dungeon: a floor of rooms and corridors, built from the FG_Cellar tileset =====================
+// Rooms sit one to a cell of a coarse grid; neighbouring rooms are joined by straight corridors three tiles wide that run
+// along the cells' centre lines, so every corridor meets its rooms square on. Everything that is not floor is wall.
+// ARENA keeps its old meaning for the fighting code: x0..y1 are the bounds of the room being fought in (or of the whole
+// map while exploring), cx/cy its centre, runes its spawn points.
+const THEMES = {
+  brown: { fy: 0, floors: [[10, 1], [10, 1], [10, 1], [10, 1], [10, 3], [11, 1], [12, 1], [13, 3], [14, 1], [15, 3]], pillar: [[21, 5], [23, 5]], stairs: 19, rune: [27, 7], amb: [92, 78, 70], door: 7 },
+  grey: { fy: 7, floors: [[10, 9], [10, 9], [10, 9], [10, 9], [10, 11], [11, 9], [12, 9], [13, 11], [14, 9], [15, 11]], pillar: [[21, 2], [23, 2]], stairs: 16, rune: [27, 4], amb: [60, 66, 88], door: 1 },
+};
+const FLOOR_NAMES = ['THE ROOT CELLAR', 'THE SALT VAULT', 'THE DROWNED STORES', 'THE BONE PANTRY', 'THE ASHEN KILN', 'THE WINE CRYPT', 'THE GRAIN TOMB', 'THE IRON LARDER', 'THE HOLLOW CISTERN', 'THE ROTTED GRANARY', 'THE BLACK BREWERY', 'THE DEEP MILL', 'THE SCREAMING SILO', 'THE LAST LARDER'];
+let ARENA = null;
+const CW = 24, CH = 17; // one grid cell, in tiles
+function tileAt(g, tx, ty, dx, dy) { g.drawImage(IMG.cellar, tx * TS, ty * TS, TS, TS, dx, dy, TS, TS); }
+function buildArena(floor) {
+  const th = floor % 2 ? THEMES.brown : THEMES.grey, GW = floor <= 2 ? 3 : 4, GH = 3;
+  const N = Math.min(GW * GH - 1, 5 + Math.min(4, Math.floor((floor + 1) / 2)));
+  // ---- the room graph: grown outward from the start cell, then a loop or two so not every floor is a single line
+  const key = (x, y) => y * GW + x, cells = new Map(), edges = [];
+  const s0 = [randi(0, GW - 1), randi(0, GH - 1)]; cells.set(key(...s0), s0);
+  const nb = ([x, y]) => [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]].filter(([a, b]) => a >= 0 && b >= 0 && a < GW && b < GH);
+  let guard = 0; while (cells.size < N && guard++ < 500) { const c = pick([...cells.values()]), n = pick(nb(c)); if (cells.has(key(...n))) continue; cells.set(key(...n), n); edges.push([key(...c), key(...n)]); }
+  const has = (a, b) => edges.some(e => (e[0] === a && e[1] === b) || (e[0] === b && e[1] === a));
+  let loops = 0; for (const c of cells.values()) for (const n of nb(c)) { const a = key(...c), b = key(...n); if (a < b && cells.has(b) && !has(a, b) && loops < 2 && chance(0.3)) { edges.push([a, b]); loops++; } }
+  // the end room is the one farthest from the start
+  const adj = k => edges.filter(e => e[0] === k || e[1] === k).map(e => e[0] === k ? e[1] : e[0]);
+  const far = new Map([[key(...s0), 0]]), q = [key(...s0)]; while (q.length) { const k = q.shift(); for (const n of adj(k)) if (!far.has(n)) { far.set(n, far.get(k) + 1); q.push(n); } }
+  const endK = [...far.entries()].sort((a, b) => b[1] - a[1])[0][0], leaves = [...cells.keys()].filter(k => k !== endK && k !== key(...s0) && adj(k).length === 1);
+  const treasK = leaves.length && chance(0.75) ? pick(leaves) : -1;
+  // ---- rooms inside their cells; every room covers its cell's centre so the corridors can run straight
+  const W = GW * CW, H = GH * CH, fl = new Uint8Array(W * H), rooms = [], byKey = new Map();
+  for (const [k, [gx, gy]] of cells) {
+    const kind = k === key(...s0) ? 'start' : k === endK ? 'end' : k === treasK ? 'treasure' : 'fight';
+    const big = kind === 'end', w = big ? randi(18, 20) : kind === 'start' ? randi(13, 14) : kind === 'treasure' ? randi(10, 12) : randi(12, 18), h = big ? randi(10, 12) : kind === 'start' || kind === 'treasure' ? randi(7, 8) : randi(7, 11);
+    const X0 = gx * CW, Y0 = gy * CH, cx = X0 + CW / 2, cy = Y0 + 9;
+    const ix0 = randi(Math.max(X0 + 2, cx + 3 - w), Math.min(cx - 2, X0 + CW - 2 - w)), iy0 = randi(Math.max(Y0 + 3, cy + 3 - h), Math.min(cy - 2, Y0 + CH - 2 - h));
+    const r = { i: rooms.length, k, gx, gy, kind, cx, cy, ix0, iy0, ix1: ix0 + w - 1, iy1: iy0 + h - 1, fx0: ix0 - 1, fx1: ix0 + w, fy0: iy0 - 2, fy1: iy0 + h, w, h, runes: [], doors: [], seen: kind === 'start' };
+    r.waves = kind === 'end' ? 3 : kind === 'fight' ? (w * h > 130 ? 2 : 1) : 0;
+    r.px0 = r.fx0 * TS; r.py0 = r.fy0 * TS; r.px1 = (r.fx1 + 1) * TS; r.py1 = (r.fy1 + 1) * TS;
+    r.b = { x0: ix0 * TS + 5, x1: (r.ix1 + 1) * TS - 5, y0: iy0 * TS + 4, y1: (r.iy1 + 1) * TS - 3 };
+    rooms.push(r); byKey.set(k, r);
+    for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) fl[y * W + x] = 1;
+  }
+  // ---- corridors: floor through both walls, the corridor's own walls between the rooms
+  const halls = [];
+  for (const [a, b] of edges) {
+    let A = byKey.get(a), B = byKey.get(b); if (A.gx > B.gx || A.gy > B.gy) [A, B] = [B, A];
+    if (A.gy === B.gy) { // side by side
+      const y0 = A.cy - 1, x0 = A.fx1, x1 = B.fx0; for (let y = y0; y <= y0 + 2; y++) for (let x = x0; x <= x1; x++) fl[y * W + x] = 1;
+      const hl = { dir: 'h', A, B, x0, x1, y0, px0: x0 * TS, py0: (y0 - 2) * TS, px1: (x1 + 1) * TS, py1: (y0 + 4) * TS }; halls.push(hl);
+      A.doors.push({ side: 'E', cells: [[A.fx1, y0], [A.fx1, y0 + 1], [A.fx1, y0 + 2]], hall: hl }); B.doors.push({ side: 'W', cells: [[B.fx0, y0], [B.fx0, y0 + 1], [B.fx0, y0 + 2]], hall: hl });
+    } else { // one above the other
+      const x0 = A.cx - 1, y0 = A.fy1, y1 = B.fy0 + 1; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x0 + 2; x++) fl[y * W + x] = 1;
+      const hl = { dir: 'v', A, B, x0, y0, y1, px0: (x0 - 1) * TS, py0: y0 * TS, px1: (x0 + 4) * TS, py1: (y1 + 1) * TS }; halls.push(hl);
+      A.doors.push({ side: 'S', cells: [[x0, A.fy1], [x0 + 1, A.fy1], [x0 + 2, A.fy1]], hall: hl }); B.doors.push({ side: 'N', cells: [[x0, B.fy0 + 1], [x0 + 1, B.fy0 + 1], [x0 + 2, B.fy0 + 1]], hall: hl });
+    }
+  }
+  // ---- paint, the way the tileset is built: dark is solid rock, the beige rim is the top edge of the rock, and a brick face
+  // stands under every rim that faces south. Wall pieces are overlays: the floor runs on underneath them.
+  const cv = mkCanvas(W * TS, H * TS), g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+  g.fillStyle = '#121418'; g.fillRect(0, 0, cv.width, cv.height);
+  const isF = (x, y) => x >= 0 && y >= 0 && x < W && y < H && fl[y * W + x] === 1;
+  const face = (x, y) => !isF(x, y) && isF(x, y + 1), O = (x, y) => isF(x, y) || face(x, y);
+  const inRoomRect = (x, y) => rooms.some(r => x >= r.fx0 && x <= r.fx1 && y >= r.fy0 && y <= r.fy1);
+  const near = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (O(x + dx, y + dy)) return true; return false; };
+  const floorRow = th.floors[0][1], hallRow = floorRow + 2; // the plain slab, light in the rooms and its darker twin in the corridors
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (near(x, y)) tileAt(g, 10, inRoomRect(x, y) ? floorRow : hallRow, x * TS, y * TS);
+  // an inlaid square now and then: four corner slabs that only make sense together, or the small one-slab square
+  for (const r of rooms) {
+    const n = Math.round(r.w * r.h / 70); for (let k = 0; k < n; k++) {
+      const x = randi(r.ix0 + 1, r.ix1 - 2), y = randi(r.iy0 + 1, r.iy1 - 2); if (r.inlay && r.inlay.some(([a, b]) => Math.abs(a - x) < 4 && Math.abs(b - y) < 3)) continue; (r.inlay = r.inlay || []).push([x, y]);
+      if (chance(0.6)) { tileAt(g, 13, floorRow, x * TS, y * TS); tileAt(g, 11, floorRow, (x + 1) * TS, y * TS); tileAt(g, 14, floorRow, x * TS, (y + 1) * TS); tileAt(g, 12, floorRow, (x + 1) * TS, (y + 1) * TS); }
+      else tileAt(g, 15, floorRow, x * TS, y * TS);
+    }
+  }
+  const T = (tx, ty, x, y, flip) => { if (!flip) return tileAt(g, tx, ty + th.fy, x * TS, y * TS); g.save(); g.translate((x + 1) * TS, y * TS); g.scale(-1, 1); g.drawImage(IMG.cellar, tx * TS, (ty + th.fy) * TS, TS, TS, 0, 0, TS, TS); g.restore(); };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (isF(x, y)) continue;
+    if (face(x, y)) { // the brick face; where floor runs past its end, the block's end piece
+      const lf = isF(x - 1, y), rf = isF(x + 1, y); if (rf && !lf) T(3, 3, x, y); else if (lf && !rf) T(3, 3, x, y, true); else T(6, 1, x, y); continue;
+    }
+    const n = O(x, y - 1), e = O(x + 1, y), s = O(x, y + 1), w = O(x - 1, y);
+    if (n && e) T(3, 0, x, y); else if (n && w) T(3, 0, x, y, true); // a corner of rock jutting into the floor
+    else if (s && e) T(3, 2, x, y); else if (s && w) T(3, 2, x, y, true);
+    else if (s) T(6, 0, x, y); else if (n) T(6, 3, x, y);
+    else if (e) T(5, face(x + 1, y) ? 1 : 2, x, y); else if (w) T(7, face(x - 1, y) ? 1 : 2, x, y); // side walls; beside a brick face the rim runs down past it
+    else if (O(x + 1, y + 1)) T(5, 0, x, y); else if (O(x - 1, y + 1)) T(7, 0, x, y); // the inside corners of a room
+    else if (O(x + 1, y - 1)) T(5, 3, x, y); else if (O(x - 1, y - 1)) T(7, 3, x, y);
+  }
+  const A = ARENA = { w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, fl, rooms, halls, props: [], torches: [], runes: [], name: floorName(floor), roomI: -1 };
+  A.doors = rooms.flatMap(r => r.doors.map(d => Object.assign(d, { room: r.i, k: 0 })));
+  A.start = rooms.find(r => r.kind === 'start'); A.end = rooms.find(r => r.kind === 'end');
+  // ---- furnishing (the stairways' places first, so no torch or banner hangs on them)
+  // three free tiles of north wall, clear of any doorway by a tile, as near the middle as they come
+  const wallSpot = r => { const nd = r.doors.filter(d => d.side === 'N').flatMap(d => d.cells.map(c => c[0])); let best = r.cx - 1, bd = 1e9; for (let x = r.ix0 + 1; x + 2 <= r.ix1 - 1; x++) { if (nd.some(c => c >= x - 1 && c <= x + 3)) continue; const d = Math.abs(x + 1 - (r.ix0 + r.ix1) / 2); if (d < bd) { bd = d; best = x; } } return best; };
+  A.start.stairX = wallSpot(A.start); A.end.stairX = wallSpot(A.end);
+  for (const r of rooms) furnish(A, r, g);
+  // the stairway we came down, in the start room's north wall; the way down waits shut in the end room's
+  { const r = A.start, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 12, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 13, (sx + i) * TS, (r.fy0 + 1) * TS); } }
+  { const r = A.end, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 14, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 15, (sx + i) * TS, (r.fy0 + 1) * TS); } A.stairs = { x: (sx + 1.5) * TS, y: (r.fy0 + 2) * TS + 2, sx, sy: r.fy0, room: r.i, open: false }; }
+  A.spawn = { x: (A.start.ix0 + A.start.ix1 + 1) / 2 * TS, y: (A.start.iy1 - 1) * TS };
+  setBounds(null);
+  return A;
+}
+// torches, banners, braziers, clutter, pillars and summoning runes for one room
+function furnish(A, r, g) {
+  const th = A.th, nearDoor = (tx, ty, m = 2) => r.doors.some(d => d.cells.some(([x, y]) => Math.abs(x - tx) <= m && Math.abs(y - ty) <= m)), used = new Set();
+  for (const d of r.doors) if (d.side === 'N') for (const [x] of d.cells) for (let k = -2; k <= 2; k++) used.add(x + k);
+  if (r.stairX !== undefined) for (let k = -1; k <= 3; k++) used.add(r.stairX + k);
+  for (let x = r.ix0 + 1; x < r.ix1; x += 4) { const tx = x + (used.has(x) ? 3 : 0); if (tx >= r.ix1 || used.has(tx)) continue; used.add(tx); A.torches.push({ x: tx * TS + 8, y: (r.fy0 + 1) * TS + 9, tx, f: randi(0, 3) }); }
+  for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || used.has(x - 1) || used.has(x + 1) || !chance(0.3)) continue; const b = randi(20, 31); tileAt(g, b, 0, x * TS, r.fy0 * TS); tileAt(g, b, 1, x * TS, (r.fy0 + 1) * TS); used.add(x); }
+  const prop = (kind, tx, ty, o = {}) => A.props.push(Object.assign({ kind, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o));
+  const free = (x, y, d = 10) => !A.props.some(p => Math.abs(p.x - x) < d && Math.abs(p.y - y) < d);
+  if (r.w * r.h >= 100) for (const [tx, ty] of [[r.ix0 + 1, r.iy1 - 1], [r.ix1 - 1, r.iy0 + 1]]) if (!nearDoor(tx, ty)) prop('brazier', tx, ty, { f: randi(0, 3) });
+  const corner = (cx, cy) => { for (let i = 0; i < randi(1, 3); i++) { const tx = clamp(cx + randi(-1, 1), r.ix0, r.ix1), ty = clamp(cy + randi(-1, 1), r.iy0, r.iy1); if (nearDoor(tx, ty) || !free(tx * TS + 8, ty * TS + 14)) continue; const t = pick([[24, 8], [25, 8], [26, 8], [27, 8], [28, 8], [30, 8]]); prop(t[0] >= 28 ? 'chest' : 'barrel', tx, ty, { tile: t, hp: 40 }); } };
+  if (r.kind === 'treasure') prop('chest', Math.round((r.ix0 + r.ix1) / 2), Math.round((r.iy0 + r.iy1) / 2) + 1, { tile: [29, 8], hp: 1e9, loot: true, r: 6 });
+  corner(r.ix0, r.iy0); corner(r.ix1, r.iy0); corner(r.ix0, r.iy1); corner(r.ix1, r.iy1);
+  if (r.kind === 'fight' || r.kind === 'end') {
+    if (r.w >= 15 && r.h >= 9 && chance(0.7)) { const P = th.pillar[randi(0, 1)]; for (const [fx, fy] of chance(0.5) ? [[0.27, 0.4], [0.73, 0.4], [0.27, 0.78], [0.73, 0.78]] : [[0.3, 0.55], [0.7, 0.55]]) { const tx = Math.round(r.ix0 + fx * (r.w - 1)), ty = Math.max(r.iy0 + 3, Math.round(r.iy0 + fy * (r.h - 1))); if (!nearDoor(tx, ty, 2)) prop('pillar', tx, ty, { tile: P, r: 6 }); } }
+    for (const [fx, fy] of [[0.18, 0.3], [0.82, 0.3], [0.5, 0.45], [0.18, 0.85], [0.82, 0.85], [0.5, 0.92]]) { const tx = Math.round(r.ix0 + fx * (r.w - 1)), ty = Math.round(r.iy0 + fy * (r.h - 1)); tileAt(g, th.rune[0], th.rune[1], tx * TS, ty * TS); r.runes.push({ x: tx * TS + 8, y: ty * TS + 8, glow: 0 }); }
+  }
+}
+// the fighting code's view of the world: one room while its doors are shut, the whole map otherwise
+function setBounds(r) {
+  const A = ARENA; if (!A) return;
+  if (typeof r === 'number') r = A.rooms[r];
+  if (r) Object.assign(A, r.b, { cx: (r.ix0 + r.ix1 + 1) / 2 * TS, cy: (r.iy0 + r.iy1 + 1) / 2 * TS, runes: r.runes, cur: r });
+  else Object.assign(A, { x0: TS, x1: (A.w - 1) * TS, y0: TS, y1: (A.h - 1) * TS, cx: A.spawn ? A.spawn.x : A.pw / 2, cy: A.spawn ? A.spawn.y : A.ph / 2, runes: [], cur: null });
+}
+function inArena(x, y) { return ARENA && x > ARENA.x0 - 4 && x < ARENA.x1 + 4 && y > ARENA.y0 - 8 && y < ARENA.y1 + 4 && !solidAt(x, y); }
+function nearestSolid(x, y, r) { for (const p of ARENA.props) if (p.solid && !p.dead && dist(x, y, p.x, p.cy) < r + p.r) return p; return null; }
+// walls and shut doors
+function solidTile(tx, ty) { const A = ARENA; if (tx < 0 || ty < 0 || tx >= A.w || ty >= A.h) return true; const v = A.fl[ty * A.w + tx]; return v !== 1; }
+function solidAt(x, y) { return ARENA && ARENA.fl ? solidTile(Math.floor(x / TS), Math.floor(y / TS)) : false; }
+function roomAt(x, y, m = 0) { const A = ARENA; if (!A || !A.rooms) return null; const tx = x / TS, ty = y / TS; for (const r of A.rooms) if (tx >= r.ix0 + m && tx < r.ix1 + 1 - m && ty >= r.iy0 + m && ty < r.iy1 + 1 - m) return r; return null; }
+// a unit's feet are a small box; push it out of any wall tile it overlaps
+function tileCollide(u) {
+  const A = ARENA; if (!A || !A.fl) return; const hw = Math.max(3, u.r * 0.8), hh = Math.max(2, u.r * 0.45);
+  for (let pass = 0; pass < 2; pass++) {
+    const tx0 = Math.floor((u.x - hw) / TS), tx1 = Math.floor((u.x + hw) / TS), ty0 = Math.floor((u.y - hh) / TS), ty1 = Math.floor((u.y + hh) / TS);
+    for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+      if (!solidTile(tx, ty)) continue;
+      const ox = Math.min(u.x + hw - tx * TS, (tx + 1) * TS - (u.x - hw)), oy = Math.min(u.y + hh - ty * TS, (ty + 1) * TS - (u.y - hh));
+      if (ox <= 0 || oy <= 0) continue;
+      if (ox < oy) { const s = u.x < tx * TS + TS / 2 ? -1 : 1; u.x += s * ox; u.kx *= -0.3; } else { const s = u.y < ty * TS + TS / 2 ? -1 : 1; u.y += s * oy; u.ky *= -0.3; }
+    }
+  }
+}
+// doors shut while their room is being fought in (every phone works this out from G.roomI)
+function syncDoors(dt) {
+  const A = ARENA; if (!A || !A.doors) return; let changed = false;
+  for (const d of A.doors) {
+    const shut = G.roomI === d.room; d.k = clamp(d.k + (shut ? 1 : -1) * dt * 5, 0, 1);
+    const v = shut ? 2 : 1; for (const [x, y] of d.cells) { const i = y * A.w + x; if (A.fl[i] !== v) { A.fl[i] = v; changed = true; } }
+  }
+  if (A.stairs) A.stairs.open = !!(G.clearMask & (1 << A.stairs.room));
+  if (changed && NET.role !== 'client') for (const u of G.units) tileCollide(u);
+}

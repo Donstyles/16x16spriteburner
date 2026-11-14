@@ -11,7 +11,10 @@ function buildArena(floor) {
   const W = randi(22, 26), H = randi(14, 16);
   const cv = mkCanvas(W * TS, H * TS), g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
   g.fillStyle = '#121418'; g.fillRect(0, 0, cv.width, cv.height);
-  for (let y = 2; y < H - 1; y++) for (let x = 1; x < W - 1; x++) { const f = pick(th.floors); tileAt(g, f[0], f[1], x * TS, y * TS); }
+  // the wall pieces are overlays, see-through where they meet the floor, so the floor runs on under the side and bottom walls
+  const fr = th.floors[0][1]; for (let y = 2; y < H; y++) for (let x = 0; x < W; x++) tileAt(g, 10, fr, x * TS, y * TS);
+  // an inlaid square now and then: four corner slabs that belong together, or the small one-slab square
+  const inl = []; for (let k = 0; k < 4; k++) { const x = randi(2, W - 4), y = randi(4, H - 4); if (inl.some(([a, b]) => Math.abs(a - x) < 4 && Math.abs(b - y) < 3)) continue; inl.push([x, y]); if (chance(0.6)) { tileAt(g, 13, fr, x * TS, y * TS); tileAt(g, 11, fr, (x + 1) * TS, y * TS); tileAt(g, 14, fr, x * TS, (y + 1) * TS); tileAt(g, 12, fr, (x + 1) * TS, (y + 1) * TS); } else tileAt(g, 15, fr, x * TS, y * TS); }
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const fx = x === 0 ? 5 : x === W - 1 ? 7 : 6, fy = y === 0 ? 0 : y === 1 ? 1 : y === H - 1 ? 3 : 2;
     if (fx === 6 && fy === 2) continue; tileAt(g, fx, fy + th.fy, x * TS, y * TS);

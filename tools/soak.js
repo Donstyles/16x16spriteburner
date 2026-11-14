@@ -6,15 +6,15 @@ const { chromium } = require('playwright');
   const page = await (await browser.newContext({ viewport: { width: 932, height: 430 } })).newPage(); const errs = [];
   page.on('pageerror', e => errs.push('PAGEERROR ' + e.message + ' ' + (e.stack || '').split('\n')[1]));
   page.on('console', m => { if (m.type() === 'error') errs.push('CONSOLE ' + m.text().slice(0, 300)); });
-  await page.goto('http://127.0.0.1:8787/index.html');
+  await page.goto(process.env.GAME_URL || 'http://127.0.0.1:8787/index.html'); // GAME_URL=.../crawler/index.html soaks the sequel
   await page.waitForFunction(() => window.CR && window.CR.G.mode === 'menu', null, { timeout: 30000 }); await page.evaluate(k => { localStorage.setItem('cor-tut', '1'); CR.startSolo(); if (k) { const t = setInterval(() => { const c = CR.G.choice; if (c && c.kind === 'draft' && c.step === 1) { CR.pickChoice(c.opts.findIndex(o => o.hero === k), true); clearInterval(t); } }, 50); } }, process.argv[5] || '');
   await page.evaluate(t => { window.CR_AUTO = 0.4; window.CR_TURBO = t; window.__pilot = setInterval(() => { if (CR.G) CR.G.autoMode = 2; }, 200); window.__f = 0; const tick = () => { window.__f++; requestAnimationFrame(tick); }; requestAnimationFrame(tick); }, turbo);
   if (!pilot) await page.evaluate(() => clearInterval(window.__pilot));
   const t0 = Date.now(); let lastKey = '';
   while ((Date.now() - t0) / 1000 < secs) {
     await page.waitForTimeout(3000);
-    const st = await page.evaluate(() => { const G = CR.G, f = window.__f; window.__f = 0; return { simT: G.time.toFixed(0), known: G.known ? G.known.size : 0, hero: G.me ? G.me.key : '', mods: G.modsTaken ? Object.values(G.modsTaken).flat().length : 0, falls: G.falls || 0, lvl: G.lvl, xp: Math.round(G.xp), fps: (f / 3).toFixed(0), floor: G.floor, run: G.run, phase: G.phase, wave: G.wave + '/' + G.waves, mons: G.mons.length, q: G.spawnQ.length, champ: G.champ ? (G.champ.dead ? 'dead' : Math.round(G.champ.hp)) : '-', boss: G.boss ? (G.boss.dead ? 'dead' : Math.round(G.boss.hp) + '/' + G.boss.maxHp) : '-', kills: G.kills, heroes: G.heroes.map(h => h.dead ? 'X' : Math.round(h.hp / h.maxHp * 100) + '%').join(' '), parts: CR.FX.P.length, res: CR.Q.res, err: (window.CR_ERR || []).length }; });
-    const key = st.floor + st.run + st.phase + st.wave + st.boss; if (key !== lastKey || st.err) { console.log(JSON.stringify(st)); lastKey = key; }
+    const st = await page.evaluate(() => { const G = CR.G, f = window.__f; window.__f = 0; return { simT: G.time.toFixed(0), known: G.known ? G.known.size : 0, hero: G.me ? G.me.key : '', mods: G.modsTaken ? Object.values(G.modsTaken).flat().length : 0, falls: G.falls || 0, lvl: G.lvl, xp: Math.round(G.xp), fps: (f / 3).toFixed(0), floor: G.floor, run: G.run, phase: G.phase, wave: G.wave + '/' + G.waves, mons: G.mons.length, q: G.spawnQ.length, champ: G.champ ? (G.champ.dead ? 'dead' : Math.round(G.champ.hp)) : '-', boss: G.boss ? (G.boss.dead ? 'dead' : Math.round(G.boss.hp) + '/' + G.boss.maxHp) : '-', kills: G.kills, heroes: G.heroes.map(h => h.dead ? 'X' : Math.round(h.hp / h.maxHp * 100) + '%').join(' '), parts: CR.FX.P.length, res: CR.Q.res, err: (window.CR_ERR || []).length, room: G.roomI === undefined ? undefined : G.roomI + ' clear:' + (G.clearMask || 0).toString(2) + (G.waitMsg ? ' wait:' + G.waitMsg : '') }; });
+    const key = st.floor + st.run + st.phase + st.wave + st.boss + (st.room === undefined ? '' : st.room); if (key !== lastKey || st.err) { console.log(JSON.stringify(st)); lastKey = key; }
   }
   console.log('errors:', errs.length); errs.slice(0, 8).forEach(e => console.log(e));
   const ce = await page.evaluate(() => window.CR_ERR); if (ce) console.log('CR_ERR', ce);
