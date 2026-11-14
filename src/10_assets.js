@@ -28,17 +28,19 @@ function spritePixels(key) {
 function footOf(key) { return spritePixels(key).foot; }
 // soft additive glow sprite for a colour
 const GLOW = {};
+// pixel-art light: soft gradients are cut into a few hard steps of alpha, so glows, lights and smoke come out as bands of pixels
+function posterize(cv, levels) { const x = cv.getContext('2d'), id = x.getImageData(0, 0, cv.width, cv.height), d = id.data; for (let i = 3; i < d.length; i += 4) d[i] = Math.round(Math.round(d[i] / 255 * levels) / levels * 255); x.putImageData(id, 0, 0); return cv; }
 function glowTex(c) {
   const s = 64, cv = mkCanvas(s, s), x = cv.getContext('2d'), g = x.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
   g.addColorStop(0, `rgba(${Math.min(255, c[0] + 90)},${Math.min(255, c[1] + 90)},${Math.min(255, c[2] + 90)},1)`);
   g.addColorStop(0.18, `rgba(${c[0]},${c[1]},${c[2]},0.85)`); g.addColorStop(0.5, `rgba(${c[0]},${c[1]},${c[2]},0.28)`); g.addColorStop(1, `rgba(${c[0]},${c[1]},${c[2]},0)`);
-  x.fillStyle = g; x.fillRect(0, 0, s, s); return cv;
+  x.fillStyle = g; x.fillRect(0, 0, s, s); return posterize(cv, 4);
 }
 const SMOKE = {};
 function smokeTex(c) {
   const s = 64, cv = mkCanvas(s, s), x = cv.getContext('2d');
   for (let i = 0; i < 7; i++) { const px = s / 2 + rand(-9, 9), py = s / 2 + rand(-9, 9), r = rand(12, 22), g = x.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, `rgba(${c[0]},${c[1]},${c[2]},0.5)`); g.addColorStop(1, `rgba(${c[0]},${c[1]},${c[2]},0)`); x.fillStyle = g; x.fillRect(0, 0, s, s); }
-  return cv;
+  return posterize(cv, 3);
 }
 // procedural falling rock / meteor body
 const ROCKS = [];

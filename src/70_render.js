@@ -4,7 +4,7 @@ const CAM = { x: 0, y: 0, z: 2, kick: 0 };
 const SH = { x: 0, y: 0, r: 0 };
 let cvs, ctx, fxc, fctx, lc, lctx, b1, b1c, b2, b2c, vign;
 const LIGHTTEX = {};
-function lightTex(k) { if (LIGHTTEX[k]) return LIGHTTEX[k]; const c = COL[k] || COL.white, s = 64, cv = mkCanvas(s, s), x = cv.getContext('2d'), g = x.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); g.addColorStop(0, `rgba(${c},1)`); g.addColorStop(0.35, `rgba(${c},0.55)`); g.addColorStop(1, `rgba(${c},0)`); x.fillStyle = g; x.fillRect(0, 0, s, s); return (LIGHTTEX[k] = cv); }
+function lightTex(k) { if (LIGHTTEX[k]) return LIGHTTEX[k]; const c = COL[k] || COL.white, s = 256, cv = mkCanvas(s, s), x = cv.getContext('2d'), g = x.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); g.addColorStop(0, `rgba(${c},1)`); g.addColorStop(0.35, `rgba(${c},0.55)`); g.addColorStop(1, `rgba(${c},0)`); x.fillStyle = g; x.fillRect(0, 0, s, s); posterize(cv, 6); return (LIGHTTEX[k] = cv); }
 function resize() {
   // phones held upright still get the landscape game: the canvas is turned 90° clockwise, so it reads correctly once the phone is turned (even with rotation lock on)
   const iw = Math.max(1, innerWidth), ih = Math.max(1, innerHeight), rot = ih > iw && matchMedia('(pointer: coarse)').matches;
@@ -13,8 +13,7 @@ function resize() {
   let dpr = Math.min(window.devicePixelRatio || 1, 2) * Q.res;
   if (w * h * dpr * dpr > 2.6e6) dpr = Math.sqrt(2.6e6 / (w * h));
   VIEW.w = w; VIEW.h = h; VIEW.dpr = dpr;
-  cvs.width = Math.round(w * dpr); cvs.height = Math.round(h * dpr); fxc.width = cvs.width; fxc.height = cvs.height;
-  lc.width = Math.ceil(cvs.width / 4); lc.height = Math.ceil(cvs.height / 4); b1.width = Math.ceil(cvs.width / 8); b1.height = Math.ceil(cvs.height / 8); b2.width = Math.ceil(cvs.width / 24); b2.height = Math.ceil(cvs.height / 24);
+  cvs.width = Math.round(w * dpr); cvs.height = Math.round(h * dpr); // the world, effect, light and bloom buffers follow the camera in render()
   vign = mkCanvas(256, 256); const v = vign.getContext('2d'), g = v.createRadialGradient(128, 128, 60, 128, 128, 182); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.62)'); v.fillStyle = g; v.fillRect(0, 0, 256, 256);
   const pr = document.getElementById('safe'); if (pr) { const cs = getComputedStyle(pr); const sl = parseFloat(cs.paddingLeft) || 0, sr = parseFloat(cs.paddingRight) || 0, st = parseFloat(cs.paddingTop) || 0, sb = parseFloat(cs.paddingBottom) || 0; VIEW.safe = rot ? { l: st, r: sb, t: sr, b: sl } : { l: sl, r: sr, t: st, b: sb }; }
 }
@@ -123,7 +122,7 @@ function drawAuras(c) {
 function renderLight() {
   const th = ARENA.th.amb, d = clamp(Math.max(G.ambDark, G.phase === 'fight' ? (G.inten || 0) * 0.32 : 0), 0, 1), fl = clamp(G.ambFlash, 0, 0.6), mix = (v, w) => Math.round(clamp(v * (1 - d * 0.8) + w * fl * 0.75, 0, 255));
   lctx.setTransform(1, 0, 0, 1, 0, 0); lctx.globalCompositeOperation = 'source-over'; lctx.globalAlpha = 1; lctx.fillStyle = `rgb(${mix(th[0], 230)},${mix(th[1], 240)},${mix(th[2], 255)})`; lctx.fillRect(0, 0, lc.width, lc.height);
-  lctx.globalCompositeOperation = 'lighter'; worldXform(lctx, lc.width / VIEW.w);
+  lctx.globalCompositeOperation = 'lighter'; lctx.imageSmoothingEnabled = false; lctx.setTransform(1, 0, 0, 1, -PXO.x, -PXO.y); // the light map is drawn at game resolution too
   const L = (x, y, r, k, a) => { if (a <= 0.01) return; const t = lightTex(k); for (let i = 0; i < 2 && a > 0.01; i++, a -= 1) { lctx.globalAlpha = Math.min(1, a); lctx.drawImage(t, x - r, y - r * 0.8, r * 2, r * 1.6); } };
   for (const t of ARENA.torches) L(t.x, t.y + 6, 62 + 6 * noise1(G.time * 7 + t.tx), 'torch', 0.85 * (1 - d * 0.5));
   for (const p of ARENA.props) if (p.kind === 'brazier') L(p.x, p.y - 4, 90 + 8 * noise1(G.time * 6 + p.x), 'torch', 0.95 * (1 - d * 0.5));
@@ -138,26 +137,45 @@ function renderLight() {
   let n = 0; for (const p of FX.P) { if (p.k === 'glow' && p.s0 > 6 && (n++ & 3) === 0) L(p.x, p.y, p.s0 * 4, p.col, 0.5 * (1 - p.t / p.life)); }
   lctx.globalAlpha = 1;
 }
+// The world, its effects and its light are drawn at the game's own resolution (one canvas pixel per game pixel) and only then
+// enlarged to the screen, nearest-neighbour, through the camera (zoom, shake and tilt included). Every shadow, ring, glow,
+// bolt and puff of smoke therefore comes out in the same chunky pixels as the sprites. The HUD stays at screen resolution.
+let wb = null, wbc = null, PXO = { x: 0, y: 0 };
+function fitBuf(c, w, h) { if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } }
 function render() {
   const W = cvs.width, H = cvs.height, k = VIEW.dpr;
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.fillStyle = '#0b0c0f'; ctx.fillRect(0, 0, W, H);
   if (!ARENA) return;
-  ctx.imageSmoothingEnabled = false; worldXform(ctx, k);
-  ctx.drawImage(ARENA.ground, 0, 0);
-  for (const t of ARENA.torches) { const f = ((G.time * 9 + t.f) | 0) % 4; ctx.drawImage(IMG.cellar, f * TS, 26 * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); }
-  drawTele(ctx);
-  ctx.fillStyle = 'rgba(0,0,0,0.38)';
-  for (const u of G.units) { if (u.dead && u.team === 'mon') continue; const s = u.r * 1.3 * (1 - Math.min(0.6, u.z / 160)); ctx.beginPath(); ctx.ellipse(u.x, u.y, s, s * 0.42, 0, 0, TAU); ctx.fill(); }
+  if (!wb) { wb = mkCanvas(1, 1); wbc = wb.getContext('2d'); }
+  // the part of the world on screen, in game pixels, with room for the shake and its tilt
+  const zs = CAM.z * (1 + CAM.kick), hw = VIEW.w / (2 * zs), hh = VIEW.h / (2 * zs), pad = 3 + Math.ceil((Math.abs(SH.x) + Math.abs(SH.y)) / zs + Math.abs(SH.r) * Math.max(hw, hh) * 1.2);
+  const ox = Math.floor(CAM.x - hw - pad), oy = Math.floor(CAM.y - hh - pad), bw = Math.ceil(2 * (hw + pad)) + 2, bh = Math.ceil(2 * (hh + pad)) + 2; PXO.x = ox; PXO.y = oy;
+  fitBuf(wb, bw, bh); fitBuf(fxc, bw, bh); fitBuf(lc, bw, bh); fitBuf(b1, Math.ceil(bw / 3), Math.ceil(bh / 3)); fitBuf(b2, Math.ceil(bw / 8), Math.ceil(bh / 8));
+  const X = c => c.setTransform(1, 0, 0, 1, -ox, -oy);
+  const c = wbc; c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; c.fillStyle = '#0b0c0f'; c.fillRect(0, 0, bw, bh); c.imageSmoothingEnabled = false; X(c);
+  c.drawImage(ARENA.ground, 0, 0);
+  for (const t of ARENA.torches) { const f = ((G.time * 9 + t.f) | 0) % 4; c.drawImage(IMG.cellar, f * TS, 26 * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); }
+  drawTele(c);
+  for (const u of G.units) { if (u.dead && u.team === 'mon') continue; pxShadow(c, u.x, u.y, u.r * 1.3 * (1 - Math.min(0.6, u.z / 160))); }
   const list = G.units.slice(); for (const p of ARENA.props) if (!p.dead) list.push(p); list.sort((a, b) => a.y - b.y);
-  for (const o of list) o.team ? drawUnit(ctx, o) : drawProp(ctx, o);
-  drawHazardsWorld(ctx); drawProjBodies(ctx); drawWorldParts(ctx);
+  for (const o of list) o.team ? drawUnit(c, o) : drawProp(c, o);
+  drawHazardsWorld(c); drawProjBodies(c); drawWorldParts(c);
   renderLight();
-  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = true; ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(lc, 0, 0, W, H);
-  fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.globalCompositeOperation = 'source-over'; fctx.globalAlpha = 1; fctx.clearRect(0, 0, W, H); fctx.globalCompositeOperation = 'lighter'; fctx.imageSmoothingEnabled = true; worldXform(fctx, k);
+  c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'multiply'; c.drawImage(lc, 0, 0);
+  fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.globalCompositeOperation = 'source-over'; fctx.globalAlpha = 1; fctx.clearRect(0, 0, bw, bh); fctx.globalCompositeOperation = 'lighter'; fctx.imageSmoothingEnabled = false; X(fctx);
   drawAuras(fctx); drawHazardsFx(fctx); drawCrackGlow(fctx); drawGhosts(fctx); drawRings(fctx); drawFxParts(fctx); drawProjGlows(fctx); drawBolts(fctx);
-  ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(fxc, 0, 0);
-  if (Q.bloom > 0) { b1c.clearRect(0, 0, b1.width, b1.height); b1c.drawImage(fxc, 0, 0, b1.width, b1.height); b2c.clearRect(0, 0, b2.width, b2.height); b2c.drawImage(b1, 0, 0, b2.width, b2.height); ctx.globalAlpha = 0.6 * Q.bloom; ctx.drawImage(b1, 0, 0, W, H); ctx.globalAlpha = 0.7 * Q.bloom; ctx.drawImage(b2, 0, 0, W, H); ctx.globalAlpha = 1; }
+  c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'lighter'; c.drawImage(fxc, 0, 0);
+  if (Q.bloom > 0) { b1c.imageSmoothingEnabled = b2c.imageSmoothingEnabled = c.imageSmoothingEnabled = true; b1c.clearRect(0, 0, b1.width, b1.height); b1c.drawImage(fxc, 0, 0, b1.width, b1.height); b2c.clearRect(0, 0, b2.width, b2.height); b2c.drawImage(b1, 0, 0, b2.width, b2.height); c.globalAlpha = 0.45 * Q.bloom; c.drawImage(b1, 0, 0, bw, bh); c.globalAlpha = 0.5 * Q.bloom; c.drawImage(b2, 0, 0, bw, bh); c.globalAlpha = 1; c.imageSmoothingEnabled = false; }
+  c.globalCompositeOperation = 'source-over';
+  // the finished world goes on screen, each game pixel a crisp block
+  ctx.imageSmoothingEnabled = false; worldXform(ctx, k); ctx.drawImage(wb, ox, oy);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   if (G.flashA > 0.01) { ctx.fillStyle = rgba(G.flashC, Math.min(0.9, G.flashA)); ctx.fillRect(0, 0, W, H); }
   ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(vign, 0, 0, W, H);
   drawHUD();
+}
+// a unit's shadow: a flat pixel ellipse, row by row, no soft edge
+function pxShadow(c, x, y, r) {
+  const rx = Math.max(2, Math.round(r)), ry = Math.max(1, Math.round(r * 0.42)), cx = Math.round(x), cy = Math.round(y); c.fillStyle = 'rgba(0,0,0,0.38)';
+  for (let dy = -ry; dy <= ry; dy++) { const w = Math.round(rx * Math.sqrt(1 - (dy / (ry + 0.5)) ** 2)); if (w > 0) c.fillRect(cx - w, cy + dy, w * 2, 1); }
 }
