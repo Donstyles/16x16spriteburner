@@ -74,7 +74,7 @@ const HAZFX = {
     if (chance(dt * (z.heavy ? 14 : 8))) part({ k: 'pix', x: x + rand(-3, 3), y, z: hh + rand(2, 8), vx: rand(-10, 10), vy: rand(-4, 4), vz: rand(-10, 10), g: 300, life: 0.9, s0: 1.2, col: '#b0182c' });
   },
   consecrate(z, dt) { const live2 = 1 - z.t / z.life; if (chance(dt * 14)) { const a = rand(TAU), r = rand(z.r); part({ k: 'glow', x: z.x + Math.cos(a) * r, y: z.y + Math.sin(a) * r * 0.7, z: 0, vz: rand(20, 50), life: rand(0.6, 1.1), s0: rand(1.5, 2.5), s1: 0, col: 'holy' }); } light(z.x, z.y, z.r * 1.8, 'holy', 0.35 * live2 + 0.1); },
-  sanct(z, dt) { if (chance(dt * 18)) { const a = rand(TAU), r = rand(z.r); part({ k: 'glow', x: z.x + Math.cos(a) * r, y: z.y + Math.sin(a) * r * 0.7, z: rand(0, 20), vz: rand(20, 50), life: rand(0.8, 1.4), s0: rand(1.5, 3), s1: 0, col: chance(0.7) ? 'holy' : 'white' }); } if (chance(dt * 2)) HFX.feathers(z.x, z.y, 1); light(z.x, z.y, z.r * 1.7, 'holy', 0.4); },
+  sanct(z, dt) { if (chance(dt * 16)) { const a = rand(TAU), r = rand(z.r * 0.85); part({ k: 'pix', x: Math.round(z.x + Math.cos(a) * r), y: Math.round(z.y + Math.sin(a) * r * 0.7), z: 0, vz: rand(12, 26), g: 0, life: rand(1, 1.8), s0: 1, col: chance(0.6) ? HOLY.pale : HOLY.gold }); } if (chance(dt * 2)) HFX.feathers(z.x, z.y, 1); light(z.x, z.y, z.r * 1.7, 'holy', 0.4); },
   angel(z, dt) { angelGlide(z, dt); const x = z._x, y = z._y; light(x, y - 20, 46, 'holy', 0.55); if (chance(dt * 3)) HFX.feathers(x, y, 1); if (chance(dt * 10)) part({ k: 'glow', x: x + rand(-12, 12), y: y + rand(-4, 4), z: rand(14, 34), vz: rand(-10, 20), life: 0.6, s0: 1.6, s1: 0, col: 'holy' }); },
   skybeam(z, dt) { light(z.x, z.y, z.r * 3, 'holy', 0.8); sparks(z.x, z.y, 4, 2, 'holy', 160, 160); if (chance(0.4)) scorch(z.x, z.y, z.r * 0.6, 0.15); },
   moon(z, dt) { light(z.x, z.y + 60, 260, 'crimson', 0.9); if (chance(dt * 30)) part({ k: 'ember', x: rand(ARENA.x0, ARENA.x1), y: rand(ARENA.y0, ARENA.y1), z: rand(40, 80), vx: rand(-10, 10), vy: 0, vz: -rand(10, 30), life: rand(1.5, 2.5), s0: rand(1, 1.8), s1: 0.3, col: 'crimson' }); },
@@ -87,8 +87,47 @@ Object.assign(EMIT, {
   rise(e, dt) { if (chance(dt * 20)) part({ k: 'glow', x: e.x + rand(-40, 40), y: e.y + rand(-28, 28), z: 0, vz: rand(40, 120), drag: 0.4, life: rand(0.6, 1.2), s0: rand(2, 4), s1: 0, col: e.col }); },
 });
 // ---------- drawing the new zones ----------
+// SANCTUARY: a dome of light in whole pixels. The shell is built once per size: dithered glass that thickens toward the rim,
+// a gold outline, the back of the ground ring seen through it, one band of latitude and a glint at the upper left.
+const HOLY = { white: '#fffbe8', pale: '#fff0b8', gold: '#ffd860', deep: '#d9a63a' }, DOMES = new Map();
+// the camera looks down at the floor at a slant: ground depth shrinks by SA, height lifts by CA (a ground circle is drawn R x 0.7R)
+const DSA = 0.7, DCA = Math.sqrt(1 - DSA * DSA), domeG = R => Math.round(R * DSA);
+const domeAt = (cx, cy, X, Yd, Z) => [Math.round(cx + X), Math.round(cy + Yd * DSA - Z * DCA)];
+function domeImg(R) {
+  R = Math.round(R); let cv = DOMES.get(R); if (cv) return cv;
+  const G0 = domeG(R), W = 2 * R + 3, HT = R + G0 + 3, cx = R + 1, cy = R + 1;
+  cv = mkCanvas(W, HT); cv.glint = []; const g = cv.getContext('2d'), px = (x, y, col) => { g.fillStyle = col; g.fillRect(x, y, 1, 1); };
+  // follow the line of sight through each pixel to the hemisphere; glass looks thick where it is seen edge-on
+  const hit = (x, y) => { const X = x - cx, Yd = (y - cy) / DSA, b = Yd * DCA, d = b * b - (X * X + Yd * Yd) + R * R; if (d < 0) return null; const t = -b + Math.sqrt(d); if (t < 0) return null; return [X / R, (Yd + t * DCA) / R, t * DSA / R]; };
+  const L = [-0.55, -0.35, 0.76], Lc = [L[0], L[1] + DCA, L[2] + DSA], Ln = Math.hypot(...Lc), Hv = Lc.map(v => v / Ln); // the glint's light, upper left
+  for (let y = 0; y < HT; y++) for (let x = 0; x < W; x++) {
+    const n = hit(x, y); if (!n) continue;
+    if (!hit(x + 1, y) || !hit(x - 1, y) || !hit(x, y - 1) || !hit(x, y + 1)) { px(x, y, n[2] < 0.06 ? HOLY.deep : n[0] < -0.2 && n[1] < 0.3 ? HOLY.white : HOLY.gold); continue; }
+    const face = n[1] * DCA + n[2] * DSA, f = 1 - Math.max(0, face), spec = n[0] * Hv[0] + n[1] * Hv[1] + n[2] * Hv[2];
+    if (spec > 0.9975) { cv.glint.push(x, y); continue; } // drawn on its own, outside the glow pass, so the bloom never smears it
+    if (BAYER4[(x & 3) + (y & 3) * 4] / 16 < 0.04 + 0.62 * f ** 3 + (spec > 0.99 ? 0.25 : 0)) px(x, y, f > 0.72 ? HOLY.gold : HOLY.pale);
+  }
+  const ring = (la, from, to, col, frontOnly) => { const n = Math.max(24, Math.round(R * Math.cos(la) * 5)); for (let i = 0; i <= n; i++) { const t = from + (to - from) * i / n, X = R * Math.cos(la) * Math.cos(t), Yd = R * Math.cos(la) * Math.sin(t), Z = R * Math.sin(la), [x, y] = domeAt(cx, cy, X, Yd, Z); if ((x + y) & 1) continue; if (frontOnly && Math.cos(la) * Math.sin(t) * DCA + Math.sin(la) * DSA < 0.05) continue; px(x, y, col); } };
+  ring(0, Math.PI, TAU, HOLY.gold); // the back of the ground ring, seen through the glass
+  ring(0.55, 0, Math.PI, HOLY.pale, true); // a band of latitude across the front
+  DOMES.set(R, cv); return cv;
+}
+// the dome rises out of the ground when it is cast
+function domeDraw(c, z, a, glint) {
+  const img = domeImg(z.r), R = Math.round(z.r), x0 = Math.round(z.x) - R - 1, y0 = Math.round(z.y) - R - 1, rise = clamp(z.t / 0.35, 0, 1), rows = Math.ceil(img.height * rise), sy = img.height - rows;
+  if (rows <= 0) return; c.globalAlpha = a; c.drawImage(img, 0, sy, img.width, rows, x0, y0 + sy, img.width, rows);
+  if (glint) { c.fillStyle = HOLY.white; const G2 = img.glint; for (let i = 0; i < G2.length; i += 2) if (G2[i + 1] >= sy) c.fillRect(x0 + G2[i], y0 + G2[i + 1], 1, 1); }
+}
+// a ring of light climbing the dome over and over, and a few twinkles on the shell
+function domeShine(c, z, a) {
+  if (z.t < 0.35) return; const R = Math.round(z.r), cx = Math.round(z.x), cy = Math.round(z.y), ph = (G.time * 0.55 + (z.id || 0) * 0.37) % 1, la = ph * 1.4, n = Math.max(16, Math.round(R * Math.cos(la) * 5));
+  for (let i = 0; i < n; i++) { const t = i / n * TAU, front = Math.cos(la) * Math.sin(t) * DCA + Math.sin(la) * DSA > 0, [x, y] = domeAt(cx, cy, R * Math.cos(la) * Math.cos(t), R * Math.cos(la) * Math.sin(t), R * Math.sin(la)); c.globalAlpha = a * (1 - ph) * (front ? 1 : 0.3); c.fillStyle = front ? HOLY.white : HOLY.gold; c.fillRect(x, y, 1, 1); }
+  const fr = Math.floor(G.time * 7); c.fillStyle = HOLY.white;
+  for (let k = 0; k < 4; k++) { const id = (z.id || 1), t = 0.3 + hash2(id * 31 + k, fr) * 2.5, e = hash2(fr, id * 17 + k) * 1.3, [x, y] = domeAt(cx, cy, R * Math.cos(e) * Math.cos(t), R * Math.cos(e) * Math.sin(t), R * Math.sin(e)); c.globalAlpha = a * (0.5 + 0.5 * hash2(k, fr + 3)); c.fillRect(x, y, 1, 1); }
+}
 const HAZDRAW = {
   world: {
+    sanct(c, z) { const life = clamp((z.life - z.t) * 2, 0, 1); if (life <= 0) return; c.save(); c.imageSmoothingEnabled = false; domeDraw(c, z, 0.85 * life, true); domeShine(c, z, life); c.restore(); },
     abduct(c, z) {
       const t = (z.t || 0) - (z.delay || 0); if (t < -0.05 || (z.heavy && z.st)) return; const u = abductee(z), x = u ? u.x : z.x, y = u ? u.y : z.y, hh = u ? u.z : z.h, s = z.s || 1;
       const n = z.n || 4, grab = clamp(t / 0.35, 0, 1), strain = !!z.heavy, top = y - hh - 13 * s;
@@ -111,7 +150,7 @@ const HAZDRAW = {
     bleed(c, z) { c.globalAlpha = 0.5; c.drawImage(GLOW.crimson, z.x - 8, z.y - 10, 16, 14); },
     holyflame(c, z) { c.globalAlpha = 0.55; c.drawImage(GLOW.holy, z.x - 9, z.y - 14, 18, 18); },
     consecrate(c, z) { const live2 = Math.min(1, (1 - z.t / z.life) * 3); c.globalAlpha = 0.65 * live2; c.strokeStyle = rgba('holy', 0.9); c.lineWidth = 1.4; c.beginPath(); c.ellipse(z.x, z.y, z.r, z.r * 0.7, 0, 0, TAU); c.stroke(); c.beginPath(); c.ellipse(z.x, z.y, z.r * 0.7, z.r * 0.49, 0, 0, TAU); c.stroke(); c.globalAlpha = 0.25 * live2; c.drawImage(GLOW.holy, z.x - z.r, z.y - z.r * 0.7, z.r * 2, z.r * 1.4); },
-    sanct(c, z) { const live2 = Math.min(1, (1 - z.t / z.life) * 3, z.t * 4), p = 0.8 + 0.2 * Math.sin(G.time * 3); c.globalAlpha = 0.16 * live2 * p; c.drawImage(GLOW.holy, z.x - z.r * 1.2, z.y - z.r * 1.3, z.r * 2.4, z.r * 1.8); c.globalAlpha = 0.8 * live2; c.strokeStyle = rgba('holy', 0.9); c.lineWidth = 1.6; c.beginPath(); c.ellipse(z.x, z.y, z.r, z.r * 0.7, 0, 0, TAU); c.stroke(); c.globalAlpha = 0.35 * live2; c.beginPath(); c.ellipse(z.x, z.y - z.r * 0.35, z.r, z.r * 0.9, 0, Math.PI, TAU); c.stroke(); },
+    sanct(c, z) { const life = clamp((z.life - z.t) * 2, 0, 1); if (life <= 0) return; c.save(); c.imageSmoothingEnabled = false; domeDraw(c, z, (0.28 + 0.07 * Math.sin(G.time * 3)) * life); domeShine(c, z, 0.8 * life); c.restore(); },
     angel(c, z) { const P = angelPose(z), life = P.life, y = P.y, h = (z.big ? 2.8 : 2.2) * 16; c.globalAlpha = 0.3 * life; c.drawImage(GLOW.holy, P.x - h * 0.8, y - h * 1.05, h * 1.6, h * 1.3); c.globalAlpha = 0.9 * life; c.strokeStyle = rgba('holy', 1); c.lineWidth = 1.2; c.beginPath(); c.ellipse(P.x + Math.sin(P.tilt) * h * 0.98, y - h * 0.98 * Math.cos(P.tilt), 5, 1.6, P.tilt, 0, TAU); c.stroke(); },
     skybeam(c, z) { const life = Math.min(1, z.t * 5, (z.life - z.t) * 5), w = z.r * 1.3; c.globalAlpha = 0.85 * life; const g = c.createLinearGradient(0, z.y - 240, 0, z.y); g.addColorStop(0, 'rgba(255,236,170,0)'); g.addColorStop(0.7, 'rgba(255,236,170,0.55)'); g.addColorStop(1, 'rgba(255,255,255,0.9)'); c.fillStyle = g; c.fillRect(z.x - w, z.y - 240, w * 2, 244); c.fillStyle = 'rgba(255,255,255,0.8)'; c.fillRect(z.x - w * 0.3, z.y - 240, w * 0.6, 244); c.drawImage(GLOW.holy, z.x - w * 2, z.y - w, w * 4, w * 2); },
     moon(c, z) { const life = Math.min(1, z.t * 1.5, (z.life - z.t) * 2), R = 46; c.globalAlpha = 0.9 * life; c.drawImage(GLOW.crimson, z.x - R * 2.6, z.y - R * 2.6, R * 5.2, R * 5.2); c.fillStyle = `rgba(255,70,90,${0.75 * life})`; c.beginPath(); c.arc(z.x, z.y, R, 0, TAU); c.fill(); c.fillStyle = `rgba(150,10,30,${0.6 * life})`; c.beginPath(); c.arc(z.x - 12, z.y - 8, 10, 0, TAU); c.arc(z.x + 14, z.y + 10, 7, 0, TAU); c.arc(z.x + 6, z.y - 18, 5, 0, TAU); c.fill(); },

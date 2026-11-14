@@ -71,6 +71,7 @@ function drawUnit(c, u) {
   }
   c.restore(); c.globalAlpha = 1;
   if (u.dead) return;
+  if (u.markT > 0) { if (!u._mk) u._mk = G.time; c.globalAlpha = 0.5 + 0.5 * clamp((G.time - u._mk) / 0.22, 0, 1); markBrackets(c, u, '#24100c', 1); markBrackets(c, u, '#ff4a3a', 0); c.globalAlpha = 1; } else u._mk = 0;
   if (u.markT > 0) { const hx = Math.round(u.x), hy = Math.round(u.y - u.z - 17 * u.scale - 8 + Math.sin(G.time * 5)); c.fillStyle = '#3a2414'; c.fillRect(hx, hy, 1, 7); c.fillStyle = '#e0503a'; c.fillRect(hx + 1, hy, 4, 3); c.fillStyle = '#ffd860'; c.fillRect(hx + 2, hy + 1, 1, 1); }
   if (u.rallyT > 0 && u.team === 'hero') { for (let i = 0; i < 14; i++) { if ((i + Math.floor(G.time * 8)) % 4 === 0) continue; const a = i / 14 * TAU + G.time; c.fillStyle = '#ffd860'; c.fillRect(Math.round(u.x + Math.cos(a) * 8), Math.round(u.y + Math.sin(a) * 3), 1, 1); } }
   if (u.chill > 0 && !(u.frozen > 0)) { c.strokeStyle = 'rgba(160,225,255,0.75)'; c.lineWidth = 0.8; c.beginPath(); c.ellipse(u.x, u.y, u.r * 1.3, u.r * 0.5, 0, 0, TAU); c.stroke(); c.fillStyle = 'rgba(225,246,255,0.95)'; for (let k = 0; k < 3; k++) { const a = G.time * 2 + k * 2.1 + u.id; c.fillRect(u.x + Math.cos(a) * u.r * 1.2 - 0.5, u.y - u.z - 6 * u.scale + Math.sin(a * 1.3) * 4 - 0.5, 1, 1); } }
@@ -104,7 +105,13 @@ function drawProjGlows(c) {
     else if (p.k === 'mshot' && p.shot !== 'arrow' && p.shot !== 'stone') { c.drawImage(GLOW[p.col] || GLOW.arcane, p.x - 7, y - 7, 14, 14); c.drawImage(GLOW.white, p.x - 2, y - 2, 4, 4); }
   }
 }
+// a marked foe: red corner brackets snap in around it like a sight settling on a target
+function markBrackets(c, u, col, o) {
+  const k = clamp((G.time - (u._mk || G.time)) / 0.22, 0, 1), e = Math.round((1 - k) * 9), bw = Math.round(Math.max(7, 8 * u.scale)) + e, top = Math.round(u.y - u.z - 17 * u.scale - 2) - e, bot = Math.round(u.y + 2) + e, cx = Math.round(u.x), L = 4; c.fillStyle = col;
+  for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const x = cx + sx * bw, y = sy < 0 ? top : bot; c.fillRect(Math.min(x, x - sx * (L - 1)) + o, y + o, L, 1); c.fillRect(x + o, Math.min(y, y - sy * (L - 1)) + o, 1, L); }
+}
 function drawAuras(c) {
+  for (const u of G.mons) if (u.markT > 0 && u._mk) { c.globalAlpha = 0.55 + 0.15 * Math.sin(G.time * 6); markBrackets(c, u, '#ff3020', 0); } // the brackets glow, so the dark of the cellar never hides them
   for (const h of G.heroes) { if (h.dead) continue; const k = h.def.col, ready = h.ult >= 100, s = 9 + Math.min(8, G.lvl * 0.6) + (ready ? 3 * Math.sin(G.time * 8) : 0); c.globalAlpha = ready ? 0.75 : Math.min(0.45, 0.12 + G.lvl * 0.025); c.drawImage(GLOW[k], h.x - s, h.y - s * 0.4, s * 2, s * 0.8); if (ready && chance(0.15)) part({ k: 'glow', x: h.x + rand(-6, 6), y: h.y, z: rand(0, 6), vz: rand(20, 40), life: 0.6, s0: 2, s1: 0, col: k }); }
   for (const t of ARENA.torches) { const f = 0.8 + 0.2 * noise1(G.time * 9 + t.tx); c.globalAlpha = 0.55 * f; c.drawImage(GLOW.torch, t.x - 6, t.y - 13, 12, 12); }
   for (const p of ARENA.props) if (p.kind === 'brazier') { c.globalAlpha = 0.6; c.drawImage(GLOW.torch, p.x - 9, p.y - 22, 18, 16); }

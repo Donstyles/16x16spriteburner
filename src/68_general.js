@@ -38,6 +38,7 @@ Object.assign(HFX, {
   rally(x, y) { ring(x, y, 50, 'gold', 0.5, 5); column(x, y, 'gold', 1, 12); for (let i = 0; i < 18; i++) part({ k: 'pix', x: x + rand(-10, 10), y: y + rand(-5, 5), z: rand(4, 20), vz: rand(40, 110), g: 150, life: rand(0.6, 1.1), s0: chance(0.3) ? 2 : 1, col: chance(0.5) ? '#ffd860' : '#fff4c0' }); SFX.horn(); },
   plant(x, y, big) { ring(x, y, big ? 40 : 24, 'gold', 0.4, 4); debris(x, y, 6, ['#5a5048', '#7d7064'], 60, 80, 1.1); smoke(x, y, 4, 'dust', 8, 20, 0.8); SFX.hit(panOf(x)); if (big) SFX.horn(); },
   caltropHit(x, y) { sparks(x, y, 3, 6, 'white', 90, 60); for (let i = 0; i < 4; i++) part({ k: 'pix', x, y, z: 2, vx: rand(-30, 30), vy: rand(-15, 15), vz: rand(30, 70), g: 400, life: 0.4, s0: 1, col: '#b8c0cc' }); SFX.clang(panOf(x)); },
+  loose(x, y, dir) { for (let i = 0; i < 5; i++) part({ k: 'pix', x: x + dir * 2, y, z: 9, vx: dir * rand(20, 60), vy: rand(-12, 12), vz: rand(-10, 25), g: 120, life: rand(0.2, 0.35), s0: 1, col: i ? '#f0e0c0' : '#ffffff' }); },
   scatter(x, y, R) { for (let i = 0; i < 14; i++) part({ k: 'pix', x, y, z: 10, vx: rand(-R, R) * 3, vy: rand(-R, R) * 2, vz: rand(30, 80), g: 400, life: 0.35, s0: 1, col: IRON.hi }); SFX.pop(panOf(x)); },
 });
 // ---------- continuous effects ----------
@@ -46,6 +47,7 @@ Object.assign(HAZFX, {
     const A = z.ar; z._l = z._l || 0; z._p = z._p || 0;
     while (z._l < A.length && z.t >= A[z._l][4]) { z._l++; SFX.twang(panOf(A[z._l - 1][0])); }
     while (z._p < A.length && z.t >= A[z._p][4] + A[z._p][5]) { const a = A[z._p++], g = ARENA && ARENA.g, x = Math.round(a[2] + rand(-2, 2)), y = Math.round(a[3] + rand(-1, 1)); if (g) { g.fillStyle = WOOD.mid; g.fillRect(x, y - 3, 1, 3); g.fillStyle = '#e8e4dc'; g.fillRect(x, y - 4, 1, 1); } for (let i = 0; i < 4; i++) part({ k: 'pix', x, y, z: 1, vx: rand(-25, 25), vy: rand(-10, 10), vz: rand(20, 50), g: 300, life: 0.4, s0: 1, col: i ? '#9a8a76' : '#ffffff' }); sparks(x, y, 3, 2, z.fire ? 'fire' : 'white', 40, 30); if (z.fire) light(x, y, 30, 'fire', 0.8); }
+    if (z.mark && z.tid) for (const a of A) { const p = arcAt(a, z.t, z.z0, z.arc); if (p) for (let i = 0; i < 2; i++) part({ k: 'pixa', x: p.x - p.nx * i * 2, y: p.y, z: p.h + p.ny * i * 2, life: 0.32, s0: 1, col: 'fire', c2: i ? '#ff6a4a' : '#ffd0b0' }); }
     for (const a of A) { const p = arcAt(a, z.t, z.z0, z.arc); if (!p) continue; if (chance(0.6)) part({ k: 'pix', x: p.x - p.nx * 7, y: p.y, z: p.h + p.ny * 7 * -1, life: 0.14, s0: 1, col: z.fire ? '#ffb040' : '#f8f0e0' }); if (z.fire) light(p.x, p.y, 18, 'fire', 0.6); }
   },
   cball(z, dt) { if (chance(0.7)) part({ k: 'pix', x: z.x - z.dir * 3, y: z.y, z: (z.h || 0) + 2, vx: -z.dir * rand(5, 20), vz: rand(5, 15), drag: 1, life: rand(0.4, 0.8), s0: chance(0.3) ? 2 : 1, col: chance(0.5) ? '#c8c0b0' : '#8a8478' }); },
@@ -117,7 +119,8 @@ Object.assign(HAZSIM, {
   caltrops(z, dt) { for (const p of z.pts) { if (!p[2]) continue; const x = z.x + p[0], y = z.y + p[1]; for (const u of G.mons) { if (u.dead || u.spawnT > 0 || u.carried || u.z > 4 || Math.abs(u.x - x) > u.r + 2 || Math.abs(u.y - y) > u.r * 0.6 + 2) continue; p[2] = 0; hurt(u, z.dmg, z.src, {}); u.slow = Math.max(u.slow, 2); HFX.caltropHit(x, y); break; } } },
 });
 // ---------- Aldric's orders ----------
-function markTarget(h, t) { const m = md('MARK TARGET'), A = ARENA; h.lunge = 0.1; h.la = angTo(h.x, h.y, t.x, t.y); for (let k = 0; k <= m.count; k++) { const u = k ? pick(live(G.mons)) : t; if (!u) continue; const a = lob(clamp(u.x + (u.x < h.x ? -1 : 1) * rand(90, 140), A.x0 + 6, A.x1 - 6), A.y0 - 4, u.x, u.y, k * 0.12); hazard({ k: 'volley', ar: flights([a]), z0: 20, arc: 50, r: 7, dmg: D(h) * 1.3 * m.dmg, mark: 1, tid: u.id, life: a[4] + a[5] + 0.3, src: h }); } }
+// he draws his own bow: the arrow leaves his hands in an arc, follows the foe, and marks it where it lands
+function markTarget(h, t) { const m = md('MARK TARGET'); h.face = t.x < h.x ? -1 : 1; h.lunge = 0.08; h.la = angTo(t.x, t.y, h.x, h.y); HFX.loose(h.x + h.face * 4, h.y, h.face); for (let k = 0; k <= m.count; k++) { const u = k ? pick(live(G.mons).filter(v => v !== t)) || t : t; const a = lob(h.x + h.face * 4, h.y, u.x, u.y, k * 0.15); hazard({ k: 'volley', ar: flights([a]), z0: 10, arc: 40, r: 7, dmg: D(h) * 1.3 * m.dmg, mark: 1, tid: u.id, life: a[4] + a[5] + 0.3, src: h }); } }
 function sabre(h, t) { const m = md('SABRE'), a = angTo(h.x, h.y, t.x, t.y), R = 32 * m.size; h.lunge = 0.2; h.la = a; arcFx(h.x, h.y - 6, a, 0.9, 20 * m.size, 'white', 0.15, 2); SFX.slash(panOf(h.x)); for (const u of within(h.x, h.y, R, G.mons)) if (Math.abs(angDiff(angTo(h.x, h.y, u.x, u.y), a)) < 0.95) { hurt(u, D(h) * 1.1 * m.dmg, h, { kx: Math.cos(a) * 80, ky: Math.sin(a) * 60 }); if (m.f.mark) u.markT = Math.max(u.markT || 0, 3); } }
 function pistol(h, t) { const m = md('PISTOL'), a = angTo(h.x, h.y, t.x, t.y); h.lunge = 0.15; h.la = a; HFX.shot(h.x + Math.cos(a) * 6, h.y - 7, t.x, t.y - 6); hurt(t, D(h) * 2.0 * m.dmg, h, { kx: Math.cos(a) * 160, ky: Math.sin(a) * 110, stun: m.f.stun ? 0.5 : 0 }); if (m.count) for (const u of within(t.x, t.y, 22, G.mons)) if (u !== t) { hurt(u, D(h) * 0.7 * m.dmg, h); break; } }
 function arrowVolley(h, p) { const m = md('ARROW VOLLEY'), n = 12 + m.count, R = 34 * m.size, pts = []; for (let i = 0; i < n; i++) pts.push({ x: p.x + rand(-R, R), y: p.y + rand(-R, R) * 0.6 }); const ar = archers(3, flankX(p.x), 12, 2.1); after(0.35, () => volley(h, pts, { from: ar.xs, dmg: D(h) * 0.85 * m.dmg, spread: 0.4, mark: m.f.mark ? 1 : 0 })); }
@@ -157,14 +160,14 @@ SPELLBOOK.general = [
   { name: 'TOTAL WAR', lvl: 15, tier: 4, wind: 1, pick: (h, f) => f.length >= 6 || G.boss ? true : null, cast: totalWar },
 ];
 Object.assign(SPELL_INFO, {
-  'MARK TARGET': 'He points; an arrow from the wall finds the foe and marks it: marked foes take 25% more from him', 'SABRE': 'Quick cuts at whatever comes close', 'PISTOL': 'One loud shot that knocks a foe back',
+  'MARK TARGET': 'He shoots an arrow that marks the foe it hits: marked foes take 25% more from him', 'SABRE': 'Quick cuts at whatever comes close', 'PISTOL': 'One loud shot that knocks a foe back',
   'ARROW VOLLEY': 'Archers appear on the back wall and rain arrows on a crowd', 'WAR STANDARD': 'Plant a banner: heroes under it hit 30% harder and take 20% less, and archers guard it', 'RALLYING CRY': 'Every hero heals, shakes off stuns and fights harder for a while', 'CALTROPS': 'Throw iron spikes in front of the crowd; each one a foe steps on cuts and slows it, then is used up',
   'CANNON SHOT': 'A cannon lobs a ball that lands, bowls through the row and explodes', 'GRAPESHOT': 'A cannon lobs a canister that bursts over the crowd and rains shot', 'FIRE ARROWS': 'A volley of burning arrows that set the floor alight', 'CAVALRY CHARGE': 'Wolf riders thunder across a lane and trample everything in it',
   'BOMBARDMENT': 'Cannons on both walls walk a barrage of shells across the crowd', 'BANNER OF KINGS': 'A great standard: heroes under it hit 50% harder, take 35% less and heal; foes are slowed and shot', 'ARROWSTORM': 'Archers line the whole back wall and loose arrow after arrow',
   'TOTAL WAR': 'The whole army at once: arrows from the wall, cannons from both sides and two cavalry charges',
 });
 Object.assign(MODS, {
-  'MARK TARGET': [['TWO MARKS', 'A second arrow marks another foe', { count: 1 }], ['BROADHEAD', '+50% damage', { dmg: 1.5 }], ['QUICK ORDERS', 'Orders 30% faster', { cd: 0.7 }]],
+  'MARK TARGET': [['TWO MARKS', 'A second arrow marks another foe', { count: 1 }], ['BROADHEAD', '+50% damage', { dmg: 1.5 }], ['QUICK DRAW', 'Shoots 30% faster', { cd: 0.7 }]],
   'SABRE': [['LONG BLADE', 'Reach +35%', { size: 1.35 }], ['DUELLIST', '+45% damage', { dmg: 1.45 }], ['MARKING CUT', 'Cuts mark the foe', { f: 'mark' }]],
   'PISTOL': [['DOUBLE BARREL', 'The shot hits a second foe', { count: 1 }], ['HEAVY BALL', '+50% damage', { dmg: 1.5 }], ['STUNNING SHOT', 'Stuns the foe', { f: 'stun' }]],
   'ARROW VOLLEY': [['MORE ARCHERS', '+8 arrows', { count: 8 }], ['WIDE VOLLEY', 'Covers 40% more ground', { size: 1.4 }], ['MARKING VOLLEY', 'Every foe hit is marked', { f: 'mark' }]],
