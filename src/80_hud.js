@@ -3,7 +3,9 @@ const F_DISP = '"Grenze Gotisch", "Palatino Linotype", Palatino, "Book Antiqua",
 const NUMCOL = { fire: '#ffb04a', bolt: '#b4d0ff', heal: '#7cff9c', red: '#ff5a46', earth: '#ffc27a', white: '#ffffff', phys: '#ffffff', gold: '#ffd860', arcane: '#d49cff', poison: '#a8ff60', crimson: '#ff5a70', holy: '#fff0a0', ice: '#bfeaff', water: '#7ac0ff', wind: '#e8eeff', storm: '#c8b8ff' };
 const UI = { soundRect: null, titleT: 0, bookOpen: false, bookFocus: null, bookRect: null, plateRects: [], draftRect: null };
 function pushBanner(b) { b.t = 0; b.at = performance.now() / 1000; b.life = b.life || 1.8; if (!G.banner) G.banner = b; else { G.bq.push(b); if (G.bq.length > 6) G.bq.shift(); } }
-function banner(title, hero, sub, col) { pushBanner({ a: title, b: hero ? hero.def.name + ' · ' + heroTitle(hero) : (sub || ''), col: col || (hero ? hero.def.col : 'gold'), life: 1.7 }); }
+// the big banner across the screen belongs to ultimates (and boss kills); other spells already float their name over the caster
+let SPELL_TIER = null;
+function banner(title, hero, sub, col) { if (!SPELL_TIER) { SPELL_TIER = {}; for (const k in SPELLBOOK) for (const s of SPELLBOOK[k]) SPELL_TIER[s.name] = s.tier; } if (SPELL_TIER[title] !== undefined && SPELL_TIER[title] < 4) return; pushBanner({ a: title, b: hero ? hero.def.name + ' · ' + heroTitle(hero) : (sub || ''), col: col || (hero ? hero.def.col : 'gold'), life: 1.7 }); }
 function textBanner(a, b, col = 'gold', small = false) { pushBanner({ a, b, col, life: small ? 1.8 : 2.4, keep: true, small }); }
 function nextBanner(rdt) {
   if (G.banner) { G.banner.t += rdt; if (G.banner.t >= G.banner.life || (G.bq.length && G.banner.t > 1.2)) G.banner = null; }
