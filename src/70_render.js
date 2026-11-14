@@ -111,7 +111,8 @@ function markBrackets(c, u, col, o) {
 }
 function drawAuras(c) {
   for (const u of G.mons) if (u.markT > 0 && u._mk) { c.globalAlpha = 0.55 + 0.15 * Math.sin(G.time * 6); markBrackets(c, u, '#ff3020', 0); } // the brackets glow, so the dark of the cellar never hides them
-  for (const h of G.heroes) { if (h.dead) continue; const k = h.def.col, ready = h.ult >= 100, s = 9 + Math.min(8, G.lvl * 0.6) + (ready ? 3 * Math.sin(G.time * 8) : 0); c.globalAlpha = ready ? 0.75 : Math.min(0.45, 0.12 + G.lvl * 0.025); c.drawImage(GLOW[k], h.x - s, h.y - s * 0.4, s * 2, s * 0.8); if (ready && chance(0.15)) part({ k: 'glow', x: h.x + rand(-6, 6), y: h.y, z: rand(0, 6), vz: rand(20, 40), life: 0.6, s0: 2, s1: 0, col: k }); }
+  // no glow at the heroes' feet: their shadow stays plain; only a ready ultimate sends sparks up
+  for (const h of G.heroes) if (!h.dead && h.ult >= 100 && chance(0.15)) part({ k: 'glow', x: h.x + rand(-6, 6), y: h.y, z: rand(0, 6), vz: rand(20, 40), life: 0.6, s0: 2, s1: 0, col: h.def.col });
   for (const t of ARENA.torches) { const f = 0.8 + 0.2 * noise1(G.time * 9 + t.tx); c.globalAlpha = 0.55 * f; c.drawImage(GLOW.torch, t.x - 6, t.y - 13, 12, 12); }
   for (const p of ARENA.props) if (p.kind === 'brazier') { c.globalAlpha = 0.6; c.drawImage(GLOW.torch, p.x - 9, p.y - 22, 18, 16); }
   for (const r of ARENA.runes) if (r.glow > 0.02) { const g = Math.min(1, r.glow), s = 12 + 3 * Math.sin(G.time * 9 + r.x); c.globalAlpha = g * 0.85; c.drawImage(GLOW.arcane, r.x - s, r.y - s * 0.6, s * 2, s * 1.2); if (chance(g * 0.3)) part({ k: 'glow', x: r.x + rand(-6, 6), y: r.y + rand(-4, 4), z: 0, vz: rand(20, 50), life: 0.6, s0: 1.8, s1: 0, col: 'arcane' }); }
