@@ -40,6 +40,14 @@ const HFX = {
   swordFall(x, y) { flash('white', 0.55); column(x, y, 'holy', 1.4, 44); ring(x, y, 140, 'white', 0.8, 9); ring(x, y, 100, 'holy', 0.7, 7); slamFx(x, y, 1.7, 'holy'); HFX.feathers(x, y, 24); quake(1.2, 1.1); SFX.thunder(0, 1.4); },
   miracle(x, y) { HFX.angelDown(x, y); for (let i = 0; i < 24; i++) part({ k: 'glow', x: x + rand(-12, 12), y: y + rand(-6, 6), z: rand(0, 30), vz: rand(40, 100), drag: 0.6, life: rand(0.8, 1.6), s0: rand(2, 4), s1: 0, col: chance(0.5) ? 'holy' : 'heal' }); },
 };
+// fresh blood for wounds, bright enough to read on a dark floor; [spurt, highlight, dark] plus the pool's colour
+const BLEED = { red: ['#d01428', '#ff3448', '#9a0c1c', '#6e0812'], slime: ['#4cc83a', '#8cf060', '#2e8a24', '#1e5a18'], ichor: ['#a83ad0', '#d070ff', '#6a1a90', '#40104e'], fire: ['#ff8a20', '#ffd060', '#d04a10', '#7a2a08'] };
+// a pool of blood on the floor: a flat pixel ellipse, darkest in the middle, wet highlights round the rim
+function bloodPool(x, y, r, pal) {
+  const g = ARENA && ARENA.g; if (!g) return; const rx = Math.max(2, Math.round(r)), ry = Math.max(1, Math.round(r * 0.5)), cx = Math.round(x), cy = Math.round(y);
+  g.globalAlpha = 0.45; g.fillStyle = pal[3]; for (let dy = -ry; dy <= ry; dy++) { const w = Math.round(rx * Math.sqrt(1 - (dy / (ry + 0.5)) ** 2)); if (w > 0) g.fillRect(cx - w, cy + dy, w * 2, 1); }
+  g.globalAlpha = 0.8; for (let i = 0; i < 4; i++) { const a = rand(TAU); g.fillStyle = pal[i % 2 ? 0 : 2]; g.fillRect(Math.round(cx + Math.cos(a) * rx * 0.9), Math.round(cy + Math.sin(a) * ry * 0.9), 1, 1); } g.globalAlpha = 1;
+}
 // ---------- continuous effects of the new zones and emitters (every phone, every frame) ----------
 // angels glide: the drawn position eases after the real one, leans into its flight, turns by folding, and floats on two slow waves
 function angelGlide(z, dt) {
@@ -55,17 +63,20 @@ function angelPose(z) {
 function abductee(z) { return z.m || G.units.find(v => v.id === z.uid) || null; }
 const HAZFX = {
   // an opened wound: a spurt with every heartbeat, a steady drip, a trail where it walks and a pool where it stands
+  // an opened wound pours: an arterial spurt with every heartbeat, a stream in between, a trail where it walks, a pool where it stands
   bleed(z, dt) {
-    const pal = BLOOD[z.bl] || BLOOD.red, hh = 8 * (z.s || 1), moved = z._lx === undefined ? 0 : dist(z.x, z.y, z._lx, z._ly); z._lx = z.x; z._ly = z.y;
-    const beat = Math.floor(z.t / 0.42);
+    const pal = BLEED[z.bl] || BLEED.red, hh = 8 * (z.s || 1), moved = z._lx === undefined ? 0 : dist(z.x, z.y, z._lx, z._ly); z._lx = z.x; z._ly = z.y;
+    const beat = Math.floor(z.t / 0.34);
     if (beat !== z._b) {
-      z._b = beat; const a = rand(TAU), sp = rand(45, 85);
-      for (let i = 0; i < 8; i++) { const aa = a + rand(-0.35, 0.35), v = sp * rand(0.7, 1.2); part({ k: 'pix', x: z.x, y: z.y, z: hh, vx: Math.cos(aa) * v, vy: Math.sin(aa) * v * 0.5, vz: rand(30, 80), g: 360, life: rand(0.45, 0.75), s0: chance(0.3) ? 2 : 1, col: pal[i % pal.length] }); }
-      bloodPaint(z.x + Math.cos(a) * sp * 0.35, z.y + Math.sin(a) * sp * 0.18, pal, 7, 3); // where the spurt lands
+      z._b = beat; const a = rand(TAU), sp = rand(70, 130);
+      for (let i = 0; i < 22; i++) { const aa = a + rand(-0.3, 0.3), v = sp * rand(0.55, 1.25); part({ k: 'pix', x: z.x + rand(-1, 1), y: z.y, z: hh, vx: Math.cos(aa) * v, vy: Math.sin(aa) * v * 0.55, vz: rand(50, 120), g: 420, life: rand(0.55, 0.95), s0: chance(0.4) ? 2 : 1, col: pal[i % 3] }); }
+      for (let k = 1; k <= 5; k++) bloodPaint(z.x + Math.cos(a) * sp * 0.1 * k, z.y + Math.sin(a) * sp * 0.06 * k, pal, 4, 1 + k * 0.5); // the streak where the spurt lands
     }
-    if (chance(dt * 16)) { part({ k: 'pix', x: z.x + rand(-2, 2), y: z.y, z: hh * rand(0.5, 1), vz: -10, g: 300, life: 0.4, s0: 1, col: pal[1] }); bloodPaint(z.x, z.y, pal, 2, 2.5); }
-    z._pool = moved > 0.4 ? 2 : Math.min(10, (z._pool || 2) + dt * 3); if (chance(dt * 8)) bloodPaint(z.x, z.y + 1, pal, 3, z._pool);
+    if (chance(dt * 45)) part({ k: 'pix', x: z.x + rand(-2, 2), y: z.y + rand(-1, 1), z: hh * rand(0.4, 1), vx: rand(-10, 10), vy: rand(-4, 4), vz: rand(-25, 8), g: 320, life: 0.55, s0: chance(0.3) ? 2 : 1, col: pal[(Math.random() * 3) | 0] });
+    if (moved > 0.4) { z._pool = 2; if (chance(dt * 40)) bloodPaint(z.x + rand(-1, 1), z.y + 1, pal, 3, 2); }
+    else { z._pool = Math.min(13 * (z.s || 1), (z._pool || 2) + dt * 5); if ((z._pt = (z._pt || 0) - dt) <= 0) { z._pt = 0.2; bloodPool(z.x, z.y + 2, z._pool, pal); } }
   },
+
   holyflame(z, dt) { if (chance(dt * 18)) part({ k: 'glow', x: z.x + rand(-4, 4), y: z.y + rand(-2, 2), z: rand(2, 12), vz: rand(30, 60), drag: 1, life: rand(0.3, 0.6), s0: rand(2, 3.5), s1: 0.5, col: chance(0.6) ? 'holy' : 'white' }); light(z.x, z.y, 30, 'holy', 0.6); },
   batcloud(z, dt) { light(z.x, z.y, z.r * 1.6, 'crimson', 0.5); },
   abduct(z, dt) {
@@ -147,7 +158,6 @@ const HAZDRAW = {
   },
   fx: {
     batcloud(c, z) { c.globalAlpha = 0.35; c.drawImage(GLOW.crimson, z.x - z.r * 1.2, z.y - z.r * 0.7, z.r * 2.4, z.r * 1.4); },
-    bleed(c, z) { c.globalAlpha = 0.5; c.drawImage(GLOW.crimson, z.x - 8, z.y - 10, 16, 14); },
     holyflame(c, z) { c.globalAlpha = 0.55; c.drawImage(GLOW.holy, z.x - 9, z.y - 14, 18, 18); },
     consecrate(c, z) { const live2 = Math.min(1, (1 - z.t / z.life) * 3); c.globalAlpha = 0.65 * live2; c.strokeStyle = rgba('holy', 0.9); c.lineWidth = 1.4; c.beginPath(); c.ellipse(z.x, z.y, z.r, z.r * 0.7, 0, 0, TAU); c.stroke(); c.beginPath(); c.ellipse(z.x, z.y, z.r * 0.7, z.r * 0.49, 0, 0, TAU); c.stroke(); c.globalAlpha = 0.25 * live2; c.drawImage(GLOW.holy, z.x - z.r, z.y - z.r * 0.7, z.r * 2, z.r * 1.4); },
     sanct(c, z) { const life = clamp((z.life - z.t) * 2, 0, 1); if (life <= 0) return; c.save(); c.imageSmoothingEnabled = false; domeDraw(c, z, (0.28 + 0.07 * Math.sin(G.time * 3)) * life); domeShine(c, z, 0.8 * life); c.restore(); },
