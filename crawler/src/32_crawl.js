@@ -67,10 +67,13 @@ function drawDoors(c) {
         else c.drawImage(IMG.doors, col * TS, (th.door + 1) * TS, TS, TS, x * TS, y * TS - 4, TS, TS);
       }
     } else {
-      const x = d.cells[0][0], y0 = d.cells[0][1] * TS - 14, y1 = (d.cells[2][1] + 1) * TS, len = Math.round((y1 - y0) * k), gx = x * TS + (d.side === 'W' ? 7 : 5);
+      // the portcullis runs in the wall line from inside the wall above to inside the corner post below; both of those stand in
+      // front of it in the tileset's perspective, so they are drawn again over it and its two ends disappear under the stone
+      const x = d.cells[0][0], ty = d.cells[0][1], y0 = ty * TS - 10, y1 = (d.cells[2][1] + 1) * TS + 6, len = Math.round((y1 - y0) * k), gx = x * TS + (d.side === 'W' ? 7 : 5);
       c.fillStyle = '#1a1816'; c.fillRect(gx, y0, 4, len); c.fillStyle = '#6a625a'; c.fillRect(gx, y0, 1, len); c.fillStyle = '#9a9086';
       for (let yy = y0 + 3; yy < y0 + len - 2; yy += 5) c.fillRect(gx + 1, yy, 2, 1);
       c.fillStyle = '#2a2622'; c.fillRect(gx - 1, y0 + len - 2, 6, 2);
+      for (const cy of [ty - 1, d.cells[2][1] + 1]) c.drawImage(A.ground, x * TS, cy * TS, TS, TS, x * TS, cy * TS, TS, TS);
     }
   }
   const s = A.stairs; if (s && s.open) { const p = 0.5 + 0.5 * Math.sin(G.time * 3); c.globalAlpha = 0.25 + 0.2 * p; c.fillStyle = '#ffd27a'; c.fillRect(s.sx * TS + 8, (s.sy + 1) * TS + 10, TS * 2, 6); c.globalAlpha = 1; }
