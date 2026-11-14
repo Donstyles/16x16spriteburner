@@ -56,7 +56,7 @@ function drawUnit(c, u) {
   const fr = u.dead || u.frozen > 0 ? 0 : ((u.anim * (u.moving ? 9 : 5)) | 0) % 4;
   let sc = u.scale; if (u.spawnT > 0) sc *= 1 - (u.spawnT / 0.35) * 0.85;
   const lx = u.lunge > 0 ? Math.cos(u.la) * u.lunge * 14 : 0, ly = u.lunge > 0 ? Math.sin(u.la) * u.lunge * 10 : 0;
-  const bob = u.moving && u.z === 0 && !u.dead ? -Math.abs(Math.sin(u.anim * 11)) * 1.4 : 0, sq = u.squash, stunJit = u.stun > 0 && !u.dead && !(u.frozen > 0) ? Math.sin(u.anim * 50) * 0.6 : 0;
+  const bob = u.moving && u.z === 0 && !u.dead ? -Math.abs(Math.sin(u.anim * 11)) * 1.4 : 0, sq = u.squash, stunJit = (u.stun > 0 || u.cower) && !u.dead && !(u.frozen > 0) ? Math.sin(u.anim * 50) * 0.6 : 0;
   c.save(); c.translate(u.x + lx + stunJit, u.y + ly - u.z + bob);
   if (u.dead) { c.rotate(1.45 * (u.face < 0 ? -1 : 1)); c.globalAlpha = 0.55; c.translate(0, -2); }
   c.scale(sc * (1 + sq) * (u.face < 0 ? -1 : 1), sc * (1 - sq));
@@ -75,8 +75,8 @@ function drawUnit(c, u) {
   if (u.markT > 0) { const hx = Math.round(u.x), hy = Math.round(u.y - u.z - 17 * u.scale - 8 + Math.sin(G.time * 5)); c.fillStyle = '#3a2414'; c.fillRect(hx, hy, 1, 7); c.fillStyle = '#e0503a'; c.fillRect(hx + 1, hy, 4, 3); c.fillStyle = '#ffd860'; c.fillRect(hx + 2, hy + 1, 1, 1); }
   if (u.rallyT > 0 && u.team === 'hero') { for (let i = 0; i < 14; i++) { if ((i + Math.floor(G.time * 8)) % 4 === 0) continue; const a = i / 14 * TAU + G.time; c.fillStyle = '#ffd860'; c.fillRect(Math.round(u.x + Math.cos(a) * 8), Math.round(u.y + Math.sin(a) * 3), 1, 1); } }
   if (u.chill > 0 && !(u.frozen > 0)) { c.strokeStyle = 'rgba(160,225,255,0.75)'; c.lineWidth = 0.8; c.beginPath(); c.ellipse(u.x, u.y, u.r * 1.3, u.r * 0.5, 0, 0, TAU); c.stroke(); c.fillStyle = 'rgba(225,246,255,0.95)'; for (let k = 0; k < 3; k++) { const a = G.time * 2 + k * 2.1 + u.id; c.fillRect(u.x + Math.cos(a) * u.r * 1.2 - 0.5, u.y - u.z - 6 * u.scale + Math.sin(a * 1.3) * 4 - 0.5, 1, 1); } }
-  const showBar = u.team === 'hero' || (!u.boss && !u.dummy && u.hp < u.maxHp && u.maxHp >= 60);
-  if (showBar) { const w = u.team === 'hero' ? 14 : 10 * u.scale, x = u.x - w / 2, y = u.y - u.z + 3; c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(x - 0.5, y - 0.5, w + 1, 2.5); const f = clamp(u.hp / u.maxHp, 0, 1); c.fillStyle = u.team === 'hero' ? (f > 0.5 ? '#6cf08a' : f > 0.25 ? '#ffd24a' : '#ff4a3a') : '#e8443a'; c.fillRect(x, y, w * f, 1.5); if (u.team === 'hero') { const s = hpChip(u); if (s.trail > f) { c.fillStyle = '#ffffff'; c.fillRect(x + w * f, y, w * (s.trail - f), 1.5); } } }
+  const showBar = u.team === 'hero' || u.team === 'folk' || (!u.boss && !u.dummy && u.hp < u.maxHp && u.maxHp >= 60);
+  if (showBar) { const w = u.team === 'hero' ? 14 : 10 * u.scale, x = u.x - w / 2, y = u.y - u.z + 3; c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(x - 0.5, y - 0.5, w + 1, 2.5); const f = clamp(u.hp / u.maxHp, 0, 1); c.fillStyle = u.team !== 'mon' ? (f > 0.5 ? '#6cf08a' : f > 0.25 ? '#ffd24a' : '#ff4a3a') : '#e8443a'; c.fillRect(x, y, w * f, 1.5); if (u.team === 'hero') { const s = hpChip(u); if (s.trail > f) { c.fillStyle = '#ffffff'; c.fillRect(x + w * f, y, w * (s.trail - f), 1.5); } } }
 }
 function drawProp(c, p) {
   if (p.kind === 'pillar') { const [tx, ty] = p.tile; for (let i = 0; i < 3; i++) c.drawImage(IMG.cellar, tx * TS, (ty + i) * TS, TS, TS, p.x - 8, p.y - 14 - 32 + i * TS, TS, TS); }

@@ -65,7 +65,7 @@ function hurt(u, amt, src, o = {}) {
   if (o.up && !u.boss) u.vz = Math.max(u.vz, o.up * (u.scale > 1.2 ? 0.55 : 1));
   if (o.stun) u.stun = Math.max(u.stun, o.stun * (u.boss ? 0.15 : u.scale > 1.2 ? 0.5 : 1));
   if (o.elem === 'bolt') u.shock = 0.9; if (o.elem === 'fire') u.burn = Math.max(u.burn, 1.6); if (o.elem === 'ice' && u.team === 'mon') { u.slow = Math.max(u.slow, 1.6); u.chill = Math.max(u.chill || 0, 1.6); }
-  number(u.x, u.y, u.z + 16 * u.scale, d, u.team === 'hero' ? 'red' : (o.elem || 'white'), o.crit || d > 90);
+  number(u.x, u.y, u.z + 16 * u.scale, d, u.team !== 'mon' ? 'red' : (o.elem || 'white'), o.crit || d > 90);
   if (u.team === 'hero' && d > 20) shake(0.06);
   const bl = BLOOD[u.def.blood || 'red'];
   if (!o.quiet) { if (u.def.blood === 'metal' || (u.team === 'hero' && u.def.role === 'melee')) { sparks(u.x, u.y, 8 * u.scale, 6, 'white', 120, 90); SFX.clang(panOf(u.x)); } else { debris(u.x, u.y, 3, bl, 60, 90, 1.4); SFX.hit(panOf(u.x)); } }
@@ -77,6 +77,7 @@ function leech(h, amt) { if (!alive(h) || !(amt > 0)) return; const g = Math.min
 function heal(u, amt) { if (!alive(u)) return; const h = Math.min(u.maxHp - u.hp, Math.round(amt)); if (h <= 0) return; u.hp += h; number(u.x, u.y, 18, '+' + h, 'heal', h > 60); healFx(u.x, u.y); }
 function kill(u, src, elem) {
   u.dead = true; u.hp = 0;
+  if (u.team === 'folk') { folkLost(u, elem); return; }
   if (u.team === 'mon') {
     G.kills++; G.combo++; G.comboT = 2.6; G.burst++; G.burstT = 0.7;
     gainXp(u.boss ? 80 + 30 * Math.floor(G.floor / 4) : (XP_TIER[u.def.tier] || 1) * (u.rank === 'warlord' ? 12 : u.rank === 'elite' ? 4 : 1));

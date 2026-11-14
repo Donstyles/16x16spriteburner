@@ -27,7 +27,7 @@ function startRun(noDraft) {
   G.training = false; G.run++; G.floor = 1; G.lvl = 1; G.xp = 0; resetSpells(); makeParty(); startFloor(true); if (!noDraft) queueDraft();
 }
 function startFloor(first) {
-  buildArena(G.floor); G.units = []; G.proj = []; G.sched = []; G.pending = 0; G.storm = null; G.eq = null; G.boss = null;
+  buildArena(G.floor); G.units = []; G.proj = []; G.folkTotal = 0; G.sched = []; G.pending = 0; G.storm = null; G.eq = null; G.boss = null;
   for (const k in FX) FX[k].length = 0;
   scaleForFloor();
   const cx = ARENA.pw / 2, cy = ARENA.y1 - 30;
@@ -44,7 +44,7 @@ function waveCount() { return G.bossFloor ? 6 : Math.min(9, 5 + Math.floor((G.fl
 // queue a wave: it pours out of the runes in packs, bigger and nastier toward the end of the floor
 function startWave() {
   G.wave++; G.gapT = 0; const N = G.waves, i = G.wave - 1, last = G.wave === N, f = G.floor;
-  if (G.wave === 1 && zoneOf(f) === 'cellar' && !G.training && !TUT.on) spawnVillager(); // someone is hiding down here
+  if (G.wave === 1 && zoneOf(f) === 'cellar' && !G.training && !TUT.on) spawnFolk(); // villagers come down with the heroes
   G.inten = G.wave / N;
   if (G.bossFloor && last) { spawnBoss(); return; }
   const maxTier = f <= 2 ? 1 : f <= 4 ? 2 : f <= 7 ? 3 : 4, prog = N > 1 ? i / (N - 1) : 1;
@@ -128,7 +128,7 @@ function monAI(m, dt, heroes) {
   if (m.dummy) return dummyAI(m, dt);
   if (m.state) { monState(m, dt); return; }
   if (m.stun > 0) { m.stun -= dt; m.vx = damp(m.vx, 0, 8, dt); m.vy = damp(m.vy, 0, 8, dt); m.moving = false; return; }
-  let t = null, bd = 1e9; for (const h of heroes) { const d = dist(m.x, m.y, h.x, h.y) * (h.def.role === 'melee' ? 0.7 : 1); if (d < bd) { bd = d; t = h; } }
+  let t = null, bd = 1e9; for (const h of heroes) { const d = dist(m.x, m.y, h.x, h.y) * (h.def.role === 'melee' ? 0.7 : h.team === 'folk' ? 1.3 : 1); if (d < bd) { bd = d; t = h; } } m.tgt = t;
   if (!t) { m.vx = damp(m.vx, 0, 5, dt); m.vy = damp(m.vy, 0, 5, dt); return; }
   if (m.boss) return bossAI(m, dt, t);
   const d = dist(m.x, m.y, t.x, t.y), reach = m.r + t.r + (m.def.reach || 3), ai = m.def.ai;
@@ -186,7 +186,7 @@ function updateDirector(dt) {
     if (G.boss && alive(G.boss) && (G.addT = (G.addT || 8) - dt) <= 0) { G.addT = G.boss.enraged ? 7 : 11; if (G.mons.length < 24) { const pool = zonePool().filter(d => d.tier <= Math.min(3, 1 + (G.floor >> 2))); for (let k = 0; k < 4 + (G.boss.enraged ? 3 : 0); k++) G.spawnQ.push({ def: pick(pool) }); G.packT = 0; } }
     if (SFX.on && G.wave > 0 && (G.drumT = (G.drumT || 0) - dt) <= 0) { G.drumT = lerp(1.0, 0.4, clamp(G.inten, 0, 1)); SFX.drum(G.inten); }
   } else if (G.phase === 'clear') {
-    if (G.phaseT > 0.6 && !G.cleared) { G.cleared = true; textBanner('FLOOR ' + G.floor + ' CLEARED', G.combo > 5 ? 'BEST STREAK ' + G.combo : '', 'gold'); if (!G.bossFloor) queueChoice('floor', 'FLOOR ' + G.floor + ' CLEARED'); }
+    if (G.phaseT > 0.6 && !G.cleared) { G.cleared = true; textBanner('FLOOR ' + G.floor + ' CLEARED', G.combo > 5 ? 'BEST STREAK ' + G.combo : '', 'gold'); folkRescue(); if (!G.bossFloor) queueChoice('floor', 'FLOOR ' + G.floor + ' CLEARED'); }
     if (G.phaseT > 1.6 && !G.revived) { G.revived = true; for (const h of G.heroes) { if (h.dead) { h.dead = false; h.hp = Math.round(h.maxHp * 0.6); column(h.x, h.y, 'gold', 1.4, 16); ring(h.x, h.y, 40, 'gold', 0.5, 4); flashLight(h.x, h.y, 120, 'gold', 1.6, 0.6); textPop(h.x, h.y, 24, h.def.name + ' RISES', 'gold'); } else heal(h, h.maxHp * 0.5); } SFX.heal(); }
     if (G.phaseT > 3.4 && !G.collapse) { G.collapse = true; collapseFloor(); }
     if (G.phaseT > 5.6) G.fade = Math.min(1, (G.phaseT - 5.6) / 0.6);

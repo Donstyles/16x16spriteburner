@@ -8,16 +8,17 @@ function update(dt) {
   if (NET.role === 'host') NET.lightsCur.length = 0;
   G.time += dt;
   for (let i = 0; i < G.sched.length; i++) { const s = G.sched[i]; s.t -= dt; if (s.t <= 0) { G.sched.splice(i--, 1); MDH = s.h || null; try { s.fn(); } catch (e) { console.error(e); } MDH = null; } }
-  G.mons = G.units.filter(u => u.team === 'mon' && !u.dead);
-  const heroes = G.heroes.filter(alive);
+  G.mons = G.units.filter(u => u.team === 'mon' && !u.dead); G.folk = G.units.filter(u => u.team === 'folk' && !u.dead);
+  const heroes = G.heroes.filter(alive); G.prey = G.folk.length ? heroes.concat(G.folk) : heroes; // monsters hunt villagers as well as heroes
   for (const u of G.units) { u.anim += dt; if (u.flash > 0) u.flash -= dt; if (u.lunge > 0) u.lunge -= dt * 1.8; }
   const me = G.me; if (me && me.inp && !me.remote) { const [x, y] = inputVec(), I = me.inp; I.mx = x; I.my = y; I.mv = moveLevel(); I.sp = spellAuto(); while (INPUT.castQ.length) I.castQ.push(INPUT.castQ.shift()); if (INPUT.dashQ) { I.dashQ = true; INPUT.dashQ = false; } }
   for (const h of G.heroes) { MDH = h; if (h.rallyT > 0 && (h.rallyT -= dt) <= 0) h.rallyBig = 0; if (h.leechAcc > 0 && (h.leechT -= dt) <= 0) { if (h.leechAcc >= 1) number(h.x, h.y, 18, '+' + Math.round(h.leechAcc), 'heal', h.leechAcc > 60); h.leechAcc = 0; } if (h.iframe > 0) h.iframe -= dt; if (h.blessT > 0) h.blessT -= dt; if (h.frenzyT > 0 && (h.frenzyT -= dt) <= 0) h.leechMul = 1; dashTick(h, dt); const I = h.ctrl === 'player' ? h.inp : null; (I && (I.mv === 0 || (I.mv === 1 && (I.mx || I.my))) ? playerHero : heroAI)(h, dt); } MDH = null;
   if (G.heroes.length > 1 && G.phase === 'fight') for (const h of G.heroes) if (h.dead && h.pid !== undefined && h.deadT > 9) { const a = G.heroes.find(x => !x.dead); if (a) reviveHero(h, a); }
-  for (const m of G.mons) monAI(m, dt, heroes);
+  for (const m of G.mons) monAI(m, dt, G.prey);
+  for (const v of G.folk) folkAI(v, dt);
   for (const u of G.units) { if ((u.state && u.state.k === 'leap') || u.carried) continue; const wasAir = u.z > 0, vz = u.vz; moveUnit(u, dt); if (wasAir && u.z === 0 && u.team === 'hero' && vz < -300) { ring(u.x, u.y, 30, 'white', 0.3, 3); smoke(u.x, u.y, 5, 'dust', 9, 40, 1); debris(u.x, u.y, 8, ['#5a5048', '#7d7064'], 80, 100, 1.6); shake(0.15); SFX.hit(panOf(u.x)); } }
   separate(G.units, dt);
-  removeIf(G.units, u => u.dead && u.team === 'mon');
+  removeIf(G.units, u => u.dead && (u.team === 'mon' || u.team === 'folk'));
   updateProj(dt); updateHazards(dt); localFx(() => updateEmitters(dt)); updateStorm(dt); updateQuake(dt); updateFx(dt); G.training ? trainingTick(dt) : updateDirector(dt);
   G.castLock -= dt; G.majorLock -= dt;
   if (G.ultLock > 0) G.ultLock -= dt; if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }

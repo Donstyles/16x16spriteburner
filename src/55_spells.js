@@ -127,7 +127,7 @@ function monShot(m, t) {
   if (k === 'zap') { bolt(m.x, m.y - 8, t.x, t.y - 6, { life: 0.22, w: 0.8, col: 'arcane', branches: 1 }); hurt(t, m.def.dmg * m.mul, m, { elem: 'bolt' }); sparks(t.x, t.y, 8, 8, 'arcane', 120, 80); flashLight(t.x, t.y, 50, 'arcane', 1, 0.15); SFX.zap(panOf(t.x)); return; }
   proj({ k: 'mshot', shot: k, x: m.x, y: m.y, z: 8, vx: Math.cos(a) * s, vy: Math.sin(a) * s, team: 'mon', src: m, dmg: m.def.dmg * m.mul, col, life: 2.4, r: 3, home: k !== 'arrow' && k !== 'stone' ? t : null });
 }
-function heavySlam(m) { const R = 26 * m.scale; ring(m.x, m.y, R * 1.6, 'earth', 0.35, 4); cracks(m.x, m.y, 4, R, 300, 1.2); debris(m.x, m.y, 10, ['#5a5048', '#7d7064'], 120, 150, 1.8); smoke(m.x, m.y, 5, 'dust', 10, 40, 1.2); for (const u of within(m.x, m.y, R, G.heroes)) { const a = angTo(m.x, m.y, u.x, u.y); hurt(u, m.def.dmg * m.mul * 1.3, m, { kx: Math.cos(a) * 180, ky: Math.sin(a) * 140, up: 90 }); } shake(0.18); SFX.boom(0.5, panOf(m.x)); }
+function heavySlam(m) { const R = 26 * m.scale; ring(m.x, m.y, R * 1.6, 'earth', 0.35, 4); cracks(m.x, m.y, 4, R, 300, 1.2); debris(m.x, m.y, 10, ['#5a5048', '#7d7064'], 120, 150, 1.8); smoke(m.x, m.y, 5, 'dust', 10, 40, 1.2); for (const u of within(m.x, m.y, R, G.prey || G.heroes)) { const a = angTo(m.x, m.y, u.x, u.y); hurt(u, m.def.dmg * m.mul * 1.3, m, { kx: Math.cos(a) * 180, ky: Math.sin(a) * 140, up: 90 }); } shake(0.18); SFX.boom(0.5, panOf(m.x)); }
 function bossMove(b, mv, t) {
   const c = b.def.col || 'red';
   if (mv === 'slam') { const x = t.x, y = t.y; teleg(x, y, 46, 0.95); after(0.45, () => { if (alive(b)) b.state = { k: 'leap', t: 0, dur: 0.5, x0: b.x, y0: b.y, x1: x, y1: y }; }); }
@@ -156,7 +156,7 @@ function summonMon(def, x, y, delay, hpMul = G.monHp, dmgMul = G.monDmg, rank = 
 // ---------- projectiles ----------
 function updateProj(dt) {
   for (const p of G.proj) {
-    p.t += dt; const foes = p.team === 'hero' ? G.mons : G.heroes; localFx(() => projFx(p, dt));
+    p.t += dt; const foes = p.team === 'hero' ? G.mons : (G.prey || G.heroes); localFx(() => projFx(p, dt));
     if (p.k === 'meteor' || p.k === 'boulder') {
       p.x += p.vx * dt; p.z += p.vz * dt;
       if (p.z <= 0) { p.dead = true;

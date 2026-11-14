@@ -8,7 +8,7 @@ let HZID = 0;
 function hazard(o) { const z = { t: 0, tick: 0, hit: new Set(), ...o, id: ++HZID }; FX.hz.push(z); return z; }
 // ---------- target pickers ----------
 const live = f => f.filter(m => !m.dead && m.spawnT <= 0 && m.carried !== 2);
-function nearestFoe(h, f, r) { return nearest(h, f, r); }
+function nearestFoe(h, f, r) { let best = null, bs = 1e9; for (const o of f) { if (o.dead || o.spawnT > 0) continue; const d = dist(h.x, h.y, o.x, o.y); if (d > r) continue; const s = o.tgt && o.tgt.team === 'folk' && !o.tgt.dead ? d * 0.55 : d; if (s < bs) { bs = s; best = o; } } return best; } // a monster hunting a villager counts as nearer
 function farFoe(h, f, r0, r1) { let best = null, bd = 0; for (const m of f) { const d = dist(h.x, h.y, m.x, m.y); if (d > r0 && d < r1 && d > bd) { bd = d; best = m; } } return best; }
 function toughest(h, f, r) { let best = null, bh = 0; for (const m of f) { if (dist(h.x, h.y, m.x, m.y) > r) continue; if (m.hp > bh) { bh = m.hp; best = m; } } return best; }
 function cluster(h, f, r, minN, maxD) { const d = densest(f, r, h, maxD); return d && d.n >= minN ? d : null; }

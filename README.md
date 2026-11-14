@@ -41,7 +41,7 @@ Every four floors the cellar changes, each stretch ending in a boss floor:
 | 17–20 | The abyss | demons | The Pit Balor, the thing under the farmhouse |
 | 21+ | Everything at once | all 98 kinds | the White Wyrm, Emberclaw and the older bosses in turn |
 
-On the cellar floors a frightened villager or child hides against a wall; nothing in the fight can touch them, and when the floor is cleared they thank you and run for the stairs.
+Three villagers come down with the heroes on every cellar floor (farmhands, a shepherd, a friar, children). They can't fight: they run from the monsters and hide behind pillars and heroes, and the monsters hunt them like heroes, so they can die. Heroes go for a monster chasing a villager first. The count is shown under the wave counter. Whoever is still standing when the floor is cleared runs for the stairs, and each one saved gives XP and heals the party.
 
 ## Controls
 The game is always landscape. On a phone held upright it is drawn sideways, so just turn the phone (this works with rotation lock on).
