@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Collect site files
-        run: mkdir _site && cp -r index.html manifest.webmanifest sw.js icons version.txt _site/
+        run: mkdir -p _site/crawler && cp -r index.html manifest.webmanifest sw.js icons version.txt _site/ && cp crawler/index.html crawler/version.txt _site/crawler/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
