@@ -52,6 +52,21 @@ Object.assign(HAZFX, {
     for (const a of A) { const p = arcAt(a, z.t, z.z0, z.arc); if (!p) continue; if (chance(0.6)) part({ k: 'pix', x: p.x - p.nx * 7, y: p.y, z: p.h + p.ny * 7 * -1, life: 0.14, s0: 1, col: z.fire ? '#ffb040' : '#f8f0e0' }); if (z.fire) light(p.x, p.y, 18, 'fire', 0.6); }
   },
   cball(z, dt) { if (!z.fdur) return; const p = cballAt(z, z.t); if (chance(dt * 40)) part({ k: 'pix', x: p.x, y: p.y, z: p.h + 5, vx: rand(-15, 15), vy: rand(-6, 6), vz: rand(15, 45), g: 200, life: rand(0.15, 0.3), s0: 1, col: chance(0.5) ? '#fff0a0' : '#ff8a30' }); light(p.x, p.y - p.h, 14, 'fire', 0.5); if (p.hop >= 0 && p.v > 40 && p.h < 2 && chance(dt * p.v * 0.12)) part({ k: 'pix', x: p.x - z.dir * 2, y: p.y, z: 1, vx: -z.dir * rand(5, 25), vy: rand(-5, 5), vz: rand(8, 20), g: 200, life: rand(0.3, 0.6), s0: 1, col: chance(0.5) ? '#9a8a76' : '#7d7064' }); },
+  grape(z, dt) {
+    if (!z.pel) return; const a = z.ar[0];
+    if (z.t < z.tb) { const p = arcAt(a, z.t, 6, 70); if (p && chance(0.6)) part({ k: 'pix', x: p.x, y: p.y, z: p.h, life: 0.4, s0: 1, col: '#9a9488' }); return; }
+    if (!z._b) { z._b = 1; const x = z.bx, y = z.by, h = z.hb; // the airburst
+      for (let i = 0; i < 7; i++) part({ k: 'smoke', x: x + rand(-5, 5), y: y + rand(-3, 3), z: h + rand(-4, 4), vx: rand(-25, 25), vy: rand(-10, 10), vz: rand(-5, 15), drag: 1.8, life: rand(0.8, 1.4), s0: rand(4, 6), s1: rand(9, 13), col: 'grey', a0: 0.8, a1: 0 });
+      for (let i = 0; i < 18; i++) { const g = rand(TAU), sp = rand(80, 200); part({ k: 'spark', x, y, z: h, vx: Math.cos(g) * sp, vy: Math.sin(g) * sp * 0.6, vz: rand(-60, 80), drag: 3, life: rand(0.15, 0.3), col: chance(0.5) ? 'gold' : 'white' }); }
+      part({ k: 'glow', x, y, z: h, life: 0.16, s0: 14, s1: 22, col: 'hot', a0: 0.9, a1: 0 }); flashLight(x, y, 110, 'gold', 1.3, 0.2); SFX.gun(panOf(x)); SFX.boom(0.35, panOf(x)); shake(0.12);
+    }
+    const P = z.pel, n = P.length, g = ARENA && ARENA.g; z._k = z._k || new Uint8Array(n);
+    for (let i = 0; i < n; i++) { if (z._k[i] || z.t < z.tb + P[i][2] + z.tf) continue; z._k[i] = 1; const x = Math.round(z.bx + P[i][0]), y = Math.round(z.by + P[i][1]); // a ball lands
+      if (g && i % 2) { g.fillStyle = 'rgba(20,16,14,0.4)'; g.fillRect(x, y, 1, 1); }
+      for (let k = 0; k < 2; k++) part({ k: 'pix', x, y, z: 1, vx: rand(-20, 20), vy: rand(-8, 8), vz: rand(15, 40), g: 300, life: 0.35, s0: 1, col: k ? '#9a8a76' : '#c8c0b0' });
+      if (chance(0.3)) part({ k: 'spark', x, y, z: 1, vx: rand(-40, 40), vy: rand(-20, 20), vz: rand(20, 60), drag: 3, life: 0.12, col: 'gold' }); if (i % 4 === 0) SFX.hit(panOf(x));
+    }
+  },
   shells(z, dt) { for (const a of z.ar) { const p = arcAt(a, z.t, 6, 70); if (p && chance(0.5)) part({ k: 'pix', x: p.x, y: p.y, z: p.h, life: 0.4, s0: 1, col: '#9a9488' }); } },
   cavalry(z, dt) { if ((z._h = (z._h || 0) - dt) <= 0) { z._h = 0.11; SFX.hoof(panOf(z.x)); } if (chance(dt * 30)) smoke(z.x - z.dir * rand(4, 50), z.y + rand(-z.w, z.w) * 0.8, 1, 'dust', 4, 16, 0.8, 4); },
   standard(z, dt) { light(z.x, z.y - 14, z.big ? 90 : 60, 'gold', 0.5); if (chance(dt * 6)) { const a = rand(TAU); part({ k: 'pix', x: z.x + Math.cos(a) * z.r * rand(0.3, 1), y: z.y + Math.sin(a) * z.r * 0.55, z: 1, vz: rand(15, 40), g: 0, drag: 0.5, life: rand(0.6, 1.1), s0: 1, col: '#ffd860' }); } },
@@ -79,6 +94,12 @@ Object.assign(HAZDRAW.world, {
     c.fillStyle = WOOD.dark; c.fillRect(x - 4, y - 4, 7, 2); c.fillStyle = WOOD.mid; c.fillRect(x - 3, y - 5, 2, 5); c.fillRect(x - 3, y - 3, 5, 1); c.fillStyle = WOOD.hi; c.fillRect(x - 3, y - 5, 1, 1); // carriage and wheel
   },
   cball(c, z) { const p = z.fdur ? cballAt(z, z.t) : { x: z.x, y: z.y, h: z.h || 0, s: 0 }, x = Math.round(p.x), y = Math.round(p.y), h = Math.round(p.h), sw = h > 30 ? 2 : h > 10 ? 3 : 4, by = y - h - 4; c.fillStyle = 'rgba(0,0,0,0.32)'; c.fillRect(x - (sw >> 1), y, sw, 1); c.fillStyle = IRON.dark; c.fillRect(x - 1, by, 2, 4); c.fillRect(x - 2, by + 1, 4, 2); c.fillStyle = IRON.mid; c.fillRect(x - 1, by + 1, 2, 2); const q = [[0, 0], [1, 0], [1, 1], [0, 1]][((p.s / 3 * z.dir) % 4 + 4 | 0) % 4]; c.fillStyle = IRON.hi; c.fillRect(x - 1 + q[0], by + 1 + q[1], 1, 1); c.fillStyle = '#3a2414'; c.fillRect(x, by - 1, 1, 1); }, // a round iron ball whose shine turns as it rolls, and its fuse
+  grape(c, z) {
+    if (!z.pel) return; const a = z.ar[0];
+    if (z.t < z.tb) { const p = arcAt(a, z.t, 6, 70); if (!p) return; const x = Math.round(p.x), y = Math.round(p.y - p.h); c.fillStyle = 'rgba(0,0,0,0.25)'; c.fillRect(Math.round(p.x) - 1, Math.round(p.y), 3, 1); c.fillStyle = IRON.dark; c.fillRect(x - 1, y - 2, 3, 4); c.fillStyle = WOOD.hi; c.fillRect(x - 1, y - 1, 3, 1); c.fillStyle = IRON.hi; c.fillRect(x - 1, y - 2, 1, 1); return; }
+    const n = z.pel.length;
+    for (let i = 0; i < n; i++) { const p = grapeAt(z, i, z.t); if (!p) continue; const x = Math.round(p.x), y = Math.round(p.y), yy = Math.round(p.y - p.h); c.fillStyle = `rgba(0,0,0,${0.15 + 0.35 * (1 - p.h / z.hb)})`; c.fillRect(x, y, 2, 1); c.fillStyle = 'rgba(230,222,206,0.55)'; c.fillRect(x, yy - 4, 1, 3); c.fillStyle = 'rgba(230,222,206,0.3)'; c.fillRect(x + 1, yy - 3, 1, 2); c.fillStyle = IRON.dark; c.fillRect(x, yy - 1, 2, 2); c.fillStyle = IRON.hi; c.fillRect(x, yy - 1, 1, 1); }
+  },
   shells(c, z) { for (const a of z.ar) { const p = arcAt(a, z.t, 6, 70); if (!p) continue; const x = Math.round(p.x), y = Math.round(p.y - p.h); c.fillStyle = IRON.dark; c.fillRect(x - 1, y - 1, 3, 3); c.fillStyle = IRON.hi; c.fillRect(x - 1, y - 1, 1, 1); c.fillStyle = 'rgba(0,0,0,0.25)'; c.fillRect(Math.round(p.x) - 1, Math.round(p.y), 3, 1); } },
   cavalry(c, z) { c.imageSmoothingEnabled = false; const fr = ((z.t * 14) | 0) % 4, n = z.n || 4; for (let i = 0; i < n; i++) { const ox = -z.dir * (6 + i * 13), oy = (i % 2 ? 1 : -1) * Math.min(z.w - 4, 4 + (i >> 1) * 6); const rx = Math.round(z.x + ox), ry = Math.round(z.y + oy + 4); drawSprite(c, 'Cavalry', rx, ry, (fr + i) % 4, z.dir < 0); const px = rx - z.dir * 4, py = ry - 22 + ((fr + i) % 2); c.fillStyle = WOOD.dark; c.fillRect(px, py, 1, 8); c.fillStyle = '#e0503a'; c.fillRect(z.dir > 0 ? px - 4 : px + 1, py, 4, 2); c.fillStyle = '#ffd860'; c.fillRect(px, py - 1, 1, 1); } }, // his colours on every rider
   standard(c, z) {
@@ -104,6 +125,10 @@ Object.assign(HAZSIM, {
     if (p.hop !== (z.hop === undefined ? -1 : z.hop)) { if (p.hop >= 0) HFX.ballBounce(p.x, p.y, p.hop === 0); z.hop = p.hop; } // each landing kicks up dust, the first one shakes the floor
     if (p.hop >= 0 && p.h < 4 && p.v > 15) for (const u of G.mons) if (!u.dead && u.spawnT <= 0 && u.carried !== 2 && !z.hit.has(u) && Math.abs(u.x - z.x) < u.r + 3 && Math.abs(u.y - z.y) < u.r + 3) { z.hit.add(u); hurt(u, z.dmg * clamp(p.v / z.v0, 0.5, 1), z.src, { kx: z.dir * (60 + p.v * 0.7), ky: rand(-40, 40), up: 40 + p.v * 0.2 }); }
     if (z.t >= z.fdur + z.T + (z.wall ? 0 : 0.25)) { HFX.blast(z.x, z.y, z.R); for (const u of within(z.x, z.y, z.R, G.mons)) hurt(u, z.dmg * 0.8, z.src, { elem: 'fire' }); z.dead = true; } // into the wall: it goes off at once; at rest: a beat, then the charge goes
+  },
+  grape(z, dt) {
+    const P = z.pel, n = P.length; if (!z._d) z._d = new Uint8Array(n);
+    for (let i = 0; i < n; i++) { if (z._d[i] || z.t < z.tb + P[i][2] + z.tf) continue; z._d[i] = 1; const x = z.bx + P[i][0], y = z.by + P[i][1]; for (const u of G.mons) if (!u.dead && u.spawnT <= 0 && u.carried !== 2 && dist(x, y, u.x, u.y) < 5 + u.r) { const g = angTo(z.bx, z.by, u.x, u.y); hurt(u, z.dmg, z.src, { kx: Math.cos(g) * 50, ky: Math.sin(g) * 35, quiet: true }); } }
   },
   shells(z, dt) { const A = z.ar; z._n = z._n || 0; while (z._n < A.length && z.t >= A[z._n][4] + A[z._n][5]) { const a = A[z._n++]; if (z.grape) { HFX.grapeBurst(a[2], a[3], z.R); for (const u of within(a[2], a[3], z.R, G.mons)) { const g = angTo(a[2], a[3], u.x, u.y); hurt(u, z.dmg, z.src, { kx: Math.cos(g) * 120, ky: Math.sin(g) * 80 }); } } else { HFX.blast(a[2], a[3], z.R); for (const u of within(a[2], a[3], z.R, G.mons)) hurt(u, z.dmg, z.src, { elem: 'fire', up: 90 }); } } },
   cavalry(z, dt) {
@@ -143,7 +168,21 @@ function cballAt(z, t) {
   return { x: z.lx + z.dir * s, y: z.ly, h, v, hop, s };
 }
 function cannonShot(h, t) { const m = md('CANNON SHOT'), side = t.x >= h.x ? -1 : 1; for (let k = 0; k <= m.count; k++) { const y = t.y + (k ? (k % 2 ? 14 : -14) : 0), c = cannonAt(side, y, [0.35 + k * 0.25], 1.4 + k * 0.25); after(0.35 + k * 0.25, () => { HFX.cannonFire(c.x, c.y, c.dir); const lx = clamp(t.x - c.dir * 30, ARENA.x0 + 8, ARENA.x1 - 8), a = lob(c.x + c.dir * 12, c.y, lx, c.y, 0), z = cballPath({ k: 'cball', fx: a[0], fy: c.y, lx, ly: c.y, fdur: a[5], H: a[6], dir: c.dir, R: 28 * m.size, dmg: D(h) * 1.6 * m.dmg, src: h }); hazard({ ...z, x: a[0], y: c.y, h: 6, life: z.fdur + z.T + 0.4 }); }); } }
-function grapeshot(h, p) { const m = md('GRAPESHOT'), side = p.x >= h.x ? -1 : 1, c = cannonAt(side, p.y, [0.35], 1.3); after(0.35, () => { HFX.cannonFire(c.x, c.y, c.dir); const a = lob(c.x + c.dir * 10, c.y, p.x, p.y, 0); hazard({ k: 'shells', ar: flights([a]), grape: 1, R: 46 * m.size, dmg: D(h) * 1.4 * m.dmg, life: a[5] + 0.4, src: h }); }); }
+// grapeshot: the canister's fuse bursts it high over the crowd on the way down; its shot then rains onto the floor below,
+// each ball hitting only where it lands (about half of them fall on foes). Pure in time, so guests draw the same rain.
+const GRAPE_UB = 0.74, GRAPE_G = 520;
+function grapeshot(h, p) {
+  const m = md('GRAPESHOT'), side = p.x >= h.x ? -1 : 1, c = cannonAt(side, p.y, [0.35], 1.3);
+  after(0.35, () => {
+    HFX.cannonFire(c.x, c.y, c.dir); const fx = c.x + c.dir * 10, a = lob(fx, c.y, fx + (p.x - fx) / GRAPE_UB, c.y + (p.y - c.y) / GRAPE_UB, 0), R = 44 * m.size;
+    const tb = a[5] * GRAPE_UB, hb = 6 * (1 - GRAPE_UB) + 4 * a[6] * GRAPE_UB * (1 - GRAPE_UB), n = Math.round(24 * m.size), foes = within(p.x, p.y, R * 0.9, G.mons), pel = [];
+    for (let k = foes.length - 1; k > 0; k--) { const j = randi(0, k); [foes[k], foes[j]] = [foes[j], foes[k]]; } const aimed = Math.min(Math.ceil(n / 2), foes.length * 2); // at most two balls aimed at each foe; the rest fall where they fall
+    for (let i = 0; i < n; i++) { let dx, dy; if (i < aimed) { const u = foes[i % foes.length]; dx = u.x - p.x + rand(-4, 4); dy = u.y - p.y + rand(-3, 3); } else { const aa = rand(TAU), r = R * Math.sqrt(Math.random()); dx = Math.cos(aa) * r; dy = Math.sin(aa) * r * 0.7; } pel.push([Math.round(dx), Math.round(dy), Math.round(rand(0, 0.12) * 100) / 100]); } // one small array per ball: the network sends lists of up to 64 entries
+    hazard({ k: 'grape', ar: flights([a]), bx: Math.round(p.x), by: Math.round(p.y), tb: Math.round(tb * 100) / 100, hb: Math.round(hb), tf: Math.round(Math.sqrt(2 * hb / GRAPE_G) * 100) / 100, pel, R, dmg: D(h) * 0.62 * m.dmg, life: tb + 1.2, src: h });
+  });
+}
+// where shot i is at time t, or null before the burst / after it lands
+function grapeAt(z, i, t) { const b = z.pel[i], u = (t - z.tb - b[2]) / z.tf; if (u < 0 || u > 1) return null; return { x: z.bx + b[0] * u, y: z.by + b[1] * u, h: z.hb * (1 - u * u) }; }
 function fireArrows(h, p) { const m = md('FIRE ARROWS'), n = 12 + m.count, R = 36 * m.size, pts = []; for (let i = 0; i < n; i++) pts.push({ x: p.x + rand(-R, R), y: p.y + rand(-R, R) * 0.6 }); const ar = archers(3, flankX(p.x), 12, 2.1); after(0.35, () => volley(h, pts, { from: ar.xs, dmg: D(h) * 0.8 * m.dmg, spread: 0.4, fire: 1 })); }
 function cavalryCharge(h, p) { const m = md('CAVALRY CHARGE'), A = ARENA, dir = h.x <= p.x ? 1 : -1; for (let k = 0; k <= m.count; k++) after(k * 0.5, () => { const y = clamp(p.y + (k ? (k % 2 ? 22 : -22) : 0), A.y0 + 10, A.y1 - 6); hazard({ k: 'cavalry', x: dir > 0 ? A.x0 - 40 : A.x1 + 40, y, dir, spd: 250, w: 16 * m.size, n: 4 + (m.f.big ? 2 : 0), dmg: D(h) * 1.7 * m.dmg, life: 4, src: h }); }); SFX.horn(); }
 function bombardment(h) { const m = md('BOMBARDMENT'), A = ARENA, f = live(G.mons), d = aimPoint(h, f, 50, 400) || { x: A.pw / 2, y: (A.y0 + A.y1) / 2 }, salvos = 3 + m.count; banner('BOMBARDMENT', h);
