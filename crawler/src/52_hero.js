@@ -63,14 +63,17 @@ function pant(h, dt) {
 // ahead; the spin goes once round; the slam is raised overhead and brought down on the spot ahead; charging, the weapon
 // is raised back over the shoulder.
 const angLerp = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t, easeOut = t => 1 - (1 - t) * (1 - t), easeIO = t => t * t * (3 - 2 * t);
+// the guard arc drawn while blocking: centred on the hero's middle, flattened like the floor, a little over a quarter turn
+const GUARD = { r: 9, k: 0.75, dy: -4, half: 0.9 };
 function weaponPose(h) {
   const Wc = WEAPON[h.spr], a = h.act; if (!Wc || h.dead) return null;
   const R = Wc.rest, fs = h.face < 0 ? -1 : 1, UP = -Math.PI / 2;
-  if (h.blocking && !a) { // the guard: the weapon held across his front, along the block arc, snapped up in a moment
-    const d = h.dir, c1 = d - Math.PI / 2, c2 = d + Math.PI / 2, vert = Math.abs(Math.sin(d)) > 0.6;
-    let th = vert ? (Math.cos(c1) * fs < 0 ? c1 : c2) : (Math.sin(c1) < Math.sin(c2) ? c1 : c2); if (!vert) th = angLerp(th, d, 0.2);
+  if (h.blocking && !a) { // the guard: the weapon laid along the block arc, its middle on the arc's middle, eased in from the hand
+    const d = h.dir, mx = h.x + Math.cos(d) * (GUARD.r - 1), my = h.y + GUARD.dy + Math.sin(d) * (GUARD.r - 1) * GUARD.k; // a pixel inside the arc line
+    const ta = Math.atan2(Math.cos(d) * GUARD.k, -Math.sin(d)), vert = Math.abs(Math.sin(d)) > 0.6; // the arc's direction at its middle
+    const th = vert ? (Math.cos(ta) * fs < 0 ? ta : ta + Math.PI) : (Math.sin(ta) < 0 ? ta : ta + Math.PI); // blade up beside him, across him above or below
     const p = easeOut(Math.min(1, h.blockT / 0.08)), from = h.swTh === undefined ? R : h.swTh;
-    return { th: angLerp(from, th, p), push: 0, ox: Math.cos(d) * 3 * p, oy: Math.sin(d) * 2.5 * p, front: Math.sin(d) > 0.3, behind: Math.sin(d) < -0.6 };
+    return { th: angLerp(from, th, p), push: 0, at: [mx - Math.cos(th) * Wc.mid, my - Math.sin(th) * Wc.mid], blend: p, front: Math.sin(d) > 0.3, behind: Math.sin(d) < -0.6 };
   }
   if (!a) return null;
   if (a.k === 'charge') { const p = Math.min(1, a.t / weaponOf(h).heavy.charge); return { th: angLerp(R, UP - fs * 1.0, easeOut(p)), push: 0, shake: p >= 1 }; }

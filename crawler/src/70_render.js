@@ -47,6 +47,25 @@ function toScreen(x, y) { const s = CAM.z * (1 + CAM.kick); return [(x - CAM.x) 
 // ---------- sprites ----------
 let MOBS_RED = null;
 function mobsRed() { if (MOBS_RED) return MOBS_RED; const s = IMG.mobsW, c = mkCanvas(s.width, s.height), x = c.getContext('2d'); x.drawImage(s, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = '#ff3a24'; x.fillRect(0, 0, c.width, c.height); return (MOBS_RED = c); }
+// A creature drawn bigger than its pixels (a brute at 1.3x) is enlarged once, the RotSprite way (Scale2x three times, then
+// sampled at the new size), and then drawn pixel for pixel. Scaling it while drawing dropped and doubled different rows at
+// every fraction of a pixel it moved, so its outline shimmered and tore.
+const BIG = {};
+function bigSprite(spr, sc) {
+  const key = spr + '@' + sc; if (BIG[key]) return BIG[key];
+  const [sy, fw, fh] = MOBS[spr], P = PIX.mobs, W = Math.round(fw * sc), H = Math.round(fh * sc), foot = footOf(spr);
+  let img = { w: fw * 4, h: fh, d: new Uint8ClampedArray(fw * 4 * fh * 4) };
+  for (let y = 0; y < fh; y++) for (let x = 0; x < fw * 4; x++) { const i = ((sy + y) * P.w + x) * 4, j = (y * fw * 4 + x) * 4; for (let k = 0; k < 4; k++) img.d[j + k] = P.d[i + k]; if (img.d[j + 3] < 128) img.d[j + 3] = 0; else img.d[j + 3] = 255; }
+  for (let k = 0; k < 3; k++) img = scale2x(img);
+  const cv = mkCanvas(W * 4, H), x = cv.getContext('2d'), o = x.createImageData(W * 4, H);
+  for (let f = 0; f < 4; f++) for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) {
+    const X = Math.floor((f * fw + (xx + 0.5) * fw / W) * 8), Y = Math.floor((y + 0.5) * fh / H * 8), i = (Y * img.w + X) * 4, j = (y * W * 4 + f * W + xx) * 4;
+    for (let k = 0; k < 4; k++) o.data[j + k] = img.d[i + k];
+  }
+  x.putImageData(o, 0, 0);
+  const red = mkCanvas(W * 4, H), rx = red.getContext('2d'); rx.drawImage(cv, 0, 0); rx.globalCompositeOperation = 'source-in'; rx.fillStyle = '#ff3a24'; rx.fillRect(0, 0, W * 4, H);
+  return (BIG[key] = { cv, white: silhouette(cv), red, W, H, foot: Math.round((foot + 1) * H / fh) });
+}
 function drawUnit(c, u) {
   const m = MOBS[u.spr]; if (!m) return; if (u.team === 'foe' && !foeShown(u)) return;
   const sy = m[0], fw = m[1], fh = m[2], foot = footOf(u.spr), sleep = u.state === 'sleep' && !u.aware;
@@ -55,28 +74,29 @@ function drawUnit(c, u) {
   const ra = u.team === 'hero' && u.act && u.act.k === 'roll' ? u.act : null;
   // A pixel sprite cannot be squeezed without dropping rows, so a crouch or a landing lowers the upper body by
   // whole pixels instead: the sprite is cut at the waist and the top part drawn lower, over the legs.
-  const dip = u.team === 'hero' && !ra ? Math.min(2, (creep ? 1 : 0) + (u.dipT > 0 ? 1 : 0)) : 0, cut = Math.max(4, foot - 5);
+  const dip = u.team === 'hero' && !ra ? Math.min(2, (creep ? 1 : 0) + (u.dipT > 0 ? 1 : 0)) : sleep && sc === 1 ? 1 : 0, cut = Math.max(4, foot - 5);
   // the sellsword swinging: drawn without his sword, and the sword drawn on its own, behind him when it points behind him
   const Wc = u.team === 'hero' && !ra ? WEAPON[u.spr] : null, pose = Wc ? weaponPose(u) : null, back = pose && (pose.behind || (!pose.front && Math.cos(pose.th) * (u.face < 0 ? -1 : 1) < -0.15));
   if (back) drawWeapon(c, u, pose, Wc, fr, fw, foot, dip, cut);
   c.save(); c.translate(u.x + jit, u.y - u.z);
-  if (sleep) { c.rotate(0.12 * u.face); }
   if (ra) { // a roll: one full turn the way the hero travels, in quarter turns so every pixel stays on the grid
     const p = Math.min(1, ra.t / ra.dur), turn = Math.min(4, Math.floor((p + 0.14) * 4.5)) / 4, cy = Math.round(-6 * sc);
     const way = Math.abs(Math.cos(ra.dir)) > 0.2 ? Math.sign(Math.cos(ra.dir)) : (u.face < 0 ? -1 : 1); // turn with the travel (a backward roll goes back over the head)
     c.translate(0, cy + Math.round(2 * Math.sin(p * Math.PI))); c.rotate(turn * TAU * way); c.translate(0, -cy);
   }
-  c.scale(sc * (u.face < 0 ? -1 : 1), sc);
+  const B = sc !== 1 ? bigSprite(u.spr, sc) : null;
+  c.scale((B ? 1 : sc) * (u.face < 0 ? -1 : 1), B ? 1 : sc);
+  const blitB = img => c.drawImage(img, fr * B.W, 0, B.W, B.H, -B.W / 2, -B.foot, B.W, B.H);
   const blit = (img, oy = sy) => { if (!dip) { c.drawImage(img, fr * fw, oy, fw, fh, -fw / 2, -foot - 1, fw, fh); return; }
     c.drawImage(img, fr * fw, oy + cut, fw, fh - cut, -fw / 2, -foot - 1 + cut, fw, fh - cut); c.drawImage(img, fr * fw, oy, fw, cut, -fw / 2, -foot - 1 + dip, fw, cut); };
-  if (pose) blit(Wc.cut, 0); else blit(IMG.mobs);
+  if (B) blitB(B.cv); else if (pose) blit(Wc.cut, 0); else blit(IMG.mobs);
   const a = u.act, warn = u.team === 'foe' && a && ((a.k === 'atk' && a.phase === 'wind') || (a.k === 'aim' && a.t > a.dur - 0.25));
-  if (warn) { c.globalAlpha = 0.35 + 0.35 * Math.sin(G.time * 40); blit(mobsRed()); }
-  if (u.flash > 0) { c.globalAlpha = Math.min(1, u.flash * 9); if (pose) blit(Wc.cutW, 0); else blit(IMG.mobsW); }
+  if (warn) { c.globalAlpha = 0.35 + 0.35 * Math.sin(G.time * 40); if (B) blitB(B.red); else blit(mobsRed()); }
+  if (u.flash > 0) { c.globalAlpha = Math.min(1, u.flash * 9); if (B) blitB(B.white); else if (pose) blit(Wc.cutW, 0); else blit(IMG.mobsW); }
   c.restore(); c.globalAlpha = 1;
   if (pose && !back) drawWeapon(c, u, pose, Wc, fr, fw, foot, dip, cut);
   if (u.team === 'foe' && u.hp < u.maxHp && !u.dead) { const w = 10 * sc, x = u.x - w / 2, y = u.y - u.z + 3; c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(x - 0.5, y - 0.5, w + 1, 2.5); c.fillStyle = u.stun > 0 ? '#ffd24a' : '#e8443a'; c.fillRect(x, y, w * clamp(u.hp / u.maxHp, 0, 1), 1.5); }
-  if (u.team === 'hero' && u.blocking) { const r = 9, a0 = u.dir; c.strokeStyle = u.blockT < PARRY_WINDOW ? '#ffd860' : '#d8d0c0'; c.lineWidth = 1.5; c.beginPath(); c.ellipse(u.x, u.y - 4, r, r * 0.75, 0, a0 - 0.9, a0 + 0.9); c.stroke(); }
+  if (u.team === 'hero' && u.blocking) { const a0 = u.dir; c.strokeStyle = u.blockT < PARRY_WINDOW ? '#ffd860' : '#d8d0c0'; c.lineWidth = 1.5; c.beginPath(); c.ellipse(u.x, u.y + GUARD.dy, GUARD.r, GUARD.r * GUARD.k, 0, a0 - GUARD.half, a0 + GUARD.half); c.stroke(); }
 }
 function drawProp(c, p) {
   if (p.kind === 'pillar') { const [tx, ty] = p.tile; for (let i = 0; i < 3; i++) c.drawImage(IMG.cellar, tx * TS, (ty + i) * TS, TS, TS, p.x - 8, p.y - 14 - 32 + i * TS, TS, TS); }
@@ -170,11 +190,11 @@ function drawWeapon(c, u, p, Wc, fr, fw, foot, dip, cutRow) {
   const px0 = Math.round(u.x - fw / 2), py0 = Math.round(u.y - u.z - foot - 1), col = k => u.face < 0 ? px0 + fw - 1 - k : px0 + k, row = r => py0 + r + (r < cutRow ? dip : 0);
   const [gx, gy] = Wc.piv[fr]; let x = col(gx), y = row(gy);
   if (p.push) { x += Math.round(Math.cos(p.th) * p.push); y += Math.round(Math.sin(p.th) * p.push); }
-  if (p.ox || p.oy) { x += Math.round(p.ox || 0); y += Math.round(p.oy || 0); }
+  if (p.at) { x = Math.round(lerp(x, p.at[0], p.blend)); y = Math.round(lerp(y, p.at[1], p.blend)); }
   if (p.shake) x += ((G.time * 30) | 0) % 2;
   const n = Wc.rot.length, i = ((Math.round((p.th - Wc.rest) / TAU * n) % n) + n) % n;
   c.drawImage(Wc.rot[i], x - Wc.r, y - Wc.r);
-  for (const [hx, hy, q] of Wc.hands[fr]) { c.fillStyle = `rgb(${q[0]},${q[1]},${q[2]})`; c.fillRect(col(hx), row(hy), 1, 1); }
+  if (!p.at) for (const [hx, hy, q] of Wc.hands[fr]) { c.fillStyle = `rgb(${q[0]},${q[1]},${q[2]})`; c.fillRect(col(hx), row(hy), 1, 1); }
   u.swTh = p.th;
 }
 // a unit's shadow: a flat pixel ellipse, row by row, no soft edge
