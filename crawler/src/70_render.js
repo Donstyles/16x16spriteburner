@@ -51,9 +51,14 @@ function drawUnit(c, u) {
   const m = MOBS[u.spr]; if (!m) return; if (u.team === 'foe' && !foeShown(u)) return;
   const sy = m[0], fw = m[1], fh = m[2], foot = footOf(u.spr), sleep = u.state === 'sleep' && !u.aware;
   const creep = u.team === 'hero' && u.moving && u.noise === 0 && !u.act;
-  const fr = sleep ? 0 : ((u.anim * (u.moving ? (creep ? 5 : 9) : 5)) | 0) % 4, sc = u.scale, sq = u.squash + (creep ? 0.08 : 0), jit = u.stun > 0 ? Math.sin(u.anim * 50) * 0.6 : 0;
+  const fr = sleep || (u.act && u.act.k === 'roll') ? 0 : ((u.anim * (u.moving ? (creep ? 5 : 9) : 5)) | 0) % 4, sc = u.scale, sq = u.squash + (creep ? 0.08 : 0), jit = u.stun > 0 ? Math.sin(u.anim * 50) * 0.6 : 0;
   c.save(); c.translate(u.x + jit, u.y - u.z);
   if (sleep) { c.rotate(0.12 * u.face); }
+  const ra = u.team === 'hero' && u.act && u.act.k === 'roll' ? u.act : null;
+  if (ra) { // a roll: one full turn the way the hero is heading, in quarter turns so every pixel stays on the grid
+    const p = Math.min(1, ra.t / ra.dur), turn = Math.min(4, Math.floor((p + 0.14) * 4.5)) / 4, cy = Math.round(-6 * sc);
+    c.translate(0, cy + Math.round(2 * Math.sin(p * Math.PI))); c.rotate(turn * TAU * (u.face < 0 ? -1 : 1)); c.translate(0, -cy);
+  }
   c.scale(sc * (1 + sq) * (u.face < 0 ? -1 : 1), sc * (1 - sq));
   c.drawImage(IMG.mobs, fr * fw, sy, fw, fh, -fw / 2, -foot - 1, fw, fh);
   const a = u.act, warn = u.team === 'foe' && a && ((a.k === 'atk' && a.phase === 'wind') || (a.k === 'aim' && a.t > a.dur - 0.25));

@@ -95,8 +95,8 @@ function actTick(h, a, dt, I, want) {
   a.t += dt;
   if (a.k === 'roll') {
     const u = a.t / a.dur, s = a.spd * (1 - u) * (1 - u * 0.4); h.vx = Math.cos(a.dir) * s; h.vy = Math.sin(a.dir) * s * 0.85; h.moving = true;
-    if ((a.gT = (a.gT || 0) - dt) <= 0) { a.gT = 0.045; ghost(h, 0.22); }
-    if (u >= 1) { h.act = null; h.vx *= 0.3; h.vy *= 0.3; }
+    if ((a.gT = (a.gT || 0) - dt) <= 0) { a.gT = 0.06; smoke(h.x - Math.cos(a.dir) * 3, h.y, 1, 'dust', 5, 12, 0.45); }
+    if (u >= 1) { h.act = null; h.vx *= 0.3; h.vy *= 0.3; smoke(h.x, h.y, 2, 'dust', 6, 20, 0.5); h.squash = 0.12; }
     return;
   }
   if (a.k === 'drink') {
