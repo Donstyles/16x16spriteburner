@@ -49,7 +49,7 @@ function winded(h) { h.stamT = Math.max(h.stamT, WINDED); if (!h.huff) { h.huff 
 function pant(h, dt) {
   const H = h.huff; if (h.dead || (h.stamT <= 0 && h.stam >= h.maxStam / 3)) { h.huff = null; return; }
   if ((H.t -= dt) > 0) return; const slow = h.stamT > 0 ? 1 : 1.35; // the breaths slow down as the stamina comes back
-  if (H.out) { SFX.huff(panOf(h.x), false); h.squash = Math.max(h.squash, 0.1); for (let i = 0; i < 2; i++) part({ k: 'smoke', x: h.x + h.face * (5 + i * 2), y: h.y + 1, z: 10 + i, vx: h.face * rand(12, 22), vy: rand(-3, 3), vz: rand(3, 8), drag: 2, life: 0.8, s0: 2.5, s1: 6.5, col: 'breath', a0: 0.9, a1: 0 }); H.t = 0.2 * slow; }
+  if (H.out) { SFX.huff(panOf(h.x), false); for (let i = 0; i < 2; i++) part({ k: 'smoke', x: h.x + h.face * (5 + i * 2), y: h.y + 1, z: 10 + i, vx: h.face * rand(12, 22), vy: rand(-3, 3), vz: rand(3, 8), drag: 2, life: 0.8, s0: 2.5, s1: 6.5, col: 'breath', a0: 0.9, a1: 0 }); H.t = 0.2 * slow; }
   else { SFX.huff(panOf(h.x), true); H.t = 0.26 * slow; }
   H.out = !H.out;
 }
@@ -58,7 +58,7 @@ function heroTick(h, dt) {
   const I = h.inp; if (h.dead) { h.deadT += dt; I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }
   if (h.iframe > 0) h.iframe -= dt; if (h.riposteT > 0) h.riposteT -= dt; if (h.comboT > 0) h.comboT -= dt;
   if (h.poiseT > 0) h.poiseT -= dt; else h.poise = h.maxPoise; if (h.poiseGuard > 0) h.poiseGuard -= dt;
-  if (h.huff) pant(h, dt);
+  if (h.dipT > 0) h.dipT -= dt; if (h.huff) pant(h, dt);
   if (h.stamT > 0) h.stamT -= dt; else if (!(h.act && h.act.k !== 'charge')) h.stam = Math.min(h.maxStam, h.stam + (h.blocking ? 16 : 58) * dt);
   const want = I.mx || I.my ? Math.atan2(I.my, I.mx) : null;
   h.noise = !h.act ? (Math.hypot(I.mx, I.my) > CREEP + 0.05 ? 1 : 0) : h.act.k === 'roll' || h.act.k === 'atk' ? 2 : h.act.k === 'drink' ? 0 : 1;
@@ -109,7 +109,7 @@ function actTick(h, a, dt, I, want) {
   if (a.k === 'roll') {
     const u = a.t / a.dur, s = a.spd * (1 - u) * (1 - u * 0.4); h.vx = Math.cos(a.dir) * s; h.vy = Math.sin(a.dir) * s * 0.85; h.moving = true;
     if ((a.gT = (a.gT || 0) - dt) <= 0) { a.gT = 0.06; smoke(h.x - Math.cos(a.dir) * 3, h.y, 1, 'dust', 5, 12, 0.45); }
-    if (u >= 1) { h.act = null; h.vx *= 0.3; h.vy *= 0.3; smoke(h.x, h.y, 2, 'dust', 6, 20, 0.5); h.squash = 0.12; }
+    if (u >= 1) { h.act = null; h.vx *= 0.3; h.vy *= 0.3; smoke(h.x, h.y, 2, 'dust', 6, 20, 0.5); h.dipT = 0.08; }
     return;
   }
   if (a.k === 'drink') {
