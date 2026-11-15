@@ -65,10 +65,12 @@ function cracks(x, y, n, len, speed = 260, hot = 2.5, col = 'magma') {
   FX.cracks.push({ segs, t: 0, hot, life: hot + 2, col });
 }
 // --- floor decals (painted straight into the arena ground: the room gets wrecked) ---
-function scorch(x, y, r, a = 0.6) { const g = ARENA.g, gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(8,5,4,${a})`); gr.addColorStop(0.55, `rgba(16,10,8,${a * 0.55})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, r, r * 0.75, 0, 0, TAU); g.fill(); }
+function scorch(x, y, r, a = 0.6) { groundPaint(x - r, y - r, x + r, y + r, g => { const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(8,5,4,${a})`); gr.addColorStop(0.55, `rgba(16,10,8,${a * 0.55})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, r, r * 0.75, 0, 0, TAU); g.fill(); }); }
 // blood in whole pixels, painted into the floor: it stays until the floor gives way
-function bloodPaint(x, y, pal, n, spread) { const g = ARENA && ARENA.g; if (!g) return; for (let i = 0; i < n; i++) { g.globalAlpha = rand(0.7, 1); g.fillStyle = pal[(Math.random() * pal.length) | 0]; const w = chance(0.25) ? 2 : 1; g.fillRect(Math.round(x + rand(-spread, spread)), Math.round(y + rand(-spread, spread) * 0.6), w, chance(0.5) ? 1 : w); } g.globalAlpha = 1; }
-function splat(x, y, col, n = 6, spread = 7) { const g = ARENA.g; g.fillStyle = col; for (let i = 0; i < n; i++) { g.globalAlpha = rand(0.35, 0.75); const r = rand(0.8, 2.6); g.beginPath(); g.ellipse(x + rand(-spread, spread), y + rand(-spread, spread) * 0.7, r, r * 0.75, 0, 0, TAU); g.fill(); } g.globalAlpha = 1; }
+function bloodPaint(x, y, pal, n, spread) { if (!ARENA) return; const R = []; for (let i = 0; i < n; i++) { const w = chance(0.25) ? 2 : 1; R.push([rand(0.7, 1), pal[(Math.random() * pal.length) | 0], Math.round(x + rand(-spread, spread)), Math.round(y + rand(-spread, spread) * 0.6), w, chance(0.5) ? 1 : w]); }
+  groundPaint(x - spread - 2, y - spread - 2, x + spread + 2, y + spread + 2, g => { for (const r of R) { g.globalAlpha = r[0]; g.fillStyle = r[1]; g.fillRect(r[2], r[3], r[4], r[5]); } g.globalAlpha = 1; }); }
+function splat(x, y, col, n = 6, spread = 7) { if (!ARENA) return; const R = []; for (let i = 0; i < n; i++) R.push([rand(0.35, 0.75), rand(0.8, 2.6), x + rand(-spread, spread), y + rand(-spread, spread) * 0.7]);
+  groundPaint(x - spread - 3, y - spread - 3, x + spread + 3, y + spread + 3, g => { g.fillStyle = col; for (const [a, r, ex, ey] of R) { g.globalAlpha = a; g.beginPath(); g.ellipse(ex, ey, r, r * 0.75, 0, 0, TAU); g.fill(); } g.globalAlpha = 1; }); }
 // --- floating combat numbers ---
 function number(x, y, z, n, col, big) { FX.nums.push({ x: x + rand(-4, 4), y, z, vz: rand(50, 80), vx: rand(-12, 12), txt: String(n), col, big, t: 0, life: big ? 1.1 : 0.8 }); if (FX.nums.length > 90) FX.nums.shift(); }
 function textPop(x, y, z, txt, col, big = true) { FX.nums.push({ x, y, z, vz: 40, vx: 0, txt, col, big, t: 0, life: 1.4 }); }
@@ -78,7 +80,11 @@ function updateFx(dt) {
   for (let i = P.length - 1; i >= 0; i--) {
     const p = P[i]; p.t += dt; if (p.t >= p.life) { P[i] = P[P.length - 1]; P.pop(); continue; }
     if (p.drag) { const f = Math.exp(-p.drag * dt); p.vx *= f; p.vy *= f; if (!p.g) p.vz *= f; }
-    p.x += p.vx * dt; p.y += p.vy * dt;
+    if (p.bounce && p.z < 40 && !solidAt(p.x, p.y)) { // shards, sparks and gibs glance off the walls (a mark already inside a wall is left alone)
+      const nx = p.x + p.vx * dt, ny = p.y + p.vy * dt;
+      if (solidAt(nx, p.y)) { p.vx = -p.vx * 0.45; p.vr = -p.vr; } else p.x = nx;
+      if (solidAt(p.x, ny)) { p.vy = -p.vy * 0.45; p.vr = -p.vr; } else p.y = ny;
+    } else { p.x += p.vx * dt; p.y += p.vy * dt; }
     if (p.g || p.vz) { p.vz -= p.g * dt; p.z += p.vz * dt; if (p.z < 0 && p.g) { if (p.bounce && p.vz < -25) { p.z = 0; p.vz = -p.vz * p.bounce; p.vx *= 0.55; p.vy *= 0.55; } else { p.z = 0; p.vz = 0; p.g = 0; p.vx *= 0.3; p.vy *= 0.3; } } }
     if (p.vr) p.rot += p.vr * dt;
   }
@@ -88,10 +94,9 @@ function updateFx(dt) {
   for (const g of FX.ghosts) g.t += dt; removeIf(FX.ghosts, g => g.t >= g.life); // afterimages fade on every phone, guests included
   for (const n of FX.nums) { n.t += dt; n.z += n.vz * dt; n.vz -= 90 * dt; n.x += n.vx * dt; }
   removeIf(FX.nums, n => n.t >= n.life);
-  const g = ARENA && ARENA.g;
   for (const c of FX.cracks) {
     c.t += dt;
-    if (g) for (const s of c.segs) if (!s.p && c.t >= s.t0) { s.p = true; g.strokeStyle = 'rgba(6,4,4,0.9)'; g.lineWidth = s.w + 0.6; g.lineCap = 'round'; g.beginPath(); g.moveTo(s.x0, s.y0); g.lineTo(s.x1, s.y1); g.stroke(); g.strokeStyle = 'rgba(255,230,190,0.18)'; g.lineWidth = 0.6; g.beginPath(); g.moveTo(s.x0 + 0.8, s.y0 + 0.8); g.lineTo(s.x1 + 0.8, s.y1 + 0.8); g.stroke(); if (chance(0.08)) { smoke(s.x1, s.y1, 1, 'dust', 8, 6, 1, 8); } }
+    if (ARENA) for (const s of c.segs) if (!s.p && c.t >= s.t0) { s.p = true; groundPaint(Math.min(s.x0, s.x1) - 3, Math.min(s.y0, s.y1) - 3, Math.max(s.x0, s.x1) + 3, Math.max(s.y0, s.y1) + 3, g => { g.strokeStyle = 'rgba(6,4,4,0.9)'; g.lineWidth = s.w + 0.6; g.lineCap = 'round'; g.beginPath(); g.moveTo(s.x0, s.y0); g.lineTo(s.x1, s.y1); g.stroke(); g.strokeStyle = 'rgba(255,230,190,0.18)'; g.lineWidth = 0.6; g.beginPath(); g.moveTo(s.x0 + 0.8, s.y0 + 0.8); g.lineTo(s.x1 + 0.8, s.y1 + 0.8); g.stroke(); }); if (chance(0.08)) { smoke(s.x1, s.y1, 1, 'dust', 8, 6, 1, 8); } }
   }
   removeIf(FX.cracks, c => c.t >= c.life);
 }

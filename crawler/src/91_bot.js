@@ -1,5 +1,5 @@
 // ===================== a test pilot (window.CR_BOT = true): plays the local hero for soak tests and screenshots =====================
-// It fights the nearest foe it can see, raises its guard against marked blows, rolls away from slams, drinks when low and
+// It fights the nearest foe it can see (now and then holding the blow for a heavy), raises its guard against marked blows, rolls away from slams, drinks when low and
 // otherwise walks toward unexplored floor, and once the map is mostly known, to the way down.
 function botDrive(h, dt) {
   if (!h || h.dead) return; const I = h.inp, A = ARENA; I.aim = null; I.block = false; I.atk = false;
@@ -12,7 +12,7 @@ function botDrive(h, dt) {
     if (fa && fa.k === 'atk' && fa.phase === 'wind' && d < 50) { if (fa.mv.slam || h.stam < 30 || guardOf(h).absorb < 0.6) { I.dodgeP = true; I.mx = -Math.cos(a); I.my = -Math.sin(a); } else { I.block = true; I.mx = Math.cos(a) * 0.01; I.my = Math.sin(a) * 0.01; } return; }
     const reach = weaponOf(h).combo[0].reach + f.r;
     if (d > reach) { const p = h.path && h.pathTo === 'f' + f.id ? h.path : (h.path = findPath(h.x, h.y, f.x, f.y) || [], h.pathTo = 'f' + f.id, h.path); while (p.length && dist(h.x, h.y, p[0].x, p[0].y) < 8) p.shift(); const wp = lineOfSight(h.x, h.y, f.x, f.y) ? f : p[0] || f; const l = dist(h.x, h.y, wp.x, wp.y) || 1; I.mx = (wp.x - h.x) / l; I.my = (wp.y - h.y) / l; if ((B.t -= dt) <= 0) { B.t = 1; h.path = null; } }
-    else { I.mx = Math.cos(a) * 0.05; I.my = Math.sin(a) * 0.05; if (!h.act && h.stam > 20 && chance(dt * 9)) I.atkP = true; I.atk = false; }
+    else { I.mx = Math.cos(a) * 0.05; I.my = Math.sin(a) * 0.05; if (B.hold > 0) { B.hold -= dt; I.atk = true; } else if (!h.act && h.stam > 20 && chance(dt * 9)) { I.atkP = true; if (chance(0.3)) { B.hold = weaponOf(h).heavy.charge + 0.3; I.atk = true; B.heavies = (B.heavies || 0) + 1; } } }
     return;
   }
   // explore: the nearest floor tile not yet seen, else the way down

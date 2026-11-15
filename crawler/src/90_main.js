@@ -26,7 +26,7 @@ async function boot() {
   await loadAssets(); resize(); addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
   setupInput(); menuBackdrop(); G.mode = 'menu'; MENU.screen = 'title';
   const ld = document.getElementById('loading'); if (ld) ld.hidden = true;
-  window.CR = { G, FX, CAM, Q, SFX, VIEW, MENU, UI, INPUT, KITS, WEAPONS, FOE_TYPES, ARENA: () => ARENA, startRun, startFloor, beginRun, togglePause, toWorld, btnLayout, hurt, mkFoe, wakeFoe };
+  window.CR = { G, FX, CAM, Q, SFX, VIEW, MENU, UI, INPUT, KITS, WEAPONS, FOE_TYPES, ARENA: () => ARENA, startRun, startFloor, beginRun, togglePause, toWorld, btnLayout, hurt, mkFoe, wakeFoe, fx: { debris, cracks, bloodPaint, splat, breakProp } };
   requestAnimationFrame(frame);
 }
 boot().catch(e => { const ld = document.getElementById('loading'); if (ld) ld.textContent = 'Failed to start: ' + e.message; console.error(e); });

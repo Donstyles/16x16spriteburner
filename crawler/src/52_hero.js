@@ -48,6 +48,8 @@ function heroTick(h, dt) {
   if (h.poiseT > 0) h.poiseT -= dt; else h.poise = h.maxPoise;
   if (h.stamT > 0) h.stamT -= dt; else if (!(h.act && h.act.k !== 'charge')) h.stam = Math.min(h.maxStam, h.stam + (h.blocking ? 16 : 58) * dt);
   const want = I.mx || I.my ? Math.atan2(I.my, I.mx) : null;
+  h.noise = !h.act ? (Math.hypot(I.mx, I.my) > CREEP + 0.05 ? 1 : 0) : h.act.k === 'roll' || h.act.k === 'atk' ? 2 : h.act.k === 'drink' ? 0 : 1;
+  h.hush = damp(h.hush || 1, h.noise === 0 && (I.mx || I.my) ? 0.8 : 1, 6, dt); // creeping, the hero shades the lamp
   if (h.stun > 0) { h.stun -= dt; h.vx = damp(h.vx, 0, 8, dt); h.vy = damp(h.vy, 0, 8, dt); h.moving = false; h.pressT = -1; I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }
   const a = h.act;
   if (I.dodgeP) { I.dodgeP = false; if (canRoll(h)) { startRoll(h, want); I.atkP = I.atkR = false; h.pressT = -1; return; } else if (h.stam <= 0) G.tiredT = 0.6; }
@@ -113,7 +115,7 @@ function actTick(h, a, dt, I, want) {
   // an attack: wind-up, strike, recovery
   const mv = a.mv, w = mv.wind, s = mv.wind + mv.act, e = s + mv.rec;
   if (a.phase === 'wind') { h.vx = damp(h.vx, 0, 18, dt); h.vy = damp(h.vy, 0, 18, dt); h.moving = false; if (a.t >= w) { a.phase = 'act'; strikeStart(h, a); } }
-  if (a.phase === 'act') { const u = mv.dash ? 1 : 1 - (a.t - w) / mv.act; h.vx = Math.cos(a.dir) * mv.lunge * u; h.vy = Math.sin(a.dir) * mv.lunge * u * 0.85; if (mv.through) h.iframe = Math.max(h.iframe, 0.05); strikeHits(h, a); if (a.t >= s) { a.phase = 'rec'; if (mv.dash) { h.vx *= 0.25; h.vy *= 0.25; } } }
+  if (a.phase === 'act') { const u = mv.dash ? 1 : 1 - (a.t - w) / mv.act; const L = mv.lunge || 0; h.vx = Math.cos(a.dir) * L * u; h.vy = Math.sin(a.dir) * L * u * 0.85; if (mv.through) h.iframe = Math.max(h.iframe, 0.05); strikeHits(h, a); if (a.t >= s) { a.phase = 'rec'; if (mv.dash) { h.vx *= 0.25; h.vy *= 0.25; } } }
   if (a.phase === 'rec') {
     h.vx = damp(h.vx, 0, 14, dt); h.vy = damp(h.vy, 0, 14, dt); h.moving = false;
     const heavy = mv === weaponOf(h).heavy;

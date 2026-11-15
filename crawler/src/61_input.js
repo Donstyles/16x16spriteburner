@@ -1,7 +1,7 @@
 // ===================== input: touch, keyboard, mouse, gamepad -> the local hero's input record =====================
-// Phones: a floating stick on the left half; on the right a big ATTACK (tap to strike, hold to charge), DODGE, BLOCK (hold)
+// Phones: an invisible floating stick on the left half (a small push creeps, silent past sleepers; further runs); on the right a big ATTACK (tap to strike, hold to charge), DODGE, BLOCK (hold)
 // and FLASK. Keyboard: WASD/arrows, J or left click attack, Space or K dodge, Shift, L or right click block, F flask,
-// Esc menu; the mouse aims. Gamepad: stick, X attack, A dodge, shoulder block, Y flask, Start menu.
+// C or Ctrl creep, Esc menu; the mouse aims. Gamepad: stick, X attack, A dodge, shoulder block, Y flask, Start menu.
 const INPUT = { keys: new Set(), stick: null, btn: {}, mouse: { x: 0, y: 0, t: -99, l: false, r: false }, pad: null, touch: false };
 const TOUCHES = new Map();
 function ctrlScale() { return clamp(Math.min(VIEW.w, VIEW.h) / 430, 0.85, 1.35); }
@@ -55,13 +55,16 @@ function pollPad() {
   const edge = (i, name) => { const on = !!(p.buttons[i] && p.buttons[i].pressed); if (on && !PADB[i]) { if (G.mode !== 'play' || UI.paused) uiKey(name === 'dodge' || name === 'atk' ? 'Enter' : name === 'menu' ? 'Escape' : ''); else press(name); } if (!on && PADB[i] && name === 'atk') release('atk'); PADB[i] = on; };
   edge(2, 'atk'); edge(0, 'dodge'); edge(3, 'flask'); edge(9, 'menu');
 }
+// A stick has two gears: pushed up to half way the hero creeps (quiet enough to pass sleepers), further it runs.
+const CREEP = 0.35;
+function gear(x, y) { const m = Math.hypot(x, y); if (m < 0.01) return [0, 0]; const g = m <= 0.5 ? CREEP : 0.65 + 0.35 * Math.min(1, (m - 0.5) / 0.5); return [x / m * g, y / m * g]; }
 // once per frame: the local player's hands into the hero's input record
 function readInput() {
   const h = G.me; if (!h) return; const I = h.inp, k = INPUT.keys;
   let x = 0, y = 0;
-  if (INPUT.stick) { x = INPUT.stick.vx; y = INPUT.stick.vy; }
-  else { if (k.has('KeyA') || k.has('ArrowLeft')) x -= 1; if (k.has('KeyD') || k.has('ArrowRight')) x += 1; if (k.has('KeyW') || k.has('ArrowUp')) y -= 1; if (k.has('KeyS') || k.has('ArrowDown')) y += 1; if (!x && !y && INPUT.pad) { x = INPUT.pad.x; y = INPUT.pad.y; } }
-  const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } I.mx = x; I.my = y;
+  if (INPUT.stick) { [x, y] = gear(INPUT.stick.vx, INPUT.stick.vy); }
+  else { if (k.has('KeyA') || k.has('ArrowLeft')) x -= 1; if (k.has('KeyD') || k.has('ArrowRight')) x += 1; if (k.has('KeyW') || k.has('ArrowUp')) y -= 1; if (k.has('KeyS') || k.has('ArrowDown')) y += 1; if (!x && !y && INPUT.pad) [x, y] = gear(INPUT.pad.x, INPUT.pad.y); }
+  const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } if (k.has('KeyC') || k.has('ControlLeft') || k.has('ControlRight')) { x *= CREEP; y *= CREEP; } I.mx = x; I.my = y;
   I.atk = !!(INPUT.btn.atk || k.has('KeyJ') || k.has('KeyZ') || INPUT.mouse.l);
   I.block = !!(INPUT.btn.block || k.has('ShiftLeft') || k.has('ShiftRight') || k.has('KeyL') || INPUT.mouse.r || (INPUT.pad && INPUT.pad.block));
   if (!INPUT.touch && performance.now() - INPUT.mouse.t < 2500) { const [wx, wy] = toWorld(INPUT.mouse.x, INPUT.mouse.y); I.aim = angTo(h.x, h.y - 4, wx, wy); } else I.aim = null;
@@ -70,7 +73,6 @@ function readInput() {
 function drawControls(c) {
   if (!G.me || G.mode !== 'play') return; const L = btnLayout(), h = G.me, sc = ctrlScale();
   if (INPUT.touch) {
-    const s = INPUT.stick; if (s) { c.globalAlpha = 0.35; c.strokeStyle = '#e8dcc0'; c.lineWidth = 2; c.beginPath(); c.arc(s.bx, s.by, 52 * sc, 0, TAU); c.stroke(); c.globalAlpha = 0.6; c.fillStyle = '#e8dcc0'; c.beginPath(); c.arc(s.bx + s.vx * 52 * sc, s.by + s.vy * 52 * sc, 20 * sc, 0, TAU); c.fill(); c.globalAlpha = 1; }
     const charge = h.act && h.act.k === 'charge' ? clamp(h.act.t / weaponOf(h).heavy.charge, 0, 1) : 0;
     roundBtn(c, L.atk, 'ATTACK', INPUT.btn.atk, '#f0d8a8', charge);
     roundBtn(c, L.dodge, 'ROLL', INPUT.btn.dodge, '#b8d8f0', 0, h.stam <= 0);

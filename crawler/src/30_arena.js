@@ -117,6 +117,23 @@ function furnish(A, r, g) {
 function inArena(x, y) { return ARENA && x > ARENA.x0 - 4 && x < ARENA.x1 + 4 && y > ARENA.y0 - 8 && y < ARENA.y1 + 4 && !solidAt(x, y); }
 function nearestSolid(x, y, r) { for (const p of ARENA.props) if (p.solid && !p.dead && dist(x, y, p.x, p.cy) < r + p.r) return p; return null; }
 // walls and shut doors
+// The floor is kept in 256-pixel squares. Blood, cracks and scorch marks change only the squares they touch, so a phone re-sends
+// a small picture to its graphics chip instead of the whole map every time something bleeds.
+const CHUNK = 256;
+function groundChunks(A) {
+  if (A.chunks) return A.chunks; A.chunks = [];
+  for (let y = 0; y < A.ph; y += CHUNK) for (let x = 0; x < A.pw; x += CHUNK) {
+    const w = Math.min(CHUNK, A.pw - x), h = Math.min(CHUNK, A.ph - y), cv = mkCanvas(w, h), g = cv.getContext('2d');
+    g.imageSmoothingEnabled = false; g.drawImage(A.ground, x, y, w, h, 0, 0, w, h); g.setTransform(1, 0, 0, 1, -x, -y); A.chunks.push({ x, y, w, h, cv, g });
+  }
+  A.ground = A.g = null; return A.chunks;
+}
+// fn paints in map coordinates into every square the box touches
+function groundPaint(x0, y0, x1, y1, fn) { const A = ARENA; if (!A) return; for (const k of groundChunks(A)) if (x1 >= k.x && x0 < k.x + k.w && y1 >= k.y && y0 < k.y + k.h) fn(k.g); }
+// draws the floor inside a box of the map (c is already in map coordinates)
+function drawGround(c, sx, sy, sw, sh) {
+  for (const k of groundChunks(ARENA)) { const x0 = Math.max(sx, k.x), y0 = Math.max(sy, k.y), x1 = Math.min(sx + sw, k.x + k.w), y1 = Math.min(sy + sh, k.y + k.h); if (x1 > x0 && y1 > y0) c.drawImage(k.cv, x0 - k.x, y0 - k.y, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0); }
+}
 function solidTile(tx, ty) { const A = ARENA; if (tx < 0 || ty < 0 || tx >= A.w || ty >= A.h) return true; const v = A.fl[ty * A.w + tx]; return v !== 1; }
 function solidAt(x, y) { return ARENA && ARENA.fl ? solidTile(Math.floor(x / TS), Math.floor(y / TS)) : false; }
 function roomAt(x, y, m = 0) { const A = ARENA; if (!A || !A.rooms) return null; const tx = x / TS, ty = y / TS; for (const r of A.rooms) if (tx >= r.ix0 + m && tx < r.ix1 + 1 - m && ty >= r.iy0 + m && ty < r.iy1 + 1 - m) return r; return null; }

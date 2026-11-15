@@ -1,5 +1,6 @@
 // ===================== foes: few, readable, each with its own way of fighting =====================
-// Foes wait in the rooms, some asleep. They notice a hero they can see (a sleeper only one right beside it, or a blow),
+// Foes wait in the rooms, some asleep. They notice a hero they can see; a sleeper only hears one: a hero creeping past wakes
+// it only by bumping into it, a walking one at 34 px, a rolling or fighting one at 56. Any blow wakes it too. Woken, they
 // cry out and wake the others nearby. Every attack winds up with a mark on the floor before it lands; after it they
 // recover, and that is the moment to hit back. Brutes cannot be staggered mid-swing; archers keep their distance and
 // draw a line where the arrow will fly; skitterers come in packs and lunge.
@@ -55,7 +56,7 @@ function noise(x, y, r) { for (const f of G.foes) if (!f.aware && !f.dead && dis
 function senses(f, dt) {
   if (f.alarmT > 0 && (f.alarmT -= dt) <= 0) { wakeFoe(f, f.alarmBy || nearest(f, G.heroes), 'alarm'); return; }
   for (const h of G.heroes) {
-    if (h.dead) continue; const d = dist(f.x, f.y, h.x, h.y), R = f.state === 'sleep' ? 30 : f.def.sight * (h.blocking ? 1 : 1);
+    if (h.dead) continue; const d = dist(f.x, f.y, h.x, h.y), R = f.state === 'sleep' ? [f.r + h.r + 3, 34, 56][h.noise || 0] : f.def.sight;
     if (d < R && lineOfSight(f.x, f.y - 4, h.x, h.y - 4)) { wakeFoe(f, h, 'sight'); return; }
   }
 }
@@ -103,7 +104,7 @@ function foeAct(f, t, dt) {
     if (a.t < w * 0.55) { const want = angTo(f.x, f.y, t.x, t.y); a.dir += clamp(angDiff(a.dir, want), -4 * dt, 4 * dt); faceTo(f, a.dir); }
     if (a.t >= w) { a.phase = 'act'; foeStrike(f, a); }
   }
-  if (a.phase === 'act') { const u = 1 - (a.t - w) / mv.act; f.vx = Math.cos(a.dir) * mv.lunge * u; f.vy = Math.sin(a.dir) * mv.lunge * u * 0.85; foeHits(f, a); if (a.t >= s) a.phase = 'rec'; }
+  if (a.phase === 'act') { const u = 1 - (a.t - w) / mv.act; const L = mv.lunge || 0; f.vx = Math.cos(a.dir) * L * u; f.vy = Math.sin(a.dir) * L * u * 0.85; foeHits(f, a); if (a.t >= s) a.phase = 'rec'; }
   if (a.phase === 'rec') { f.vx = damp(f.vx, 0, 12, dt); f.vy = damp(f.vy, 0, 12, dt); f.moving = false; if (a.t >= e) { f.act = null; f.cdT = rand(...f.def.cd); } }
 }
 function foeStrike(f, a) {

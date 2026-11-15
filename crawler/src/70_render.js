@@ -25,6 +25,7 @@ function updateCam(dt) {
   if (G.mode !== 'play') { const t = G.time * 0.12, r = ARENA.start; fx = (r.ix0 + r.ix1 + 1) / 2 * TS + Math.cos(t) * 30; fy = (r.iy0 + r.iy1 + 1) / 2 * TS + Math.sin(t * 0.7) * 16; }
   else if (me) { fx = me.x + Math.cos(me.dir) * 14 + me.vx * 0.15; fy = me.y - 8 + Math.sin(me.dir) * 10 + me.vy * 0.12; }
   else { fx = CAM.x; fy = CAM.y; }
+  if (!Number.isFinite(fx + fy)) { fx = Number.isFinite(CAM.x) ? CAM.x : ARENA.spawn.x; fy = Number.isFinite(CAM.y) ? CAM.y : ARENA.spawn.y; }
   CAM.z = damp(CAM.z, exploreZoom(), 2, dt);
   const hw = VIEW.w / (2 * CAM.z), hh = VIEW.h / (2 * CAM.z);
   fx = clamp(fx, hw - 10, ARENA.pw - hw + 10); fy = clamp(fy, hh - 10, ARENA.ph - hh + 10);
@@ -49,7 +50,8 @@ function mobsRed() { if (MOBS_RED) return MOBS_RED; const s = IMG.mobsW, c = mkC
 function drawUnit(c, u) {
   const m = MOBS[u.spr]; if (!m) return; if (u.team === 'foe' && !foeShown(u)) return;
   const sy = m[0], fw = m[1], fh = m[2], foot = footOf(u.spr), sleep = u.state === 'sleep' && !u.aware;
-  const fr = sleep ? 0 : ((u.anim * (u.moving ? 9 : 5)) | 0) % 4, sc = u.scale, sq = u.squash, jit = u.stun > 0 ? Math.sin(u.anim * 50) * 0.6 : 0;
+  const creep = u.team === 'hero' && u.moving && u.noise === 0 && !u.act;
+  const fr = sleep ? 0 : ((u.anim * (u.moving ? (creep ? 5 : 9) : 5)) | 0) % 4, sc = u.scale, sq = u.squash + (creep ? 0.08 : 0), jit = u.stun > 0 ? Math.sin(u.anim * 50) * 0.6 : 0;
   c.save(); c.translate(u.x + jit, u.y - u.z);
   if (sleep) { c.rotate(0.12 * u.face); }
   c.scale(sc * (1 + sq) * (u.face < 0 ? -1 : 1), sc * (1 - sq));
@@ -80,7 +82,7 @@ function drawTelegraphs(c) {
     const mv = a.mv, u = clamp(a.t / mv.wind, 0, 1), fill = `rgba(255,50,30,${0.08 + 0.22 * u})`, edge = `rgba(255,${u > 0.8 ? 200 : 80},50,${0.4 + 0.5 * u})`;
     c.fillStyle = fill; c.strokeStyle = edge; c.lineWidth = 1; c.beginPath();
     if (mv.k === 'arc') { c.moveTo(f.x, f.y); c.ellipse(f.x, f.y, mv.reach + 4, (mv.reach + 4) * 0.85, 0, a.dir - mv.arc / 2, a.dir + mv.arc / 2); c.closePath(); }
-    else if (mv.k === 'line') { const L = mv.reach + mv.lunge * mv.act * 0.6, w = mv.w / 2, cs = Math.cos(a.dir), sn = Math.sin(a.dir) * 0.85; c.moveTo(f.x - sn * w, f.y + cs * w); c.lineTo(f.x + cs * L - sn * w, f.y + sn * L + cs * w); c.lineTo(f.x + cs * L + sn * w, f.y + sn * L - cs * w); c.lineTo(f.x + sn * w, f.y - cs * w); c.closePath(); }
+    else if (mv.k === 'line') { const L = mv.reach + (mv.lunge || 0) * mv.act * 0.6, w = mv.w / 2, cs = Math.cos(a.dir), sn = Math.sin(a.dir) * 0.85; c.moveTo(f.x - sn * w, f.y + cs * w); c.lineTo(f.x + cs * L - sn * w, f.y + sn * L + cs * w); c.lineTo(f.x + cs * L + sn * w, f.y + sn * L - cs * w); c.lineTo(f.x + sn * w, f.y - cs * w); c.closePath(); }
     else { const cx = f.x + Math.cos(a.dir) * (mv.at || 0), cy = f.y + Math.sin(a.dir) * (mv.at || 0) * 0.85; c.ellipse(cx, cy, mv.reach, mv.reach * 0.75, 0, 0, TAU); c.moveTo(cx + mv.reach * u, cy); c.ellipse(cx, cy, mv.reach * u, mv.reach * 0.75 * u, 0, 0, TAU); }
     c.fill(); c.stroke();
   }
@@ -100,7 +102,7 @@ function renderLight() {
   if (menu) { lctx.fillStyle = 'rgb(70,62,74)'; lctx.fillRect(0, 0, bw, bh); } else maskToMemory(lctx, PXO.x, PXO.y, 'source-over');
   lctx.globalCompositeOperation = 'lighter'; lctx.imageSmoothingEnabled = false; lctx.setTransform(1, 0, 0, 1, -PXO.x, -PXO.y);
   const L = (x, y, r, k, a) => { if (a <= 0.01) return; const t = lightTex(k); for (let i = 0; i < 2 && a > 0.01; i++, a -= 1) { lctx.globalAlpha = Math.min(1, a); lctx.drawImage(t, x - r, y - r * 0.8, r * 2, r * 1.6); } };
-  for (const h of G.heroes) if (!h.dead) { L(h.x, h.y - 6, h.lightR * 1.35, 'hot', 1.15); L(h.x, h.y - 6, h.lightR * 0.7, 'torch', 0.35); }
+  for (const h of G.heroes) if (!h.dead) { const hs = h.hush || 1; L(h.x, h.y - 6, h.lightR * 1.35 * hs, 'hot', 1.15 * hs); L(h.x, h.y - 6, h.lightR * 0.7 * hs, 'torch', 0.35); }
   for (const t of ARENA.torches) L(t.x, t.y + 6, 62 + 6 * noise1(G.time * 7 + t.tx), 'torch', 0.85);
   for (const p of ARENA.props) if (p.kind === 'brazier') L(p.x, p.y - 4, 90 + 8 * noise1(G.time * 6 + p.x), 'torch', 0.95);
   const A = FX.lights; for (let i = 0; i < A.length; i += 5) L(A[i], A[i + 1], A[i + 2], A[i + 3], A[i + 4]); A.length = 0;
@@ -111,6 +113,9 @@ function renderLight() {
 // The world, its effects and its light are drawn at the game's own resolution (one canvas pixel per game pixel) and only then
 // enlarged to the screen, nearest-neighbour, through the camera. Every shadow, ring, glow and spark comes out in chunky pixels.
 let wb = null, wbc = null, PXO = { x: 0, y: 0 };
+// The buffers are sized with room to spare and keep their size through shakes and zoom kicks: re-sizing a canvas makes a phone
+// throw away and allocate its texture, and doing that every frame of a fight was what made crowds stutter.
+const BUF = { w: 0, h: 0, okT: 0 };
 function fitBuf(c, w, h) { if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } }
 function render() {
   const W = cvs.width, H = cvs.height, k = VIEW.dpr;
@@ -118,11 +123,13 @@ function render() {
   if (!ARENA) { drawHUD(); return; }
   if (!wb) { wb = mkCanvas(1, 1); wbc = wb.getContext('2d'); }
   const zs = CAM.z * (1 + CAM.kick), hw = VIEW.w / (2 * zs), hh = VIEW.h / (2 * zs), pad = 3 + Math.ceil((Math.abs(SH.x) + Math.abs(SH.y)) / zs + Math.abs(SH.r) * Math.max(hw, hh) * 1.2);
-  const ox = Math.floor(CAM.x - hw - pad), oy = Math.floor(CAM.y - hh - pad), bw = Math.ceil(2 * (hw + pad)) + 2, bh = Math.ceil(2 * (hh + pad)) + 2; PXO.x = ox; PXO.y = oy;
+  const needW = Math.ceil(2 * (hw + pad)) + 2, needH = Math.ceil(2 * (hh + pad)) + 2, now = performance.now(), size = () => { BUF.w = Math.ceil((needW + 16) / 32) * 32; BUF.h = Math.ceil((needH + 16) / 32) * 32; BUF.okT = now; };
+  if (needW > BUF.w || needH > BUF.h) size(); else if (needW < BUF.w - 96 || needH < BUF.h - 72) { if (now - BUF.okT > 1500) size(); } else BUF.okT = now;
+  const bw = BUF.w, bh = BUF.h, ox = Math.floor(CAM.x - bw / 2), oy = Math.floor(CAM.y - bh / 2); PXO.x = ox; PXO.y = oy;
   fitBuf(wb, bw, bh); fitBuf(fxc, bw, bh); fitBuf(lc, bw, bh); fitBuf(b1, Math.ceil(bw / 3), Math.ceil(bh / 3)); fitBuf(b2, Math.ceil(bw / 8), Math.ceil(bh / 8));
   const X = c => c.setTransform(1, 0, 0, 1, -ox, -oy);
   const c = wbc; c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; c.fillStyle = '#0b0c0f'; c.fillRect(0, 0, bw, bh); c.imageSmoothingEnabled = false; X(c);
-  c.drawImage(ARENA.ground, 0, 0);
+  drawGround(c, ox, oy, bw, bh);
   for (const t of ARENA.torches) { const f = ((G.time * 9 + t.f) | 0) % 4; c.drawImage(IMG.cellar, f * TS, 26 * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); }
   drawDoors(c); drawTele(c); drawTelegraphs(c);
   for (const u of G.units) { if (u.dead && u.team === 'foe') continue; if (u.team === 'foe' && !foeShown(u)) continue; pxShadow(c, u.x, u.y, u.r * 1.3 * (1 - Math.min(0.6, u.z / 160))); }

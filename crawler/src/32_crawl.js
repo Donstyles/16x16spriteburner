@@ -46,7 +46,7 @@ function drawDoors(c) {
       c.fillStyle = '#1a1816'; c.fillRect(gx, y0, 4, len); c.fillStyle = '#6a625a'; c.fillRect(gx, y0, 1, len); c.fillStyle = '#9a9086';
       for (let yy = y0 + 3; yy < y0 + len - 2; yy += 5) c.fillRect(gx + 1, yy, 2, 1);
       c.fillStyle = '#2a2622'; c.fillRect(gx - 1, y0 + len - 2, 6, 2);
-      for (const cy of [ty - 2, d.cells[2][1] + 1]) c.drawImage(A.ground, x * TS, cy * TS, TS, TS, x * TS, cy * TS, TS, TS);
+      for (const cy of [ty - 2, d.cells[2][1] + 1]) drawGround(c, x * TS, cy * TS, TS, TS);
     }
   }
   const s = A.stairs; if (s && s.open) { const p = 0.5 + 0.5 * Math.sin(G.time * 3); c.globalAlpha = 0.25 + 0.2 * p; c.fillStyle = '#ffd27a'; c.fillRect(s.sx * TS + 8, (s.sy + 1) * TS + 10, TS * 2, 6); c.globalAlpha = 1; }
