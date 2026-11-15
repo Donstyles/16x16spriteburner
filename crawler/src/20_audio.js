@@ -64,6 +64,12 @@ const SFX = {
   whoosh(pan = 0) { if (!this.ok('whoosh', 0.08)) return; this.noise(this.white, 0.45, 'bandpass', 250, 1800, 1.2, 0.35, pan, 0, 0.12); },
   summon(pan = 0) { if (!this.ok('summon', 0.15)) return; this.noise(this.brown, 0.9, 'bandpass', 150, 900, 2, 0.5, pan, 0, 0.7); this.tone('sawtooth', 52, 48, 0.9, 0.08, pan, 0, 0.6); },
   pop(pan = 0) { if (!this.ok('pop', 0.025)) return; this.noise(this.white, 0.12, 'lowpass', 3000, 300, 0.7, 0.35, pan); this.tone('square', 220, 60, 0.1, 0.12, pan); },
+  // a coin: a bright two-note clink, a semitone higher for each coin scooped up in quick succession
+  coin(pan = 0) { if (!this.ok('coin', 0.03)) return; const t = this.ctx.currentTime; this.coinN = t - (this.coinT || -9) < 0.45 ? Math.min(9, (this.coinN || 0) + 1) : 0; this.coinT = t;
+    const k = Math.pow(2, this.coinN / 12); this.tone('triangle', 1568 * k, 1568 * k, 0.06, 0.12, pan); this.tone('triangle', 2093 * k, 2093 * k, 0.16, 0.11, pan, 0.055); this.tone('sine', 4186 * k, 4186 * k, 0.1, 0.03, pan, 0.055); },
+  // a clay pot or a crate giving way: a dull crunch, then the bits rattling down
+  crack(pan = 0) { if (!this.ok('crack', 0.04)) return; this.noise(this.brown, 0.2, 'lowpass', 1800, 260, 0.8, 0.5, pan, 0, 0.002, true); this.tone('sine', 140, 70, 0.1, 0.25, pan);
+    for (let i = 0; i < 4; i++) this.noise(this.white, 0.03, 'bandpass', rand(700, 1600), 600, 3, 0.1, pan + rand(-0.2, 0.2), 0.06 + i * rand(0.04, 0.07)); },
   shatter(pan = 0) { if (!this.ok('shatter', 0.04)) return; this.noise(this.white, 0.28, 'highpass', 2500, 7000, 0.7, 0.28, pan); for (let i = 0; i < 4; i++) this.tone('triangle', rand(1800, 4200), 1500, 0.12, 0.05, pan, i * 0.03); },
   drum(inten = 0) { if (!this.ok('drum', 0.2)) return; const g = 0.35 + 0.45 * inten; this.tone('sine', 95, 38, 0.32, g, 0, 0, 0.002, true); this.noise(this.brown, 0.18, 'lowpass', 500, 120, 0.8, g * 0.6, 0); if (inten > 0.6) this.tone('sine', 70, 40, 0.25, g * 0.6, 0, 0.16, 0.002, true); },
   beam(dur = 1.5, pitch = 1) {

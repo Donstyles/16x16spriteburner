@@ -24,7 +24,9 @@ function circleFx(x, y, r, col, life) { const c = { x, y, r, col, life, t: 0 }; 
 // --- camera kick, shake, hitstop, slowmo, flash ---
 function shake(a) { G.trauma = Math.min(1.7, G.trauma + a); }
 function quake(dur, pow = 0.8) { G.quakeT = Math.max(G.quakeT, dur); G.quakeP = Math.max(G.quakeP, pow); }
-function hitstop(s) { G.hitstop = Math.max(G.hitstop, s); }
+function hitstop(s) { G.hitstop = Math.max(G.hitstop, s); } // the whole game: kept for a parry only
+// hit-stop for one unit: the one struck (and the one striking) hold still a moment while the rest of the fight goes on
+function freeze(u, s) { if (u && u.team && !u.dead) u.freeze = Math.max(u.freeze || 0, s); }
 function slowmo(scale, dur) { G.ts = Math.min(G.ts, scale); G.slowT = Math.max(G.slowT, dur); }
 function kick(k) { CAM.kick = Math.min(0.3, CAM.kick + k); }
 function flash(col, a) { G.flashC = col; G.flashA = Math.max(G.flashA, a); }

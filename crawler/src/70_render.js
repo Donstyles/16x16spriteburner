@@ -51,7 +51,7 @@ function drawUnit(c, u) {
   const m = MOBS[u.spr]; if (!m) return; if (u.team === 'foe' && !foeShown(u)) return;
   const sy = m[0], fw = m[1], fh = m[2], foot = footOf(u.spr), sleep = u.state === 'sleep' && !u.aware;
   const creep = u.team === 'hero' && u.moving && u.noise === 0 && !u.act;
-  const fr = sleep || (u.act && u.act.k === 'roll') ? 0 : ((u.anim * (u.moving ? (creep ? 5 : 9) : 5)) | 0) % 4, sc = u.scale, sq = u.squash + (creep ? 0.08 : 0), jit = u.stun > 0 ? Math.sin(u.anim * 50) * 0.6 : 0;
+  const fr = sleep || (u.act && u.act.k === 'roll') ? 0 : ((u.anim * (u.moving ? (creep ? 5 : 9) : 5)) | 0) % 4, sc = u.scale, sq = u.squash + (creep ? 0.08 : 0), jit = u.freeze > 0 && u.team === 'foe' ? (((G.time * 60) | 0) % 2 ? 1 : -1) : u.stun > 0 ? Math.sin(u.anim * 50) * 0.6 : 0;
   c.save(); c.translate(u.x + jit, u.y - u.z);
   if (sleep) { c.rotate(0.12 * u.face); }
   const ra = u.team === 'hero' && u.act && u.act.k === 'roll' ? u.act : null;

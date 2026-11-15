@@ -5,13 +5,13 @@
 // recover, and that is the moment to hit back. Brutes cannot be staggered mid-swing; archers keep their distance and
 // draw a line where the arrow will fly; skitterers come in packs and lunge.
 const FOE_TYPES = {
-  grunt: { hp: 46, poise: 26, spd: 34, dmg: 13, r: 5, sight: 115, cd: [0.5, 1.4], gold: [1, 3], cost: 2,
+  grunt: { hp: 46, poise: 55, spd: 34, dmg: 13, r: 5, sight: 115, cd: [0.5, 1.4], gold: [1, 3], cost: 2,
     atk: { k: 'arc', wind: 0.5, act: 0.1, rec: 0.6, reach: 17, arc: 1.8, lunge: 95, push: 90, poise: 22 } },
-  brute: { hp: 170, poise: 120, spd: 22, dmg: 30, r: 6, scale: 1.3, armor: 0.2, sight: 100, cd: [1.1, 2], gold: [5, 9], cost: 5,
+  brute: { hp: 170, poise: 200, spd: 22, dmg: 30, r: 6, scale: 1.3, armor: 0.2, sight: 100, cd: [1.1, 2], gold: [5, 9], cost: 5,
     atk: { k: 'circle', wind: 0.9, act: 0.1, rec: 1.05, reach: 30, at: 12, push: 230, poise: 70, slam: true, armored: true } },
-  archer: { hp: 34, poise: 14, spd: 30, dmg: 11, r: 5, sight: 160, cd: [0.9, 1.7], gold: [2, 4], cost: 2, keep: [62, 125],
+  archer: { hp: 34, poise: 30, spd: 30, dmg: 11, r: 5, sight: 160, cd: [0.9, 1.7], gold: [2, 4], cost: 2, keep: [62, 125],
     shot: { aim: 0.8, spd: 200, rec: 0.6 } },
-  skitter: { hp: 14, poise: 5, spd: 66, dmg: 6, r: 3.5, sight: 95, cd: [0.3, 0.9], gold: [0, 1], cost: 0.6, sleepy: 0.1,
+  skitter: { hp: 14, poise: 12, spd: 66, dmg: 6, r: 3.5, sight: 95, cd: [0.3, 0.9], gold: [0, 1], cost: 0.6, sleepy: 0.1,
     atk: { k: 'line', wind: 0.28, act: 0.12, rec: 0.55, reach: 13, w: 8, lunge: 200, push: 40, poise: 6 } },
 };
 const ZONES = [
@@ -62,7 +62,7 @@ function senses(f, dt) {
 }
 // ---------- the mind of a foe ----------
 function foeTick(f, dt) {
-  if (f.dead) return; if (f.poiseT > 0) f.poiseT -= dt; else f.poise = f.maxPoise;
+  if (f.dead) return; if (f.poiseT > 0) f.poiseT -= dt; else f.poise = f.maxPoise; if (f.poiseGuard > 0) f.poiseGuard -= dt;
   if (f.stun > 0) { f.stun -= dt; f.vx = damp(f.vx, 0, 8, dt); f.vy = damp(f.vy, 0, 8, dt); f.moving = false; return; }
   if (!f.aware) { senses(f, dt); if (f.aware) return; idleFoe(f, dt); return; }
   if (f.cdT > 0) f.cdT -= dt;
@@ -134,7 +134,7 @@ function updateProj(dt) {
       if (u.iframe > 0) continue;
       if (u.team === 'hero' && u.blocking && u.blockT < PARRY_WINDOW && Math.abs(angDiff(u.dir, Math.atan2(-p.vy, -p.vx))) < 1.25) { // a parried arrow flies back where it came from
         const s = p.src && !p.src.dead ? angTo(p.x, p.y, p.src.x, p.src.y) : Math.atan2(-p.vy, -p.vx), v = Math.hypot(p.vx, p.vy) * 1.2; p.vx = Math.cos(s) * v; p.vy = Math.sin(s) * v * 0.85; p.team = 'hero'; p.dmg *= 2.5; p.life = 1.2; p.src = u;
-        sparks(p.x, p.y, 7, 12, 'gold', 160, 80); SFX.clang(panOf(p.x)); textPop(u.x, u.y, 24, 'DEFLECTED', 'gold', false); hitstop(0.08); break;
+        sparks(p.x, p.y, 7, 12, 'gold', 160, 80); SFX.clang(panOf(p.x)); textPop(u.x, u.y, 24, 'DEFLECTED', 'gold', false); freeze(u, 0.06); break;
       }
       const from = { x: p.x - p.vx * 0.2, y: p.y - p.vy * 0.2, team: p.team, def: {} };
       hurt(u, p.dmg, u.team === 'hero' ? from : p.src, { ranged: true, poise: 12, kx: p.vx * 0.3, ky: p.vy * 0.3 }); p.dead = true; break;
@@ -150,7 +150,7 @@ function updateDrops(dt) {
     d.t += dt; d.vz -= 400 * dt; d.z += d.vz * dt; if (d.z < 0) { d.z = 0; d.vz = -d.vz * 0.35; d.vx *= 0.6; d.vy *= 0.6; }
     const f = Math.exp(-3 * dt); d.vx *= f; d.vy *= f; const nx = d.x + d.vx * dt, ny = d.y + d.vy * dt; if (!solidAt(nx, ny)) { d.x = nx; d.y = ny; }
     if (d.t < 0.4) continue; const h = nearest(d, G.heroes.filter(alive), 26); if (!h) continue;
-    const dd = dist(d.x, d.y, h.x, h.y); if (dd < 6) { d.dead = true; G.gold += d.v; SFX.pop(panOf(d.x)); part({ k: 'glow', x: d.x, y: d.y, z: 6, vz: 30, life: 0.3, s0: 2, s1: 0, col: 'gold' }); }
+    const dd = dist(d.x, d.y, h.x, h.y); if (dd < 6) { d.dead = true; G.gold += d.v; SFX.coin(panOf(d.x)); part({ k: 'glow', x: d.x, y: d.y, z: 6, vz: 30, life: 0.3, s0: 2, s1: 0, col: 'gold' }); }
     else { d.x += (h.x - d.x) / dd * 140 * dt; d.y += (h.y - d.y) / dd * 140 * dt; }
   }
   removeIf(G.drops, d => d.dead);

@@ -28,10 +28,11 @@ function startFloor() {
 function updateRun(dt) {
   G.phaseT += dt;
   for (let i = 0; i < G.sched.length; i++) { const s = G.sched[i]; if ((s.t -= dt) <= 0) { G.sched.splice(i--, 1); s.fn(); } }
-  for (const u of G.units) { u.anim += dt; if (u.flash > 0) u.flash -= dt; }
-  for (const h of G.heroes) heroTick(h, dt);
-  for (const f of G.foes) foeTick(f, dt);
-  for (const u of G.units) if (!u.dead) moveActor(u, dt);
+  // a unit in hit-stop holds still (its moves pause, a knock-back waits) while everything else carries on
+  for (const u of G.units) { if (u.flash > 0) u.flash -= dt; u.held = u.freeze > 0; if (u.held) u.freeze -= dt; else u.anim += dt; }
+  for (const h of G.heroes) if (!h.held) heroTick(h, dt);
+  for (const f of G.foes) if (!f.held) foeTick(f, dt);
+  for (const u of G.units) if (!u.dead && !u.held) moveActor(u, dt);
   separate(G.units);
   updateProj(dt); updateDrops(dt); updateSight(dt);
   removeIf(G.foes, f => f.dead); removeIf(G.units, u => u.dead && u.team === 'foe');

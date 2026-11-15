@@ -13,25 +13,25 @@ const KITS = {
 // k: 'arc' (sweep: +1/-1 direction of the swing), 'line' (thrust, w = width) or 'circle' (at = centre ahead of the hero)
 const WEAPONS = {
   sword: { name: 'ARMING SWORD', dmg: 16, guard: { absorb: 0.5, cost: 1.2 }, combo: [
-    { k: 'arc', wind: 0.07, act: 0.09, rec: 0.24, reach: 21, arc: 2.1, sweep: 1, dm: 1, stam: 12, poise: 16, lunge: 70, push: 70 },
-    { k: 'arc', wind: 0.06, act: 0.09, rec: 0.24, reach: 21, arc: 2.1, sweep: -1, dm: 1.05, stam: 12, poise: 16, lunge: 70, push: 70 },
-    { k: 'line', wind: 0.1, act: 0.08, rec: 0.36, reach: 28, w: 10, dm: 1.5, stam: 16, poise: 34, lunge: 140, push: 150 }],
+    { k: 'arc', wind: 0.07, act: 0.09, rec: 0.24, reach: 21, arc: 2.1, sweep: 1, dm: 1, stam: 12, poise: 10, lunge: 70, push: 70 },
+    { k: 'arc', wind: 0.06, act: 0.09, rec: 0.24, reach: 21, arc: 2.1, sweep: -1, dm: 1.05, stam: 12, poise: 10, lunge: 70, push: 70 },
+    { k: 'line', wind: 0.1, act: 0.08, rec: 0.36, reach: 28, w: 10, dm: 1.5, stam: 16, poise: 24, lunge: 140, push: 150 }],
     heavy: { k: 'circle', charge: 0.55, wind: 0.04, act: 0.24, rec: 0.42, reach: 27, dm: 2.3, stam: 26, poise: 60, push: 170, spin: true } },
   spear: { name: 'SPEAR', dmg: 15, guard: { absorb: 0.45, cost: 1.25 }, combo: [
-    { k: 'line', wind: 0.09, act: 0.08, rec: 0.26, reach: 35, w: 8, dm: 1, stam: 12, poise: 14, lunge: 50, push: 90 },
-    { k: 'line', wind: 0.08, act: 0.08, rec: 0.26, reach: 35, w: 8, dm: 1, stam: 12, poise: 14, lunge: 50, push: 90 },
-    { k: 'arc', wind: 0.12, act: 0.1, rec: 0.38, reach: 31, arc: 2.6, sweep: 1, dm: 1.3, stam: 18, poise: 30, lunge: 30, push: 140 }],
+    { k: 'line', wind: 0.09, act: 0.08, rec: 0.26, reach: 35, w: 8, dm: 1, stam: 12, poise: 9, lunge: 50, push: 90 },
+    { k: 'line', wind: 0.08, act: 0.08, rec: 0.26, reach: 35, w: 8, dm: 1, stam: 12, poise: 9, lunge: 50, push: 90 },
+    { k: 'arc', wind: 0.12, act: 0.1, rec: 0.38, reach: 31, arc: 2.6, sweep: 1, dm: 1.3, stam: 18, poise: 22, lunge: 30, push: 140 }],
     heavy: { k: 'line', charge: 0.6, wind: 0.05, act: 0.18, rec: 0.45, reach: 40, w: 10, dm: 2.4, stam: 26, poise: 55, lunge: 330, push: 210, dash: true } },
   axe: { name: 'BATTLE AXE', dmg: 27, guard: { absorb: 0.55, cost: 1.15 }, combo: [
-    { k: 'arc', wind: 0.17, act: 0.11, rec: 0.38, reach: 23, arc: 2.5, sweep: 1, dm: 1, stam: 20, poise: 42, lunge: 70, push: 150 },
-    { k: 'arc', wind: 0.19, act: 0.12, rec: 0.5, reach: 24, arc: 2.7, sweep: -1, dm: 1.25, stam: 22, poise: 52, lunge: 80, push: 180 }],
+    { k: 'arc', wind: 0.17, act: 0.11, rec: 0.38, reach: 23, arc: 2.5, sweep: 1, dm: 1, stam: 20, poise: 28, lunge: 70, push: 150 },
+    { k: 'arc', wind: 0.19, act: 0.12, rec: 0.5, reach: 24, arc: 2.7, sweep: -1, dm: 1.25, stam: 22, poise: 36, lunge: 80, push: 180 }],
     heavy: { k: 'circle', charge: 0.75, wind: 0.08, act: 0.1, rec: 0.62, reach: 30, at: 14, dm: 2.8, stam: 32, poise: 95, push: 240, slam: true } },
   daggers: { name: 'TWIN DAGGERS', dmg: 9, back: 2, guard: { absorb: 0.25, cost: 1.5 }, combo: [
-    { k: 'arc', wind: 0.04, act: 0.06, rec: 0.13, reach: 15, arc: 1.5, sweep: 1, dm: 1, stam: 7, poise: 7, lunge: 55, push: 30 },
-    { k: 'arc', wind: 0.04, act: 0.06, rec: 0.13, reach: 15, arc: 1.5, sweep: -1, dm: 1, stam: 7, poise: 7, lunge: 55, push: 30 },
-    { k: 'arc', wind: 0.04, act: 0.06, rec: 0.13, reach: 15, arc: 1.5, sweep: 1, dm: 1, stam: 7, poise: 7, lunge: 55, push: 30 },
-    { k: 'line', wind: 0.06, act: 0.07, rec: 0.3, reach: 19, w: 8, dm: 1.7, stam: 10, poise: 16, lunge: 110, push: 80 }],
-    heavy: { k: 'line', charge: 0.4, wind: 0.03, act: 0.14, rec: 0.3, reach: 20, w: 12, dm: 2, stam: 18, poise: 20, lunge: 380, push: 60, dash: true, through: true } },
+    { k: 'arc', wind: 0.04, act: 0.06, rec: 0.13, reach: 15, arc: 1.5, sweep: 1, dm: 1, stam: 7, poise: 4, lunge: 55, push: 30 },
+    { k: 'arc', wind: 0.04, act: 0.06, rec: 0.13, reach: 15, arc: 1.5, sweep: -1, dm: 1, stam: 7, poise: 4, lunge: 55, push: 30 },
+    { k: 'arc', wind: 0.04, act: 0.06, rec: 0.13, reach: 15, arc: 1.5, sweep: 1, dm: 1, stam: 7, poise: 4, lunge: 55, push: 30 },
+    { k: 'line', wind: 0.06, act: 0.07, rec: 0.3, reach: 19, w: 8, dm: 1.7, stam: 10, poise: 10, lunge: 110, push: 80 }],
+    heavy: { k: 'line', charge: 0.4, wind: 0.03, act: 0.14, rec: 0.3, reach: 20, w: 12, dm: 2, stam: 18, poise: 24, lunge: 380, push: 60, dash: true, through: true } },
 };
 const OFFHANDS = { shield: { name: 'ROUND SHIELD', guard: { absorb: 0.85, cost: 0.85 } } };
 const newInp = () => ({ mx: 0, my: 0, aim: null, atk: false, atkP: false, atkR: false, dodgeP: false, block: false, itemP: false });
@@ -57,7 +57,7 @@ function canRoll(h) { const a = h.act; return h.stam > 0 && h.stun <= 0 && (!a |
 function heroTick(h, dt) {
   const I = h.inp; if (h.dead) { h.deadT += dt; I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }
   if (h.iframe > 0) h.iframe -= dt; if (h.riposteT > 0) h.riposteT -= dt; if (h.comboT > 0) h.comboT -= dt;
-  if (h.poiseT > 0) h.poiseT -= dt; else h.poise = h.maxPoise;
+  if (h.poiseT > 0) h.poiseT -= dt; else h.poise = h.maxPoise; if (h.poiseGuard > 0) h.poiseGuard -= dt;
   if (h.huff) pant(h, dt);
   if (h.stamT > 0) h.stamT -= dt; else if (!(h.act && h.act.k !== 'charge')) h.stam = Math.min(h.maxStam, h.stam + (h.blocking ? 16 : 58) * dt);
   const want = I.mx || I.my ? Math.atan2(I.my, I.mx) : null;
@@ -152,13 +152,13 @@ function strikeHits(h, a) {
     if (h.riposteT > 0 && f.stun > 0) { crit = Math.max(crit, 2.4); o.riposte = true; h.riposteT = 0; }
     const ka = angTo(h.x, h.y, f.x, f.y);
     hurt(f, W.dmg * mv.dm, h, { ...o, crit, poise: mv.poise * (crit > 1 ? 1.5 : 1), kx: Math.cos(ka) * mv.push, ky: Math.sin(ka) * mv.push * 0.8 });
-    sparks(f.x, f.y, 8 * f.scale, 6, crit > 1 ? 'gold' : 'white', 120, 70, ka, 1.6); hitstop(mv.dm >= 2 ? 0.09 : 0.045); if (crit > 1) { kick(0.04); flashLight(f.x, f.y, 50, 'gold', 1, 0.2); }
+    sparks(f.x, f.y, 8 * f.scale, 6, crit > 1 ? 'gold' : 'white', 120, 70, ka, 1.6); const big = mv.dm >= 2 || crit > 1; freeze(f, big ? 0.12 : 0.07); freeze(h, big ? 0.06 : 0.025); if (crit > 1) { kick(0.04); flashLight(f.x, f.y, 50, 'gold', 1, 0.2); }
   }
   for (const p of ARENA.props) if (!p.dead && p.hp < 1e8 && hitsShape(src, { x: p.x, y: p.cy, r: p.r }, mv, a.dir)) breakProp(p);
 }
 function breakProp(p) {
   if (p.dead || p.hp > 1e8) return; p.dead = true; p.solid = false;
-  debris(p.x, p.cy, 18, ['#6a4a2a', '#8a6638', '#4a3018', '#a07848'], 140, 180, 2.2); smoke(p.x, p.cy, 4, 'dust', 9, 30, 1.2); SFX.pop(panOf(p.x));
+  debris(p.x, p.cy, 18, ['#6a4a2a', '#8a6638', '#4a3018', '#a07848'], 140, 180, 2.2); smoke(p.x, p.cy, 4, 'dust', 9, 30, 1.2); SFX.crack(panOf(p.x));
   if (chance(p.kind === 'chest' ? 1 : 0.25)) dropGold(p.x, p.cy, p.kind === 'chest' ? randi(6, 14) : randi(1, 4));
 }
 function healGlow(x, y) { for (let i = 0; i < 12; i++) part({ k: 'glow', x: x + rand(-7, 7), y: y + rand(-3, 3), z: rand(0, 14), vz: rand(20, 50), drag: 1, life: rand(0.6, 1.2), s0: rand(2, 4), s1: 0, col: 'heal' }); flashLight(x, y, 60, 'heal', 1, 0.4); }

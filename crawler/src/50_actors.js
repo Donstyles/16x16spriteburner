@@ -29,7 +29,7 @@ function hurt(u, dmg, src, o = {}) {
     if (Math.abs(angDiff(u.dir, a)) < 1.25) {
       if (u.blockT < PARRY_WINDOW) { parried(u, src, o); return 0; }
       const g = guardOf(u); u.stam -= dmg * g.cost; u.stamT = 0.9; u.kx -= Math.cos(a) * 60; u.ky -= Math.sin(a) * 45;
-      sparks(u.x + Math.cos(a) * 6, u.y + Math.sin(a) * 4, 10, 6, 'white', 120, 60); SFX.clang(panOf(u.x)); hitstop(0.04);
+      sparks(u.x + Math.cos(a) * 6, u.y + Math.sin(a) * 4, 10, 6, 'white', 120, 60); SFX.clang(panOf(u.x)); freeze(u, 0.04); if (!o.ranged) freeze(src, 0.07);
       if (u.stam <= 0) { u.stam = 0; winded(u); u.blocking = false; stagger(u, 0.8); textPop(u.x, u.y, 22, 'GUARD BROKEN', 'red', false); dmg *= 0.6; }
       else { dmg *= 1 - g.absorb; if (dmg < 1) return 0; }
     }
@@ -38,7 +38,7 @@ function hurt(u, dmg, src, o = {}) {
   if (u.def.armor) d *= 1 - u.def.armor;
   if (u.team === 'foe' && u.stun > 0) d *= 1.3; // a staggered foe is open
   d = Math.max(1, Math.round(d)); u.hp -= d; u.flash = 0.12;
-  if (o.poise && !(u.act && u.act.armored)) { u.poise -= o.poise; u.poiseT = 2; if (u.poise <= 0) { u.poise = u.maxPoise; stagger(u, u.team === 'hero' ? 0.45 : 1.1); } }
+  if (o.poise && !(u.act && u.act.armored) && !(u.poiseGuard > 0)) { u.poise -= o.poise; u.poiseT = 2; if (u.poise <= 0) { u.poise = u.maxPoise; stagger(u, u.team === 'hero' ? 0.45 : 1.1); } }
   const km = u.scale > 1.2 ? 0.45 : 1; u.kx += (o.kx || 0) * km; u.ky += (o.ky || 0) * km;
   const tag = o.sneak ? 'SNEAK ATTACK' : o.riposte ? 'RIPOSTE' : o.back ? 'BACKSTAB' : null;
   number(u.x, u.y, u.z + 16 * u.scale, d, u.team === 'hero' ? 'red' : tag ? 'gold' : 'white', !!tag || d >= 40);
@@ -56,11 +56,12 @@ function guardOf(u) { const off = u.off && OFFHANDS[u.off]; return off && off.gu
 function parried(u, src, o) {
   const a = angTo(u.x, u.y, src.x, src.y); u.riposteT = 1.6; u.stam = Math.min(u.maxStam, u.stam + 15);
   sparks(u.x + Math.cos(a) * 7, u.y + Math.sin(a) * 5, 10, 18, 'gold', 220, 120); ring(u.x + Math.cos(a) * 7, u.y + Math.sin(a) * 5, 26, 'gold', 0.3, 3); flashLight(u.x, u.y, 70, 'gold', 1.4, 0.25);
-  SFX.clang(panOf(u.x)); SFX.clang(panOf(u.x)); hitstop(0.14); kick(0.06); textPop(u.x, u.y, 26, 'PARRY', 'gold', true);
+  SFX.clang(panOf(u.x)); SFX.clang(panOf(u.x)); hitstop(0.07); kick(0.06); textPop(u.x, u.y, 26, 'PARRY', 'gold', true);
   if (!o.ranged && src.team === 'foe' && !src.dead) { stagger(src, src.def.boss ? 0.8 : 1.6); src.kx += Math.cos(a) * 140; src.ky += Math.sin(a) * 100; }
 }
 function stagger(u, t) {
   if (u.dead) return; u.act = null; u.stun = Math.max(u.stun, t); u.blocking = false;
+  u.poise = u.maxPoise; u.poiseGuard = t + (u.team === 'foe' ? 2.5 : 1.5); // back on its feet, it cannot be worn down again for a while
   if (u.team === 'foe') { textPop(u.x, u.y, 22 * u.scale, 'STAGGERED', 'gold', false); for (let i = 0; i < 6; i++) part({ k: 'glow', x: u.x + rand(-5, 5), y: u.y, z: 16 * u.scale + rand(0, 6), vz: rand(-10, 10), life: t, s0: 1.4, s1: 0.6, col: 'gold' }); }
 }
 function kill(u, src) {
