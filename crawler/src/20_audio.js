@@ -1,4 +1,5 @@
 // ===================== synthesized sound: booms, thunder, quakes, steel =====================
+const BREATH_GAIN = 0.55;
 const SFX = {
   ctx: null, on: false, master: null, last: {},
   init() {
@@ -54,27 +55,36 @@ const SFX = {
     o.connect(g); g.connect(this.crunch); o.start(t); lfo.start(t); o.stop(t + dur + 0.7); lfo.stop(t + dur + 0.7);
     for (let i = 0; i < dur * 5; i++) this.noise(this.brown, 0.25, 'lowpass', 900, 120, 1, 0.5, rand(-0.6, 0.6), Math.random() * dur, 0.002);
   },
-  // Breathing. Air, not a machine: soft noise (a warm body plus a little hiss of air) through broad, gentle filters that
-  // never sweep (a swept filter is a whoosh), swelling in and dying away on a smooth curve. No two breaths are alike.
-  breathe(pan, centre, air, dur, rise, peak) {
-    const c = this.ctx, t = c.currentTime, out = c.createGain(), n = 32, curve = new Float32Array(n);
-    for (let i = 0; i < n; i++) { const x = i / (n - 1); curve[i] = 0.0001 + peak * (x < rise ? Math.sin(Math.PI / 2 * x / rise) ** 2 : Math.cos(Math.PI / 2 * (x - rise) / (1 - rise)) ** 2); }
-    out.gain.setValueAtTime(0.0001, t); out.gain.setValueCurveAtTime(curve, t, dur); out.connect(this.dest(pan, false));
-    const body = c.createBufferSource(), hiss = c.createBufferSource(); body.buffer = this.brown; hiss.buffer = this.white; body.loop = hiss.loop = true;
-    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = centre * rand(0.9, 1.1); bp.Q.value = 0.8;
-    const hp = c.createBiquadFilter(); hp.type = 'bandpass'; hp.frequency.value = 2600 * rand(0.9, 1.1); hp.Q.value = 0.7;
-    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 4200; lp.Q.value = 0.3;
-    const gb = c.createGain(), ga = c.createGain(); gb.gain.value = 1; ga.gain.value = air;
-    body.connect(bp); bp.connect(gb); gb.connect(lp); hiss.connect(hp); hp.connect(ga); ga.connect(lp); lp.connect(out);
-    body.start(t, Math.random() * 1.5); hiss.start(t, Math.random() * 1.5); body.stop(t + dur + 0.05); hiss.stop(t + dur + 0.05);
+  // Breathing: the same code as the Winded Breath Board, where the sound was chosen. Soft pink noise through the mouth's
+  // two resonances (never swept: a sweep is a whoosh), a hiss of air past the lips, turbulence inside the breath, and an
+  // optional low grunt. The board has no compressor and the game does (it roughly halves a sword swing but leaves a quiet
+  // breath alone), so breaths are scaled by BREATH_GAIN to keep the balance heard on the board.
+  breathBufs() {
+    if (this.pink) return; const c = this.ctx, n = c.sampleRate * 2; let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    this.pink = c.createBuffer(1, n, c.sampleRate); const p = this.pink.getChannelData(0);
+    for (let i = 0; i < n; i++) { const x = Math.random() * 2 - 1; b0 = 0.99886 * b0 + x * 0.0555179; b1 = 0.99332 * b1 + x * 0.0750759; b2 = 0.969 * b2 + x * 0.153852; b3 = 0.8665 * b3 + x * 0.3104856; b4 = 0.55 * b4 + x * 0.5329522; b5 = -0.7616 * b5 - x * 0.016898; p[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + x * 0.5362) * 0.11; b6 = x * 0.115926; }
+    this.wobble = c.createBuffer(1, n, c.sampleRate); const q = this.wobble.getChannelData(0); let v = 0, tgt = 0; for (let i = 0; i < n; i++) { if (i % 900 === 0) tgt = Math.random() * 2 - 1; v += (tgt - v) * 0.004; q[i] = v; }
   },
-  // level: 1 when the hero has just run dry, less as the stamina comes back
-  huff(pan = 0, inhale = false, level = 1) {
-    if (!this.ok(inhale ? 'huffIn' : 'huff', 0.1)) return; const v = level * rand(0.75, 1.1);
-    if (inhale) this.breathe(pan + rand(-0.05, 0.05), 900, 0.5, rand(0.16, 0.22), 0.55, 0.08 * v);
-    else this.breathe(pan + rand(-0.05, 0.05), 650, 0.28, rand(0.2, 0.28), 0.22, 0.17 * v);
+  breath(p, kind, lvl = 1, pan = 0) {
+    if (!this.on || !this.ctx) return; this.breathBufs();
+    const c = this.ctx, t = c.currentTime + 0.01, isIn = kind === 'in', vr = p.vary; if (isIn && p.inVol <= 0) return;
+    const dur = Math.max(0.06, (isIn ? p.len * p.inLen : p.len) * (1 + rand(-0.3, 0.3) * vr));
+    const peak = BREATH_GAIN * p.vol * lvl * (isIn ? p.inVol * 0.6 : 1) * (1 + rand(-0.35, 0.25) * vr);
+    const rise = isIn ? Math.min(0.85, p.attack + 0.35) : p.attack, N = 48, curve = new Float32Array(N);
+    for (let i = 0; i < N; i++) { const x = i / (N - 1); curve[i] = 0.0001 + peak * (x < rise ? Math.sin(Math.PI / 2 * x / rise) ** 2 : Math.cos(Math.PI / 2 * (x - rise) / (1 - rise)) ** 2); }
+    const env = c.createGain(); env.gain.setValueAtTime(0.0001, t); env.gain.setValueCurveAtTime(curve, t, dur);
+    const turb = c.createGain(); turb.gain.value = 1 - p.flutter * 0.45;
+    if (p.flutter > 0) { const wb = c.createBufferSource(), wg = c.createGain(); wb.buffer = this.wobble; wb.loop = true; wb.playbackRate.value = rand(1.5, 3.5); wg.gain.value = p.flutter * 0.45; wb.connect(wg); wg.connect(turb.gain); wb.start(t, Math.random() * 1.5); wb.stop(t + dur + 0.05); }
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7000 - p.dark * 5400; lp.Q.value = 0.4;
+    env.connect(turb); turb.connect(lp); lp.connect(this.dest(pan, false));
+    const tone = p.tone * (isIn ? 1.12 : 1) * (1 + rand(-0.06, 0.06) * vr), f1 = (300 + 480 * p.mouth) * tone, f2 = (1900 - 650 * p.mouth) * tone, q = 0.6 + p.focus * 4.5;
+    const body = c.createBufferSource(); body.buffer = this.pink; body.loop = true;
+    for (const [f, g] of [[f1, 1], [f2, 0.7]]) { const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = q; const gg = c.createGain(); gg.gain.value = g * (0.6 + q * 0.35); body.connect(bp); bp.connect(gg); gg.connect(env); }
+    const dry = c.createGain(); dry.gain.value = 0.35 * (1 - p.focus); body.connect(dry); dry.connect(env);
+    body.start(t, Math.random() * 1.5); body.stop(t + dur + 0.05);
+    if (p.air > 0) { const hs = c.createBufferSource(), hp = c.createBiquadFilter(), hg = c.createGain(); hs.buffer = this.white; hs.loop = true; hp.type = 'highpass'; hp.frequency.value = 2600 * tone; hp.Q.value = 0.5; hg.gain.value = p.air * (isIn ? 0.55 : 0.4); hs.connect(hp); hp.connect(hg); hg.connect(env); hs.start(t, Math.random() * 1.5); hs.stop(t + dur + 0.05); }
+    if (!isIn && p.grunt > 0) { const o = c.createOscillator(), vg = c.createGain(), vf = c.createBiquadFilter(); o.type = 'triangle'; const f0 = rand(105, 135) * Math.sqrt(p.tone); o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(f0 * 0.88, t + dur); vf.type = 'lowpass'; vf.frequency.value = f1 * 1.6; vf.Q.value = 0.7; vg.gain.value = p.grunt * 1.4; o.connect(vf); vf.connect(vg); vg.connect(env); o.start(t); o.stop(t + dur + 0.05); }
   },
-  gasp(pan = 0) { if (!this.ok('gasp', 0.5)) return; this.breathe(pan, 1000, 0.6, 0.32, 0.6, 0.14); },
   slash(pan = 0) { if (!this.ok('slash', 0.05)) return; this.noise(this.white, 0.14, 'bandpass', 700, 4200, 1.4, 0.4, pan); },
   clang(pan = 0) { if (!this.ok('clang', 0.06)) return; this.tone('triangle', 1250, 1180, 0.28, 0.14, pan); this.tone('sine', 1870, 1800, 0.2, 0.08, pan); this.noise(this.white, 0.05, 'highpass', 3000, 5000, 0.7, 0.25, pan); },
   hit(pan = 0) { if (!this.ok('hit', 0.03)) return; this.noise(this.brown, 0.14, 'lowpass', 1200, 200, 0.8, 0.6, pan); this.tone('sine', 150, 55, 0.12, 0.45, pan); },

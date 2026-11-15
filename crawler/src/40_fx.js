@@ -1,6 +1,6 @@
 // ===================== FX engine: particles, lightning, shockwaves, cracks, light, shake =====================
 const Q = { pmax: 2600, bloom: 1, res: 1 };
-const FX = { emit: [], P: [], bolts: [], rings: [], arcs: [], cracks: [], beams: [], lights: [], flights: [], nums: [], tele: [], columns: [], circles: [], ghosts: [], hz: [] };
+const FX = { emit: [], wet: [], P: [], bolts: [], rings: [], arcs: [], cracks: [], beams: [], lights: [], flights: [], nums: [], tele: [], columns: [], circles: [], ghosts: [], hz: [] };
 function part(o) {
   if (FX.P.length >= Q.pmax) return null;
   const p = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, g: 0, drag: 0, t: 0, life: 1, s0: 2, s1: 0, a0: 1, a1: 0, col: 'white', k: 'glow', bounce: 0, rot: 0, vr: 0 };
@@ -73,6 +73,9 @@ function bloodPaint(x, y, pal, n, spread) { if (!ARENA) return; const R = []; fo
   groundPaint(x - spread - 2, y - spread - 2, x + spread + 2, y + spread + 2, g => { for (const r of R) { g.globalAlpha = r[0]; g.fillStyle = r[1]; g.fillRect(r[2], r[3], r[4], r[5]); } g.globalAlpha = 1; }); }
 function splat(x, y, col, n = 6, spread = 7) { if (!ARENA) return; const R = []; for (let i = 0; i < n; i++) R.push([rand(0.35, 0.75), rand(0.8, 2.6), x + rand(-spread, spread), y + rand(-spread, spread) * 0.7]);
   groundPaint(x - spread - 3, y - spread - 3, x + spread + 3, y + spread + 3, g => { g.fillStyle = col; for (const [a, r, ex, ey] of R) { g.globalAlpha = a; g.beginPath(); g.ellipse(ex, ey, r, r * 0.75, 0, 0, TAU); g.fill(); } g.globalAlpha = 1; }); }
+// a wet pixel where a drop of sweat landed: it darkens the stone and dries
+function wetSpot(x, y) { FX.wet.push({ x: Math.round(x), y: Math.round(y), t: 0, life: rand(7, 11) }); if (FX.wet.length > 160) FX.wet.shift(); }
+function drawWet(c) { for (const w of FX.wet) { c.fillStyle = `rgba(6,10,18,${0.5 * Math.min(1, (w.life - w.t) / 3)})`; c.fillRect(w.x, w.y, 1, 1); } }
 // --- floating combat numbers ---
 function number(x, y, z, n, col, big, who = null) { FX.nums.push({ x: x + rand(-4, 4), y, z, vz: rand(50, 80), vx: rand(-12, 12), txt: String(n), col, big, t: 0, life: big ? 1.1 : 0.8, who }); if (FX.nums.length > 90) FX.nums.shift(); }
 function textPop(x, y, z, txt, col, big = true, who = null) { FX.nums.push({ x, y, z, vz: 40, vx: 0, txt, col, big, t: 0, life: 1.4, who }); }
@@ -87,13 +90,14 @@ function updateFx(dt) {
   const P = FX.P;
   for (let i = P.length - 1; i >= 0; i--) {
     const p = P[i]; p.t += dt; if (p.t >= p.life) { P[i] = P[P.length - 1]; P.pop(); continue; }
+    if (p.on) { const u = p.on; if (u.dead) p.on = null; else { p.x = u.x + p.ox * (u.face < 0 ? -1 : 1); p.y = u.y + 0.5; p.z -= p.run * dt; if (p.z <= p.zDrip) { p.on = null; p.g = 320; p.ox *= u.face < 0 ? -1 : 1; p.vx = (u.vx || 0) * 0.4 + Math.sign(p.ox) * rand(4, 10); p.vy = (u.vy || 0) * 0.4 + rand(2, 6); } continue; } } // a drop still running down the hero
     if (p.drag) { const f = Math.exp(-p.drag * dt); p.vx *= f; p.vy *= f; if (!p.g) p.vz *= f; }
     if (p.bounce && p.z < 40 && !solidAt(p.x, p.y)) { // shards, sparks and gibs glance off the walls (a mark already inside a wall is left alone)
       const nx = p.x + p.vx * dt, ny = p.y + p.vy * dt;
       if (solidAt(nx, p.y)) { p.vx = -p.vx * 0.45; p.vr = -p.vr; } else p.x = nx;
       if (solidAt(p.x, ny)) { p.vy = -p.vy * 0.45; p.vr = -p.vr; } else p.y = ny;
     } else { p.x += p.vx * dt; p.y += p.vy * dt; }
-    if (p.g || p.vz) { p.vz -= p.g * dt; p.z += p.vz * dt; if (p.z < 0 && p.g) { if (p.bounce && p.vz < -25) { p.z = 0; p.vz = -p.vz * p.bounce; p.vx *= 0.55; p.vy *= 0.55; } else { p.z = 0; p.vz = 0; p.g = 0; p.vx *= 0.3; p.vy *= 0.3; } } }
+    if (p.g || p.vz) { p.vz -= p.g * dt; p.z += p.vz * dt; if (p.z < 0 && p.g) { if (p.k === 'drop') { wetSpot(p.x, p.y); p.t = p.life; } else if (p.bounce && p.vz < -25) { p.z = 0; p.vz = -p.vz * p.bounce; p.vx *= 0.55; p.vy *= 0.55; } else { p.z = 0; p.vz = 0; p.g = 0; p.vx *= 0.3; p.vy *= 0.3; } } }
     if (p.vr) p.rot += p.vr * dt;
   }
   for (const b of FX.bolts) { b.t += dt; b.regen -= dt; if (b.regen <= 0) { b.regen = 0.045; boltShape(b); } }
@@ -102,6 +106,7 @@ function updateFx(dt) {
   for (const g of FX.ghosts) g.t += dt; removeIf(FX.ghosts, g => g.t >= g.life); // afterimages fade on every phone, guests included
   for (const n of FX.nums) { n.t += dt; if (n.on) { n.x = n.on.x; n.y = n.on.y; n.z = n.on.z + n.dz; } else { n.z += n.vz * dt; n.vz -= (n.g === undefined ? 90 : n.g) * dt; n.x += n.vx * dt; } }
   removeIf(FX.nums, n => n.t >= n.life);
+  for (const w of FX.wet) w.t += dt; removeIf(FX.wet, w => w.t >= w.life);
   for (const c of FX.cracks) {
     c.t += dt;
     if (ARENA) for (const s of c.segs) if (!s.p && c.t >= s.t0) { s.p = true; groundPaint(Math.min(s.x0, s.x1) - 3, Math.min(s.y0, s.y1) - 3, Math.max(s.x0, s.x1) + 3, Math.max(s.y0, s.y1) + 3, g => { g.strokeStyle = 'rgba(6,4,4,0.9)'; g.lineWidth = s.w + 0.6; g.lineCap = 'round'; g.beginPath(); g.moveTo(s.x0, s.y0); g.lineTo(s.x1, s.y1); g.stroke(); g.strokeStyle = 'rgba(255,230,190,0.18)'; g.lineWidth = 0.6; g.beginPath(); g.moveTo(s.x0 + 0.8, s.y0 + 0.8); g.lineTo(s.x1 + 0.8, s.y1 + 0.8); g.stroke(); }); if (chance(0.08)) { smoke(s.x1, s.y1, 1, 'dust', 8, 6, 1, 8); } }

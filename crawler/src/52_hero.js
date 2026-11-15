@@ -46,12 +46,15 @@ const weaponOf = h => WEAPONS[h.weapon];
 const WINDED = 1.6;
 function spendStam(h, n, delay) { h.stam = Math.max(0, h.stam - n); h.stamT = Math.max(h.stamT, delay); if (h.stam <= 0) winded(h); }
 function winded(h) { h.stamT = Math.max(h.stamT, WINDED); if (!h.huff) h.huff = { t: 0.18, out: true }; } // (no breathing sounds for now)
+// the winded breathing, as chosen on the Winded Breath Board ("Through the nose")
+const BREATH = { vol: 0.1, inVol: 0.5, len: 0.18, inLen: 0.9, pace: 0.55, cycles: 5, fade: 0.5, mouth: 0.1, tone: 0.85, focus: 0.2, air: 0.15, dark: 0.75, attack: 0.25, flutter: 0.15, grunt: 0, vary: 0.3 };
 function pant(h, dt) {
   const H = h.huff; if (h.dead || (h.stamT <= 0 && h.stam >= h.maxStam / 3)) { h.huff = null; return; }
-  if (chance(dt * (h.stamT > 0 ? 9 : 4))) sweat(h); // fewer drops once the stamina is coming back
-  if ((H.t -= dt) > 0) return; const slow = (h.stamT > 0 ? 1 : 1.35) * rand(0.85, 1.2); // slower as the stamina comes back, never quite even
-  if (H.out) { for (let i = 0; i < 2; i++) part({ k: 'smoke', x: h.x + h.face * (5 + i * 2), y: h.y + 1, z: 10 + i, vx: h.face * rand(12, 22), vy: rand(-3, 3), vz: rand(3, 8), drag: 2, life: 0.8, s0: 2.5, s1: 6.5, col: 'breath', a0: 0.9, a1: 0 }); H.t = 0.2 * slow; }
-  else H.t = 0.26 * slow;
+  if (chance(dt * (h.stamT > 0 ? 5 : 2.5))) sweat(h); // fewer drops once the stamina is coming back
+  if ((H.t -= dt) > 0) return; const B = BREATH;
+  const slow = (h.stamT > 0 ? 1 : 1.35) * (1 + rand(-0.2, 0.2) * B.vary), lvl = h.stamT > 0 ? 1 : lerp(1, B.fade, clamp(h.stam / (h.maxStam / 3), 0, 1)); // slower and quieter as he recovers
+  if (H.out) { SFX.breath(B, 'out', lvl, panOf(h.x)); for (let i = 0; i < 2; i++) part({ k: 'smoke', x: h.x + h.face * (5 + i * 2), y: h.y + 1, z: 10 + i, vx: h.face * rand(12, 22), vy: rand(-3, 3), vz: rand(3, 8), drag: 2, life: 0.8, s0: 2.5, s1: 6.5, col: 'breath', a0: 0.9, a1: 0 }); H.t = B.pace * 0.45 * slow; }
+  else { SFX.breath(B, 'in', lvl, panOf(h.x)); H.t = B.pace * 0.55 * slow; }
   H.out = !H.out;
 }
 // A hero's weapon, swung: the angle it points (screen space, about the hand) through each move. It starts from wherever
@@ -61,8 +64,15 @@ function pant(h, dt) {
 // is raised back over the shoulder.
 const angLerp = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t, easeOut = t => 1 - (1 - t) * (1 - t), easeIO = t => t * t * (3 - 2 * t);
 function weaponPose(h) {
-  const Wc = WEAPON[h.spr], a = h.act; if (!Wc || !a || h.dead) return null;
+  const Wc = WEAPON[h.spr], a = h.act; if (!Wc || h.dead) return null;
   const R = Wc.rest, fs = h.face < 0 ? -1 : 1, UP = -Math.PI / 2;
+  if (h.blocking && !a) { // the guard: the weapon held across his front, along the block arc, snapped up in a moment
+    const d = h.dir, c1 = d - Math.PI / 2, c2 = d + Math.PI / 2, vert = Math.abs(Math.sin(d)) > 0.6;
+    let th = vert ? (Math.cos(c1) * fs < 0 ? c1 : c2) : (Math.sin(c1) < Math.sin(c2) ? c1 : c2); if (!vert) th = angLerp(th, d, 0.2);
+    const p = easeOut(Math.min(1, h.blockT / 0.08)), from = h.swTh === undefined ? R : h.swTh;
+    return { th: angLerp(from, th, p), push: 0, ox: Math.cos(d) * 3 * p, oy: Math.sin(d) * 2.5 * p, front: Math.sin(d) > 0.3, behind: Math.sin(d) < -0.6 };
+  }
+  if (!a) return null;
   if (a.k === 'charge') { const p = Math.min(1, a.t / weaponOf(h).heavy.charge); return { th: angLerp(R, UP - fs * 1.0, easeOut(p)), push: 0, shake: p >= 1 }; }
   if (a.k !== 'atk') return null;
   if (a.th0 === undefined) a.th0 = h.swTh === undefined ? R : h.swTh;
@@ -89,8 +99,20 @@ function weaponPose(h) {
   if (t < s) return { th: d + fs * TAU * easeOut((t - w) / mv.act), push: 1 };
   return { th: home(d, 0), push: 0 };
 }
-// a drop of sweat: one pixel flicked off the head, falling to the floor
-function sweat(h) { const side = chance(0.5) ? -1 : 1; part({ k: 'drop', x: h.x + side * rand(1, 4), y: h.y + rand(-1, 1), z: headZ(h) - rand(1, 5), vx: side * rand(14, 34), vy: rand(-6, 6), vz: rand(25, 55), g: 300, life: rand(0.45, 0.7), col: chance(0.7) ? '#cfe9ff' : '#9cc9ee' }); }
+// a drop of sweat: it beads at the edge of the head, runs down the side with him, lets go at the jaw and falls; where it
+// lands it leaves a wet pixel that dries
+// the outline of a hero's head, measured once from his sprite (without his weapon): its left and right edge from the
+// sprite's centre and the height of its top, so sweat beads on the edge of the head and not on the face
+const HEADS = {};
+function headSpan(spr) {
+  if (HEADS[spr]) return HEADS[spr]; const m = MOBS[spr], fw = m[1], fh = m[2], Wc = WEAPON[spr], foot = footOf(spr);
+  const cv = Wc ? Wc.cut : null, d = cv ? cv.getContext('2d').getImageData(0, 0, fw, fh).data : null, P = PIX.mobs;
+  const a = (x, y) => d ? d[(y * cv.width + x) * 4 + 3] : P.d[((m[0] + y) * P.w + x) * 4 + 3];
+  let top = 0; while (top < fh - 1 && ![...Array(fw).keys()].some(x => a(x, top) > 128)) top++;
+  let l = fw, r = 0; for (let y = top; y < Math.min(fh, top + 5); y++) for (let x = 0; x < fw; x++) if (a(x, y) > 128) { l = Math.min(l, x); r = Math.max(r, x); }
+  return (HEADS[spr] = { l: l - fw / 2, r: r + 1 - fw / 2, top: foot + 1 - top });
+}
+function sweat(h) { const H = headSpan(h.spr), s = h.scale || 1, ox = (chance(0.5) ? H.l - 0.5 : H.r + 0.5) * s, hz = h.z + H.top * s; part({ k: 'drop', on: h, ox, x: h.x, y: h.y + 0.5, z: hz - rand(1, 3), zDrip: hz - rand(6, 8), run: rand(7, 11), g: 0, vz: 0, life: 4, col: chance(0.7) ? '#cfe9ff' : '#9cc9ee' }); }
 function canRoll(h) { const a = h.act; return h.stam > 0 && h.stun <= 0 && (!a || a.k === 'charge' || (a.k === 'atk' && a.phase === 'rec') || a.k === 'drink'); }
 function heroTick(h, dt) {
   const I = h.inp; if (h.dead) { h.deadT += dt; I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }
