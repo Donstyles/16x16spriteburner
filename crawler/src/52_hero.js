@@ -48,6 +48,7 @@ function spendStam(h, n, delay) { h.stam = Math.max(0, h.stam - n); h.stamT = Ma
 function winded(h) { h.stamT = Math.max(h.stamT, WINDED); if (!h.huff) h.huff = { t: 0.18, out: true }; } // (no breathing sounds for now)
 function pant(h, dt) {
   const H = h.huff; if (h.dead || (h.stamT <= 0 && h.stam >= h.maxStam / 3)) { h.huff = null; return; }
+  if (chance(dt * (h.stamT > 0 ? 9 : 4))) sweat(h); // fewer drops once the stamina is coming back
   if ((H.t -= dt) > 0) return; const slow = (h.stamT > 0 ? 1 : 1.35) * rand(0.85, 1.2); // slower as the stamina comes back, never quite even
   if (H.out) { for (let i = 0; i < 2; i++) part({ k: 'smoke', x: h.x + h.face * (5 + i * 2), y: h.y + 1, z: 10 + i, vx: h.face * rand(12, 22), vy: rand(-3, 3), vz: rand(3, 8), drag: 2, life: 0.8, s0: 2.5, s1: 6.5, col: 'breath', a0: 0.9, a1: 0 }); H.t = 0.2 * slow; }
   else H.t = 0.26 * slow;
@@ -79,6 +80,8 @@ function swordPose(h) {
   if (t < s) return { th: d + (h.face < 0 ? -1 : 1) * TAU * easeOut((t - w) / mv.act), push: 1 };
   return { th: angLerp(d, SWORD_REST, easeIO(rec)), push: 0 };
 }
+// a drop of sweat: one pixel flicked off the head, falling to the floor
+function sweat(h) { const side = chance(0.5) ? -1 : 1; part({ k: 'drop', x: h.x + side * rand(1, 4), y: h.y + rand(-1, 1), z: headZ(h) - rand(1, 5), vx: side * rand(14, 34), vy: rand(-6, 6), vz: rand(25, 55), g: 300, life: rand(0.45, 0.7), col: chance(0.7) ? '#cfe9ff' : '#9cc9ee' }); }
 function canRoll(h) { const a = h.act; return h.stam > 0 && h.stun <= 0 && (!a || a.k === 'charge' || (a.k === 'atk' && a.phase === 'rec') || a.k === 'drink'); }
 function heroTick(h, dt) {
   const I = h.inp; if (h.dead) { h.deadT += dt; I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }
