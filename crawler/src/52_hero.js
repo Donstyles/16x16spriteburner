@@ -45,14 +45,39 @@ const weaponOf = h => WEAPONS[h.weapon];
 // winded: nothing comes back for 1.6 s, and they stand there panting until a third of the bar has returned.
 const WINDED = 1.6;
 function spendStam(h, n, delay) { h.stam = Math.max(0, h.stam - n); h.stamT = Math.max(h.stamT, delay); if (h.stam <= 0) winded(h); }
-function winded(h) { h.stamT = Math.max(h.stamT, WINDED); if (!h.huff) { h.huff = { t: 0.18, out: true }; SFX.gasp(panOf(h.x)); } }
+function winded(h) { h.stamT = Math.max(h.stamT, WINDED); if (!h.huff) h.huff = { t: 0.18, out: true }; } // (no breathing sounds for now)
 function pant(h, dt) {
   const H = h.huff; if (h.dead || (h.stamT <= 0 && h.stam >= h.maxStam / 3)) { h.huff = null; return; }
   if ((H.t -= dt) > 0) return; const slow = (h.stamT > 0 ? 1 : 1.35) * rand(0.85, 1.2); // slower as the stamina comes back, never quite even
-  const lvl = h.stamT > 0 ? 1 : clamp(1 - h.stam / h.maxStam * 2, 0.3, 0.8); // and quieter
-  if (H.out) { SFX.huff(panOf(h.x), false, lvl); for (let i = 0; i < 2; i++) part({ k: 'smoke', x: h.x + h.face * (5 + i * 2), y: h.y + 1, z: 10 + i, vx: h.face * rand(12, 22), vy: rand(-3, 3), vz: rand(3, 8), drag: 2, life: 0.8, s0: 2.5, s1: 6.5, col: 'breath', a0: 0.9, a1: 0 }); H.t = 0.2 * slow; }
-  else { SFX.huff(panOf(h.x), true, lvl); H.t = 0.26 * slow; }
+  if (H.out) { for (let i = 0; i < 2; i++) part({ k: 'smoke', x: h.x + h.face * (5 + i * 2), y: h.y + 1, z: 10 + i, vx: h.face * rand(12, 22), vy: rand(-3, 3), vz: rand(3, 8), drag: 2, life: 0.8, s0: 2.5, s1: 6.5, col: 'breath', a0: 0.9, a1: 0 }); H.t = 0.2 * slow; }
+  else H.t = 0.26 * slow;
   H.out = !H.out;
+}
+// The sellsword's sword, swung: the angle it points (screen space, about the grip) through each move. It starts from
+// wherever it is (a combo flows on), draws back in the wind-up, sweeps through the arc in the strike and settles back to
+// rest in the recovery. A thrust draws back and drives forward; the spin goes once round; charging, it is raised back.
+const SWORD_REST = -Math.PI / 2;
+const angLerp = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t, easeOut = t => 1 - (1 - t) * (1 - t), easeIO = t => t * t * (3 - 2 * t);
+function swordPose(h) {
+  const a = h.act; if (h.weapon !== 'sword' || !a || h.dead) return null;
+  if (a.k === 'charge') { const p = Math.min(1, a.t / WEAPONS.sword.heavy.charge); return { th: angLerp(SWORD_REST, SWORD_REST - (h.face < 0 ? -1 : 1) * 1.0, easeOut(p)), push: 0, shake: p >= 1 }; } // raised back over the shoulder
+  if (a.k !== 'atk') return null;
+  if (a.th0 === undefined) a.th0 = h.swTh === undefined ? SWORD_REST : h.swTh;
+  const mv = a.mv, w = mv.wind, s = w + mv.act, t = a.t, d = a.dir, rec = clamp((t - s) / mv.rec, 0, 1);
+  if (mv.k === 'arc') {
+    const sw = (mv.sweep || 1) * (h.face < 0 ? -1 : 1), half = mv.arc / 2 * 1.15, a0 = d - sw * half, a1 = d + sw * half;
+    if (t < w) return { th: angLerp(a.th0, a0, easeOut(t / w)), push: 0 };
+    if (t < s) return { th: a0 + (a1 - a0) * easeOut((t - w) / mv.act), push: 1 };
+    return { th: angLerp(a1, SWORD_REST, easeIO(clamp((rec - 0.25) / 0.75, 0, 1))), push: 0 };
+  }
+  if (mv.k === 'line') {
+    if (t < w) { const p = easeOut(t / w); return { th: angLerp(a.th0, d, p), push: -1 * p }; }
+    if (t < s) return { th: d, push: -1 + 3 * easeOut((t - w) / mv.act) };
+    return { th: angLerp(d, SWORD_REST, easeIO(clamp((rec - 0.3) / 0.7, 0, 1))), push: 2 * (1 - rec) };
+  }
+  if (t < w) return { th: angLerp(a.th0, d, t / w), push: 0 };
+  if (t < s) return { th: d + (h.face < 0 ? -1 : 1) * TAU * easeOut((t - w) / mv.act), push: 1 };
+  return { th: angLerp(d, SWORD_REST, easeIO(rec)), push: 0 };
 }
 function canRoll(h) { const a = h.act; return h.stam > 0 && h.stun <= 0 && (!a || a.k === 'charge' || (a.k === 'atk' && a.phase === 'rec') || a.k === 'drink'); }
 function heroTick(h, dt) {

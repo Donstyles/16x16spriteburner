@@ -52,24 +52,29 @@ function drawUnit(c, u) {
   const sy = m[0], fw = m[1], fh = m[2], foot = footOf(u.spr), sleep = u.state === 'sleep' && !u.aware;
   const creep = u.team === 'hero' && u.moving && u.noise === 0 && !u.act;
   const fr = sleep || (u.act && u.act.k === 'roll') ? 0 : ((u.anim * (u.moving ? (creep ? 5 : 9) : 5)) | 0) % 4, sc = u.scale, jit = u.freeze > 0 && u.team === 'foe' ? (((G.time * 60) | 0) % 2 ? 1 : -1) : u.stun > 0 ? Math.sin(u.anim * 50) * 0.6 : 0;
-  c.save(); c.translate(u.x + jit, u.y - u.z);
-  if (sleep) { c.rotate(0.12 * u.face); }
   const ra = u.team === 'hero' && u.act && u.act.k === 'roll' ? u.act : null;
-  if (ra) { // a roll: one full turn the way the hero is heading, in quarter turns so every pixel stays on the grid
-    const p = Math.min(1, ra.t / ra.dur), turn = Math.min(4, Math.floor((p + 0.14) * 4.5)) / 4, cy = Math.round(-6 * sc);
-    c.translate(0, cy + Math.round(2 * Math.sin(p * Math.PI))); c.rotate(turn * TAU * (u.face < 0 ? -1 : 1)); c.translate(0, -cy);
-  }
-  c.scale(sc * (u.face < 0 ? -1 : 1), sc);
   // A pixel sprite cannot be squeezed without dropping rows, so a crouch or a landing lowers the upper body by
   // whole pixels instead: the sprite is cut at the waist and the top part drawn lower, over the legs.
   const dip = u.team === 'hero' && !ra ? Math.min(2, (creep ? 1 : 0) + (u.dipT > 0 ? 1 : 0)) : 0, cut = Math.max(4, foot - 5);
-  const blit = img => { if (!dip) { c.drawImage(img, fr * fw, sy, fw, fh, -fw / 2, -foot - 1, fw, fh); return; }
-    c.drawImage(img, fr * fw, sy + cut, fw, fh - cut, -fw / 2, -foot - 1 + cut, fw, fh - cut); c.drawImage(img, fr * fw, sy, fw, cut, -fw / 2, -foot - 1 + dip, fw, cut); };
-  blit(IMG.mobs);
+  // the sellsword swinging: drawn without his sword, and the sword drawn on its own, behind him when it points behind him
+  const pose = u.team === 'hero' && !ra && SWORD.cut && u.spr === 'VeteranSwordsman' ? swordPose(u) : null, back = pose && Math.cos(pose.th) * (u.face < 0 ? -1 : 1) < -0.15;
+  if (back) drawSword(c, u, pose, fr, fw, foot, dip, cut);
+  c.save(); c.translate(u.x + jit, u.y - u.z);
+  if (sleep) { c.rotate(0.12 * u.face); }
+  if (ra) { // a roll: one full turn the way the hero travels, in quarter turns so every pixel stays on the grid
+    const p = Math.min(1, ra.t / ra.dur), turn = Math.min(4, Math.floor((p + 0.14) * 4.5)) / 4, cy = Math.round(-6 * sc);
+    const way = Math.abs(Math.cos(ra.dir)) > 0.2 ? Math.sign(Math.cos(ra.dir)) : (u.face < 0 ? -1 : 1); // turn with the travel (a backward roll goes back over the head)
+    c.translate(0, cy + Math.round(2 * Math.sin(p * Math.PI))); c.rotate(turn * TAU * way); c.translate(0, -cy);
+  }
+  c.scale(sc * (u.face < 0 ? -1 : 1), sc);
+  const blit = (img, oy = sy) => { if (!dip) { c.drawImage(img, fr * fw, oy, fw, fh, -fw / 2, -foot - 1, fw, fh); return; }
+    c.drawImage(img, fr * fw, oy + cut, fw, fh - cut, -fw / 2, -foot - 1 + cut, fw, fh - cut); c.drawImage(img, fr * fw, oy, fw, cut, -fw / 2, -foot - 1 + dip, fw, cut); };
+  if (pose) blit(SWORD.cut, 0); else blit(IMG.mobs);
   const a = u.act, warn = u.team === 'foe' && a && ((a.k === 'atk' && a.phase === 'wind') || (a.k === 'aim' && a.t > a.dur - 0.25));
   if (warn) { c.globalAlpha = 0.35 + 0.35 * Math.sin(G.time * 40); blit(mobsRed()); }
-  if (u.flash > 0) { c.globalAlpha = Math.min(1, u.flash * 9); blit(IMG.mobsW); }
+  if (u.flash > 0) { c.globalAlpha = Math.min(1, u.flash * 9); if (pose) blit(SWORD.cutW, 0); else blit(IMG.mobsW); }
   c.restore(); c.globalAlpha = 1;
+  if (pose && !back) drawSword(c, u, pose, fr, fw, foot, dip, cut);
   if (u.team === 'foe' && u.hp < u.maxHp && !u.dead) { const w = 10 * sc, x = u.x - w / 2, y = u.y - u.z + 3; c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(x - 0.5, y - 0.5, w + 1, 2.5); c.fillStyle = u.stun > 0 ? '#ffd24a' : '#e8443a'; c.fillRect(x, y, w * clamp(u.hp / u.maxHp, 0, 1), 1.5); }
   if (u.team === 'hero' && u.blocking) { const r = 9, a0 = u.dir; c.strokeStyle = u.blockT < PARRY_WINDOW ? '#ffd860' : '#d8d0c0'; c.lineWidth = 1.5; c.beginPath(); c.ellipse(u.x, u.y - 4, r, r * 0.75, 0, a0 - 0.9, a0 + 0.9); c.stroke(); }
 }
@@ -159,6 +164,17 @@ function render() {
   if (G.flashA > 0.01) { ctx.fillStyle = rgba(G.flashC, Math.min(0.9, G.flashA)); ctx.fillRect(0, 0, W, H); }
   ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(vign, 0, 0, W, H);
   drawHUD();
+}
+// the sellsword's sword, turned about his fist (screen pixels, so it stays crisp), then the fist drawn over its grip
+function drawSword(c, u, p, fr, fw, foot, dip, cutRow) {
+  const px0 = Math.round(u.x - fw / 2), py0 = Math.round(u.y - u.z - foot - 1), col = k => u.face < 0 ? px0 + fw - 1 - k : px0 + k, row = r => py0 + r + (r < cutRow ? dip : 0);
+  const [gx, gy] = WEAPON_CUT.VeteranSwordsman.grip[fr]; let x = col(gx), y = row(gy);
+  if (p.push) { x += Math.round(Math.cos(p.th) * p.push); y += Math.round(Math.sin(p.th) * p.push); }
+  if (p.shake) x += ((G.time * 30) | 0) % 2;
+  const n = SWORD.n, i = ((Math.round((p.th - SWORD_REST) / TAU * n) % n) + n) % n;
+  c.drawImage(SWORD.rot[i], x - SWORD.r, y - SWORD.r);
+  for (const [fx, fy, q] of SWORD.fist[fr]) { c.fillStyle = `rgb(${q[0]},${q[1]},${q[2]})`; c.fillRect(col(fx), row(fy), 1, 1); }
+  u.swTh = p.th;
 }
 // a unit's shadow: a flat pixel ellipse, row by row, no soft edge
 function pxShadow(c, x, y, r) {
