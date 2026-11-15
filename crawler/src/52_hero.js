@@ -43,7 +43,7 @@ function makeHero(kitKey) {
 const weaponOf = h => WEAPONS[h.weapon];
 // Every move takes stamina, and a short pause follows before it comes back. Spending the very last of it leaves the hero
 // winded: nothing comes back for 1.6 s, and they stand there panting until a third of the bar has returned.
-const WINDED = 1.6, SPRINT = { speed: 1.6, cost: 22 }; // a sprint: 1.6x speed, 22 stamina a second
+const WINDED = 1.6, WINDED_PACE = 0.4, SPRINT = { speed: 1.6, cost: 22 }; // a sprint: 1.6x speed, 22 stamina a second
 function spendStam(h, n, delay) { h.stam = Math.max(0, h.stam - n); h.stamT = Math.max(h.stamT, delay); if (h.stam <= 0) winded(h); }
 function winded(h) { h.stamT = Math.max(h.stamT, WINDED); if (!h.huff) h.huff = { t: 0.18, out: true }; }
 // the winded breathing, as chosen on the Winded Breath Board ("Through the nose")
@@ -159,7 +159,8 @@ function heroTick(h, dt) {
   // meanwhile, and running it dry leaves the hero winded); loud, and kicking up dust
   if (h.sprint && (!I.dodge || !(I.mx || I.my) || blocking || h.stam <= 0)) h.sprint = false;
   if (h.sprint) { spendStam(h, SPRINT.cost * dt, 0.5); if (h.stam <= 0) h.sprint = false; if ((h.dustT = (h.dustT || 0) - dt) <= 0) { h.dustT = 0.1; smoke(h.x - I.mx * 4, h.y, 1, 'dust', 5, 10, 0.5, 6); } }
-  const spd = h.def.spd * (blocking ? 0.45 : h.sprint ? SPRINT.speed : 1);
+  const tired = !h.huff ? 1 : h.stamT > 0 ? WINDED_PACE : lerp(WINDED_PACE, 1, clamp(h.stam / (h.maxStam / 3), 0, 1)); // winded: a trudge, picking up as the stamina returns
+  const spd = h.def.spd * (blocking ? 0.45 : h.sprint ? SPRINT.speed : 1) * tired;
   h.vx = damp(h.vx, I.mx * spd, 14, dt); h.vy = damp(h.vy, I.my * spd, 14, dt); h.moving = !!(I.mx || I.my);
   if (I.aim !== null && I.aim !== undefined) faceTo(h, I.aim); else if (want !== null) faceTo(h, want);
 }
