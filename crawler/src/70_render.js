@@ -1,4 +1,4 @@
-// ===================== renderer: lit pixel world, additive FX with bloom, shake, auto-director camera =====================
+// ===================== renderer: a dark pixel world lit by lamps and torches, additive FX, shake, a following camera =====================
 const VIEW = { w: 1, h: 1, dpr: 1, safe: { l: 0, r: 0, t: 0, b: 0 } };
 const CAM = { x: 0, y: 0, z: 2, kick: 0 };
 const SH = { x: 0, y: 0, r: 0 };
@@ -17,30 +17,18 @@ function resize() {
   vign = mkCanvas(256, 256); const v = vign.getContext('2d'), g = v.createRadialGradient(128, 128, 60, 128, 128, 182); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.62)'); v.fillStyle = g; v.fillRect(0, 0, 256, 256);
   const pr = document.getElementById('safe'); if (pr) { const cs = getComputedStyle(pr); const sl = parseFloat(cs.paddingLeft) || 0, sr = parseFloat(cs.paddingRight) || 0, st = parseFloat(cs.paddingTop) || 0, sb = parseFloat(cs.paddingBottom) || 0; VIEW.safe = rot ? { l: st, r: sb, t: sr, b: sl } : { l: sl, r: sr, t: st, b: sb }; }
 }
-// exploring: a steady close view that follows the hero; fighting: the old director framing the action, kept inside the room
-function exploreZoom() { return clamp(Math.min(VIEW.w / 340, VIEW.h / 210), 1, 6); }
-function camFitZoom() { return exploreZoom(); }
+// ---------- camera: follows the local hero, leaning a little toward where it faces ----------
+function exploreZoom() { return clamp(Math.min(VIEW.w / 330, VIEW.h / 205), 1, 6); }
 function updateCam(dt) {
-  if (!ARENA) return; const R = G.roomI >= 0 && ARENA.cur ? ARENA.cur : null;
-  const F = R ? { x0: R.px0, y0: R.py0, x1: R.px1, y1: R.py1 } : { x0: 0, y0: 0, x1: ARENA.pw, y1: ARENA.ph }, fw = F.x1 - F.x0, fh = F.y1 - F.y0;
-  const me = G.me && !G.me.dead ? G.me : G.heroes.find(alive); let fx, fy, fz, cr = 5;
-  if (R && G.phase !== 'wipe') {
-    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9, n = 0; const add = (x, y) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); n++; };
-    for (const u of G.units) { if (u.team === 'mon' && (u.dead || u.spawnT > 0.3 || u.carried === 2)) continue; if (u.team === 'hero' && u.dead && G.heroes.some(alive)) continue; add(u.x, u.y - 10 * u.scale); if (u.boss) { add(u.x - 30, u.y - 50); add(u.x + 30, u.y + 10); } }
-    if (G.eq || !n) { add(R.b.x0, R.b.y0); add(R.b.x1, R.b.y1); }
-    const bw = x1 - x0 + 140, bh = y1 - y0 + 110;
-    let zMin = Math.min(VIEW.w / fw, VIEW.h / fh) * 0.96; const zMax = Math.max(zMin * 1.05, Math.min(VIEW.w, VIEW.h) / 115);
-    fx = (x0 + x1) / 2; fy = (y0 + y1) / 2; fz = clamp(Math.min(VIEW.w / bw, VIEW.h / bh), zMin, zMax);
-    if (G.focus && G.focus.t > 0) { G.focus.t -= dt; fx = lerp(fx, G.focus.x, G.focus.w); fy = lerp(fy, G.focus.y, G.focus.w); fz = Math.min(zMax, fz * (1 + G.focus.w * 0.35)); }
-    if (me && !G.eq) { fx = lerp(me.x + me.vx * 0.3, fx, 0.2); fy = lerp(me.y + me.vy * 0.25 - 8, fy, 0.2); fz = clamp(exploreZoom(), zMin, zMax * 1.2); if (G.boss && alive(G.boss)) { fx = lerp(fx, G.boss.x, 0.25); fy = lerp(fy, G.boss.y - 20, 0.25); fz *= 0.85; } }
-    cr = 3.5;
-  } else { fx = me ? me.x + me.vx * 0.3 : ARENA.cx; fy = me ? me.y + me.vy * 0.25 - 8 : ARENA.cy; fz = exploreZoom(); }
-  CAM.z = damp(CAM.z, fz, 1.5, dt);
-  // keep the view inside the frame: aim at a point that is already inside, then glide there
+  if (!ARENA) return; const me = G.me && !G.me.dead ? G.me : G.heroes.find(alive);
+  let fx, fy;
+  if (G.mode !== 'play') { const t = G.time * 0.12, r = ARENA.start; fx = (r.ix0 + r.ix1 + 1) / 2 * TS + Math.cos(t) * 30; fy = (r.iy0 + r.iy1 + 1) / 2 * TS + Math.sin(t * 0.7) * 16; }
+  else if (me) { fx = me.x + Math.cos(me.dir) * 14 + me.vx * 0.15; fy = me.y - 8 + Math.sin(me.dir) * 10 + me.vy * 0.12; }
+  else { fx = CAM.x; fy = CAM.y; }
+  CAM.z = damp(CAM.z, exploreZoom(), 2, dt);
   const hw = VIEW.w / (2 * CAM.z), hh = VIEW.h / (2 * CAM.z);
-  fx = fw <= 2 * hw ? (F.x0 + F.x1) / 2 : clamp(fx, F.x0 + hw - 10, F.x1 - hw + 10); fy = fh <= 2 * hh ? (F.y0 + F.y1) / 2 : clamp(fy, F.y0 + hh - 10, F.y1 - hh + 10);
-  CAM.x = damp(CAM.x, fx, cr, dt); CAM.y = damp(CAM.y, fy, cr, dt);
-  CAM.kick = damp(CAM.kick, 0, 5, dt);
+  fx = clamp(fx, hw - 10, ARENA.pw - hw + 10); fy = clamp(fy, hh - 10, ARENA.ph - hh + 10);
+  CAM.x = damp(CAM.x, fx, 6, dt); CAM.y = damp(CAM.y, fy, 6, dt); CAM.kick = damp(CAM.kick, 0, 5, dt);
 }
 function updateShake(rdt) {
   G.trauma = Math.max(0, G.trauma - rdt * 1.25); let q = 0;
@@ -56,105 +44,79 @@ function worldXform(c, k) {
 }
 function toScreen(x, y) { const s = CAM.z * (1 + CAM.kick); return [(x - CAM.x) * s + VIEW.w / 2 + SH.x, (y - CAM.y) * s + VIEW.h / 2 + SH.y]; }
 // ---------- sprites ----------
+let MOBS_RED = null;
+function mobsRed() { if (MOBS_RED) return MOBS_RED; const s = IMG.mobsW, c = mkCanvas(s.width, s.height), x = c.getContext('2d'); x.drawImage(s, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = '#ff3a24'; x.fillRect(0, 0, c.width, c.height); return (MOBS_RED = c); }
 function drawUnit(c, u) {
-  const m = MOBS[u.spr]; if (!m) return; const sy = m[0], fw = m[1], fh = m[2], foot = footOf(u.spr);
-  const fr = u.dead || u.frozen > 0 ? 0 : ((u.anim * (u.moving ? 9 : 5)) | 0) % 4;
-  let sc = u.scale; if (u.spawnT > 0) sc *= 1 - (u.spawnT / 0.35) * 0.85;
-  const lx = u.lunge > 0 ? Math.cos(u.la) * u.lunge * 14 : 0, ly = u.lunge > 0 ? Math.sin(u.la) * u.lunge * 10 : 0;
-  const bob = u.moving && u.z === 0 && !u.dead ? -Math.abs(Math.sin(u.anim * 11)) * 1.4 : 0, sq = u.squash, stunJit = (u.stun > 0 || u.cower) && !u.dead && !(u.frozen > 0) ? Math.sin(u.anim * 50) * 0.6 : 0;
-  c.save(); c.translate(u.x + lx + stunJit, u.y + ly - u.z + bob);
-  if (u.dead) { c.rotate(1.45 * (u.face < 0 ? -1 : 1)); c.globalAlpha = 0.55; c.translate(0, -2); }
+  const m = MOBS[u.spr]; if (!m) return; if (u.team === 'foe' && !foeShown(u)) return;
+  const sy = m[0], fw = m[1], fh = m[2], foot = footOf(u.spr), sleep = u.state === 'sleep' && !u.aware;
+  const fr = sleep ? 0 : ((u.anim * (u.moving ? 9 : 5)) | 0) % 4, sc = u.scale, sq = u.squash, jit = u.stun > 0 ? Math.sin(u.anim * 50) * 0.6 : 0;
+  c.save(); c.translate(u.x + jit, u.y - u.z);
+  if (sleep) { c.rotate(0.12 * u.face); }
   c.scale(sc * (1 + sq) * (u.face < 0 ? -1 : 1), sc * (1 - sq));
-  c.drawImage(u.team === 'folk' ? mobsDim() : IMG.mobs, fr * fw, sy, fw, fh, -fw / 2, -foot - 1, fw, fh);
+  c.drawImage(IMG.mobs, fr * fw, sy, fw, fh, -fw / 2, -foot - 1, fw, fh);
+  const a = u.act, warn = u.team === 'foe' && a && ((a.k === 'atk' && a.phase === 'wind') || (a.k === 'aim' && a.t > a.dur - 0.25));
+  if (warn) { c.globalAlpha = 0.35 + 0.35 * Math.sin(G.time * 40); c.drawImage(mobsRed(), fr * fw, sy, fw, fh, -fw / 2, -foot - 1, fw, fh); }
   if (u.flash > 0) { c.globalAlpha = Math.min(1, u.flash * 9); c.drawImage(IMG.mobsW, fr * fw, sy, fw, fh, -fw / 2, -foot - 1, fw, fh); }
-  if (u.frozen > 0 && !u.dead) { // the ice block: front face, a lit top, a darker side and two glints
-    const bw = fw * 0.86, bh = foot + 2, bx = -bw / 2, by = -foot - 1; c.globalAlpha = 1;
-    c.fillStyle = 'rgba(160,222,255,0.52)'; c.fillRect(bx, by, bw, bh);
-    c.fillStyle = 'rgba(225,245,255,0.62)'; c.beginPath(); c.moveTo(bx, by); c.lineTo(bx + 3, by - 2.5); c.lineTo(bx + bw + 3, by - 2.5); c.lineTo(bx + bw, by); c.fill();
-    c.fillStyle = 'rgba(90,160,230,0.45)'; c.beginPath(); c.moveTo(bx + bw, by); c.lineTo(bx + bw + 3, by - 2.5); c.lineTo(bx + bw + 3, by + bh - 2.5); c.lineTo(bx + bw, by + bh); c.fill();
-    c.strokeStyle = 'rgba(240,252,255,0.95)'; c.lineWidth = 0.8; c.strokeRect(bx, by, bw, bh); c.beginPath(); c.moveTo(bx + 2, by + bh * 0.7); c.lineTo(bx + bw * 0.45, by + 2); c.moveTo(bx + bw * 0.55, by + bh - 2); c.lineTo(bx + bw - 2, by + bh * 0.45); c.stroke();
-  }
   c.restore(); c.globalAlpha = 1;
-  if (u.dead) return;
-  if (u.markT > 0) { if (!u._mk) u._mk = G.time; c.globalAlpha = 0.5 + 0.5 * clamp((G.time - u._mk) / 0.22, 0, 1); markBrackets(c, u, '#24100c', 1); markBrackets(c, u, '#ff4a3a', 0); c.globalAlpha = 1; } else u._mk = 0;
-  if (u.markT > 0) { const hx = Math.round(u.x), hy = Math.round(u.y - u.z - 17 * u.scale - 8 + Math.sin(G.time * 5)); c.fillStyle = '#3a2414'; c.fillRect(hx, hy, 1, 7); c.fillStyle = '#e0503a'; c.fillRect(hx + 1, hy, 4, 3); c.fillStyle = '#ffd860'; c.fillRect(hx + 2, hy + 1, 1, 1); }
-  if (u.rallyT > 0 && u.team === 'hero') { for (let i = 0; i < 14; i++) { if ((i + Math.floor(G.time * 8)) % 4 === 0) continue; const a = i / 14 * TAU + G.time; c.fillStyle = '#ffd860'; c.fillRect(Math.round(u.x + Math.cos(a) * 8), Math.round(u.y + Math.sin(a) * 3), 1, 1); } }
-  if (u.chill > 0 && !(u.frozen > 0)) { c.strokeStyle = 'rgba(160,225,255,0.75)'; c.lineWidth = 0.8; c.beginPath(); c.ellipse(u.x, u.y, u.r * 1.3, u.r * 0.5, 0, 0, TAU); c.stroke(); c.fillStyle = 'rgba(225,246,255,0.95)'; for (let k = 0; k < 3; k++) { const a = G.time * 2 + k * 2.1 + u.id; c.fillRect(u.x + Math.cos(a) * u.r * 1.2 - 0.5, u.y - u.z - 6 * u.scale + Math.sin(a * 1.3) * 4 - 0.5, 1, 1); } }
-  const showBar = u.team === 'hero' || (!u.boss && u.team !== 'folk' && !u.dummy && u.hp < u.maxHp && u.maxHp >= 60);
-  if (showBar) { const w = u.team === 'hero' ? 14 : 10 * u.scale, x = u.x - w / 2, y = u.y - u.z + 3; c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(x - 0.5, y - 0.5, w + 1, 2.5); const f = clamp(u.hp / u.maxHp, 0, 1); c.fillStyle = u.team !== 'mon' ? (f > 0.5 ? '#6cf08a' : f > 0.25 ? '#ffd24a' : '#ff4a3a') : '#e8443a'; c.fillRect(x, y, w * f, 1.5); if (u.team === 'hero') { const s = hpChip(u); if (s.trail > f) { c.fillStyle = '#ffffff'; c.fillRect(x + w * f, y, w * (s.trail - f), 1.5); } } }
+  if (u.team === 'foe' && u.hp < u.maxHp && !u.dead) { const w = 10 * sc, x = u.x - w / 2, y = u.y - u.z + 3; c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(x - 0.5, y - 0.5, w + 1, 2.5); c.fillStyle = u.stun > 0 ? '#ffd24a' : '#e8443a'; c.fillRect(x, y, w * clamp(u.hp / u.maxHp, 0, 1), 1.5); }
+  if (u.team === 'hero' && u.blocking) { const r = 9, a0 = u.dir; c.strokeStyle = u.blockT < PARRY_WINDOW ? '#ffd860' : '#d8d0c0'; c.lineWidth = 1.5; c.beginPath(); c.ellipse(u.x, u.y - 4, r, r * 0.75, 0, a0 - 0.9, a0 + 0.9); c.stroke(); }
 }
 function drawProp(c, p) {
   if (p.kind === 'pillar') { const [tx, ty] = p.tile; for (let i = 0; i < 3; i++) c.drawImage(IMG.cellar, tx * TS, (ty + i) * TS, TS, TS, p.x - 8, p.y - 14 - 32 + i * TS, TS, TS); }
   else if (p.kind === 'brazier') { const f = ((G.time * 8 + p.f) | 0) % 4; c.drawImage(IMG.cellar, f * TS, 27 * TS, TS, TS, p.x - 8, p.y - 14, TS, TS); }
   else { const w = (p.tw || 1) * TS; c.drawImage(IMG.cellar, p.tile[0] * TS, p.tile[1] * TS, w, TS, p.x - w / 2, p.y - 14, w, TS); }
 }
+// arrows and stones in flight, coins on the floor
 function drawProjBodies(c) {
-  for (const p of G.proj) {
-    if (p.k === 'bat') { drawBat(c, p.x, p.y - p.z, 0.95, (p.t || 0) + p.x * 0.01); continue; }
-    if (p.k === 'glob') { c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(p.x, p.y, 4, 1.6, 0, 0, TAU); c.fill(); if (p.mud) { c.fillStyle = '#5a4028'; c.beginPath(); c.arc(p.x, p.y - p.z, 3, 0, TAU); c.fill(); c.fillStyle = '#8a6a48'; c.fillRect(p.x - 1.5, p.y - p.z - 2, 1.5, 1.5); } }
-    if (p.k === 'mshot' && (p.shot === 'arrow' || p.shot === 'stone')) { const a = Math.atan2(p.vy, p.vx); if (p.shot === 'arrow') { c.strokeStyle = p.tint || '#d9c9a2'; c.lineWidth = 1; c.beginPath(); c.moveTo(p.x - Math.cos(a) * 7, p.y - p.z - Math.sin(a) * 7); c.lineTo(p.x, p.y - p.z); c.stroke(); c.fillStyle = '#fff'; c.fillRect(p.x - 0.5, p.y - p.z - 0.5, 1.4, 1.4); } else { c.fillStyle = '#8a8076'; c.fillRect(p.x - 1.5, p.y - p.z - 1.5, 3, 3); } }
-    else if (p.k === 'meteor' || p.k === 'boulder') {
-      const s = (p.k === 'meteor' ? 1.6 * p.big : p.sz) * (1 + p.z / 400), sh = Math.max(2, 10 * s * (1 - p.z / 400));
-      c.fillStyle = `rgba(0,0,0,${0.25 + 0.3 * (1 - p.z / 300)})`; c.beginPath(); c.ellipse(p.x, p.y, sh, sh * 0.45, 0, 0, TAU); c.fill();
-      c.save(); c.translate(p.x, p.y - p.z); c.rotate(p.t * 7); c.scale(s, s); c.drawImage(ROCKS[p.rk || 0], -10, -10); c.restore();
-    }
+  for (const p of G.proj) { const a = Math.atan2(p.vy, p.vx), y = p.y - p.z; if (p.k === 'arrow') { c.strokeStyle = p.team === 'hero' ? '#ffd860' : '#d9c9a2'; c.lineWidth = 1; c.beginPath(); c.moveTo(p.x - Math.cos(a) * 7, y - Math.sin(a) * 7); c.lineTo(p.x, y); c.stroke(); c.fillStyle = '#fff'; c.fillRect(p.x - 0.5, y - 0.5, 1.4, 1.4); } else { c.fillStyle = '#8a8076'; c.fillRect(p.x - 1.5, y - 1.5, 3, 3); } c.fillStyle = 'rgba(0,0,0,0.3)'; c.fillRect(p.x - 2, p.y, 4, 1); }
+  for (const d of G.drops) { const y = Math.round(d.y - d.z), x = Math.round(d.x), s = ((G.time * 6 + d.x) | 0) % 4; c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(x - 1, Math.round(d.y), 3, 1); c.fillStyle = '#7a5a10'; c.fillRect(x - 1, y - 2, 3, 3); c.fillStyle = s ? '#ffd24a' : '#fff4c0'; c.fillRect(x - 1, y - 2, s === 2 ? 1 : 2, 2); }
+}
+// where a foe's blow will land, painted on the floor while it winds up; an archer's aim is a line
+function drawTelegraphs(c) {
+  for (const f of G.foes) {
+    const a = f.act; if (!a || f.dead || !foeShown(f)) continue;
+    if (a.k === 'aim') { const u = clamp(a.t / a.dur, 0, 1), [ex, ey] = clipToWalls(f.x, f.y - 2, f.x + Math.cos(a.dir) * 220, f.y - 2 + Math.sin(a.dir) * 187, 1); c.strokeStyle = `rgba(255,${u > 0.78 ? 220 : 60},40,${0.15 + 0.6 * u})`; c.lineWidth = 1; c.beginPath(); c.moveTo(f.x, f.y - 2); c.lineTo(ex, ey); c.stroke(); continue; }
+    if (a.k !== 'atk' || a.phase !== 'wind') continue;
+    const mv = a.mv, u = clamp(a.t / mv.wind, 0, 1), fill = `rgba(255,50,30,${0.08 + 0.22 * u})`, edge = `rgba(255,${u > 0.8 ? 200 : 80},50,${0.4 + 0.5 * u})`;
+    c.fillStyle = fill; c.strokeStyle = edge; c.lineWidth = 1; c.beginPath();
+    if (mv.k === 'arc') { c.moveTo(f.x, f.y); c.ellipse(f.x, f.y, mv.reach + 4, (mv.reach + 4) * 0.85, 0, a.dir - mv.arc / 2, a.dir + mv.arc / 2); c.closePath(); }
+    else if (mv.k === 'line') { const L = mv.reach + mv.lunge * mv.act * 0.6, w = mv.w / 2, cs = Math.cos(a.dir), sn = Math.sin(a.dir) * 0.85; c.moveTo(f.x - sn * w, f.y + cs * w); c.lineTo(f.x + cs * L - sn * w, f.y + sn * L + cs * w); c.lineTo(f.x + cs * L + sn * w, f.y + sn * L - cs * w); c.lineTo(f.x + sn * w, f.y - cs * w); c.closePath(); }
+    else { const cx = f.x + Math.cos(a.dir) * (mv.at || 0), cy = f.y + Math.sin(a.dir) * (mv.at || 0) * 0.85; c.ellipse(cx, cy, mv.reach, mv.reach * 0.75, 0, 0, TAU); c.moveTo(cx + mv.reach * u, cy); c.ellipse(cx, cy, mv.reach * u, mv.reach * 0.75 * u, 0, 0, TAU); }
+    c.fill(); c.stroke();
   }
 }
-function drawProjGlows(c) {
-  for (const p of G.proj) {
-    const y = p.y - p.z;
-    if (p.k === 'fireball') { const s = 13 * p.big * (0.9 + 0.1 * Math.sin(p.t * 40)); c.drawImage(GLOW.fire, p.x - s, y - s, s * 2, s * 2); c.drawImage(GLOW.hot, p.x - s * 0.4, y - s * 0.4, s * 0.8, s * 0.8); }
-    else if (p.k === 'ball') { const s = 15 + Math.sin(p.t * 50) * 3; c.drawImage(GLOW.bolt, p.x - s, y - s, s * 2, s * 2); c.drawImage(GLOW.white, p.x - 5, y - 5, 10, 10); }
-    else if (p.k === 'meteor') { const s = 24 * p.big; c.drawImage(GLOW.fire, p.x - s, y - s, s * 2, s * 2); c.drawImage(GLOW.hot, p.x - s * 0.35, y - s * 0.35, s * 0.7, s * 0.7); }
-    else if (p.k === 'glob' && !p.mud) { c.drawImage(GLOW.fire, p.x - 8, y - 8, 16, 16); c.drawImage(GLOW.hot, p.x - 3, y - 3, 6, 6); }
-    else if (p.k === 'mshot' && p.shot !== 'arrow' && p.shot !== 'stone') { c.drawImage(GLOW[p.col] || GLOW.arcane, p.x - 7, y - 7, 14, 14); c.drawImage(GLOW.white, p.x - 2, y - 2, 4, 4); }
-  }
-}
-// a marked foe: red corner brackets snap in around it like a sight settling on a target
-function markBrackets(c, u, col, o) {
-  const k = clamp((G.time - (u._mk || G.time)) / 0.22, 0, 1), e = Math.round((1 - k) * 9), bw = Math.round(Math.max(7, 8 * u.scale)) + e, top = Math.round(u.y - u.z - 17 * u.scale - 2) - e, bot = Math.round(u.y + 2) + e, cx = Math.round(u.x), L = 4; c.fillStyle = col;
-  for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const x = cx + sx * bw, y = sy < 0 ? top : bot; c.fillRect(Math.min(x, x - sx * (L - 1)) + o, y + o, L, 1); c.fillRect(x + o, Math.min(y, y - sy * (L - 1)) + o, 1, L); }
-}
+function drawGhosts(c) { for (const g of FX.ghosts) { const m = MOBS[g.spr]; if (!m) continue; const foot = footOf(g.spr), u = g.t / g.life; c.globalAlpha = 0.45 * (1 - u); c.save(); c.translate(g.x, g.y - g.z); c.scale(g.sc * (g.face < 0 ? -1 : 1), g.sc); c.drawImage(IMG.mobsW, g.fr * m[1], m[0], m[1], m[2], -m[1] / 2, -foot - 1, m[1], m[2]); c.restore(); } c.globalAlpha = 1; }
 function drawAuras(c) {
-  for (const u of G.mons) if (u.markT > 0 && u._mk) { c.globalAlpha = 0.55 + 0.15 * Math.sin(G.time * 6); markBrackets(c, u, '#ff3020', 0); } // the brackets glow, so the dark of the cellar never hides them
-  // no glow at the heroes' feet: their shadow stays plain; only a ready ultimate sends sparks up
-  for (const h of G.heroes) if (!h.dead && h.ult >= 100 && chance(0.15)) part({ k: 'glow', x: h.x + rand(-6, 6), y: h.y, z: rand(0, 6), vz: rand(20, 40), life: 0.6, s0: 2, s1: 0, col: h.def.col });
   for (const t of ARENA.torches) { const f = 0.8 + 0.2 * noise1(G.time * 9 + t.tx); c.globalAlpha = 0.55 * f; c.drawImage(GLOW.torch, t.x - 6, t.y - 13, 12, 12); }
   for (const p of ARENA.props) if (p.kind === 'brazier') { c.globalAlpha = 0.6; c.drawImage(GLOW.torch, p.x - 9, p.y - 22, 18, 16); }
-  for (const r of ARENA.runes) if (r.glow > 0.02) { const g = Math.min(1, r.glow), s = 12 + 3 * Math.sin(G.time * 9 + r.x); c.globalAlpha = g * 0.85; c.drawImage(GLOW.arcane, r.x - s, r.y - s * 0.6, s * 2, s * 1.2); if (chance(g * 0.3)) part({ k: 'glow', x: r.x + rand(-6, 6), y: r.y + rand(-4, 4), z: 0, vz: rand(20, 50), life: 0.6, s0: 1.8, s1: 0, col: 'arcane' }); }
-  for (const u of G.mons) if (u.rank && u.spawnT <= 0) { const s = 10 * u.scale + 2 * Math.sin(G.time * 7 + u.x); c.globalAlpha = u.rank === 'warlord' ? 0.7 : 0.5; c.drawImage(GLOW.red, u.x - s, u.y - s * 0.4, s * 2, s * 0.8); }
-  if (G.boss && alive(G.boss)) { const b = G.boss, s = 34 + 4 * Math.sin(G.time * 5); c.globalAlpha = 0.35; c.drawImage(GLOW[b.def.col || 'red'], b.x - s, b.y - s * 0.5, s * 2, s); }
+  for (const h of G.heroes) if (!h.dead && h.act && h.act.k === 'charge' && h.act.ready) { c.globalAlpha = 0.5 + 0.2 * Math.sin(G.time * 20); c.drawImage(GLOW.gold, h.x - 10, h.y - 18, 20, 20); }
   c.globalAlpha = 1;
 }
+// the light map: black, a faint glow on every tile the party remembers, lamps and torches on top, and nothing at all on
+// tiles never seen (so no torch, flame or spark ever shows through from a room nobody has entered)
 function renderLight() {
-  const th = ARENA.th.amb, d = clamp(Math.max(G.ambDark, G.phase === 'fight' ? (G.inten || 0) * 0.32 : 0), 0, 1), fl = clamp(G.ambFlash, 0, 0.6), mix = (v, w) => Math.round(clamp(v * (1 - d * 0.8) + w * fl * 0.75, 0, 255));
-  lctx.setTransform(1, 0, 0, 1, 0, 0); lctx.globalCompositeOperation = 'source-over'; lctx.globalAlpha = 1; lctx.fillStyle = `rgb(${mix(th[0], 230)},${mix(th[1], 240)},${mix(th[2], 255)})`; lctx.fillRect(0, 0, lc.width, lc.height);
-  lctx.globalCompositeOperation = 'lighter'; lctx.imageSmoothingEnabled = false; lctx.setTransform(1, 0, 0, 1, -PXO.x, -PXO.y); // the light map is drawn at game resolution too
+  const bw = lc.width, bh = lc.height, menu = G.mode !== 'play';
+  lctx.setTransform(1, 0, 0, 1, 0, 0); lctx.globalAlpha = 1; lctx.globalCompositeOperation = 'source-over'; lctx.clearRect(0, 0, bw, bh);
+  if (menu) { lctx.fillStyle = 'rgb(70,62,74)'; lctx.fillRect(0, 0, bw, bh); } else maskToMemory(lctx, PXO.x, PXO.y, 'source-over');
+  lctx.globalCompositeOperation = 'lighter'; lctx.imageSmoothingEnabled = false; lctx.setTransform(1, 0, 0, 1, -PXO.x, -PXO.y);
   const L = (x, y, r, k, a) => { if (a <= 0.01) return; const t = lightTex(k); for (let i = 0; i < 2 && a > 0.01; i++, a -= 1) { lctx.globalAlpha = Math.min(1, a); lctx.drawImage(t, x - r, y - r * 0.8, r * 2, r * 1.6); } };
-  for (const t of ARENA.torches) L(t.x, t.y + 6, 62 + 6 * noise1(G.time * 7 + t.tx), 'torch', 0.85 * (1 - d * 0.5));
-  for (const p of ARENA.props) if (p.kind === 'brazier') L(p.x, p.y - 4, 90 + 8 * noise1(G.time * 6 + p.x), 'torch', 0.95 * (1 - d * 0.5));
-  for (const h of G.heroes) if (!h.dead) { L(h.x, h.y - 6, 46, 'white', 0.45); L(h.x, h.y, 36, h.def.col, 0.35); }
-  if (G.boss && alive(G.boss)) L(G.boss.x, G.boss.y - 20, 110, G.boss.def.col || 'red', 0.8);
-  for (const c of FX.circles) L(c.x, c.y, c.r * 4, c.col, 0.9);
-  for (const r of ARENA.runes) if (r.glow > 0.02) L(r.x, r.y, 60, 'arcane', Math.min(1, r.glow) * 0.9);
-  for (const u of G.mons) if (u.rank) L(u.x, u.y - 8, 50 * u.scale / 1.5, 'red', 0.6);
-  for (const c of FX.cracks) { const heat = clamp(1 - (c.t - 0.2) / c.hot, 0, 1); if (heat > 0 && c.segs.length) { const s = c.segs[(c.segs.length / 2) | 0]; L(s.x1, s.y1, 70, c.col === 'bolt' ? 'bolt' : 'magma', heat * 0.8); } }
+  for (const h of G.heroes) if (!h.dead) { L(h.x, h.y - 6, h.lightR * 1.35, 'hot', 1.15); L(h.x, h.y - 6, h.lightR * 0.7, 'torch', 0.35); }
+  for (const t of ARENA.torches) L(t.x, t.y + 6, 62 + 6 * noise1(G.time * 7 + t.tx), 'torch', 0.85);
+  for (const p of ARENA.props) if (p.kind === 'brazier') L(p.x, p.y - 4, 90 + 8 * noise1(G.time * 6 + p.x), 'torch', 0.95);
   const A = FX.lights; for (let i = 0; i < A.length; i += 5) L(A[i], A[i + 1], A[i + 2], A[i + 3], A[i + 4]); A.length = 0;
   for (const f of FX.flights) { const u = f.t / f.life; L(f.x, f.y, f.r * (1 + u * 0.3), f.col, f.a * (1 - u) * (1 - u)); }
-  let n = 0; for (const p of FX.P) { if (p.k === 'glow' && p.s0 > 6 && (n++ & 3) === 0) L(p.x, p.y, p.s0 * 4, p.col, 0.5 * (1 - p.t / p.life)); }
-  lctx.globalAlpha = 1;
+  if (!menu) { maskToMemory(lctx, PXO.x, PXO.y, 'destination-in'); }
+  lctx.setTransform(1, 0, 0, 1, 0, 0); lctx.globalCompositeOperation = 'destination-over'; lctx.globalAlpha = 1; lctx.fillStyle = '#000'; lctx.fillRect(0, 0, bw, bh); lctx.globalCompositeOperation = 'source-over';
 }
 // The world, its effects and its light are drawn at the game's own resolution (one canvas pixel per game pixel) and only then
-// enlarged to the screen, nearest-neighbour, through the camera (zoom, shake and tilt included). Every shadow, ring, glow,
-// bolt and puff of smoke therefore comes out in the same chunky pixels as the sprites. The HUD stays at screen resolution.
+// enlarged to the screen, nearest-neighbour, through the camera. Every shadow, ring, glow and spark comes out in chunky pixels.
 let wb = null, wbc = null, PXO = { x: 0, y: 0 };
 function fitBuf(c, w, h) { if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } }
 function render() {
   const W = cvs.width, H = cvs.height, k = VIEW.dpr;
-  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.fillStyle = '#0b0c0f'; ctx.fillRect(0, 0, W, H);
-  if (!ARENA) return;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.fillStyle = '#050406'; ctx.fillRect(0, 0, W, H);
+  if (!ARENA) { drawHUD(); return; }
   if (!wb) { wb = mkCanvas(1, 1); wbc = wb.getContext('2d'); }
-  // the part of the world on screen, in game pixels, with room for the shake and its tilt
   const zs = CAM.z * (1 + CAM.kick), hw = VIEW.w / (2 * zs), hh = VIEW.h / (2 * zs), pad = 3 + Math.ceil((Math.abs(SH.x) + Math.abs(SH.y)) / zs + Math.abs(SH.r) * Math.max(hw, hh) * 1.2);
   const ox = Math.floor(CAM.x - hw - pad), oy = Math.floor(CAM.y - hh - pad), bw = Math.ceil(2 * (hw + pad)) + 2, bh = Math.ceil(2 * (hh + pad)) + 2; PXO.x = ox; PXO.y = oy;
   fitBuf(wb, bw, bh); fitBuf(fxc, bw, bh); fitBuf(lc, bw, bh); fitBuf(b1, Math.ceil(bw / 3), Math.ceil(bh / 3)); fitBuf(b2, Math.ceil(bw / 8), Math.ceil(bh / 8));
@@ -162,20 +124,19 @@ function render() {
   const c = wbc; c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; c.fillStyle = '#0b0c0f'; c.fillRect(0, 0, bw, bh); c.imageSmoothingEnabled = false; X(c);
   c.drawImage(ARENA.ground, 0, 0);
   for (const t of ARENA.torches) { const f = ((G.time * 9 + t.f) | 0) % 4; c.drawImage(IMG.cellar, f * TS, 26 * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); }
-  drawDoors(c); drawFog(c);
-  drawTele(c);
-  for (const u of G.units) { if (u.dead && u.team === 'mon') continue; pxShadow(c, u.x, u.y, u.r * 1.3 * (1 - Math.min(0.6, u.z / 160))); }
+  drawDoors(c); drawTele(c); drawTelegraphs(c);
+  for (const u of G.units) { if (u.dead && u.team === 'foe') continue; if (u.team === 'foe' && !foeShown(u)) continue; pxShadow(c, u.x, u.y, u.r * 1.3 * (1 - Math.min(0.6, u.z / 160))); }
   const list = G.units.slice(); for (const p of ARENA.props) if (!p.dead) list.push(p); list.sort((a, b) => a.y - b.y);
   for (const o of list) o.team ? drawUnit(c, o) : drawProp(c, o);
-  drawHazardsWorld(c); drawProjBodies(c); drawWorldParts(c);
+  drawProjBodies(c); drawWorldParts(c);
   renderLight();
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'multiply'; c.drawImage(lc, 0, 0);
   fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.globalCompositeOperation = 'source-over'; fctx.globalAlpha = 1; fctx.clearRect(0, 0, bw, bh); fctx.globalCompositeOperation = 'lighter'; fctx.imageSmoothingEnabled = false; X(fctx);
-  drawAuras(fctx); drawHazardsFx(fctx); drawCrackGlow(fctx); drawGhosts(fctx); drawRings(fctx); drawFxParts(fctx); drawProjGlows(fctx); drawBolts(fctx);
+  drawAuras(fctx); drawGhosts(fctx); drawRings(fctx); drawFxParts(fctx); drawBolts(fctx);
+  if (G.mode === 'play') maskToMemory(fctx, ox, oy, 'destination-in'); // no glow, spark or flame shows where nobody has looked
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'lighter'; c.drawImage(fxc, 0, 0);
   if (Q.bloom > 0) { b1c.imageSmoothingEnabled = b2c.imageSmoothingEnabled = c.imageSmoothingEnabled = true; b1c.clearRect(0, 0, b1.width, b1.height); b1c.drawImage(fxc, 0, 0, b1.width, b1.height); b2c.clearRect(0, 0, b2.width, b2.height); b2c.drawImage(b1, 0, 0, b2.width, b2.height); c.globalAlpha = 0.45 * Q.bloom; c.drawImage(b1, 0, 0, bw, bh); c.globalAlpha = 0.5 * Q.bloom; c.drawImage(b2, 0, 0, bw, bh); c.globalAlpha = 1; c.imageSmoothingEnabled = false; }
   c.globalCompositeOperation = 'source-over';
-  // the finished world goes on screen, each game pixel a crisp block
   ctx.imageSmoothingEnabled = false; worldXform(ctx, k); ctx.drawImage(wb, ox, oy);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   if (G.flashA > 0.01) { ctx.fillStyle = rgba(G.flashC, Math.min(0.9, G.flashA)); ctx.fillRect(0, 0, W, H); }

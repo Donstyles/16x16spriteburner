@@ -1,8 +1,6 @@
 // ===================== the dungeon: a floor of rooms and corridors, built from the FG_Cellar tileset =====================
 // Rooms sit one to a cell of a coarse grid; neighbouring rooms are joined by straight corridors three tiles wide that run
 // along the cells' centre lines, so every corridor meets its rooms square on. Everything that is not floor is wall.
-// ARENA keeps its old meaning for the fighting code: x0..y1 are the bounds of the room being fought in (or of the whole
-// map while exploring), cx/cy its centre, runes its spawn points.
 const THEMES = {
   brown: { fy: 0, floors: [[10, 1], [10, 1], [10, 1], [10, 1], [10, 3], [11, 1], [12, 1], [13, 3], [14, 1], [15, 3]], pillar: [[21, 5], [23, 5]], stairs: 19, rune: [27, 7], amb: [92, 78, 70], door: 7 },
   grey: { fy: 7, floors: [[10, 9], [10, 9], [10, 9], [10, 9], [10, 11], [11, 9], [12, 9], [13, 11], [14, 9], [15, 11]], pillar: [[21, 2], [23, 2]], stairs: 16, rune: [27, 4], amb: [60, 66, 88], door: 1 },
@@ -29,12 +27,11 @@ function buildArena(floor) {
   // ---- rooms inside their cells; every room covers its cell's centre so the corridors can run straight
   const W = GW * CW, H = GH * CH, fl = new Uint8Array(W * H), rooms = [], byKey = new Map();
   for (const [k, [gx, gy]] of cells) {
-    const kind = k === key(...s0) ? 'start' : k === endK ? 'end' : k === treasK ? 'treasure' : 'fight';
+    const kind = k === key(...s0) ? 'start' : k === endK ? 'end' : k === treasK ? 'treasure' : 'room';
     const big = kind === 'end', w = big ? randi(18, 20) : kind === 'start' ? randi(13, 14) : kind === 'treasure' ? randi(10, 12) : randi(12, 18), h = big ? randi(10, 12) : kind === 'start' || kind === 'treasure' ? randi(7, 8) : randi(7, 11);
     const X0 = gx * CW, Y0 = gy * CH, cx = X0 + CW / 2, cy = Y0 + 9;
     const ix0 = randi(Math.max(X0 + 2, cx + 3 - w), Math.min(cx - 2, X0 + CW - 2 - w)), iy0 = randi(Math.max(Y0 + 3, cy + 3 - h), Math.min(cy - 2, Y0 + CH - 2 - h));
-    const r = { i: rooms.length, k, gx, gy, kind, cx, cy, ix0, iy0, ix1: ix0 + w - 1, iy1: iy0 + h - 1, fx0: ix0 - 1, fx1: ix0 + w, fy0: iy0 - 2, fy1: iy0 + h, w, h, runes: [], doors: [], seen: kind === 'start' };
-    r.waves = kind === 'end' ? 3 : kind === 'fight' ? (w * h > 130 ? 2 : 1) : 0;
+    const r = { i: rooms.length, k, gx, gy, kind, cx, cy, ix0, iy0, ix1: ix0 + w - 1, iy1: iy0 + h - 1, fx0: ix0 - 1, fx1: ix0 + w, fy0: iy0 - 2, fy1: iy0 + h, w, h, doors: [] };
     r.px0 = r.fx0 * TS; r.py0 = r.fy0 * TS; r.px1 = (r.fx1 + 1) * TS; r.py1 = (r.fy1 + 1) * TS;
     r.b = { x0: ix0 * TS + 5, x1: (r.ix1 + 1) * TS - 5, y0: iy0 * TS + 4, y1: (r.iy1 + 1) * TS - 3 };
     rooms.push(r); byKey.set(k, r);
@@ -86,7 +83,7 @@ function buildArena(floor) {
     else if (O(x + 1, y + 1)) T(5, 0, x, y); else if (O(x - 1, y + 1)) T(7, 0, x, y); // the inside corners of a room
     else if (O(x + 1, y - 1)) T(5, 3, x, y); else if (O(x - 1, y - 1)) T(7, 3, x, y);
   }
-  const A = ARENA = { w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, fl, rooms, halls, props: [], torches: [], runes: [], name: floorName(floor), roomI: -1 };
+  const A = ARENA = { w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, fl, rooms, halls, props: [], torches: [], name: floorName(floor) };
   A.doors = rooms.flatMap(r => r.doors.map(d => Object.assign(d, { room: r.i, k: 0 })));
   A.start = rooms.find(r => r.kind === 'start'); A.end = rooms.find(r => r.kind === 'end');
   // ---- furnishing (the stairways' places first, so no torch or banner hangs on them)
@@ -96,12 +93,12 @@ function buildArena(floor) {
   for (const r of rooms) furnish(A, r, g);
   // the stairway we came down, in the start room's north wall; the way down waits shut in the end room's
   { const r = A.start, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 12, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 13, (sx + i) * TS, (r.fy0 + 1) * TS); } }
-  { const r = A.end, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 14, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 15, (sx + i) * TS, (r.fy0 + 1) * TS); } A.stairs = { x: (sx + 1.5) * TS, y: (r.fy0 + 2) * TS + 2, sx, sy: r.fy0, room: r.i, open: false }; }
+  { const r = A.end, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 14, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 15, (sx + i) * TS, (r.fy0 + 1) * TS); } A.stairs = { x: (sx + 1.5) * TS, y: (r.fy0 + 2) * TS + 2, sx, sy: r.fy0, room: r.i }; }
   A.spawn = { x: (A.start.ix0 + A.start.ix1 + 1) / 2 * TS, y: (A.start.iy1 - 1) * TS };
-  setBounds(null);
+  Object.assign(A, { x0: TS, x1: (A.w - 1) * TS, y0: TS, y1: (A.h - 1) * TS });
   return A;
 }
-// torches, banners, braziers, clutter, pillars and summoning runes for one room
+// torches, banners, braziers, clutter and pillars for one room
 function furnish(A, r, g) {
   const th = A.th, nearDoor = (tx, ty, m = 2) => r.doors.some(d => d.cells.some(([x, y]) => Math.abs(x - tx) <= m && Math.abs(y - ty) <= m)), used = new Set();
   for (const d of r.doors) if (d.side === 'N') for (const [x] of d.cells) for (let k = -2; k <= 2; k++) used.add(x + k);
@@ -112,19 +109,10 @@ function furnish(A, r, g) {
   const free = (x, y, d = 10) => !A.props.some(p => Math.abs(p.x - x) < d && Math.abs(p.y - y) < d);
   if (r.w * r.h >= 100) for (const [tx, ty] of [[r.ix0 + 1, r.iy1 - 1], [r.ix1 - 1, r.iy0 + 1]]) if (!nearDoor(tx, ty)) prop('brazier', tx, ty, { f: randi(0, 3) });
   const corner = (cx, cy) => { for (let i = 0; i < randi(1, 3); i++) { const tx = clamp(cx + randi(-1, 1), r.ix0, r.ix1), ty = clamp(cy + randi(-1, 1), r.iy0, r.iy1); if (nearDoor(tx, ty) || !free(tx * TS + 8, ty * TS + 14)) continue; const t = pick([[24, 8], [25, 8], [26, 8], [27, 8], [28, 8], [30, 8]]); prop(t[0] >= 28 ? 'chest' : 'barrel', tx, ty, { tile: t, hp: 40 }); } };
-  if (r.kind === 'treasure') prop('chest', Math.round((r.ix0 + r.ix1) / 2), Math.round((r.iy0 + r.iy1) / 2) + 1, { tile: [29, 8], hp: 1e9, loot: true, r: 6 });
   corner(r.ix0, r.iy0); corner(r.ix1, r.iy0); corner(r.ix0, r.iy1); corner(r.ix1, r.iy1);
-  if (r.kind === 'fight' || r.kind === 'end') {
+  if (r.kind === 'room' || r.kind === 'end') {
     if (r.w >= 15 && r.h >= 9 && chance(0.7)) { const P = th.pillar[randi(0, 1)]; for (const [fx, fy] of chance(0.5) ? [[0.27, 0.4], [0.73, 0.4], [0.27, 0.78], [0.73, 0.78]] : [[0.3, 0.55], [0.7, 0.55]]) { const tx = Math.round(r.ix0 + fx * (r.w - 1)), ty = Math.max(r.iy0 + 3, Math.round(r.iy0 + fy * (r.h - 1))); if (!nearDoor(tx, ty, 2)) prop('pillar', tx, ty, { tile: P, r: 6 }); } }
-    for (const [fx, fy] of [[0.18, 0.3], [0.82, 0.3], [0.5, 0.45], [0.18, 0.85], [0.82, 0.85], [0.5, 0.92]]) { const tx = Math.round(r.ix0 + fx * (r.w - 1)), ty = Math.round(r.iy0 + fy * (r.h - 1)); tileAt(g, th.rune[0], th.rune[1], tx * TS, ty * TS); r.runes.push({ x: tx * TS + 8, y: ty * TS + 8, glow: 0 }); }
   }
-}
-// the fighting code's view of the world: one room while its doors are shut, the whole map otherwise
-function setBounds(r) {
-  const A = ARENA; if (!A) return;
-  if (typeof r === 'number') r = A.rooms[r];
-  if (r) Object.assign(A, r.b, { cx: (r.ix0 + r.ix1 + 1) / 2 * TS, cy: (r.iy0 + r.iy1 + 1) / 2 * TS, runes: r.runes, cur: r });
-  else Object.assign(A, { x0: TS, x1: (A.w - 1) * TS, y0: TS, y1: (A.h - 1) * TS, cx: A.spawn ? A.spawn.x : A.pw / 2, cy: A.spawn ? A.spawn.y : A.ph / 2, runes: [], cur: null });
 }
 function inArena(x, y) { return ARENA && x > ARENA.x0 - 4 && x < ARENA.x1 + 4 && y > ARENA.y0 - 8 && y < ARENA.y1 + 4 && !solidAt(x, y); }
 function nearestSolid(x, y, r) { for (const p of ARENA.props) if (p.solid && !p.dead && dist(x, y, p.x, p.cy) < r + p.r) return p; return null; }
@@ -144,14 +132,4 @@ function tileCollide(u) {
       if (ox < oy) { const s = u.x < tx * TS + TS / 2 ? -1 : 1; u.x += s * ox; u.kx *= -0.3; } else { const s = u.y < ty * TS + TS / 2 ? -1 : 1; u.y += s * oy; u.ky *= -0.3; }
     }
   }
-}
-// doors shut while their room is being fought in (every phone works this out from G.roomI)
-function syncDoors(dt) {
-  const A = ARENA; if (!A || !A.doors) return; let changed = false;
-  for (const d of A.doors) {
-    const shut = G.roomI === d.room; d.k = clamp(d.k + (shut ? 1 : -1) * dt * 5, 0, 1);
-    const v = shut ? 2 : 1; for (const [x, y] of d.cells) { const i = y * A.w + x; if (A.fl[i] !== v) { A.fl[i] = v; changed = true; } }
-  }
-  if (A.stairs) A.stairs.open = !!(G.clearMask & (1 << A.stairs.room));
-  if (changed && NET.role !== 'client') for (const u of G.units) tileCollide(u);
 }

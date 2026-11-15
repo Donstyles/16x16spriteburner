@@ -69,8 +69,14 @@ Choose **HOST CO-OP** on the menu to open **The Cellar Door**, the lobby: a 4-le
 - The connection indicator under the top bar shows round trip, packet loss and sync state; tap it for details.
 - Matchmaking uses the free public PeerJS server; phones then talk directly, or through a relay when a network blocks direct connections. Co-op runs on the GitHub Pages / Home Screen version, not inside claude.ai.
 
-## Cellar of Ruin II (the sequel, in progress)
-A dungeon crawl built on the same heroes, spells, creatures and co-op, in `crawler/` (on GitHub Pages at `/crawler/`). Each floor is a set of rooms joined by corridors, hidden until someone walks in (a map in the top right corner shows what has been seen). Walk into a room with monsters and its doors shut, **but only once every hero is inside**; until then the others are told who they are waiting for. The waves are sized to the room; clear them and the doors open, the party heals a quarter and anyone who fell gets up. A treasure room holds a chest that opens when you walk up to it. The end room is the warlord's hall (on every fourth floor, the boss's): clear it and the way down opens in its north wall. Runs work as before: a fresh dungeon every floor, and a fallen party starts the floor again. Heroes on autopilot follow a player who steers by hand, or explore on their own when nobody does. There is no tutorial yet. Best floor and co-op rooms are kept apart from the first game; control settings are shared.
+## Cellar of Ruin II (the successor, in progress)
+A dungeon crawl in `crawler/` (on GitHub Pages at `/crawler/`), its own game: deliberate real-time combat, a dark dungeon you light yourself, and roguelite runs. It shares only the engine with the first game (pixel renderer and lighting, the dungeon builder and its wall logic, sprites, effects, sound).
+
+- **The dungeon is dark.** Your lamp and the wall torches light it; what you have seen stays faintly visible, what you have not stays black, and foes only show where you can see them. A map in the corner fills in as you go. The way down is in the farthest room.
+- **Combat is by hand.** Tap ATTACK to strike and keep tapping to chain the weapon's combo; hold it to charge a heavy blow. ROLL is a quick dodge you cannot be hit during; BLOCK soaks blows for stamina, and raised just as a blow lands it parries, leaving the attacker staggered and open to a riposte. Every move costs stamina. Hitting a sleeping or unaware foe is a sneak attack; hitting one from behind is a backstab. Three flasks heal.
+- **Kits:** Sellsword (sword and shield), Lancer (spear and shield), Gladiator (two-handed axe), Cutthroat (twin daggers, rolls far, deadly from behind). Each weapon has its own combo and heavy blow.
+- **Foes** wait in the rooms, some asleep, and wake each other. Every attack is marked on the floor in red before it lands (an archer's aim is a red line). Grunts swing, brutes slam and cannot be staggered mid-swing, archers keep their distance, skitterers come in packs. The cellars, the crypt and the deep each have their own creatures.
+- Coming next: loot (weapons, armour, trinkets), tomes and modifiers for magic, bosses, unlocks between runs, co-op. Keys: WASD, J attack, Space roll, Shift block, F flask, Esc menu; the mouse aims.
 
 ## Run it
 Open `index.html` (it is self-contained), or add the GitHub Pages site to your Home Screen. The sequel is `crawler/index.html`.
@@ -83,6 +89,6 @@ node tools/build.js
 node tools/build.js crawler   # the sequel
 ```
 `src/*.js` is concatenated into `index.html` (Pages / Home Screen) and `dist/artifact.html`; `crawler/src/*.js` into `crawler/index.html` and `crawler/dist/artifact.html` (it also inlines `crawler/assets/cellar_doors.png`).
-Checks: `node tools/shots.js`, `node tools/scenes.js`, `node tools/soak.js` against a local server on port 8787; `GAME_URL=http://127.0.0.1:8787/crawler/index.html` points `soak.js` and `cooptest.js` at the sequel.
+Checks: `node tools/shots.js`, `node tools/scenes.js`, `node tools/soak.js` against a local server on port 8787; `node tools/soak2.js <seconds> <turbo> <kit>` plays the successor with its test pilot.
 
 Art: the Dungeon Cellar tileset and its doors by ELV Games (rooms and props), and the 16x16 creature packs by Deep Dive Game Studio: Magical, Humanoid, Humanoid II, Vermin, Undead, Demon, Dragon and Holy (heroes, monsters and angels; some heroes are palette swaps of their sprites).
