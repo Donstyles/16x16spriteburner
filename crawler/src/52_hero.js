@@ -43,7 +43,7 @@ function makeHero(kitKey) {
 const weaponOf = h => WEAPONS[h.weapon];
 // Every move takes stamina, and a short pause follows before it comes back. Spending the very last of it leaves the hero
 // winded: nothing comes back for 1.6 s, and they stand there panting until a third of the bar has returned.
-const WINDED = 1.6, WINDED_PACE = 0.4, SPRINT = { speed: 1.6, cost: 22 }; // a sprint: 1.6x speed, 22 stamina a second
+const WINDED = 1.6, WINDED_PACE = 0.4, SPRINT = { speed: 1.6, cost: 33 }; // a sprint: 1.6x speed, 33 stamina a second
 function spendStam(h, n, delay) { h.stam = Math.max(0, h.stam - n); h.stamT = Math.max(h.stamT, delay); if (h.stam <= 0) winded(h); }
 function winded(h) { h.stamT = Math.max(h.stamT, WINDED); if (!h.huff) h.huff = { t: 0.18, out: true }; }
 // the winded breathing, as chosen on the Winded Breath Board ("Through the nose")
