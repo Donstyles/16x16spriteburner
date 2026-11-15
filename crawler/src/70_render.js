@@ -109,11 +109,27 @@ function drawProp(c, p) {
   else if (p.kind === 'tchest') { const [cx, cy] = CHEST[p.tier].at; c.drawImage(IMG.items, cx + (p.open ? 16 : 0), cy, 16, 16, p.x - 8, p.y - 14, 16, 16); }
   else { const w = (p.tw || 1) * TS; c.drawImage(IMG.cellar, p.tile[0] * TS, p.tile[1] * TS, w, TS, p.x - w / 2, p.y - 14, w, TS); }
 }
-// arrows and stones in flight, coins on the floor
-function drawProjBodies(c) {
-  for (const p of G.proj) { const a = Math.atan2(p.vy, p.vx), y = p.y - p.z; if (p.k === 'arrow') { c.strokeStyle = p.team === 'hero' ? '#ffd860' : '#d9c9a2'; c.lineWidth = 1; c.beginPath(); c.moveTo(p.x - Math.cos(a) * 7, y - Math.sin(a) * 7); c.lineTo(p.x, y); c.stroke(); c.fillStyle = '#fff'; c.fillRect(p.x - 0.5, y - 0.5, 1.4, 1.4); } else { c.fillStyle = '#8a8076'; c.fillRect(p.x - 1.5, y - 1.5, 3, 3); } c.fillStyle = 'rgba(0,0,0,0.3)'; c.fillRect(p.x - 2, p.y, 4, 1); }
-  for (const d of G.drops) if (d.k !== 'gold' && !(d.wait > 0)) { const [ix, iy] = ITEM[d.k], x = Math.round(d.x - 8), y = Math.round(d.y - d.z - 13 - (d.z < 0.5 ? (Math.sin(G.time * 3 + d.x) > 0.6 ? 1 : 0) : 0)); c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(Math.round(d.x) - 3, Math.round(d.y), 7, 1); c.drawImage(IMG.items, ix, iy, 16, 16, x, y, 16, 16); }
-  for (const d of G.drops) { if (d.k !== 'gold' || d.wait > 0) continue; const y = Math.round(d.y - d.z), x = Math.round(d.x), s = ((G.time * 6 + d.x) | 0) % 4; c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(x - 1, Math.round(d.y), 3, 1); c.fillStyle = '#7a5a10'; c.fillRect(x - 1, y - 2, 3, 3); c.fillStyle = s ? '#ffd24a' : '#fff4c0'; c.fillRect(x - 1, y - 2, s === 2 ? 1 : 2, 2); }
+// an arrow or a stone in flight (its shadow on the floor below it)
+function drawProj(c, p) {
+  const a = Math.atan2(p.vy, p.vx), y = p.y - p.z;
+  if (p.k === 'arrow') { c.strokeStyle = p.team === 'hero' ? '#ffd860' : '#d9c9a2'; c.lineWidth = 1; c.beginPath(); c.moveTo(p.x - Math.cos(a) * 7, y - Math.sin(a) * 7); c.lineTo(p.x, y); c.stroke(); c.fillStyle = '#fff'; c.fillRect(p.x - 0.5, y - 0.5, 1.4, 1.4); }
+  else { c.fillStyle = '#8a8076'; c.fillRect(p.x - 1.5, y - 1.5, 3, 3); }
+  c.fillStyle = 'rgba(0,0,0,0.3)'; c.fillRect(p.x - 2, p.y, 4, 1);
+}
+// a foe's arrowhead catching the light as it flies: drawn in the glow layer, so it shines even where the lamp does not
+// reach; a steady bright point and a short gleam down the shaft, and a few times a second a little four-pointed twinkle
+function drawArrowGlints(c) {
+  for (const p of G.proj) {
+    if (p.k !== 'arrow' || p.team === 'hero') continue; const a = Math.atan2(p.vy, p.vx), x = Math.round(p.x), y = Math.round(p.y - p.z), ph = (p.life * 5) % 1;
+    for (let i = 3; i >= 0; i--) { c.fillStyle = `rgba(255,244,215,${[0.95, 0.6, 0.35, 0.15][i]})`; c.fillRect(Math.round(p.x - Math.cos(a) * i), Math.round(p.y - p.z - Math.sin(a) * i), 1, 1); }
+    if (ph < 0.45) { const k = 1 - ph / 0.45, n = k > 0.5 ? 2 : 1; c.fillStyle = `rgba(255,250,235,${(0.35 + 0.6 * k).toFixed(2)})`; c.fillRect(x - n, y, n, 1); c.fillRect(x + 1, y, n, 1); c.fillRect(x, y - n, 1, n); c.fillRect(x, y + 1, 1, n); }
+  }
+}
+// a coin or an item, lying flat on the floor where it fell (its shadow just under it), or tossed up above its shadow
+function drawDrop(c, d) {
+  if (d.wait > 0) return; const x = Math.round(d.x), gy = Math.round(d.y), z = Math.round(d.z);
+  if (d.k === 'gold') { const y = gy - z, s = ((G.time * 6 + d.x) | 0) % 4; c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(x - 1, gy, 3, 1); c.fillStyle = '#7a5a10'; c.fillRect(x - 1, y - 2, 3, 3); c.fillStyle = s ? '#ffd24a' : '#fff4c0'; c.fillRect(x - 1, y - 2, s === 2 ? 1 : 2, 2); return; }
+  const [ix, iy, sw] = ITEM[d.k]; c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(x - (sw >> 1), gy, sw, 1); c.drawImage(IMG.items, ix, iy, 16, 16, x - 8, gy - z - 12, 16, 16); // the sprites' lowest row is their row 11
 }
 // where a foe's blow will land, painted on the floor while it winds up; an archer's aim is a line
 function drawTelegraphs(c) {
@@ -175,13 +191,15 @@ function render() {
   for (const t of ARENA.torches) { const f = ((G.time * 9 + t.f) | 0) % 4; c.drawImage(IMG.cellar, f * TS, 26 * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); }
   drawWet(c); drawDoors(c); drawTele(c); drawTelegraphs(c);
   for (const u of G.units) { if (u.dead && u.team === 'foe') continue; if (u.team === 'foe' && !foeShown(u)) continue; pxShadow(c, u.x, u.y, u.r * 1.3 * (1 - Math.min(0.6, u.z / 160))); }
-  const list = G.units.slice(); for (const p of ARENA.props) if (!p.dead) list.push(p); list.sort((a, b) => a.y - b.y);
-  for (const o of list) o.team ? drawUnit(c, o) : drawProp(c, o);
-  drawProjBodies(c); drawWorldParts(c);
+  // everything standing, lying or flying, drawn back to front by where it meets the floor
+  const list = []; for (const u of G.units) list.push([u.y, 0, u]); for (const p of ARENA.props) if (!p.dead) list.push([p.y, 1, p]);
+  for (const d of G.drops) list.push([d.y, 2, d]); for (const p of G.proj) list.push([p.y, 3, p]); list.sort((a, b) => a[0] - b[0]);
+  for (const [, k, o] of list) if (k === 0) drawUnit(c, o); else if (k === 1) drawProp(c, o); else if (k === 2) drawDrop(c, o); else drawProj(c, o);
+  drawWorldParts(c);
   renderLight();
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'multiply'; c.drawImage(lc, 0, 0);
   fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.globalCompositeOperation = 'source-over'; fctx.globalAlpha = 1; fctx.clearRect(0, 0, bw, bh); fctx.globalCompositeOperation = 'lighter'; fctx.imageSmoothingEnabled = false; X(fctx);
-  drawAuras(fctx); drawGhosts(fctx); drawRings(fctx); drawFxParts(fctx); drawBolts(fctx);
+  drawAuras(fctx); drawGhosts(fctx); drawRings(fctx); drawFxParts(fctx); drawBolts(fctx); drawArrowGlints(fctx);
   if (G.mode === 'play') maskToMemory(fctx, ox, oy, 'destination-in'); // no glow, spark or flame shows where nobody has looked
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'lighter'; c.drawImage(fxc, 0, 0);
   if (Q.bloom > 0) { b1c.imageSmoothingEnabled = b2c.imageSmoothingEnabled = c.imageSmoothingEnabled = true; b1c.clearRect(0, 0, b1.width, b1.height); b1c.drawImage(fxc, 0, 0, b1.width, b1.height); b2c.clearRect(0, 0, b2.width, b2.height); b2c.drawImage(b1, 0, 0, b2.width, b2.height); c.globalAlpha = 0.45 * Q.bloom; c.drawImage(b1, 0, 0, bw, bh); c.globalAlpha = 0.5 * Q.bloom; c.drawImage(b2, 0, 0, bw, bh); c.globalAlpha = 1; c.imageSmoothingEnabled = false; }

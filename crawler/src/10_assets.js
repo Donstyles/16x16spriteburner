@@ -125,7 +125,7 @@ function cutWeapon(key, cfg) {
     x.putImageData(o, 0, 0); rot.push(cv);
   }
   let tip = 0, butt = 0; for (const [x, y] of pts) { const s = (x - cfg.grip[0]) * Math.cos(rest) + (y - cfg.grip[1]) * Math.sin(rest); tip = Math.max(tip, s); butt = Math.min(butt, s); }
-  return { mid: (tip + butt) / 2, cut, cutW: silhouette(cut), rot, r: R, piv, hands: frames.map(F => F.hands), rest, img: { w: iw, h: ih, d: img, gx, gy } };
+  return { mid: (tip + butt) / 2, len: tip - butt, cut, cutW: silhouette(cut), rot, r: R, piv, hands: frames.map(F => F.hands), rest, img: { w: iw, h: ih, d: img, gx, gy } };
 }
 // Scale2x (EPX): doubles a pixel image, following diagonal edges instead of turning every pixel into a block
 function scale2x(s) {

@@ -63,13 +63,30 @@ function pant(h, dt) {
 // ahead; the spin goes once round; the slam is raised overhead and brought down on the spot ahead; charging, the weapon
 // is raised back over the shoulder.
 const angLerp = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t, easeOut = t => 1 - (1 - t) * (1 - t), easeIO = t => t * t * (3 - 2 * t);
-// the guard arc drawn while blocking: centred on the hero's middle, flattened like the floor, a little over a quarter turn
-const GUARD = { r: 9, k: 0.75, dy: -4, half: 0.9 };
+// the guard arc drawn while blocking: centred on the hero's middle, flattened like the floor, a little over a quarter turn.
+// The weapon is held across between him and the arc: laid along the arc's direction at its middle, and brought in from
+// the arc as far as it takes for every part of it under the arc (with its outline) to stay GUARD.gap inside the line
+const GUARD = { r: 9, k: 0.75, dy: -4, half: 0.9, gap: 1.5 };
+function guardOut(Wc, d, m) { // how far out the weapon reaches under the arc, in arc radii, its middle m out along d
+  const half = Wc.len / 2 + 1, K = GUARD.k, ta = Math.atan2(Math.cos(d) * K, -Math.sin(d)), cx = Math.cos(d), sy = Math.sin(d); let R = 0;
+  for (let j = 0; j <= 16; j++) {
+    const s = (j / 8 - 1) * half, x = cx * (m + 1) + s * Math.cos(ta), y = sy * (m + 1) * K + s * Math.sin(ta), e = Math.atan2(y / K, x);
+    if (Math.abs(Math.atan2(Math.sin(e - d), Math.cos(e - d))) <= GUARD.half + 0.1) R = Math.max(R, Math.hypot(x, y / K));
+  }
+  return R;
+}
+function guardM(spr, d) { // per weapon, a table over 64 directions (each the least of it and its neighbours, so it eases round)
+  const Wc = WEAPON[spr]; if (!Wc.guardM) {
+    const raw = []; for (let i = 0; i < 64; i++) { const a = i / 64 * TAU; let m = GUARD.r - 1; while (m > 0 && guardOut(Wc, a, m) > GUARD.r - GUARD.gap) m -= 0.25; raw.push(m); }
+    Wc.guardM = raw.map((m, i) => Math.min(m, raw[(i + 1) % 64], raw[(i + 63) % 64]));
+  }
+  const f = ((d / TAU % 1) + 1) % 1 * 64, i = Math.floor(f) % 64; return lerp(Wc.guardM[i], Wc.guardM[(i + 1) % 64], f - Math.floor(f));
+}
 function weaponPose(h) {
   const Wc = WEAPON[h.spr], a = h.act; if (!Wc || h.dead) return null;
   const R = Wc.rest, fs = h.face < 0 ? -1 : 1, UP = -Math.PI / 2;
   if (h.blocking && !a) { // the guard: the weapon laid along the block arc, its middle on the arc's middle, eased in from the hand
-    const d = h.dir, mx = h.x + Math.cos(d) * (GUARD.r - 1), my = h.y + GUARD.dy + Math.sin(d) * (GUARD.r - 1) * GUARD.k; // a pixel inside the arc line
+    const d = h.dir, m = guardM(h.spr, d), mx = h.x + Math.cos(d) * m, my = h.y + GUARD.dy + Math.sin(d) * m * GUARD.k;
     const ta = Math.atan2(Math.cos(d) * GUARD.k, -Math.sin(d)), vert = Math.abs(Math.sin(d)) > 0.6; // the arc's direction at its middle
     const th = vert ? (Math.cos(ta) * fs < 0 ? ta : ta + Math.PI) : (Math.sin(ta) < 0 ? ta : ta + Math.PI); // blade up beside him, across him above or below
     const p = easeOut(Math.min(1, h.blockT / 0.08)), from = h.swTh === undefined ? R : h.swTh;

@@ -257,7 +257,7 @@ function updateProj(dt) {
 function dropLoot(u) { const g = u.def.gold || [0, 1]; const n = randi(g[0], g[1]); if (n > 0) dropGold(u.x, u.y, n); }
 // Pickups from the item sheet: a fish heals on the spot, a flask gives back a flask charge. Either one waits on the floor
 // while the hero has no use for it (full health, every flask full).
-const ITEM = { fish: [0, 0], flask: [16, 0] };
+const ITEM = { fish: [0, 0, 12], flask: [16, 0, 6] }; // where on the item sheet, and how long a shadow it casts
 function dropItem(k, x, y) { G.drops.push({ k, x, y, z: 4, vx: rand(-30, 30), vy: rand(-20, 20), vz: rand(70, 110), t: 0 }); }
 function takeItem(d, h) {
   if (d.k === 'fish') { if (h.hp >= h.maxHp) return false; const g = Math.min(h.maxHp - h.hp, Math.round(h.maxHp * 0.15)); h.hp += g; number(h.x, h.y, headZ(h) + 1, '+' + g, 'heal', true); healGlow(h.x, h.y); SFX.heal(); return true; }
