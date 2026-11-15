@@ -25,10 +25,9 @@ function drawHUD() {
     const bw = clamp(W * 0.26, 140, 240);
     font(c, 900, 18, F_DISP); label(c, KITS[h.kit].name, L, T + 14, '#f8ecd6', { stroke: 3 });
     bar(c, L, T + 22, bw, 7, clamp(h.hp / h.maxHp, 0, 1), 'hpT', h.hp < h.maxHp * 0.3 ? '#ff4a3a' : '#d8443a');
-    bar(c, L, T + 33, bw * 0.8, 4, clamp(h.stam / h.maxStam, 0, 1), 'stT', G.tiredT > 0 || h.huff ? (h.huff && h.stamT > 0 && Math.sin(G.time * 12) > 0 ? '#ffc070' : '#ff9a3a') : '#9ad85a');
+    bar(c, L, T + 33, bw * 0.8, 4, clamp(h.stam / h.maxStam, 0, 1), 'stT', '#9ad85a');
     font(c, 500, 13, F_HUD); label(c, Math.ceil(h.hp) + ' / ' + h.maxHp, L + bw + 6, T + 29, 'rgba(240,224,192,0.8)', { stroke: 3 });
     for (let i = 0; i < h.maxFlasks; i++) { const x = L + i * 11, y = T + 43, full = i < h.flasks; c.fillStyle = 'rgba(0,0,0,0.55)'; c.fillRect(x - 1, y - 1, 9, 12); c.fillStyle = full ? '#3fbf6a' : '#2a2420'; c.fillRect(x + 1, y + 3, 5, 7); c.fillStyle = full ? '#bfffd0' : '#3a3430'; c.fillRect(x + 2, y, 3, 3); }
-    if (G.tiredT > 0 || h.huff) { font(c, 600, 13, F_HUD); label(c, h.huff ? 'WINDED' : 'OUT OF STAMINA', L + bw * 0.8 + 6, T + 38, '#ff9a3a', { stroke: 3 }); }
   }
   // gold, the floor, the map (top right, under the menu button)
   const mb = btnLayout().menu, my = mb.y + mb.r + 10;

@@ -45,7 +45,7 @@ const weaponOf = h => WEAPONS[h.weapon];
 // winded: nothing comes back for 1.6 s, and they stand there panting until a third of the bar has returned.
 const WINDED = 1.6;
 function spendStam(h, n, delay) { h.stam = Math.max(0, h.stam - n); h.stamT = Math.max(h.stamT, delay); if (h.stam <= 0) winded(h); }
-function winded(h) { h.stamT = Math.max(h.stamT, WINDED); if (!h.huff) h.huff = { t: 0.18, out: true }; } // (no breathing sounds for now)
+function winded(h) { h.stamT = Math.max(h.stamT, WINDED); if (!h.huff) h.huff = { t: 0.18, out: true }; }
 // the winded breathing, as chosen on the Winded Breath Board ("Through the nose")
 const BREATH = { vol: 0.1, inVol: 0.5, len: 0.18, inLen: 0.9, pace: 0.55, cycles: 5, fade: 0.5, mouth: 0.1, tone: 0.85, focus: 0.2, air: 0.15, dark: 0.75, attack: 0.25, flutter: 0.15, grunt: 0, vary: 0.3 };
 function pant(h, dt) {
