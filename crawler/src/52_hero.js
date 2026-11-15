@@ -94,7 +94,7 @@ function heroTick(h, dt) {
   if (I.dodgeP) { I.dodgeP = false; if (canRoll(h)) { startRoll(h, want); I.atkP = I.atkR = false; h.pressT = -1; return; } else if (h.stam <= 0) G.tiredT = 0.6; }
   if (a) { if (a.k === 'atk' && I.atkP) a.buf = true; I.atkP = false; actTick(h, a, dt, I, want); I.itemP = false; return; }
   // free: walk, raise the shield, start an attack, drink
-  if (I.itemP) { I.itemP = false; if (h.flasks > 0) { h.act = { k: 'drink', t: 0, dur: 0.85, done: false }; h.blocking = false; return; } else textPop(h.x, h.y, 22, 'NO FLASKS', 'red', false); }
+  if (I.itemP) { I.itemP = false; if (h.flasks > 0) { h.act = { k: 'drink', t: 0, dur: 0.85, done: false }; h.blocking = false; return; } else textPop(h.x, h.y, headZ(h) + 2, 'NO FLASKS', 'red', false); }
   if (I.atkP) { I.atkP = false; h.pressT = 0; }
   if (h.pressT >= 0) {
     h.pressT += dt;
@@ -140,7 +140,7 @@ function actTick(h, a, dt, I, want) {
   }
   if (a.k === 'drink') {
     h.vx = damp(h.vx, I.mx * h.def.spd * 0.35, 10, dt); h.vy = damp(h.vy, I.my * h.def.spd * 0.35, 10, dt); h.moving = !!(I.mx || I.my);
-    if (!a.done && a.t >= 0.55) { a.done = true; h.flasks--; const g = Math.min(h.maxHp - h.hp, Math.round(h.maxHp * 0.45)); h.hp += g; number(h.x, h.y, 18, '+' + g, 'heal', true); healGlow(h.x, h.y); SFX.heal(); }
+    if (!a.done && a.t >= 0.55) { a.done = true; h.flasks--; const g = Math.min(h.maxHp - h.hp, Math.round(h.maxHp * 0.45)); h.hp += g; number(h.x, h.y, headZ(h) + 1, '+' + g, 'heal', true); healGlow(h.x, h.y); SFX.heal(); }
     if (a.t >= a.dur) h.act = null; return;
   }
   if (a.k === 'charge') {

@@ -23,14 +23,14 @@ const PARRY_WINDOW = 0.2;
 // o: { poise, kx, ky, ranged, unblockable, sneak, back, crit }
 function hurt(u, dmg, src, o = {}) {
   if (!u || u.dead) return 0;
-  if (u.iframe > 0) { if (u.team === 'hero' && chance(0.35)) textPop(u.x, u.y, 18, 'DODGED', 'white', false); return 0; }
+  if (u.iframe > 0) { if (u.team === 'hero' && chance(0.35)) textPop(u.x, u.y, headZ(u) + 1, 'DODGED', 'white', false); return 0; }
   if (u.team === 'hero' && u.blocking && src && !o.unblockable) {
     const a = angTo(u.x, u.y, src.x, src.y);
     if (Math.abs(angDiff(u.dir, a)) < 1.25) {
       if (u.blockT < PARRY_WINDOW) { parried(u, src, o); return 0; }
       const g = guardOf(u); u.stam -= dmg * g.cost; u.stamT = 0.9; u.kx -= Math.cos(a) * 60; u.ky -= Math.sin(a) * 45;
       sparks(u.x + Math.cos(a) * 6, u.y + Math.sin(a) * 4, 10, 6, 'white', 120, 60); SFX.clang(panOf(u.x)); freeze(u, 0.04); if (!o.ranged) freeze(src, 0.07);
-      if (u.stam <= 0) { u.stam = 0; winded(u); u.blocking = false; stagger(u, 0.8); textPop(u.x, u.y, 22, 'GUARD BROKEN', 'red', false); dmg *= 0.6; }
+      if (u.stam <= 0) { u.stam = 0; winded(u); u.blocking = false; stagger(u, 0.8); textPop(u.x, u.y, headZ(u) + 2, 'GUARD BROKEN', 'red', false); dmg *= 0.6; }
       else { dmg *= 1 - g.absorb; if (dmg < 1) return 0; }
     }
   }
@@ -41,8 +41,8 @@ function hurt(u, dmg, src, o = {}) {
   if (o.poise && !(u.act && u.act.armored) && !(u.poiseGuard > 0)) { u.poise -= o.poise; u.poiseT = 2; if (u.poise <= 0) { u.poise = u.maxPoise; stagger(u, u.team === 'hero' ? 0.45 : 1.1); } }
   const km = u.scale > 1.2 ? 0.45 : 1; u.kx += (o.kx || 0) * km; u.ky += (o.ky || 0) * km;
   const tag = o.sneak ? 'SNEAK ATTACK' : o.riposte ? 'RIPOSTE' : o.back ? 'BACKSTAB' : null;
-  number(u.x, u.y, u.z + 16 * u.scale, d, u.team === 'hero' ? 'red' : tag ? 'gold' : 'white', !!tag || d >= 40);
-  if (tag) textPop(u.x, u.y, 30 * u.scale, tag, 'gold', false);
+  number(u.x, u.y, headZ(u) + 1, d, u.team === 'hero' ? 'red' : tag ? 'gold' : 'white', !!tag || d >= 40, u);
+  if (tag) textPop(u.x, u.y, headZ(u) + 7, tag, 'gold', false, u);
   if (u.team === 'hero') { shake(0.12 + Math.min(0.3, d / 80)); G.hurtFlash = 0.35; }
   const bl = BLOOD[u.def.blood || 'red'];
   if (u.def.blood === 'bone' || u.def.blood === 'metal') { sparks(u.x, u.y, 8 * u.scale, 5, 'white', 110, 80); SFX.clang(panOf(u.x)); }
@@ -56,18 +56,18 @@ function guardOf(u) { const off = u.off && OFFHANDS[u.off]; return off && off.gu
 function parried(u, src, o) {
   const a = angTo(u.x, u.y, src.x, src.y); u.riposteT = 1.6; u.stam = Math.min(u.maxStam, u.stam + 15);
   sparks(u.x + Math.cos(a) * 7, u.y + Math.sin(a) * 5, 10, 18, 'gold', 220, 120); ring(u.x + Math.cos(a) * 7, u.y + Math.sin(a) * 5, 26, 'gold', 0.3, 3); flashLight(u.x, u.y, 70, 'gold', 1.4, 0.25);
-  SFX.clang(panOf(u.x)); SFX.clang(panOf(u.x)); hitstop(0.07); kick(0.06); textPop(u.x, u.y, 26, 'PARRY', 'gold', true);
+  SFX.clang(panOf(u.x)); SFX.clang(panOf(u.x)); hitstop(0.07); kick(0.06); textPop(u.x, u.y, headZ(u) + 3, 'PARRY', 'gold', true);
   if (!o.ranged && src.team === 'foe' && !src.dead) { stagger(src, src.def.boss ? 0.8 : 1.6); src.kx += Math.cos(a) * 140; src.ky += Math.sin(a) * 100; }
 }
 function stagger(u, t) {
   if (u.dead) return; u.act = null; u.stun = Math.max(u.stun, t); u.blocking = false;
   u.poise = u.maxPoise; u.poiseGuard = t + (u.team === 'foe' ? 2.5 : 1.5); // back on its feet, it cannot be worn down again for a while
-  if (u.team === 'foe') { textPop(u.x, u.y, 22 * u.scale, 'STAGGERED', 'gold', false); for (let i = 0; i < 6; i++) part({ k: 'glow', x: u.x + rand(-5, 5), y: u.y, z: 16 * u.scale + rand(0, 6), vz: rand(-10, 10), life: t, s0: 1.4, s1: 0.6, col: 'gold' }); }
+  if (u.team === 'foe') { textPop(u.x, u.y, headZ(u) + 2, 'STAGGERED', 'gold', false, u); for (let i = 0; i < 6; i++) part({ k: 'glow', x: u.x + rand(-5, 5), y: u.y, z: 16 * u.scale + rand(0, 6), vz: rand(-10, 10), life: t, s0: 1.4, s1: 0.6, col: 'gold' }); }
 }
 function kill(u, src) {
   u.dead = true; u.hp = 0; u.act = null; u.stun = 0;
   if (u.team === 'foe') { G.kills++; deathFx(u); dropLoot(u); if (src && src.team === 'hero') src.killsT = (src.killsT || 0) + 1; }
-  else { u.deadT = 0; smoke(u.x, u.y, 6, 'dark', 10, 20, 1.4); flashLight(u.x, u.y, 60, 'red', 1, 0.6); textPop(u.x, u.y, 26, (u.pname || u.def.name) + ' FALLS', 'red'); SFX.boom(0.5, panOf(u.x)); shake(0.4); slowmo(0.3, 0.8); }
+  else { u.deadT = 0; smoke(u.x, u.y, 6, 'dark', 10, 20, 1.4); flashLight(u.x, u.y, 60, 'red', 1, 0.6); textPop(u.x, u.y, headZ(u) + 3, (u.pname || u.def.name) + ' FALLS', 'red'); SFX.boom(0.5, panOf(u.x)); shake(0.4); slowmo(0.3, 0.8); }
 }
 const BLOOD = { red: ['#7a0c14', '#a01420', '#5a0810'], bone: ['#cfc6b0', '#a49a84', '#7a705e'], metal: ['#9aa4b0', '#c8d0d8', '#6a7480'], slime: ['#3a8a30', '#60c040', '#2a5a20'], straw: ['#c8a040', '#e0c060', '#8a6a20'], bug: ['#4a3a20', '#6a5a30', '#2a2010'] };
 // the body shatters into its own pixels

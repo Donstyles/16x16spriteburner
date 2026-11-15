@@ -74,8 +74,14 @@ function bloodPaint(x, y, pal, n, spread) { if (!ARENA) return; const R = []; fo
 function splat(x, y, col, n = 6, spread = 7) { if (!ARENA) return; const R = []; for (let i = 0; i < n; i++) R.push([rand(0.35, 0.75), rand(0.8, 2.6), x + rand(-spread, spread), y + rand(-spread, spread) * 0.7]);
   groundPaint(x - spread - 3, y - spread - 3, x + spread + 3, y + spread + 3, g => { g.fillStyle = col; for (const [a, r, ex, ey] of R) { g.globalAlpha = a; g.beginPath(); g.ellipse(ex, ey, r, r * 0.75, 0, 0, TAU); g.fill(); } g.globalAlpha = 1; }); }
 // --- floating combat numbers ---
-function number(x, y, z, n, col, big) { FX.nums.push({ x: x + rand(-4, 4), y, z, vz: rand(50, 80), vx: rand(-12, 12), txt: String(n), col, big, t: 0, life: big ? 1.1 : 0.8 }); if (FX.nums.length > 90) FX.nums.shift(); }
-function textPop(x, y, z, txt, col, big = true) { FX.nums.push({ x, y, z, vz: 40, vx: 0, txt, col, big, t: 0, life: 1.4 }); }
+function number(x, y, z, n, col, big, who = null) { FX.nums.push({ x: x + rand(-4, 4), y, z, vz: rand(50, 80), vx: rand(-12, 12), txt: String(n), col, big, t: 0, life: big ? 1.1 : 0.8, who }); if (FX.nums.length > 90) FX.nums.shift(); }
+function textPop(x, y, z, txt, col, big = true, who = null) { FX.nums.push({ x, y, z, vz: 40, vx: 0, txt, col, big, t: 0, life: 1.4, who }); }
+// how high the top of a unit's head is above the ground (its sprite's top row), so that what it says sits on its head
+function headZ(u) { const p = spritePixels(u.spr); return u.z + (p.foot + 1 - p.top) * (u.scale || 1); }
+// a mark that sits on a unit's head and goes where it goes ('!' when it notices you)
+function markPop(u, txt, col, life = 1) { FX.nums.push({ on: u, dz: headZ(u) - u.z + 1, x: u.x, y: u.y, z: 0, vz: 0, vx: 0, txt, col, big: true, t: 0, life, who: u }); }
+// a sleeper's z: out of its face, drifting up and away
+function snore(u) { const s = u.scale || 1; FX.nums.push({ x: u.x + u.face * 3 * s, y: u.y, z: headZ(u) - 4 * s, vz: rand(8, 12), vx: u.face * rand(4, 8), g: 0, txt: 'z', col: 'white', big: false, sz: 9, t: 0, life: 1.5, who: u }); }
 // --- update everything ---
 function updateFx(dt) {
   const P = FX.P;
@@ -94,7 +100,7 @@ function updateFx(dt) {
   removeIf(FX.bolts, b => b.t >= b.life);
   for (const L of [FX.rings, FX.arcs, FX.beams, FX.flights, FX.tele, FX.columns, FX.circles]) { for (const o of L) o.t += dt; removeIf(L, o => o.t >= o.life); }
   for (const g of FX.ghosts) g.t += dt; removeIf(FX.ghosts, g => g.t >= g.life); // afterimages fade on every phone, guests included
-  for (const n of FX.nums) { n.t += dt; n.z += n.vz * dt; n.vz -= 90 * dt; n.x += n.vx * dt; }
+  for (const n of FX.nums) { n.t += dt; if (n.on) { n.x = n.on.x; n.y = n.on.y; n.z = n.on.z + n.dz; } else { n.z += n.vz * dt; n.vz -= (n.g === undefined ? 90 : n.g) * dt; n.x += n.vx * dt; } }
   removeIf(FX.nums, n => n.t >= n.life);
   for (const c of FX.cracks) {
     c.t += dt;

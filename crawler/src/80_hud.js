@@ -15,7 +15,8 @@ function drawHUD() {
   if (G.mode !== 'play') { drawMenu(c); return; }
   // floating numbers
   const zf = clamp(CAM.z / 2.4, 0.8, 1.5);
-  for (const n of FX.nums) { const [sx, sy] = toScreen(n.x, n.y - n.z), u = n.t / n.life, pop = n.t < 0.08 ? 1 + (1 - n.t / 0.08) * 0.8 : 1; c.globalAlpha = u > 0.7 ? (1 - u) / 0.3 : 1; font(c, 600, (n.big ? 18 : 12) * zf * pop, F_HUD); label(c, n.txt, sx, sy, NUMCOL[n.col] || '#fff', { align: 'center', stroke: n.big ? 4 : 3 }); }
+  for (const n of FX.nums) { if (n.who && n.who.team === 'foe' && !n.who.dead && !foeShown(n.who)) continue; // nothing gives away a foe you cannot see
+    const [sx, sy] = toScreen(n.x, n.y - n.z), u = n.t / n.life, pop = n.t < 0.08 ? 1 + (1 - n.t / 0.08) * 0.8 : 1; c.globalAlpha = u > 0.7 ? (1 - u) / 0.3 : 1; font(c, 600, (n.sz || (n.big ? 18 : 12)) * zf * pop, F_HUD); label(c, n.txt, sx, sy, NUMCOL[n.col] || '#fff', { align: 'center', stroke: n.big ? 4 : 3 }); }
   c.globalAlpha = 1;
   // a hit lands: the edges flush red
   if (G.hurtFlash > 0) { const g = c.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.66); g.addColorStop(0, 'rgba(150,0,0,0)'); g.addColorStop(1, `rgba(180,10,10,${G.hurtFlash})`); c.fillStyle = g; c.fillRect(0, 0, W, H); }

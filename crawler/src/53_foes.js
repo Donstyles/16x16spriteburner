@@ -47,7 +47,7 @@ function populateRoom(A, r, f) {
 function wakeFoe(f, h, why) {
   if (f.aware || f.dead) return; f.aware = true; f.state = 'hunt'; f.tgt = h; f.cdT = Math.max(f.cdT, rand(0.35, 0.7));
   if (h) faceTo(f, angTo(f.x, f.y, h.x, h.y));
-  textPop(f.x, f.y, 22 * f.scale, '!', 'red', true); if (why !== 'alarm') f.vz = 60;
+  markPop(f, '!', 'red'); if (why !== 'alarm') f.vz = 60;
   for (const o of G.foes) if (o !== f && !o.aware && !o.dead && dist(o.x, o.y, f.x, f.y) < 110 && lineOfSight(o.x, o.y - 4, f.x, f.y - 4)) { const oo = o; oo.alarmT = rand(0.25, 0.7); oo.alarmBy = h; }
 }
 function alertFoe(f, src) { if (!f.aware) wakeFoe(f, src && src.team === 'hero' ? src : nearest(f, G.heroes), 'hit'); else if (src && src.team === 'hero' && chance(0.5)) f.tgt = src; }
@@ -85,7 +85,7 @@ function foeTick(f, dt) {
 // circling a little while waiting for the next swing, so a crowd does not stand in one heap
 function strafe(f, t, spd, dt) { const a = angTo(t.x, t.y, f.x, f.y) + (f.id % 2 ? 0.9 : -0.9) * dt * 2, d = dist(f.x, f.y, t.x, t.y); steer(f, t.x + Math.cos(a) * d, t.y + Math.sin(a) * d * 0.85, spd, dt); }
 function idleFoe(f, dt) {
-  if (f.state === 'sleep') { f.vx = f.vy = 0; f.moving = false; if (chance(dt * 0.6)) textPop(f.x + 4, f.y, 18 * f.scale, 'z', 'white', false); return; }
+  if (f.state === 'sleep') { f.vx = f.vy = 0; f.moving = false; if (chance(dt * 0.6)) snore(f); return; }
   if ((f.wanderT -= dt) <= 0) { f.wanderT = rand(2, 5); const a = rand(TAU); f.wx = f.home.x + Math.cos(a) * rand(0, 22); f.wy = f.home.y + Math.sin(a) * rand(0, 14); }
   if (f.wx !== undefined && dist(f.x, f.y, f.wx, f.wy) > 3 && !solidAt(f.wx, f.wy)) { steer(f, f.wx, f.wy, f.def.spd * 0.35, dt, 2); faceTo(f, angTo(f.x, f.y, f.wx, f.wy)); } else { f.vx = damp(f.vx, 0, 8, dt); f.vy = damp(f.vy, 0, 8, dt); f.moving = false; }
 }
@@ -134,7 +134,7 @@ function updateProj(dt) {
       if (u.iframe > 0) continue;
       if (u.team === 'hero' && u.blocking && u.blockT < PARRY_WINDOW && Math.abs(angDiff(u.dir, Math.atan2(-p.vy, -p.vx))) < 1.25) { // a parried arrow flies back where it came from
         const s = p.src && !p.src.dead ? angTo(p.x, p.y, p.src.x, p.src.y) : Math.atan2(-p.vy, -p.vx), v = Math.hypot(p.vx, p.vy) * 1.2; p.vx = Math.cos(s) * v; p.vy = Math.sin(s) * v * 0.85; p.team = 'hero'; p.dmg *= 2.5; p.life = 1.2; p.src = u;
-        sparks(p.x, p.y, 7, 12, 'gold', 160, 80); SFX.clang(panOf(p.x)); textPop(u.x, u.y, 24, 'DEFLECTED', 'gold', false); freeze(u, 0.06); break;
+        sparks(p.x, p.y, 7, 12, 'gold', 160, 80); SFX.clang(panOf(p.x)); textPop(u.x, u.y, headZ(u) + 3, 'DEFLECTED', 'gold', false); freeze(u, 0.06); break;
       }
       const from = { x: p.x - p.vx * 0.2, y: p.y - p.vy * 0.2, team: p.team, def: {} };
       hurt(u, p.dmg, u.team === 'hero' ? from : p.src, { ranged: true, poise: 12, kx: p.vx * 0.3, ky: p.vy * 0.3 }); p.dead = true; break;

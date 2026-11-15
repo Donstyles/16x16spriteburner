@@ -17,13 +17,13 @@ function pixelData(img) { const c = mkCanvas(img.width, img.height), x = c.getCo
 function spritePixels(key) {
   if (PIXCACHE[key]) return PIXCACHE[key];
   const m = MOBS[key], P = PIX.mobs, sx = 0, sy = m[0], fw = m[1], fh = m[2];
-  const out = []; let foot = 0;
-  for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) { const i = ((sy + y) * P.w + sx + x) * 4; if (P.d[i + 3] > 128) foot = Math.max(foot, y); }
+  const out = []; let foot = 0, top = fh;
+  for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) { const i = ((sy + y) * P.w + sx + x) * 4; if (P.d[i + 3] > 128) { foot = Math.max(foot, y); top = Math.min(top, y); } }
   for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) {
     const i = ((sy + y) * P.w + sx + x) * 4; if (P.d[i + 3] <= 128) continue;
     out.push({ x: x - fw / 2 + 0.5, y: y - foot - 0.5, c: `rgb(${P.d[i]},${P.d[i + 1]},${P.d[i + 2]})` });
   }
-  out.foot = foot; return (PIXCACHE[key] = out);
+  out.foot = foot; out.top = top; return (PIXCACHE[key] = out);
 }
 function footOf(key) { return spritePixels(key).foot; }
 // soft additive glow sprite for a colour
