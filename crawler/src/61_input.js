@@ -39,7 +39,7 @@ function setupInput() {
     if (G.mode !== 'play' || UI.paused) { uiKey(e.code); return; }
     if (e.code === 'KeyJ' || e.code === 'KeyZ') press('atk'); else if (e.code === 'Space' || e.code === 'KeyK') { press('dodge'); e.preventDefault(); } else if (e.code === 'KeyF' || e.code === 'KeyE') press('flask'); else if (e.code === 'Escape') togglePause();
   });
-  addEventListener('keyup', e => { INPUT.keys.delete(e.code); if (e.code === 'KeyJ' || e.code === 'KeyZ') release('atk'); });
+  addEventListener('keyup', e => { INPUT.keys.delete(e.code); if (e.code === 'KeyJ' || e.code === 'KeyZ') release('atk'); if (e.code === 'Space' || e.code === 'KeyK') release('dodge'); });
   c.addEventListener('mousedown', e => { if (INPUT.touch) return; SFX.init && SFX.init(); const [x, y] = screenPt(e); if (G.mode !== 'play' || UI.paused) { uiTap(x, y); return; } if (dist(x, y, btnLayout().menu.x, btnLayout().menu.y) < 30) { togglePause(); return; } if (e.button === 0) { INPUT.mouse.l = true; press('atk'); } if (e.button === 2) INPUT.mouse.r = true; INPUT.mouse.t = performance.now(); });
   addEventListener('mouseup', e => { if (INPUT.touch) return; if (e.button === 0 && INPUT.mouse.l) { INPUT.mouse.l = false; release('atk'); } if (e.button === 2) INPUT.mouse.r = false; });
   c.addEventListener('mousemove', e => { if (INPUT.touch) return; const [x, y] = screenPt(e); INPUT.mouse.x = x; INPUT.mouse.y = y; INPUT.mouse.t = performance.now(); });
@@ -52,7 +52,7 @@ function pollPad() {
   if (!p) { INPUT.pad = null; return; }
   const ax = Math.abs(p.axes[0]) > 0.2 ? p.axes[0] : 0, ay = Math.abs(p.axes[1]) > 0.2 ? p.axes[1] : 0, dx = (p.buttons[15] && p.buttons[15].pressed ? 1 : 0) - (p.buttons[14] && p.buttons[14].pressed ? 1 : 0), dy = (p.buttons[13] && p.buttons[13].pressed ? 1 : 0) - (p.buttons[12] && p.buttons[12].pressed ? 1 : 0);
   INPUT.pad = { x: ax || dx, y: ay || dy, block: !!((p.buttons[5] && p.buttons[5].pressed) || (p.buttons[4] && p.buttons[4].pressed)) };
-  const edge = (i, name) => { const on = !!(p.buttons[i] && p.buttons[i].pressed); if (on && !PADB[i]) { if (G.mode !== 'play' || UI.paused) uiKey(name === 'dodge' || name === 'atk' ? 'Enter' : name === 'menu' ? 'Escape' : ''); else press(name); } if (!on && PADB[i] && name === 'atk') release('atk'); PADB[i] = on; };
+  const edge = (i, name) => { const on = !!(p.buttons[i] && p.buttons[i].pressed); if (on && !PADB[i]) { if (G.mode !== 'play' || UI.paused) uiKey(name === 'dodge' || name === 'atk' ? 'Enter' : name === 'menu' ? 'Escape' : ''); else press(name); } if (!on && PADB[i] && (name === 'atk' || name === 'dodge')) release(name); PADB[i] = on; };
   edge(2, 'atk'); edge(0, 'dodge'); edge(3, 'flask'); edge(9, 'menu');
 }
 // A stick has two gears: pushed up to half way the hero creeps (quiet enough to pass sleepers), further it runs.
@@ -66,6 +66,7 @@ function readInput() {
   else { if (k.has('KeyA') || k.has('ArrowLeft')) x -= 1; if (k.has('KeyD') || k.has('ArrowRight')) x += 1; if (k.has('KeyW') || k.has('ArrowUp')) y -= 1; if (k.has('KeyS') || k.has('ArrowDown')) y += 1; if (!x && !y && INPUT.pad) [x, y] = gear(INPUT.pad.x, INPUT.pad.y); }
   const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } if (k.has('KeyC') || k.has('ControlLeft') || k.has('ControlRight')) { x *= CREEP; y *= CREEP; } I.mx = x; I.my = y;
   I.atk = !!(INPUT.btn.atk || k.has('KeyJ') || k.has('KeyZ') || INPUT.mouse.l);
+  I.dodge = !!(INPUT.btn.dodge || k.has('Space') || k.has('KeyK')); // held on after a roll: a sprint
   I.block = !!(INPUT.btn.block || k.has('ShiftLeft') || k.has('ShiftRight') || k.has('KeyL') || INPUT.mouse.r || (INPUT.pad && INPUT.pad.block));
   if (!INPUT.touch && performance.now() - INPUT.mouse.t < 2500) { const [wx, wy] = toWorld(INPUT.mouse.x, INPUT.mouse.y); I.aim = angTo(h.x, h.y - 4, wx, wy); } else I.aim = null;
 }

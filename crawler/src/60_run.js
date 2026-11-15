@@ -31,7 +31,7 @@ function updateRun(dt) {
   // a unit in hit-stop holds still (its moves pause, a knock-back waits) while everything else carries on
   for (const u of G.units) { if (u.flash > 0) u.flash -= dt; u.held = u.freeze > 0; if (u.held) u.freeze -= dt; else u.anim += dt; }
   for (const h of G.heroes) if (!h.held) heroTick(h, dt);
-  aiPrep(); for (const f of G.foes) if (!f.held) foeTick(f, dt);
+  aiPrep(dt); for (const f of G.foes) if (!f.held) foeTick(f, dt);
   for (const u of G.units) if (!u.dead && !u.held) moveActor(u, dt);
   separate(G.units);
   updateProj(dt); updateDrops(dt); updateSight(dt);

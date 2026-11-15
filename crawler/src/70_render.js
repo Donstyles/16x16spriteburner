@@ -50,7 +50,10 @@ function mobsRed() { if (MOBS_RED) return MOBS_RED; const s = IMG.mobsW, c = mkC
 // A creature drawn bigger than its pixels (a brute at 1.3x) is enlarged once, the RotSprite way (Scale2x three times, then
 // sampled at the new size), and then drawn pixel for pixel. Scaling it while drawing dropped and doubled different rows at
 // every fraction of a pixel it moved, so its outline shimmered and tore.
-const BIG = {};
+const BIG = {}, LIE = {};
+// how a creature lies: a quarter turn puts its width on the floor, so it is raised by its half-width below the middle, and
+// slid back by half its height so that it lies where it stood
+function lieOf(spr, sc) { const k = spr + '@' + sc; if (LIE[k]) return LIE[k]; const P = spritePixels(spr); let mn = 0; for (const p of P) mn = Math.min(mn, p.x - 0.5); return (LIE[k] = { up: Math.round(-mn * sc), half: Math.round((P.foot + 1) / 2 * sc) }); } // the back of a sprite faces left: lying on it, that side is the floor
 function bigSprite(spr, sc) {
   const key = spr + '@' + sc; if (BIG[key]) return BIG[key];
   const [sy, fw, fh] = MOBS[spr], P = PIX.mobs, W = Math.round(fw * sc), H = Math.round(fh * sc), foot = footOf(spr);
@@ -70,15 +73,16 @@ function drawUnit(c, u) {
   const m = MOBS[u.spr]; if (!m) return; if (u.team === 'foe' && !foeShown(u)) return;
   const sy = m[0], fw = m[1], fh = m[2], foot = footOf(u.spr), sleep = u.state === 'sleep' && !u.aware;
   const creep = u.team === 'hero' && u.moving && u.noise === 0 && !u.act;
-  const fr = sleep || (u.act && u.act.k === 'roll') ? 0 : ((u.anim * (u.moving ? (creep ? 5 : 9) : 5)) | 0) % 4, sc = u.scale, jit = u.freeze > 0 && u.team === 'foe' ? (((G.time * 60) | 0) % 2 ? 1 : -1) : u.stun > 0 ? Math.sin(u.anim * 50) * 0.6 : 0;
+  const fr = sleep || (u.act && u.act.k === 'roll') ? 0 : ((u.anim * (u.moving ? (creep ? 5 : u.sprint ? 14 : 9) : 5)) | 0) % 4, sc = u.scale, jit = u.freeze > 0 && u.team === 'foe' ? (((G.time * 60) | 0) % 2 ? 1 : -1) : u.stun > 0 ? Math.sin(u.anim * 50) * 0.6 : 0;
   const ra = u.team === 'hero' && u.act && u.act.k === 'roll' ? u.act : null;
   // A pixel sprite cannot be squeezed without dropping rows, so a crouch or a landing lowers the upper body by
   // whole pixels instead: the sprite is cut at the waist and the top part drawn lower, over the legs.
-  const dip = u.team === 'hero' && !ra ? Math.min(2, (creep ? 1 : 0) + (u.dipT > 0 ? 1 : 0)) : sleep && sc === 1 ? 1 : 0, cut = Math.max(4, foot - 5);
+  const dip = u.team === 'hero' && !ra ? Math.min(2, (creep ? 1 : 0) + (u.dipT > 0 ? 1 : 0)) : 0, cut = Math.max(4, foot - 5);
   // the sellsword swinging: drawn without his sword, and the sword drawn on its own, behind him when it points behind him
   const Wc = u.team === 'hero' && !ra ? WEAPON[u.spr] : null, pose = Wc ? weaponPose(u) : null, back = pose && (pose.behind || (!pose.front && Math.cos(pose.th) * (u.face < 0 ? -1 : 1) < -0.15));
   if (back) drawWeapon(c, u, pose, Wc, fr, fw, foot, dip, cut);
   c.save(); c.translate(u.x + jit, u.y - u.z);
+  if (sleep) { const L = lieOf(u.spr, sc), fs = u.face < 0 ? -1 : 1; c.translate(fs * L.half, -L.up); c.rotate(-fs * Math.PI / 2); } // asleep: lying on its back, its front turned up (a quarter turn, exact to the pixel)
   if (ra) { // a roll: one full turn the way the hero travels, in quarter turns so every pixel stays on the grid
     const p = Math.min(1, ra.t / ra.dur), turn = Math.min(4, Math.floor((p + 0.14) * 4.5)) / 4, cy = Math.round(-6 * sc);
     const way = Math.abs(Math.cos(ra.dir)) > 0.2 ? Math.sign(Math.cos(ra.dir)) : (u.face < 0 ? -1 : 1); // turn with the travel (a backward roll goes back over the head)

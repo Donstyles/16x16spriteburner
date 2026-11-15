@@ -40,7 +40,8 @@ const GROUPS = [
   { g: ['grunt', 'grunt'] }, { g: ['grunt', 'grunt', 'grunt'] }, { g: ['skitter', 'skitter', 'skitter', 'skitter'] }, { g: ['skitter', 'skitter', 'skitter', 'grunt'] },
   { g: ['grunt', 'archer'] }, { g: ['grunt', 'grunt', 'archer'] }, { g: ['brute'] }, { g: ['brute', 'archer', 'archer'] }, { g: ['brute', 'archer', 'grunt'] },
   { g: ['flanker', 'grunt', 'grunt'] }, { g: ['flanker', 'skitter', 'skitter', 'skitter'] },
-  { g: ['flanker', 'flanker', 'grunt', 'grunt'], min: 3 }, { g: ['brute', 'archer', 'archer', 'flanker'], min: 3 }, { g: ['brute', 'brute', 'archer', 'archer', 'archer'], min: 4 },
+  { g: ['flanker', 'flanker', 'grunt', 'grunt'], min: 3 }, { g: ['brute', 'archer', 'archer', 'flanker'], min: 3 },
+  { g: ['brute', 'archer', 'archer', 'archer'], min: 2 }, { g: ['brute', 'brute', 'archer', 'archer', 'archer', 'archer'], min: 3 }, { g: ['brute', 'brute', 'archer', 'archer', 'archer', 'archer', 'archer', 'archer'], min: 5 },
 ];
 function populateRoom(A, r, f) {
   const area = r.w * r.h; let budget = (3.5 + f * 1.4) * clamp(area / 150, 0.6, 1.4) * (r.kind === 'end' ? 1.6 : 1);
@@ -56,9 +57,9 @@ function populateRoom(A, r, f) {
 }
 // ---------- senses ----------
 function wakeFoe(f, h, why) {
-  if (f.aware || f.dead) return; f.aware = true; f.state = 'hunt'; f.tgt = h; f.cdT = Math.max(f.cdT, rand(0.35, 0.7)); f.lostT = 0; f.fl = null;
+  if (f.aware || f.dead) return; const slept = f.state === 'sleep'; f.aware = true; f.state = 'hunt'; if (slept) removeIf(FX.nums, n => n.who === f && n.txt === 'z'); f.tgt = h; f.cdT = Math.max(f.cdT, rand(0.35, 0.7)); f.lostT = 0; f.fl = null;
   if (h) { faceTo(f, angTo(f.x, f.y, h.x, h.y)); f.lastX = h.x; f.lastY = h.y; }
-  markPop(f, '!', 'red'); if (why !== 'alarm') f.vz = 60;
+  markPop(f, '!', 'red'); if (why !== 'alarm' || slept) f.vz = 60; // startled: it springs up (a sleeper off the floor)
   for (const o of G.foes) { if (o === f || o.aware || o.dead) continue; const d = dist(o.x, o.y, f.x, f.y); if ((o.room === f.room ? d < 130 : d < 60) && lineOfSight(o.x, o.y - 4, f.x, f.y - 4)) { o.alarmT = rand(0.25, 0.7); o.alarmBy = h; } }
 }
 function alertFoe(f, src) { if (!f.aware) wakeFoe(f, src && src.team === 'hero' ? src : nearest(f, G.heroes), 'hit'); else if (src && src.team === 'hero') { if (chance(0.5)) f.tgt = src; f.lostT = 0; f.lastX = src.x; f.lastY = src.y; } }
@@ -74,9 +75,34 @@ function senses(f, dt) {
   }
 }
 // ---------- the mind of a foe ----------
-// who is fighting whom this frame (tanks look after the archers that shoot at the same hero)
-const AI = { archers: [], tanks: [] };
-function aiPrep() { AI.archers = G.foes.filter(o => o.aware && !o.dead && o.def.role === 'archer'); AI.tanks = G.foes.filter(o => o.aware && !o.dead && o.def.role === 'tank'); }
+// ---------- squads ----------
+// Tanks shield archers. Each tank takes up to three of the archers fighting the same hero, shared out evenly and kept from
+// frame to frame. Each squad holds a bearing round the hero: the first where its tank stands, the second a quarter turn
+// from it (whichever side is nearer), a third the other side, a fourth opposite. The tank stands on that bearing between
+// the hero and its archers; the archers keep their distance on it in a loose line and take turns to shoot.
+const AI = { archers: [], tanks: [] }, SQUAD = { tank: 42, archer: 100, gap: 22, cover: 3, volley: 0.6 };
+function aiPrep(dt) {
+  AI.archers = G.foes.filter(o => o.aware && !o.dead && o.def.role === 'archer'); AI.tanks = G.foes.filter(o => o.aware && !o.dead && o.def.role === 'tank');
+  for (const o of AI.archers) o.sq = null; for (const o of AI.tanks) o.sq = null;
+  for (const t of G.heroes) {
+    if (t.dead) continue; const tanks = AI.tanks.filter(o => o.tgt === t).sort((a, b) => a.id - b.id); if (!tanks.length) continue;
+    const archers = AI.archers.filter(o => o.tgt === t).sort((a, b) => a.id - b.id), cap = Math.min(SQUAD.cover, Math.ceil(archers.length / tanks.length));
+    const groups = tanks.map(k => ({ tank: k, archers: [] })), placed = new Set();
+    for (const a of archers) { const g = groups.find(q => q.tank === a.squadTank); if (g && g.archers.length < cap) { g.archers.push(a); placed.add(a); } }
+    for (const a of archers) { if (placed.has(a)) continue; const free = groups.filter(q => q.archers.length < cap); if (!free.length) break;
+      const g = free.reduce((b, q) => q.archers.length < b.archers.length || (q.archers.length === b.archers.length && dist(a.x, a.y, q.tank.x, q.tank.y) < dist(a.x, a.y, b.tank.x, b.tank.y)) ? q : b); g.archers.push(a); placed.add(a); }
+    let side = 1;
+    groups.forEach((g, n) => {
+      const k = g.tank, here = angTo(t.x, t.y, k.x, k.y); let want = here;
+      if (n > 0) { const base = groups[0].tank.bear; if (n === 1) { const a = base + Math.PI / 2, b = base - Math.PI / 2; side = Math.abs(angDiff(here, a)) < Math.abs(angDiff(here, b)) ? 1 : -1; want = base + side * Math.PI / 2; } else want = n === 2 ? base - side * Math.PI / 2 : base + Math.PI; }
+      k.bear = k.bear === undefined ? want : angLerp(k.bear, want, Math.min(1, dt * (n ? 2 : 0.8))); // the first squad drifts with its tank; the others swing round to their places
+      k.sq = { bear: k.bear, archers: g.archers };
+      g.archers.forEach((a, i) => { a.squadTank = k; a.sq = { tank: k, i, n: g.archers.length, bear: k.bear }; });
+    });
+  }
+}
+// where a squad member stands: on the squad's bearing at its distance from the hero, the archers spread across it
+function squadSpot(t, bear, R, lat, from) { const ux = Math.cos(bear), uy = Math.sin(bear); let x = t.x + ux * R - uy * lat, y = t.y + uy * R * 0.85 + ux * lat; if (solidAt(x, y) || !boxFree(x, y, 5)) [x, y] = clipToWalls(from.x, from.y, x, y, 5); return [x, y]; }
 function foeTick(f, dt) {
   if (f.dead) return; if (f.poiseT > 0) f.poiseT -= dt; else f.poise = f.maxPoise; if (f.poiseGuard > 0) f.poiseGuard -= dt;
   if (f.stun > 0) { f.stun -= dt; f.vx = damp(f.vx, 0, 8, dt); f.vy = damp(f.vy, 0, 8, dt); f.moving = false; return; }
@@ -101,41 +127,35 @@ function rushMind(f, t, dt, d, sees) {
   else if (f.cdT <= 0) startFoeAtk(f, A, t);
   else { strafe(f, t, f.def.spd * 0.5, dt); faceTo(f, angTo(f.x, f.y, t.x, t.y)); }
 }
-// a tank shoves, and every third blow slams; with archers about it holds the line between the hero and them
+// a tank shoves, and every third blow slams; with a squad of archers it holds its bearing between them and the hero
 function tankMind(f, t, dt, d, sees) {
   const T = f.def, mv = (f.blows || 0) % 3 === 2 ? T.slam : T.atk, reach = mv.reach + (mv.at || 0) + t.r;
   faceTo(f, angTo(f.x, f.y, t.x, t.y));
   if (sees && d < reach * 0.9 && f.cdT <= 0) { f.blows = (f.blows || 0) + 1; startFoeAtk(f, mv, t); return; }
-  const wards = AI.archers.filter(a => a.tgt === t && dist(a.x, a.y, f.x, f.y) < 180);
-  if (wards.length) {
-    let cx = 0, cy = 0; for (const a of wards) { cx += a.x; cy += a.y; } cx /= wards.length; cy /= wards.length;
-    const ad = Math.max(1, dist(t.x, t.y, cx, cy)), ux = (cx - t.x) / ad, uy = (cy - t.y) / ad, g = clamp(ad * 0.45, 24, 52);
-    const mates = AI.tanks.filter(o => o.tgt === t && dist(o.x, o.y, f.x, f.y) < 180).sort((a, b) => a.id - b.id), off = (mates.indexOf(f) - (mates.length - 1) / 2) * 20;
-    let gx = t.x + ux * g - uy * off, gy = t.y + uy * g + ux * off; if (solidAt(gx, gy)) [gx, gy] = clipToWalls(t.x, t.y, gx, gy, f.r);
-    if (dist(f.x, f.y, gx, gy) > 4) pathTo(f, gx, gy, T.spd * 1.2, dt, 2); else holdStill(f, dt);
+  if (f.sq && f.sq.archers.length) {
+    const [gx, gy] = squadSpot(t, f.sq.bear, SQUAD.tank, 0, t);
+    if (dist(f.x, f.y, gx, gy) > 4) pathTo(f, gx, gy, T.spd * 1.3, dt, 2); else holdStill(f, dt);
     return;
   }
   if (d > reach * 0.9 || !sees) chase(f, t, T.spd, dt, reach * 0.6); else strafe(f, t, T.spd * 0.5, dt);
 }
-// an archer: in a loose line behind its tank if it has one, else at a distance; it looses only along a clear line
+// an archer: with a squad, at its distance on the squad's bearing behind the tank, spread across it; to get to the other
+// side of the hero it goes round him, never through his reach. Alone, at a distance. Too close, it backs off. It shoots
+// whenever it has a clear line and it is its squad's turn (one archer of a squad aims at a time, so the arrows come in a
+// stream), the others keep moving to their places meanwhile.
 function archerMind(f, t, dt, d, sees) {
-  const T = f.def, spd = T.spd, myTanks = AI.tanks.filter(o => o.tgt === t), tank = nearest(f, myTanks, 180);
-  let gx = null, gy = null;
-  if (tank) {
-    const mates = AI.archers.filter(o => o.tgt === t && nearest(o, myTanks, 180) === tank).sort((a, b) => a.id - b.id), n = mates.length, i = Math.max(0, mates.indexOf(f));
-    const a0 = angTo(t.x, t.y, tank.x, tank.y), ux = Math.cos(a0), uy = Math.sin(a0);
-    const back = 38 + f.jit * 7, lat = (i - (n - 1) / 2) * 22 + f.jit2 * 7 + Math.sin(G.time * 0.6 + f.id) * 4 + (f.shift || 0); // never quite a straight line
-    gx = tank.x + ux * back - uy * lat; gy = tank.y + uy * back + ux * lat; if (solidAt(gx, gy)) [gx, gy] = clipToWalls(tank.x, tank.y, gx, gy, f.r);
-  }
+  const T = f.def, spd = T.spd, q = f.sq, me = angTo(t.x, t.y, f.x, f.y); let gx = null, gy = null, round = 0;
+  if (q) { const lat = (q.i - (q.n - 1) / 2) * SQUAD.gap + f.jit2 * 6 + Math.sin(G.time * 0.6 + f.id) * 3 + (f.shift || 0); [gx, gy] = squadSpot(t, q.bear, SQUAD.archer + f.jit * 8, lat, q.tank); const off = angDiff(me, q.bear); if (Math.abs(off) > 0.7) round = Math.sign(off); }
   faceTo(f, angTo(f.x, f.y, t.x, t.y));
-  if (d < T.keep[0]) { const a = angTo(t.x, t.y, f.x, f.y), [bx, by] = clipToWalls(f.x, f.y, f.x + Math.cos(a) * 40, f.y + Math.sin(a) * 32, f.r); if (dist(bx, by, f.x, f.y) > 6) steer(f, bx, by, spd * 1.1, dt); else strafe(f, t, spd, dt); return; }
-  if (gx !== null && dist(f.x, f.y, gx, gy) > 8) { pathTo(f, gx, gy, spd, dt, 2); return; }
-  if (gx === null && (!sees || d > T.keep[1])) { chase(f, t, spd, dt, 6); return; }
-  if (f.cdT <= 0 && sees && d < T.keep[1] + 40) {
-    if (clearShot(f, t)) { f.act = { k: 'aim', t: 0, dur: T.shot.aim, dir: angTo(f.x, f.y, t.x, t.y) }; holdStill(f, dt); return; }
+  const turn = !q || G.time >= (q.tank.volleyT || 0);
+  if (f.cdT <= 0 && sees && d >= T.keep[0] * 0.8 && d < T.keep[1] + 40 && turn) {
+    if (clearShot(f, t)) { f.act = { k: 'aim', t: 0, dur: T.shot.aim, dir: angTo(f.x, f.y, t.x, t.y) }; if (q) q.tank.volleyT = G.time + SQUAD.volley + T.shot.aim * 0.5; holdStill(f, dt); return; }
     f.shift = clamp((f.shift || 0) + (f.id % 2 ? 16 : -16), -44, 44); if (Math.abs(f.shift) >= 44) f.shift = 0; f.cdT = 0.35; // blocked: step aside and try again
   }
-  if (gx === null) strafe(f, t, spd * 0.6, dt); else holdStill(f, dt);
+  if (round) { const na = me + round * 0.75, R = clamp(d + 6, 72, 120), [ox, oy] = clipToWalls(t.x, t.y, t.x + Math.cos(na) * R, t.y + Math.sin(na) * R * 0.85, f.r); pathTo(f, ox, oy, spd * 1.15, dt, 2); return; } // round the hero to its side
+  if (d < T.keep[0]) { const [bx, by] = clipToWalls(f.x, f.y, f.x + Math.cos(me) * 40, f.y + Math.sin(me) * 32, f.r); if (dist(bx, by, f.x, f.y) > 6) steer(f, bx, by, spd * 1.15, dt); else strafe(f, t, spd, dt); return; }
+  if (gx === null) { if (!sees || d > T.keep[1]) chase(f, t, spd, dt, 6); else strafe(f, t, spd * 0.6, dt); return; }
+  if (dist(f.x, f.y, gx, gy) > 6) pathTo(f, gx, gy, spd * 1.1, dt, 2); else holdStill(f, dt);
 }
 // a flanker circles wide to the hero's back, darts in, stabs and gets out; if he turns to face it on the way in, it peels off
 function flankMind(f, t, dt, d, sees) {
@@ -164,7 +184,8 @@ function foeAct(f, t, dt) {
   const a = f.act; a.t += dt;
   if (a.k === 'aim') {
     f.vx = damp(f.vx, 0, 12, dt); f.vy = damp(f.vy, 0, 12, dt); f.moving = false;
-    if (a.t < a.dur - 0.18) { const want = angTo(f.x, f.y, t.x, t.y); a.dir += clamp(angDiff(a.dir, want), -3 * dt, 3 * dt); faceTo(f, a.dir); }
+    // aiming a little ahead of a moving hero
+    if (a.t < a.dur - 0.18) { const lead = dist(f.x, f.y, t.x, t.y) / f.def.shot.spd * 0.5, want = angTo(f.x, f.y, t.x + (t.vx || 0) * lead, t.y + (t.vy || 0) * lead); a.dir += clamp(angDiff(a.dir, want), -3 * dt, 3 * dt); faceTo(f, a.dir); }
     if (a.t >= a.dur && !a.shot) { a.shot = true; shoot(f, a.dir); }
     if (a.t >= a.dur + f.def.shot.rec) { f.act = null; f.cdT = rand(...f.def.cd); }
     return;

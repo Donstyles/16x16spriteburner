@@ -34,7 +34,7 @@ const WEAPONS = {
     heavy: { k: 'line', charge: 0.4, wind: 0.03, act: 0.14, rec: 0.3, reach: 20, w: 12, dm: 2, stam: 18, poise: 24, lunge: 380, push: 60, dash: true, through: true } },
 };
 const OFFHANDS = { shield: { name: 'ROUND SHIELD', guard: { absorb: 0.85, cost: 0.85 } } };
-const newInp = () => ({ mx: 0, my: 0, aim: null, atk: false, atkP: false, atkR: false, dodgeP: false, block: false, itemP: false });
+const newInp = () => ({ mx: 0, my: 0, aim: null, atk: false, atkP: false, atkR: false, dodgeP: false, dodge: false, block: false, itemP: false });
 function makeHero(kitKey) {
   const k = KITS[kitKey], h = mkActor('hero', { ...k, r: 5, poise: 30 }, 0, 0);
   Object.assign(h, { kit: kitKey, weapon: k.weapon, off: k.off, stam: 100, maxStam: 100, stamT: 0, flasks: 3, maxFlasks: 3, lightR: 78, blockT: 0, riposteT: 0, combo: 0, comboT: 0, pressT: -1, inp: newInp(), pname: 'P1' });
@@ -43,7 +43,7 @@ function makeHero(kitKey) {
 const weaponOf = h => WEAPONS[h.weapon];
 // Every move takes stamina, and a short pause follows before it comes back. Spending the very last of it leaves the hero
 // winded: nothing comes back for 1.6 s, and they stand there panting until a third of the bar has returned.
-const WINDED = 1.6;
+const WINDED = 1.6, SPRINT = { speed: 1.6, cost: 22 }; // a sprint: 1.6x speed, 22 stamina a second
 function spendStam(h, n, delay) { h.stam = Math.max(0, h.stam - n); h.stamT = Math.max(h.stamT, delay); if (h.stam <= 0) winded(h); }
 function winded(h) { h.stamT = Math.max(h.stamT, WINDED); if (!h.huff) h.huff = { t: 0.18, out: true }; }
 // the winded breathing, as chosen on the Winded Breath Board ("Through the nose")
@@ -139,7 +139,7 @@ function heroTick(h, dt) {
   if (h.dipT > 0) h.dipT -= dt; if (h.huff) pant(h, dt);
   if (h.stamT > 0) h.stamT -= dt; else if (!(h.act && h.act.k !== 'charge')) h.stam = Math.min(h.maxStam, h.stam + (h.blocking ? 16 : 58) * dt);
   const want = I.mx || I.my ? Math.atan2(I.my, I.mx) : null;
-  h.noise = !h.act ? (Math.hypot(I.mx, I.my) > CREEP + 0.05 ? 1 : 0) : h.act.k === 'roll' || h.act.k === 'atk' ? 2 : h.act.k === 'drink' ? 0 : 1;
+  h.noise = h.sprint ? 2 : !h.act ? (Math.hypot(I.mx, I.my) > CREEP + 0.05 ? 1 : 0) : h.act.k === 'roll' || h.act.k === 'atk' ? 2 : h.act.k === 'drink' ? 0 : 1;
   h.hush = damp(h.hush || 1, h.noise === 0 && (I.mx || I.my) ? 0.8 : 1, 6, dt); // creeping, the hero shades the lamp
   if (h.stun > 0) { h.stun -= dt; h.vx = damp(h.vx, 0, 8, dt); h.vy = damp(h.vy, 0, 8, dt); h.moving = false; h.pressT = -1; I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }
   const a = h.act;
@@ -155,7 +155,11 @@ function heroTick(h, dt) {
   }
   I.atkR = false;
   const blocking = I.block && h.stam > 0; if (blocking && !h.blocking) h.blockT = 0; h.blocking = blocking; if (blocking) h.blockT += dt;
-  const spd = h.def.spd * (blocking ? 0.45 : 1);
+  // sprinting: half as fast again, for as long as roll and a direction are held and the stamina lasts (it does not refill
+  // meanwhile, and running it dry leaves the hero winded); loud, and kicking up dust
+  if (h.sprint && (!I.dodge || !(I.mx || I.my) || blocking || h.stam <= 0)) h.sprint = false;
+  if (h.sprint) { spendStam(h, SPRINT.cost * dt, 0.5); if (h.stam <= 0) h.sprint = false; if ((h.dustT = (h.dustT || 0) - dt) <= 0) { h.dustT = 0.1; smoke(h.x - I.mx * 4, h.y, 1, 'dust', 5, 10, 0.5, 6); } }
+  const spd = h.def.spd * (blocking ? 0.45 : h.sprint ? SPRINT.speed : 1);
   h.vx = damp(h.vx, I.mx * spd, 14, dt); h.vy = damp(h.vy, I.my * spd, 14, dt); h.moving = !!(I.mx || I.my);
   if (I.aim !== null && I.aim !== undefined) faceTo(h, I.aim); else if (want !== null) faceTo(h, want);
 }
@@ -171,14 +175,14 @@ function lightAttack(h, want, chained) {
 }
 function startMove(h, mv, want) {
   if (h.stam <= 0) { G.tiredT = 0.6; return false; }
-  spendStam(h, mv.stam, 0.65); h.blocking = false;
+  spendStam(h, mv.stam, 0.65); h.blocking = false; h.sprint = false;
   const dir = aimAssist(h, want !== null && want !== undefined ? want : h.dir, mv.reach); faceTo(h, dir);
   h.act = { k: 'atk', mv, t: 0, phase: 'wind', dir, hit: new Set(), buf: false };
   return true;
 }
 function startRoll(h, want) {
   const K = KITS[h.kit], dir = want !== null ? want : h.dir + Math.PI, len = 46 * (K.roll || 1), dur = 0.34;
-  spendStam(h, 20, 0.6); h.blocking = false; h.iframe = 0.26;
+  spendStam(h, 20, 0.6); h.blocking = false; h.sprint = false; h.iframe = 0.26;
   h.act = { k: 'roll', t: 0, dur, dir, spd: len / dur * 1.45 }; if (want !== null) faceTo(h, dir);
   smoke(h.x, h.y, 3, 'dust', 7, 26, 0.6); SFX.whoosh(panOf(h.x));
 }
@@ -187,7 +191,7 @@ function actTick(h, a, dt, I, want) {
   if (a.k === 'roll') {
     const u = a.t / a.dur, s = a.spd * (1 - u) * (1 - u * 0.4); h.vx = Math.cos(a.dir) * s; h.vy = Math.sin(a.dir) * s * 0.85; h.moving = true;
     if ((a.gT = (a.gT || 0) - dt) <= 0) { a.gT = 0.06; smoke(h.x - Math.cos(a.dir) * 3, h.y, 1, 'dust', 5, 12, 0.45); }
-    if (u >= 1) { h.act = null; h.vx *= 0.3; h.vy *= 0.3; smoke(h.x, h.y, 2, 'dust', 6, 20, 0.5); h.dipT = 0.08; }
+    if (u >= 1) { h.act = null; smoke(h.x, h.y, 2, 'dust', 6, 20, 0.5); h.dipT = 0.08; if (I.dodge && (I.mx || I.my) && h.stam > 0) h.sprint = true; else { h.vx *= 0.3; h.vy *= 0.3; } } // still holding roll and a direction: up and running
     return;
   }
   if (a.k === 'drink') {

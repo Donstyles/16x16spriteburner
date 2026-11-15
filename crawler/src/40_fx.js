@@ -84,7 +84,7 @@ function headZ(u) { const p = spritePixels(u.spr); return u.z + (p.foot + 1 - p.
 // a mark that sits on a unit's head and goes where it goes ('!' when it notices you)
 function markPop(u, txt, col, life = 1) { FX.nums.push({ on: u, dz: headZ(u) - u.z + 1, x: u.x, y: u.y, z: 0, vz: 0, vx: 0, txt, col, big: true, t: 0, life, who: u }); }
 // a sleeper's z: out of its face, drifting up and away
-function snore(u) { const s = u.scale || 1; FX.nums.push({ x: u.x + u.face * 3 * s, y: u.y, z: headZ(u) - 4 * s, vz: rand(8, 12), vx: u.face * rand(4, 8), g: 0, txt: 'z', col: 'white', big: false, sz: 9, t: 0, life: 1.5, who: u }); }
+function snore(u) { const s = u.scale || 1, lying = u.state === 'sleep' && !u.aware; FX.nums.push({ x: u.x + u.face * (lying ? -spritePixels(u.spr).foot * 0.45 * s : 3 * s), y: u.y, z: lying ? 5 * s : headZ(u) - 4 * s, vz: rand(8, 12), vx: u.face * rand(4, 8), g: 0, txt: 'z', col: 'white', big: false, sz: 9, t: 0, life: 1.5, who: u }); }
 // --- update everything ---
 function updateFx(dt) {
   const P = FX.P;
