@@ -30,7 +30,7 @@ function hurt(u, dmg, src, o = {}) {
       if (u.blockT < PARRY_WINDOW) { parried(u, src, o); return 0; }
       const g = guardOf(u); u.stam -= dmg * g.cost; u.stamT = 0.9; u.kx -= Math.cos(a) * 60; u.ky -= Math.sin(a) * 45;
       sparks(u.x + Math.cos(a) * 6, u.y + Math.sin(a) * 4, 10, 6, 'white', 120, 60); SFX.clang(panOf(u.x)); hitstop(0.04);
-      if (u.stam < 0) { u.stam = 0; u.blocking = false; stagger(u, 0.8); textPop(u.x, u.y, 22, 'GUARD BROKEN', 'red', false); dmg *= 0.6; }
+      if (u.stam <= 0) { u.stam = 0; winded(u); u.blocking = false; stagger(u, 0.8); textPop(u.x, u.y, 22, 'GUARD BROKEN', 'red', false); dmg *= 0.6; }
       else { dmg *= 1 - g.absorb; if (dmg < 1) return 0; }
     }
   }

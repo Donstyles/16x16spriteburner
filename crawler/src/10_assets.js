@@ -7,7 +7,7 @@ async function loadAssets() {
   MOBS = A ? A.mobsJson : await (await fetch('assets/mobs.json')).json();
   IMG.mobsW = silhouette(IMG.mobs); PIX.mobs = pixelData(IMG.mobs);
   for (const k in COL) { GLOW[k] = glowTex(COL[k]); }
-  SMOKE.grey = smokeTex([70, 66, 72]); SMOKE.dust = smokeTex([122, 100, 78]); SMOKE.dark = smokeTex([22, 18, 24]); SMOKE.green = smokeTex([60, 120, 60]);
+  SMOKE.grey = smokeTex([70, 66, 72]); SMOKE.dust = smokeTex([122, 100, 78]); SMOKE.dark = smokeTex([22, 18, 24]); SMOKE.green = smokeTex([60, 120, 60]); SMOKE.breath = smokeTex([226, 230, 240]);
   ROCKS.length = 0; for (let i = 0; i < 6; i++) ROCKS.push(rockTex(i));
 }
 function silhouette(img) { const c = mkCanvas(img.width, img.height), x = c.getContext('2d'); x.drawImage(img, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); return c; }

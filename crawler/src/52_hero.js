@@ -41,11 +41,24 @@ function makeHero(kitKey) {
   return h;
 }
 const weaponOf = h => WEAPONS[h.weapon];
+// Every move takes stamina, and a short pause follows before it comes back. Spending the very last of it leaves the hero
+// winded: nothing comes back for 1.6 s, and they stand there panting until a third of the bar has returned.
+const WINDED = 1.6;
+function spendStam(h, n, delay) { h.stam = Math.max(0, h.stam - n); h.stamT = Math.max(h.stamT, delay); if (h.stam <= 0) winded(h); }
+function winded(h) { h.stamT = Math.max(h.stamT, WINDED); if (!h.huff) { h.huff = { t: 0.18, out: true }; SFX.gasp(panOf(h.x)); } }
+function pant(h, dt) {
+  const H = h.huff; if (h.dead || (h.stamT <= 0 && h.stam >= h.maxStam / 3)) { h.huff = null; return; }
+  if ((H.t -= dt) > 0) return; const slow = h.stamT > 0 ? 1 : 1.35; // the breaths slow down as the stamina comes back
+  if (H.out) { SFX.huff(panOf(h.x), false); h.squash = Math.max(h.squash, 0.1); for (let i = 0; i < 2; i++) part({ k: 'smoke', x: h.x + h.face * (5 + i * 2), y: h.y + 1, z: 10 + i, vx: h.face * rand(12, 22), vy: rand(-3, 3), vz: rand(3, 8), drag: 2, life: 0.8, s0: 2.5, s1: 6.5, col: 'breath', a0: 0.9, a1: 0 }); H.t = 0.2 * slow; }
+  else { SFX.huff(panOf(h.x), true); H.t = 0.26 * slow; }
+  H.out = !H.out;
+}
 function canRoll(h) { const a = h.act; return h.stam > 0 && h.stun <= 0 && (!a || a.k === 'charge' || (a.k === 'atk' && a.phase === 'rec') || a.k === 'drink'); }
 function heroTick(h, dt) {
   const I = h.inp; if (h.dead) { h.deadT += dt; I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }
   if (h.iframe > 0) h.iframe -= dt; if (h.riposteT > 0) h.riposteT -= dt; if (h.comboT > 0) h.comboT -= dt;
   if (h.poiseT > 0) h.poiseT -= dt; else h.poise = h.maxPoise;
+  if (h.huff) pant(h, dt);
   if (h.stamT > 0) h.stamT -= dt; else if (!(h.act && h.act.k !== 'charge')) h.stam = Math.min(h.maxStam, h.stam + (h.blocking ? 16 : 58) * dt);
   const want = I.mx || I.my ? Math.atan2(I.my, I.mx) : null;
   h.noise = !h.act ? (Math.hypot(I.mx, I.my) > CREEP + 0.05 ? 1 : 0) : h.act.k === 'roll' || h.act.k === 'atk' ? 2 : h.act.k === 'drink' ? 0 : 1;
@@ -80,14 +93,14 @@ function lightAttack(h, want, chained) {
 }
 function startMove(h, mv, want) {
   if (h.stam <= 0) { G.tiredT = 0.6; return false; }
-  h.stam = Math.max(0, h.stam - mv.stam); h.stamT = 0.65; h.blocking = false;
+  spendStam(h, mv.stam, 0.65); h.blocking = false;
   const dir = aimAssist(h, want !== null && want !== undefined ? want : h.dir, mv.reach); faceTo(h, dir);
   h.act = { k: 'atk', mv, t: 0, phase: 'wind', dir, hit: new Set(), buf: false };
   return true;
 }
 function startRoll(h, want) {
   const K = KITS[h.kit], dir = want !== null ? want : h.dir + Math.PI, len = 46 * (K.roll || 1), dur = 0.34;
-  h.stam = Math.max(0, h.stam - 20); h.stamT = 0.6; h.blocking = false; h.iframe = 0.26;
+  spendStam(h, 20, 0.6); h.blocking = false; h.iframe = 0.26;
   h.act = { k: 'roll', t: 0, dur, dir, spd: len / dur * 1.45 }; if (want !== null) faceTo(h, dir);
   smoke(h.x, h.y, 3, 'dust', 7, 26, 0.6); SFX.whoosh(panOf(h.x));
 }
