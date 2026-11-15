@@ -27,6 +27,9 @@ const ZONES = [
 ];
 const BLOOD_OF = { DecrepitBones: 'bone', BrittleArcher: 'bone', GraveRevenant: 'bone', SkitteringHand: 'bone', ScarecrowGolem: 'straw', StoneGolem: 'metal', ClayGolem: 'metal', TaintedCockroach: 'bug', AcidAnt: 'bug', LavaAnt: 'bug', RhinoBeetle: 'bug', FamishedTick: 'bug', ForagingMaggot: 'slime', UnravelingCrawler: 'bone' };
 const STONE_SHOT = { HalflingSlinger: true };
+// creatures that already go on all fours (bugs, beasts, crawlers, a bat, a hand): asleep they stay on their feet and settle,
+// where the upright ones lie down on their backs
+const FLAT_SLEEPERS = new Set(['InfectedMouse', 'TaintedCockroach', 'FamishedTick', 'SkitteringHand', 'SwoopingBat', 'ForagingMaggot', 'AcidAnt', 'LavaAnt', 'RhinoBeetle', 'MawingBeaver', 'ToxicHound', 'UnravelingCrawler']);
 const zoneAt = f => ZONES.find(z => f <= z.to) || ZONES[ZONES.length - 1];
 function floorName(f) { const z = zoneAt(f), first = ZONES.indexOf(z) ? ZONES[ZONES.indexOf(z) - 1].to + 1 : 1; return z.name + ' · ' + ['I', 'II', 'III', 'IV', 'V', 'VI'][Math.min(5, f - first)]; }
 function mkFoe(type, f, x, y) {

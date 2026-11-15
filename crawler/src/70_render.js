@@ -77,12 +77,12 @@ function drawUnit(c, u) {
   const ra = u.team === 'hero' && u.act && u.act.k === 'roll' ? u.act : null;
   // A pixel sprite cannot be squeezed without dropping rows, so a crouch or a landing lowers the upper body by
   // whole pixels instead: the sprite is cut at the waist and the top part drawn lower, over the legs.
-  const dip = u.team === 'hero' && !ra ? Math.min(2, (creep ? 1 : 0) + (u.dipT > 0 ? 1 : 0)) : 0, cut = Math.max(4, foot - 5);
+  const dip = u.team === 'hero' && !ra ? Math.min(2, (creep ? 1 : 0) + (u.dipT > 0 ? 1 : 0)) : sleep && FLAT_SLEEPERS.has(u.spr) && sc === 1 ? 1 : 0, cut = Math.max(4, foot - 5);
   // the sellsword swinging: drawn without his sword, and the sword drawn on its own, behind him when it points behind him
   const Wc = u.team === 'hero' && !ra ? WEAPON[u.spr] : null, pose = Wc ? weaponPose(u) : null, back = pose && (pose.behind || (!pose.front && Math.cos(pose.th) * (u.face < 0 ? -1 : 1) < -0.15));
   if (back) drawWeapon(c, u, pose, Wc, fr, fw, foot, dip, cut);
   c.save(); c.translate(u.x + jit, u.y - u.z);
-  if (sleep) { const L = lieOf(u.spr, sc), fs = u.face < 0 ? -1 : 1; c.translate(fs * L.half, L.dy); c.rotate(-fs * Math.PI / 2); } // asleep: lying on its back, its front turned up (a quarter turn, exact to the pixel)
+  if (sleep && !FLAT_SLEEPERS.has(u.spr)) { const L = lieOf(u.spr, sc), fs = u.face < 0 ? -1 : 1; c.translate(fs * L.half, L.dy); c.rotate(-fs * Math.PI / 2); } // asleep: lying on its back, its front turned up (a quarter turn, exact to the pixel)
   if (ra) { // a roll: one full turn the way the hero travels, in quarter turns so every pixel stays on the grid
     const p = Math.min(1, ra.t / ra.dur), turn = Math.min(4, Math.floor((p + 0.14) * 4.5)) / 4, cy = Math.round(-6 * sc);
     const way = Math.abs(Math.cos(ra.dir)) > 0.2 ? Math.sign(Math.cos(ra.dir)) : (u.face < 0 ? -1 : 1); // turn with the travel (a backward roll goes back over the head)
