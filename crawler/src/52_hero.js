@@ -237,12 +237,40 @@ function strikeHits(h, a) {
     hurt(f, W.dmg * mv.dm, h, { ...o, crit, poise: mv.poise * (crit > 1 ? 1.5 : 1), kx: Math.cos(ka) * mv.push, ky: Math.sin(ka) * mv.push * 0.8 });
     sparks(f.x, f.y, 8 * f.scale, 6, crit > 1 ? 'gold' : 'white', 120, 70, ka, 1.6); const big = mv.dm >= 2 || crit > 1; freeze(f, big ? 0.12 : 0.07); freeze(h, big ? 0.06 : 0.025); if (crit > 1) { kick(0.04); flashLight(f.x, f.y, 50, 'gold', 1, 0.2); }
   }
-  for (const p of ARENA.props) if (!p.dead && p.hp < 1e8 && hitsShape(src, { x: p.x, y: p.cy, r: p.r }, mv, a.dir)) breakProp(p);
+  for (const p of ARENA.props) if (!p.dead && p.hp < 1e8 && !a.hit.has(p) && hitsShape(src, { x: p.x, y: p.cy, r: p.r }, mv, a.dir)) { a.hit.add(p); breakProp(p); }
 }
 function breakProp(p) {
-  if (p.dead || p.hp > 1e8) return; p.dead = true; p.solid = false;
+  if (p.dead || p.hp > 1e8) return; if (p.kind === 'tchest') { openChest(p); return; } if (p.kind === 'ore') { hitOre(p); return; } p.dead = true; p.solid = false;
   debris(p.x, p.cy, 18, ['#6a4a2a', '#8a6638', '#4a3018', '#a07848'], 140, 180, 2.2); smoke(p.x, p.cy, 4, 'dust', 9, 30, 1.2); SFX.crack(panOf(p.x));
   if (chance(p.kind === 'chest' ? 1 : 0.25)) dropGold(p.x, p.cy, p.kind === 'chest' ? randi(6, 14) : randi(1, 4));
+  const chest = p.kind === 'chest'; if (chance(chest ? 0.25 : 0.1)) dropItem('fish', p.x, p.cy); if (chance(chest ? 0.2 : 0.05)) dropItem('flask', p.x, p.cy);
+}
+// An ore rock takes three blows: each one flashes it, chips stone off it (glinting silver or gold where it has ore) and
+// rings; the third crumbles it away. Nothing inside yet.
+const ORE_GLINT = [null, ['#dfe8f0', '#9fc3dc'], ['#dfe8f0', '#9fc3dc'], ['#ffe27a', '#e3a92c']];
+function hitOre(p) {
+  if (p.crumble !== undefined) return; p.hp--; p.flashUntil = G.time + 0.07; SFX.stone(panOf(p.x), p.hp <= 0); shake(0.04);
+  debris(p.x, p.cy - 4, p.hp <= 0 ? 16 : 6, ['#5a4636', '#7a604a', '#3e3026'], 90, 120, 1.6);
+  if (ORE_GLINT[p.ore]) for (let i = 0; i < (p.hp <= 0 ? 8 : 3); i++) part({ k: 'spark', x: p.x + rand(-4, 4), y: p.cy, z: rand(4, 12), vx: rand(-60, 60), vy: rand(-30, 30), vz: rand(30, 90), g: 300, life: rand(0.3, 0.6), col: 'white', s0: 1 });
+  if (p.hp <= 0) { p.crumble = G.time; p.solid = false; smoke(p.x, p.cy, 3, 'dust', 9, 24, 0.9); }
+}
+// Treasure chests (one in each treasure room): one blow opens it and it stays open. The colour says what is inside: black
+// and blue a little gold, red more, gold the most; every chest has a fish or a flask, the red and gold ones both.
+const CHEST = { black: { at: [0, 64], gold: [8, 14] }, blue: { at: [0, 48], gold: [12, 20] }, red: { at: [0, 32], gold: [20, 30], both: true }, gold: { at: [0, 16], gold: [30, 45], both: true } };
+// gold is rare near the top, likelier deeper down
+function chestTier(floor) { const r = Math.random() * (1 + floor * 0.06); return r < 0.45 ? 'black' : r < 0.8 ? 'blue' : r < 1.05 ? 'red' : 'gold'; }
+function openChest(p) {
+  if (p.open) return; p.open = true; const T = CHEST[p.tier]; SFX.chest(panOf(p.x)); shake(0.06);
+  const loot = T.both ? ['fish', 'flask'] : [chance(0.5) ? 'fish' : 'flask'], n = randi(T.gold[0], T.gold[1]), coins = Math.min(n, 6);
+  for (let i = 0; i < coins; i++) loot.splice(randi(0, loot.length), 0, Math.ceil(n / coins));
+  loot.forEach((k, i) => spill(p, k, i, loot.length));
+  for (let i = 0; i < 14; i++) part({ k: 'glow', x: p.x + rand(-6, 6), y: p.cy + rand(-2, 3), z: rand(4, 12), vz: rand(20, 60), life: rand(0.5, 1), s0: rand(1.5, 2.5), s1: 0, col: 'gold' }); flashLight(p.x, p.cy, 60, 'gold', 1, 0.5);
+}
+// one piece of a chest's contents: it waits its turn, then is tossed out of the chest's front (away from the wall
+// it stands against), spread over a fan so the pieces land apart; coins lie there a second before they fly to you
+function spill(p, k, i, n) {
+  const a = Math.PI / 2 + (n > 1 ? (i / (n - 1) - 0.5) * 2.2 : 0) + rand(-0.15, 0.15), v = rand(55, 80), gold = typeof k === 'number';
+  G.drops.push({ k: gold ? 'gold' : k, v: gold ? k : 0, x: p.x + rand(-2, 2), y: p.cy + 3, z: 8, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vz: rand(90, 130), t: 0, wait: 0.12 + i * 0.09, hold: 1.4 });
 }
 function healGlow(x, y) { for (let i = 0; i < 12; i++) part({ k: 'glow', x: x + rand(-7, 7), y: y + rand(-3, 3), z: rand(0, 14), vz: rand(20, 50), drag: 1, life: rand(0.6, 1.2), s0: rand(2, 4), s1: 0, col: 'heal' }); flashLight(x, y, 60, 'heal', 1, 0.4); }
 function ghost(u, life = 0.25) { FX.ghosts.push({ spr: u.spr, x: u.x, y: u.y, z: u.z, face: u.face, sc: u.scale, fr: ((u.anim * 9) | 0) % 4, t: 0, life }); }

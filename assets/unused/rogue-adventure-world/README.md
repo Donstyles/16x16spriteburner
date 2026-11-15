@@ -25,7 +25,7 @@ and `*_Doors` sheets belong to the set they are named after.
 | Jungle | `RA_Jungle`, `_Animation`, `_Animations`, `_Extras` | Jungle trees, bushes and ground |
 | Wasteland | `RA_Wasteland`, `_Animation`, `_Water`, `RA_Wastelands_Animations` | Dry rocks, pools and ground |
 | Interior | `RA_Interior`, `_Animations` | House furniture, shelves, beds and rugs |
-| Item icons | `item-icons/RA_Item_Icons01`, `03` | Weapons, helmets, armour, shields, gloves and boots in several metals |
+| Item icons | `item-icons/RA_Item_Icons01` | 1024 icons: weapons, helmets, armour, shields, gloves, boots, rings, amulets, potions, keys, gems, tomes, food (the copy on dark inventory slots, `03`, was dropped: its background is baked in) |
 
 Left out after review: the pack's enemies, the ship, the village house sheet, two Beast animation sheets, the
 parchment-backed icon sheet, the animated trees, and the Godot/Unity copies.

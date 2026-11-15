@@ -105,12 +105,15 @@ function drawUnit(c, u) {
 function drawProp(c, p) {
   if (p.kind === 'pillar') { const [tx, ty] = p.tile; for (let i = 0; i < 3; i++) c.drawImage(IMG.cellar, tx * TS, (ty + i) * TS, TS, TS, p.x - 8, p.y - 14 - 32 + i * TS, TS, TS); }
   else if (p.kind === 'brazier') { const f = ((G.time * 8 + p.f) | 0) % 4; c.drawImage(IMG.cellar, f * TS, 27 * TS, TS, TS, p.x - 8, p.y - 14, TS, TS); }
+  else if (p.kind === 'ore') { let f = p.flashUntil > G.time ? 4 : p.ore; if (p.crumble !== undefined) { f = 5 + Math.floor((G.time - p.crumble) / 0.07); if (f > 9) { p.dead = true; return; } } c.drawImage(IMG.ores, f * 32, p.shape * 32, 32, 32, p.x - 16, p.y - 30, 32, 32); }
+  else if (p.kind === 'tchest') { const [cx, cy] = CHEST[p.tier].at; c.drawImage(IMG.items, cx + (p.open ? 16 : 0), cy, 16, 16, p.x - 8, p.y - 14, 16, 16); }
   else { const w = (p.tw || 1) * TS; c.drawImage(IMG.cellar, p.tile[0] * TS, p.tile[1] * TS, w, TS, p.x - w / 2, p.y - 14, w, TS); }
 }
 // arrows and stones in flight, coins on the floor
 function drawProjBodies(c) {
   for (const p of G.proj) { const a = Math.atan2(p.vy, p.vx), y = p.y - p.z; if (p.k === 'arrow') { c.strokeStyle = p.team === 'hero' ? '#ffd860' : '#d9c9a2'; c.lineWidth = 1; c.beginPath(); c.moveTo(p.x - Math.cos(a) * 7, y - Math.sin(a) * 7); c.lineTo(p.x, y); c.stroke(); c.fillStyle = '#fff'; c.fillRect(p.x - 0.5, y - 0.5, 1.4, 1.4); } else { c.fillStyle = '#8a8076'; c.fillRect(p.x - 1.5, y - 1.5, 3, 3); } c.fillStyle = 'rgba(0,0,0,0.3)'; c.fillRect(p.x - 2, p.y, 4, 1); }
-  for (const d of G.drops) { const y = Math.round(d.y - d.z), x = Math.round(d.x), s = ((G.time * 6 + d.x) | 0) % 4; c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(x - 1, Math.round(d.y), 3, 1); c.fillStyle = '#7a5a10'; c.fillRect(x - 1, y - 2, 3, 3); c.fillStyle = s ? '#ffd24a' : '#fff4c0'; c.fillRect(x - 1, y - 2, s === 2 ? 1 : 2, 2); }
+  for (const d of G.drops) if (d.k !== 'gold' && !(d.wait > 0)) { const [ix, iy] = ITEM[d.k], x = Math.round(d.x - 8), y = Math.round(d.y - d.z - 13 - (d.z < 0.5 ? (Math.sin(G.time * 3 + d.x) > 0.6 ? 1 : 0) : 0)); c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(Math.round(d.x) - 3, Math.round(d.y), 7, 1); c.drawImage(IMG.items, ix, iy, 16, 16, x, y, 16, 16); }
+  for (const d of G.drops) { if (d.k !== 'gold' || d.wait > 0) continue; const y = Math.round(d.y - d.z), x = Math.round(d.x), s = ((G.time * 6 + d.x) | 0) % 4; c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(x - 1, Math.round(d.y), 3, 1); c.fillStyle = '#7a5a10'; c.fillRect(x - 1, y - 2, 3, 3); c.fillStyle = s ? '#ffd24a' : '#fff4c0'; c.fillRect(x - 1, y - 2, s === 2 ? 1 : 2, 2); }
 }
 // where a foe's blow will land, painted on the floor while it winds up; an archer's aim is a line
 function drawTelegraphs(c) {

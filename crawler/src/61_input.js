@@ -2,7 +2,7 @@
 // Phones: an invisible floating stick on the left half (a small push creeps, silent past sleepers; further runs); on the right a big ATTACK (tap to strike, hold to charge), DODGE, BLOCK (hold)
 // and FLASK. Keyboard: WASD/arrows, J or left click attack, Space or K dodge, Shift, L or right click block, F flask,
 // C or Ctrl creep, Esc menu; the mouse aims. Gamepad: stick, X attack, A dodge, shoulder block, Y flask, Start menu.
-const INPUT = { keys: new Set(), stick: null, btn: {}, mouse: { x: 0, y: 0, t: -99, l: false, r: false }, pad: null, touch: false };
+const INPUT = { keys: new Set(), stick: null, btn: {}, mouse: { x: 0, y: 0, t: -1e9, l: false, r: false }, pad: null, touch: false };
 const TOUCHES = new Map();
 function ctrlScale() { return clamp(Math.min(VIEW.w, VIEW.h) / 430, 0.85, 1.35); }
 // where the buttons sit, in screen pixels of the (possibly turned) canvas

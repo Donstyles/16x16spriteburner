@@ -23,7 +23,7 @@ function buildArena(floor) {
   const adj = k => edges.filter(e => e[0] === k || e[1] === k).map(e => e[0] === k ? e[1] : e[0]);
   const far = new Map([[key(...s0), 0]]), q = [key(...s0)]; while (q.length) { const k = q.shift(); for (const n of adj(k)) if (!far.has(n)) { far.set(n, far.get(k) + 1); q.push(n); } }
   const endK = [...far.entries()].sort((a, b) => b[1] - a[1])[0][0], leaves = [...cells.keys()].filter(k => k !== endK && k !== key(...s0) && adj(k).length === 1);
-  const treasK = leaves.length && chance(0.75) ? pick(leaves) : -1;
+  const treasK = leaves.length ? pick(leaves) : -1; // a dead end off the way, when there is one, holds the treasure
   // ---- rooms inside their cells; every room covers its cell's centre so the corridors can run straight
   const W = GW * CW, H = GH * CH, fl = new Uint8Array(W * H), rooms = [], byKey = new Map();
   for (const [k, [gx, gy]] of cells) {
@@ -83,13 +83,14 @@ function buildArena(floor) {
     else if (O(x + 1, y + 1)) T(5, 0, x, y); else if (O(x - 1, y + 1)) T(7, 0, x, y); // the inside corners of a room
     else if (O(x + 1, y - 1)) T(5, 3, x, y); else if (O(x - 1, y - 1)) T(7, 3, x, y);
   }
-  const A = ARENA = { w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, fl, rooms, halls, props: [], torches: [], name: floorName(floor) };
+  const A = ARENA = { w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, fl, rooms, halls, props: [], torches: [], name: floorName(floor), floor };
   A.doors = rooms.flatMap(r => r.doors.map(d => Object.assign(d, { room: r.i, k: 0 })));
   A.start = rooms.find(r => r.kind === 'start'); A.end = rooms.find(r => r.kind === 'end');
   // ---- furnishing (the stairways' places first, so no torch or banner hangs on them)
   // three free tiles of north wall, clear of any doorway by a tile, as near the middle as they come
   const wallSpot = r => { const nd = r.doors.filter(d => d.side === 'N').flatMap(d => d.cells.map(c => c[0])); let best = r.cx - 1, bd = 1e9; for (let x = r.ix0 + 1; x + 2 <= r.ix1 - 1; x++) { if (nd.some(c => c >= x - 1 && c <= x + 3)) continue; const d = Math.abs(x + 1 - (r.ix0 + r.ix1) / 2); if (d < bd) { bd = d; best = x; } } return best; };
   A.start.stairX = wallSpot(A.start); A.end.stairX = wallSpot(A.end);
+  if (!rooms.some(q => q.kind === 'treasure')) { const q = pick(rooms.filter(q => q.kind === 'room')); if (q) q.chest = true; } // no dead end: a guarded room keeps the chest
   for (const r of rooms) furnish(A, r, g);
   // the stairway we came down, in the start room's north wall; the way down waits shut in the end room's
   { const r = A.start, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 12, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 13, (sx + i) * TS, (r.fy0 + 1) * TS); } }
@@ -110,6 +111,9 @@ function furnish(A, r, g) {
   if (r.w * r.h >= 100) for (const [tx, ty] of [[r.ix0 + 1, r.iy1 - 1], [r.ix1 - 1, r.iy0 + 1]]) if (!nearDoor(tx, ty)) prop('brazier', tx, ty, { f: randi(0, 3) });
   const corner = (cx, cy) => { for (let i = 0; i < randi(1, 3); i++) { const tx = clamp(cx + randi(-1, 1), r.ix0, r.ix1), ty = clamp(cy + randi(-1, 1), r.iy0, r.iy1); if (nearDoor(tx, ty) || !free(tx * TS + 8, ty * TS + 14)) continue; const t = pick([[24, 8], [25, 8], [26, 8], [27, 8], [28, 8], [30, 8]]); prop(t[0] >= 28 ? 'chest' : 'barrel', tx, ty, { tile: t, hp: 40 }); } };
   corner(r.ix0, r.iy0); corner(r.ix1, r.iy0); corner(r.ix0, r.iy1); corner(r.ix1, r.iy1);
+  if (r.kind === 'treasure' || r.chest) { const cx = Math.round((r.ix0 + r.ix1) / 2), spots = [0, 1, -1, 2, -2, 3, -3].map(k => [cx + k, r.iy0 + 1]).concat([[cx, Math.round((r.iy0 + r.iy1) / 2)]]), at = spots.find(([x, y]) => !nearDoor(x, y)) || spots[spots.length - 1]; prop('tchest', at[0], at[1], { tier: chestTier(A.floor), hp: 1, r: 6, open: false }); } // its treasure chest, against the north wall if a spot there is clear of the doors
+  if ((r.kind === 'room' || r.kind === 'end') && chance(0.35)) for (let i = randi(1, 2); i > 0; i--) { // an ore rock or two against a wall
+    const west = chance(0.5), tx = west ? r.ix0 : r.ix1, ty = randi(r.iy0 + 1, r.iy1 - 1); if (!nearDoor(tx, ty, 2) && free(tx * TS + 8, ty * TS + 14)) prop('ore', tx, ty, { shape: randi(0, 6), ore: pick([0, 0, 1, 2, 3]), hp: 3, r: 6 }); }
   if (r.kind === 'room' || r.kind === 'end') {
     if (r.w >= 15 && r.h >= 9 && chance(0.7)) { const P = th.pillar[randi(0, 1)]; for (const [fx, fy] of chance(0.5) ? [[0.27, 0.4], [0.73, 0.4], [0.27, 0.78], [0.73, 0.78]] : [[0.3, 0.55], [0.7, 0.55]]) { const tx = Math.round(r.ix0 + fx * (r.w - 1)), ty = Math.max(r.iy0 + 3, Math.round(r.iy0 + fy * (r.h - 1))); if (!nearDoor(tx, ty, 2)) prop('pillar', tx, ty, { tile: P, r: 6 }); } }
   }

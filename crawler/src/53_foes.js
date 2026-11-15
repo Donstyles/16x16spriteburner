@@ -255,12 +255,24 @@ function updateProj(dt) {
 }
 // ---------- what a foe leaves ----------
 function dropLoot(u) { const g = u.def.gold || [0, 1]; const n = randi(g[0], g[1]); if (n > 0) dropGold(u.x, u.y, n); }
+// Pickups from the item sheet: a fish heals on the spot, a flask gives back a flask charge. Either one waits on the floor
+// while the hero has no use for it (full health, every flask full).
+const ITEM = { fish: [0, 0], flask: [16, 0] };
+function dropItem(k, x, y) { G.drops.push({ k, x, y, z: 4, vx: rand(-30, 30), vy: rand(-20, 20), vz: rand(70, 110), t: 0 }); }
+function takeItem(d, h) {
+  if (d.k === 'fish') { if (h.hp >= h.maxHp) return false; const g = Math.min(h.maxHp - h.hp, Math.round(h.maxHp * 0.15)); h.hp += g; number(h.x, h.y, headZ(h) + 1, '+' + g, 'heal', true); healGlow(h.x, h.y); SFX.heal(); return true; }
+  if (d.k === 'flask') { if (h.flasks >= h.maxFlasks) return false; h.flasks++; textPop(h.x, h.y, headZ(h) + 2, '+1 FLASK', 'heal', false); SFX.coin(panOf(d.x)); return true; }
+  return false;
+}
 function dropGold(x, y, n) { for (let i = 0; i < Math.min(n, 6); i++) G.drops.push({ k: 'gold', v: Math.ceil(n / Math.min(n, 6)), x, y, z: 4, vx: rand(-40, 40), vy: rand(-30, 30), vz: rand(60, 120), t: 0 }); }
 function updateDrops(dt) {
   for (const d of G.drops) {
+    if (d.wait > 0) { d.wait -= dt; if (d.wait <= 0) SFX.toss(panOf(d.x), d.k === 'gold'); continue; }
     d.t += dt; d.vz -= 400 * dt; d.z += d.vz * dt; if (d.z < 0) { d.z = 0; d.vz = -d.vz * 0.35; d.vx *= 0.6; d.vy *= 0.6; }
     const f = Math.exp(-3 * dt); d.vx *= f; d.vy *= f; const nx = d.x + d.vx * dt, ny = d.y + d.vy * dt; if (!solidAt(nx, ny)) { d.x = nx; d.y = ny; }
-    if (d.t < 0.4) continue; const h = nearest(d, G.heroes.filter(alive), 26); if (!h) continue;
+    if (d.t < (d.hold || 0.4)) continue;
+    if (d.k !== 'gold') { const h = nearest(d, G.heroes.filter(alive), 8); if (h && d.z < 2 && takeItem(d, h)) d.dead = true; continue; } // stepped on, and of use
+    const h = nearest(d, G.heroes.filter(alive), 26); if (!h) continue;
     const dd = dist(d.x, d.y, h.x, h.y); if (dd < 6) { d.dead = true; G.gold += d.v; SFX.coin(panOf(d.x)); part({ k: 'glow', x: d.x, y: d.y, z: 6, vz: 30, life: 0.3, s0: 2, s1: 0, col: 'gold' }); }
     else { d.x += (h.x - d.x) / dd * 140 * dt; d.y += (h.y - d.y) / dd * 140 * dt; }
   }
