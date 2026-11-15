@@ -129,7 +129,7 @@ function drawArrowGlints(c) {
 function drawDrop(c, d) {
   if (d.wait > 0) return; const x = Math.round(d.x), gy = Math.round(d.y), z = Math.round(d.z);
   if (d.k === 'gold') { const y = gy - z, s = ((G.time * 6 + d.x) | 0) % 4; c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(x - 1, gy, 3, 1); c.fillStyle = '#7a5a10'; c.fillRect(x - 1, y - 2, 3, 3); c.fillStyle = s ? '#ffd24a' : '#fff4c0'; c.fillRect(x - 1, y - 2, s === 2 ? 1 : 2, 2); return; }
-  const [ix, iy, sw] = ITEM[d.k]; c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(x - (sw >> 1), gy, sw, 1); c.drawImage(IMG.items, ix, iy, 16, 16, x - 8, gy - z - 12, 16, 16); // the sprites' lowest row is their row 11
+  const [ix, iy, sw, base] = ITEM[d.k]; c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(x - (sw >> 1), gy, sw, 1); c.drawImage(IMG.items, ix, iy, 16, 16, x - 8, gy - z - base - 1, 16, 16); // its resting row just above the shadow
 }
 // where a foe's blow will land, painted on the floor while it winds up; an archer's aim is a line
 function drawTelegraphs(c) {
