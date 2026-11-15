@@ -101,18 +101,33 @@ function weaponPose(h) {
 }
 // a drop of sweat: it beads at the edge of the head, runs down the side with him, lets go at the jaw and falls; where it
 // lands it leaves a wet pixel that dries
-// the outline of a hero's head, measured once from his sprite (without his weapon): its left and right edge from the
-// sprite's centre and the height of its top, so sweat beads on the edge of the head and not on the face
+// The outline of a hero's head, measured once from his sprite (without his weapon), frame by frame: the top row of the
+// head and, for each row below it, the left and right edge of the head (the run of pixels through the middle of the head,
+// so a shoulder or a shield beside it does not count). A drop of sweat sits on the edge pixel of the row it has reached.
 const HEADS = {};
 function headSpan(spr) {
-  if (HEADS[spr]) return HEADS[spr]; const m = MOBS[spr], fw = m[1], fh = m[2], Wc = WEAPON[spr], foot = footOf(spr);
-  const cv = Wc ? Wc.cut : null, d = cv ? cv.getContext('2d').getImageData(0, 0, fw, fh).data : null, P = PIX.mobs;
-  const a = (x, y) => d ? d[(y * cv.width + x) * 4 + 3] : P.d[((m[0] + y) * P.w + x) * 4 + 3];
-  let top = 0; while (top < fh - 1 && ![...Array(fw).keys()].some(x => a(x, top) > 128)) top++;
-  let l = fw, r = 0; for (let y = top; y < Math.min(fh, top + 5); y++) for (let x = 0; x < fw; x++) if (a(x, y) > 128) { l = Math.min(l, x); r = Math.max(r, x); }
-  return (HEADS[spr] = { l: l - fw / 2, r: r + 1 - fw / 2, top: foot + 1 - top });
+  if (HEADS[spr]) return HEADS[spr]; const m = MOBS[spr], fw = m[1], fh = m[2], Wc = WEAPON[spr], P = PIX.mobs;
+  const d = Wc ? Wc.cut.getContext('2d').getImageData(0, 0, fw * 4, fh).data : null;
+  const op = (f, x, y) => x >= 0 && x < fw && y >= 0 && y < fh && (d ? d[(y * fw * 4 + f * fw + x) * 4 + 3] : P.d[((m[0] + y) * P.w + f * fw + x) * 4 + 3]) > 128;
+  const frames = [];
+  for (let f = 0; f < 4; f++) {
+    let top = 0; while (top < fh - 1 && ![...Array(fw).keys()].some(x => op(f, x, top))) top++;
+    let c0 = fw, c1 = 0; for (let x = 0; x < fw; x++) if (op(f, x, top)) { c0 = Math.min(c0, x); c1 = Math.max(c1, x); } const c = Math.round((c0 + c1) / 2);
+    const rows = []; for (let k = 0; k < 8 && top + k < fh; k++) { const y = top + k; if (!op(f, c, y)) { rows.push(rows[k - 1] || [c, c]); continue; } let l = c, r = c; while (op(f, l - 1, y)) l--; while (op(f, r + 1, y)) r++; rows.push([l, r]); }
+    frames.push({ top, rows });
+  }
+  return (HEADS[spr] = { f: frames, fw, foot: footOf(spr) });
 }
-function sweat(h) { const H = headSpan(h.spr), s = h.scale || 1, ox = (chance(0.5) ? H.l - 0.5 : H.r + 0.5) * s, hz = h.z + H.top * s; part({ k: 'drop', on: h, ox, x: h.x, y: h.y + 0.5, z: hz - rand(1, 3), zDrip: hz - rand(6, 8), run: rand(7, 11), g: 0, vz: 0, life: 4, col: chance(0.7) ? '#cfe9ff' : '#9cc9ee' }); }
+// a drop of sweat: it beads a row or two below the top of the head on its left or right edge, runs down that edge with him,
+// lets go at the jaw and falls; where it lands it leaves a wet pixel that dries
+function sweat(h) { part({ k: 'drop', on: h, side: chance(0.5) ? -1 : 1, row: rand(1, 2.5), rowEnd: rand(4.5, 6), rate: rand(6, 10), x: h.x, y: h.y + 0.5, z: 0, g: 0, vz: 0, life: 4, col: chance(0.7) ? '#cfe9ff' : '#9cc9ee' }); }
+// where a running drop is this frame: on the edge pixel of its row, mapped to the screen exactly as the sprite is drawn
+function placeDrop(p, u) {
+  const H = headSpan(u.spr), fw = H.fw, fr = ((u.anim * (u.moving ? (u.noise === 0 ? 5 : 9) : 5)) | 0) % 4, F = H.f[fr], r = Math.min(F.rows.length - 1, Math.floor(p.row));
+  const kx = p.side < 0 ? F.rows[r][0] : F.rows[r][1], px0 = Math.round(u.x - fw / 2), col = u.face < 0 ? px0 + fw - 1 - kx : px0 + kx;
+  const dip = Math.min(2, (u.moving && u.noise === 0 && !u.act ? 1 : 0) + (u.dipT > 0 ? 1 : 0)), rowY = Math.round(u.y - u.z - H.foot - 1) + F.top + r + dip;
+  p.x = col + 0.25; p.y = u.y + 0.5; p.z = p.y - rowY - 0.25; // rounds to exactly that pixel
+}
 function canRoll(h) { const a = h.act; return h.stam > 0 && h.stun <= 0 && (!a || a.k === 'charge' || (a.k === 'atk' && a.phase === 'rec') || a.k === 'drink'); }
 function heroTick(h, dt) {
   const I = h.inp; if (h.dead) { h.deadT += dt; I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }

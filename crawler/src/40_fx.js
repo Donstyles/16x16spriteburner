@@ -90,7 +90,7 @@ function updateFx(dt) {
   const P = FX.P;
   for (let i = P.length - 1; i >= 0; i--) {
     const p = P[i]; p.t += dt; if (p.t >= p.life) { P[i] = P[P.length - 1]; P.pop(); continue; }
-    if (p.on) { const u = p.on; if (u.dead) p.on = null; else { p.x = u.x + p.ox * (u.face < 0 ? -1 : 1); p.y = u.y + 0.5; p.z -= p.run * dt; if (p.z <= p.zDrip) { p.on = null; p.g = 320; p.ox *= u.face < 0 ? -1 : 1; p.vx = (u.vx || 0) * 0.4 + Math.sign(p.ox) * rand(4, 10); p.vy = (u.vy || 0) * 0.4 + rand(2, 6); } continue; } } // a drop still running down the hero
+    if (p.on) { const u = p.on; if (u.dead || (u.act && u.act.k === 'roll')) { p.on = null; p.g = 320; } else { p.row += p.rate * dt; placeDrop(p, u); if (p.row >= p.rowEnd) { p.on = null; p.g = 320; const out = p.side * (u.face < 0 ? -1 : 1); p.vx = (u.vx || 0) * 0.4 + out * rand(4, 10); p.vy = (u.vy || 0) * 0.4 + rand(2, 6); } continue; } } // a drop still running down the hero's head
     if (p.drag) { const f = Math.exp(-p.drag * dt); p.vx *= f; p.vy *= f; if (!p.g) p.vz *= f; }
     if (p.bounce && p.z < 40 && !solidAt(p.x, p.y)) { // shards, sparks and gibs glance off the walls (a mark already inside a wall is left alone)
       const nx = p.x + p.vx * dt, ny = p.y + p.vy * dt;
