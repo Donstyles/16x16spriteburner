@@ -48,9 +48,10 @@ function spendStam(h, n, delay) { h.stam = Math.max(0, h.stam - n); h.stamT = Ma
 function winded(h) { h.stamT = Math.max(h.stamT, WINDED); if (!h.huff) { h.huff = { t: 0.18, out: true }; SFX.gasp(panOf(h.x)); } }
 function pant(h, dt) {
   const H = h.huff; if (h.dead || (h.stamT <= 0 && h.stam >= h.maxStam / 3)) { h.huff = null; return; }
-  if ((H.t -= dt) > 0) return; const slow = h.stamT > 0 ? 1 : 1.35; // the breaths slow down as the stamina comes back
-  if (H.out) { SFX.huff(panOf(h.x), false); for (let i = 0; i < 2; i++) part({ k: 'smoke', x: h.x + h.face * (5 + i * 2), y: h.y + 1, z: 10 + i, vx: h.face * rand(12, 22), vy: rand(-3, 3), vz: rand(3, 8), drag: 2, life: 0.8, s0: 2.5, s1: 6.5, col: 'breath', a0: 0.9, a1: 0 }); H.t = 0.2 * slow; }
-  else { SFX.huff(panOf(h.x), true); H.t = 0.26 * slow; }
+  if ((H.t -= dt) > 0) return; const slow = (h.stamT > 0 ? 1 : 1.35) * rand(0.85, 1.2); // slower as the stamina comes back, never quite even
+  const lvl = h.stamT > 0 ? 1 : clamp(1 - h.stam / h.maxStam * 2, 0.3, 0.8); // and quieter
+  if (H.out) { SFX.huff(panOf(h.x), false, lvl); for (let i = 0; i < 2; i++) part({ k: 'smoke', x: h.x + h.face * (5 + i * 2), y: h.y + 1, z: 10 + i, vx: h.face * rand(12, 22), vy: rand(-3, 3), vz: rand(3, 8), drag: 2, life: 0.8, s0: 2.5, s1: 6.5, col: 'breath', a0: 0.9, a1: 0 }); H.t = 0.2 * slow; }
+  else { SFX.huff(panOf(h.x), true, lvl); H.t = 0.26 * slow; }
   H.out = !H.out;
 }
 function canRoll(h) { const a = h.act; return h.stam > 0 && h.stun <= 0 && (!a || a.k === 'charge' || (a.k === 'atk' && a.phase === 'rec') || a.k === 'drink'); }
