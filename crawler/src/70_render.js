@@ -53,7 +53,7 @@ function mobsRed() { if (MOBS_RED) return MOBS_RED; const s = IMG.mobsW, c = mkC
 const BIG = {}, LIE = {};
 // how a creature lies: a quarter turn puts its width on the floor, so it is raised by its half-width below the middle, and
 // slid back by half its height so that it lies where it stood
-function lieOf(spr, sc) { const k = spr + '@' + sc; if (LIE[k]) return LIE[k]; const P = spritePixels(spr); let mn = 0; for (const p of P) mn = Math.min(mn, p.x - 0.5); return (LIE[k] = { up: Math.round(-mn * sc), half: Math.round((P.foot + 1) / 2 * sc) }); } // the back of a sprite faces left: lying on it, that side is the floor
+function lieOf(spr, sc) { const k = spr + '@' + sc; if (LIE[k]) return LIE[k]; const P = spritePixels(spr); let mn = 0, mx = 0; for (const p of P) { mn = Math.min(mn, p.x - 0.5); mx = Math.max(mx, p.x + 0.5); } return (LIE[k] = { dy: Math.round((mn + mx) / 2 * sc - 1), half: Math.round((P.foot + 1) / 2 * sc) }); } // a body lying flat sits on its shadow: its middle a pixel above the shadow's
 function bigSprite(spr, sc) {
   const key = spr + '@' + sc; if (BIG[key]) return BIG[key];
   const [sy, fw, fh] = MOBS[spr], P = PIX.mobs, W = Math.round(fw * sc), H = Math.round(fh * sc), foot = footOf(spr);
@@ -82,7 +82,7 @@ function drawUnit(c, u) {
   const Wc = u.team === 'hero' && !ra ? WEAPON[u.spr] : null, pose = Wc ? weaponPose(u) : null, back = pose && (pose.behind || (!pose.front && Math.cos(pose.th) * (u.face < 0 ? -1 : 1) < -0.15));
   if (back) drawWeapon(c, u, pose, Wc, fr, fw, foot, dip, cut);
   c.save(); c.translate(u.x + jit, u.y - u.z);
-  if (sleep) { const L = lieOf(u.spr, sc), fs = u.face < 0 ? -1 : 1; c.translate(fs * L.half, -L.up); c.rotate(-fs * Math.PI / 2); } // asleep: lying on its back, its front turned up (a quarter turn, exact to the pixel)
+  if (sleep) { const L = lieOf(u.spr, sc), fs = u.face < 0 ? -1 : 1; c.translate(fs * L.half, L.dy); c.rotate(-fs * Math.PI / 2); } // asleep: lying on its back, its front turned up (a quarter turn, exact to the pixel)
   if (ra) { // a roll: one full turn the way the hero travels, in quarter turns so every pixel stays on the grid
     const p = Math.min(1, ra.t / ra.dur), turn = Math.min(4, Math.floor((p + 0.14) * 4.5)) / 4, cy = Math.round(-6 * sc);
     const way = Math.abs(Math.cos(ra.dir)) > 0.2 ? Math.sign(Math.cos(ra.dir)) : (u.face < 0 ? -1 : 1); // turn with the travel (a backward roll goes back over the head)
