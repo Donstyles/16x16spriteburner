@@ -54,9 +54,22 @@ const SFX = {
     o.connect(g); g.connect(this.crunch); o.start(t); lfo.start(t); o.stop(t + dur + 0.7); lfo.stop(t + dur + 0.7);
     for (let i = 0; i < dur * 5; i++) this.noise(this.brown, 0.25, 'lowpass', 900, 120, 1, 0.5, rand(-0.6, 0.6), Math.random() * dur, 0.002);
   },
-  // panting: a breath out (low, breathy) and a breath in (higher, thinner); a gasp when the stamina runs dry
-  huff(pan = 0, inhale = false) { if (!this.ok(inhale ? 'huffIn' : 'huff', 0.1)) return; if (inhale) this.noise(this.white, 0.17, 'bandpass', 1500, 2300, 1.1, 0.08, pan, 0, 0.07); else { this.noise(this.white, 0.24, 'bandpass', 1050, 430, 1.5, 0.24, pan, 0, 0.012); this.noise(this.brown, 0.2, 'lowpass', 700, 240, 0.7, 0.14, pan, 0, 0.01); } },
-  gasp(pan = 0) { if (!this.ok('gasp', 0.5)) return; this.noise(this.white, 0.3, 'bandpass', 1300, 2700, 1.2, 0.18, pan, 0, 0.05); },
+  // Breathing. A swing is noise swept through a moving filter, so a breath must not move: steady noise through the
+  // fixed resonances of a vowel (an open "hah" out, a thin "hhee" in), with a faint voiced grunt under the breath out.
+  breathe(pan, formants, dur, att, peak, voice, dark = 2400) {
+    const c = this.ctx, t = c.currentTime, out = c.createGain(), lp = c.createBiquadFilter(); out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(peak, t + att);
+    out.gain.setTargetAtTime(0.0001, t + att + 0.02, (dur - att) / 3); lp.type = 'lowpass'; lp.frequency.value = dark; lp.Q.value = 0.5; out.connect(lp); lp.connect(this.dest(pan, false)); // dark: no hiss to mistake for a blade
+    const src = c.createBufferSource(); src.buffer = this.white; src.loop = true;
+    for (const [f, q, g] of formants) { const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f * rand(0.96, 1.04); bp.Q.value = q; const gg = c.createGain(); gg.gain.value = g; src.connect(bp); bp.connect(gg); gg.connect(out); }
+    src.start(t, Math.random() * 1.5); src.stop(t + dur + 0.1);
+    if (voice) { const o = c.createOscillator(), lp = c.createBiquadFilter(), vg = c.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(voice, t); o.frequency.exponentialRampToValueAtTime(voice * 0.8, t + dur); lp.type = 'lowpass'; lp.frequency.value = 800; vg.gain.value = 0.06; o.connect(lp); lp.connect(vg); vg.connect(out); o.start(t); o.stop(t + dur + 0.1); }
+  },
+  huff(pan = 0, inhale = false) {
+    if (!this.ok(inhale ? 'huffIn' : 'huff', 0.1)) return;
+    if (inhale) this.breathe(pan, [[380, 3, 1.2], [2200, 5, 1.4]], 0.2, 0.09, 0.08, 0, 3000);
+    else this.breathe(pan, [[760, 5, 2.2], [1180, 6, 1.8], [2500, 7, 0.5]], 0.24, 0.025, 0.16, rand(140, 170), 2200);
+  },
+  gasp(pan = 0) { if (!this.ok('gasp', 0.5)) return; this.breathe(pan, [[420, 3, 1.4], [2000, 5, 1.6]], 0.38, 0.12, 0.13, 0, 3000); },
   slash(pan = 0) { if (!this.ok('slash', 0.05)) return; this.noise(this.white, 0.14, 'bandpass', 700, 4200, 1.4, 0.4, pan); },
   clang(pan = 0) { if (!this.ok('clang', 0.06)) return; this.tone('triangle', 1250, 1180, 0.28, 0.14, pan); this.tone('sine', 1870, 1800, 0.2, 0.08, pan); this.noise(this.white, 0.05, 'highpass', 3000, 5000, 0.7, 0.25, pan); },
   hit(pan = 0) { if (!this.ok('hit', 0.03)) return; this.noise(this.brown, 0.14, 'lowpass', 1200, 200, 0.8, 0.6, pan); this.tone('sine', 150, 55, 0.12, 0.45, pan); },
