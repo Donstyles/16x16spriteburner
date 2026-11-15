@@ -5,7 +5,7 @@ async function loadAssets() {
   const A = window.__ASSETS;
   for (const k of ['cellar', 'mobs', 'doors', 'items', 'ores']) IMG[k] = await loadImage(A ? A[k] : 'assets/' + (k === 'doors' ? 'cellar_doors' : k) + '.png');
   MOBS = A ? A.mobsJson : await (await fetch('assets/mobs.json')).json();
-  IMG.mobsW = silhouette(IMG.mobs); PIX.mobs = pixelData(IMG.mobs); PIX.cellar = pixelData(IMG.cellar); cutWeapons();
+  IMG.mobsW = silhouette(IMG.mobs); IMG.oresW = silhouette(IMG.ores); PIX.ores = pixelData(IMG.ores); PIX.mobs = pixelData(IMG.mobs); PIX.cellar = pixelData(IMG.cellar); cutWeapons();
   for (const k in COL) { GLOW[k] = glowTex(COL[k]); }
   SMOKE.grey = smokeTex([70, 66, 72]); SMOKE.dust = smokeTex([122, 100, 78]); SMOKE.dark = smokeTex([22, 18, 24]); SMOKE.green = smokeTex([60, 120, 60]); SMOKE.breath = smokeTex([226, 230, 240]);
   ROCKS.length = 0; for (let i = 0; i < 6; i++) ROCKS.push(rockTex(i));

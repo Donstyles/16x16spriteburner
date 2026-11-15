@@ -105,7 +105,11 @@ function drawUnit(c, u) {
 function drawProp(c, p) {
   if (p.kind === 'pillar') { const [tx, ty] = p.tile; for (let i = 0; i < 3; i++) c.drawImage(IMG.cellar, tx * TS, (ty + i) * TS, TS, TS, p.x - 8, p.y - 14 - 32 + i * TS, TS, TS); }
   else if (p.kind === 'brazier') { const f = ((G.time * 8 + p.f) | 0) % 4; c.drawImage(IMG.cellar, f * TS, 27 * TS, TS, TS, p.x - 8, p.y - 14, TS, TS); }
-  else if (p.kind === 'ore') { let f = p.flashUntil > G.time ? 4 : p.ore; if (p.crumble !== undefined) { f = 5 + Math.floor((G.time - p.crumble) / 0.07); if (f > 9) { p.dead = true; return; } } c.drawImage(IMG.ores, f * 32, p.shape * 32, 32, 32, p.x - 16, p.y - 30, 32, 32); }
+  else if (p.kind === 'ore') { // struck, it flashes white and fades back as a foe does; the last blow, a beat later, it bursts into chunks
+    if (p.burst && G.time >= p.burst) { p.dead = true; return; } const fl = (p.flashUntil || 0) - G.time;
+    c.drawImage(IMG.ores, p.ore * 32, p.shape * 32, 32, 32, p.x - 16, p.y - 30, 32, 32);
+    if (fl > 0) { c.globalAlpha = Math.min(1, fl * 9); c.drawImage(IMG.oresW, p.ore * 32, p.shape * 32, 32, 32, p.x - 16, p.y - 30, 32, 32); c.globalAlpha = 1; }
+  }
   else if (p.kind === 'tchest') { const [cx, cy] = CHEST[p.tier].at; c.drawImage(IMG.items, cx + (p.open ? 16 : 0), cy, 16, 16, p.x - 8, p.y - 14, 16, 16); }
   else { const w = (p.tw || 1) * TS; c.drawImage(IMG.cellar, p.tile[0] * TS, p.tile[1] * TS, w, TS, p.x - w / 2, p.y - 14, w, TS); }
 }
@@ -193,8 +197,8 @@ function render() {
   for (const u of G.units) { if (u.dead && u.team === 'foe') continue; if (u.team === 'foe' && !foeShown(u)) continue; pxShadow(c, u.x, u.y, u.r * 1.3 * (1 - Math.min(0.6, u.z / 160))); }
   // everything standing, lying or flying, drawn back to front by where it meets the floor
   const list = []; for (const u of G.units) list.push([u.y, 0, u]); for (const p of ARENA.props) if (!p.dead) list.push([p.y, 1, p]);
-  for (const d of G.drops) list.push([d.y, 2, d]); for (const p of G.proj) list.push([p.y, 3, p]); list.sort((a, b) => a[0] - b[0]);
-  for (const [, k, o] of list) if (k === 0) drawUnit(c, o); else if (k === 1) drawProp(c, o); else if (k === 2) drawDrop(c, o); else drawProj(c, o);
+  for (const d of G.drops) list.push([d.y, 2, d]); for (const p of G.proj) list.push([p.y, 3, p]); for (const r of FX.rocks) list.push([r.y, 4, r]); list.sort((a, b) => a[0] - b[0]);
+  for (const [, k, o] of list) if (k === 0) drawUnit(c, o); else if (k === 1) drawProp(c, o); else if (k === 2) drawDrop(c, o); else if (k === 3) drawProj(c, o); else drawRock(c, o);
   drawWorldParts(c);
   renderLight();
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'multiply'; c.drawImage(lc, 0, 0);

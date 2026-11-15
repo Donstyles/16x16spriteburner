@@ -93,7 +93,15 @@ const SFX = {
   summon(pan = 0) { if (!this.ok('summon', 0.15)) return; this.noise(this.brown, 0.9, 'bandpass', 150, 900, 2, 0.5, pan, 0, 0.7); this.tone('sawtooth', 52, 48, 0.9, 0.08, pan, 0, 0.6); },
   pop(pan = 0) { if (!this.ok('pop', 0.025)) return; this.noise(this.white, 0.12, 'lowpass', 3000, 300, 0.7, 0.35, pan); this.tone('square', 220, 60, 0.1, 0.12, pan); },
   // a coin: a bright two-note clink, a semitone higher for each coin scooped up in quick succession
-  stone(pan = 0, last = false) { if (!this.ok('stone', 0.05)) return; this.noise(this.white, last ? 0.25 : 0.09, 'highpass', 1800, 900, 0.8, last ? 0.4 : 0.28, pan, 0, 0.002, last); this.tone('triangle', last ? 520 : 880, last ? 300 : 820, last ? 0.2 : 0.12, 0.09, pan); },
+  // stone struck: a hard dry knock (a burst of grit through a narrow middle band, driven into the clipper), a dull thud
+  // under it, a gritty crumble, then pebbles pattering down; when it gives, deeper and longer, a rumble and a rain of chunks
+  stone(pan = 0, last = false) {
+    if (!this.ok('stone', 0.05)) return;
+    this.noise(this.white, last ? 0.1 : 0.05, 'bandpass', last ? 1100 : 1500, 450, 1.6, last ? 0.9 : 0.75, pan, 0, 0.001, true);
+    this.tone('sine', last ? 125 : 200, 45, last ? 0.24 : 0.09, last ? 0.55 : 0.35, pan);
+    this.noise(this.brown, last ? 0.55 : 0.16, 'lowpass', last ? 1600 : 1000, 110, 0.7, last ? 0.6 : 0.3, pan, 0.005, 0.003, true);
+    const n = last ? 14 : 4; for (let i = 0; i < n; i++) this.noise(this.white, rand(0.012, 0.025), 'bandpass', rand(1800, 4600), 1500, 2.5, rand(0.05, 0.15) * (last ? 1.3 : 1), pan + rand(-0.25, 0.25), rand(0.05, last ? 0.75 : 0.25), 0.001);
+  },
   // a piece tossed out of a chest: a soft flick, a little brighter for a coin
   toss(pan = 0, gold = false) { if (!this.ok('toss', 0.04)) return; const f = gold ? rand(1300, 1600) : rand(500, 650); this.tone('triangle', f, f * 1.5, 0.05, 0.06, pan); this.noise(this.white, 0.04, 'bandpass', 2400, 2400, 0.6, 0.08, pan); },
   chest(pan = 0) { if (!this.ok('chest', 0.2)) return; this.noise(this.brown, 0.35, 'bandpass', 380, 220, 4, 0.35, pan, 0, 0.03); this.tone('sawtooth', 140, 90, 0.3, 0.05, pan, 0, 0.05); this.tone('triangle', 1568, 1568, 0.08, 0.1, pan, 0.25); this.tone('triangle', 2349, 2349, 0.16, 0.09, pan, 0.31); },

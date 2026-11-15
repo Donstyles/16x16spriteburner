@@ -1,6 +1,6 @@
 // ===================== FX engine: particles, lightning, shockwaves, cracks, light, shake =====================
 const Q = { pmax: 2600, bloom: 1, res: 1 };
-const FX = { emit: [], wet: [], P: [], bolts: [], rings: [], arcs: [], cracks: [], beams: [], lights: [], flights: [], nums: [], tele: [], columns: [], circles: [], ghosts: [], hz: [] };
+const FX = { emit: [], wet: [], P: [], bolts: [], rings: [], arcs: [], cracks: [], beams: [], lights: [], flights: [], nums: [], tele: [], columns: [], circles: [], ghosts: [], hz: [], rocks: [] };
 function part(o) {
   if (FX.P.length >= Q.pmax) return null;
   const p = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, g: 0, drag: 0, t: 0, life: 1, s0: 2, s1: 0, a0: 1, a1: 0, col: 'white', k: 'glow', bounce: 0, rot: 0, vr: 0 };
@@ -112,6 +112,62 @@ function updateFx(dt) {
     if (ARENA) for (const s of c.segs) if (!s.p && c.t >= s.t0) { s.p = true; groundPaint(Math.min(s.x0, s.x1) - 3, Math.min(s.y0, s.y1) - 3, Math.max(s.x0, s.x1) + 3, Math.max(s.y0, s.y1) + 3, g => { g.strokeStyle = 'rgba(6,4,4,0.9)'; g.lineWidth = s.w + 0.6; g.lineCap = 'round'; g.beginPath(); g.moveTo(s.x0, s.y0); g.lineTo(s.x1, s.y1); g.stroke(); g.strokeStyle = 'rgba(255,230,190,0.18)'; g.lineWidth = 0.6; g.beginPath(); g.moveTo(s.x0 + 0.8, s.y0 + 0.8); g.lineTo(s.x1 + 0.8, s.y1 + 0.8); g.stroke(); }); if (chance(0.08)) { smoke(s.x1, s.y1, 1, 'dust', 8, 6, 1, 8); } }
   }
   removeIf(FX.cracks, c => c.t >= c.life);
+  updateRocks(dt);
+}
+// --- rock chunks: a sprite broken into pieces made of its own pixels, flung out, tumbling a quarter turn at a time (so the
+// pixels stay whole), bouncing off the floor and the walls; once one lies still it is left on the floor as rubble.
+// img/sx,sy,sw,sh: the sprite; ox,oy: where its top left is drawn; gy: the floor line it stands on; n pieces;
+// away: the angle a blow came from (the pieces fly mostly that way); wait: seconds before they appear
+function breakSprite(img, sx, sy, sw, sh, ox, oy, gy, n, away = null, wait = 0, spd = 1) {
+  const D = img === IMG.ores ? PIX.ores : pixelData(img), W = D.w, px = [];
+  for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) { const i = ((sy + y) * W + sx + x) * 4; if (D.d[i + 3] > 128) px.push([x, y, i]); }
+  if (!px.length) return;
+  const seeds = [pick(px)]; while (seeds.length < Math.min(n, px.length)) { let best = null, bd = -1; for (let k = 0; k < 24; k++) { const q = pick(px), d = Math.min(...seeds.map(s => Math.hypot(s[0] - q[0], s[1] - q[1]))); if (d > bd) { bd = d; best = q; } } seeds.push(best); }
+  // each pixel goes to its nearest seed, the borders a little rough (fixed noise, so not ragged)
+  const owner = new Map(), key = (x, y) => y * 4096 + x, parts = seeds.map(() => []);
+  for (const q of px) { let b = 0, bd = 1e9; seeds.forEach((s, k) => { const d = Math.hypot(s[0] - q[0], s[1] - q[1]) + NOISE[(q[0] * 7 + q[1] * 13 + k * 31) & 1023] * 0.8; if (d < bd) { bd = d; b = k; } }); owner.set(key(q[0], q[1]), b); parts[b].push(q); }
+  const cx0 = sw / 2;
+  parts.forEach((P, k) => {
+    if (!P.length) return; let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1; for (const [x, y] of P) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+    const w = x1 - x0 + 1, h = y1 - y0 + 1, cv = mkCanvas(w, h), g = cv.getContext('2d'), id = g.createImageData(w, h);
+    for (const [x, y, i] of P) { // where it broke away from its neighbours the stone shows a darker edge
+      const j = ((y - y0) * w + x - x0) * 4, cut = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => { const o = owner.get(key(x + a, y + b)); return o !== undefined && o !== k; }), m = cut ? 0.62 : 1;
+      id.data[j] = D.d[i] * m; id.data[j + 1] = D.d[i + 1] * m; id.data[j + 2] = D.d[i + 2] * m; id.data[j + 3] = 255;
+    }
+    g.putImageData(id, 0, 0);
+    const rot = [cv]; for (let r = 1; r < 4; r++) { const s = rot[r - 1], o = mkCanvas(s.height, s.width), og = o.getContext('2d'); og.setTransform(0, 1, -1, 0, s.height, 0); og.drawImage(s, 0, 0); rot.push(o); }
+    const mx = (x0 + x1 + 1) / 2, ground = gy + rand(-3, 2), dx = (mx - cx0) / cx0, up = 1 - y1 / sh, a = away === null ? rand(TAU) : away, s = rand(35, 75) * spd;
+    FX.rocks.push({ rot, r: 0, x: ox + mx, y: ground, z: Math.max(0, ground - (oy + y1)), vx: dx * rand(40, 80) * spd + Math.cos(a) * s, vy: rand(-10, 30) * spd + Math.sin(a) * s * 0.7, vz: rand(50, 110) * spd + up * 60, spin: rand(0.06, 0.12), t: 0, wait, fade: 0 });
+  });
+  if (FX.rocks.length > 90) FX.rocks.splice(0, FX.rocks.length - 90);
+}
+// a chip knocked off a sprite: one small piece of its pixels from somewhere on it
+function chipSprite(img, sx, sy, sw, sh, ox, oy, gy, away) {
+  const D = img === IMG.ores ? PIX.ores : pixelData(img); let x = 0, y = 0;
+  for (let k = 0; k < 40; k++) { x = randi(1, sw - 5); y = randi(1, sh - 4); if (D.d[((sy + y) * D.w + sx + x) * 4 + 3] > 128) break; }
+  breakSprite(img, sx + x, sy + y, randi(3, 4), 3, ox + x, oy + y, gy, 1, away, 0, 0.8);
+}
+function updateRocks(dt) {
+  for (const r of FX.rocks) {
+    if (r.wait > 0) { r.wait -= dt; continue; } r.t += dt;
+    if (r.fade) { r.fade += dt; if (r.fade > 0.5) r.done = true; continue; }
+    const nx = r.x + r.vx * dt, ny = r.y + r.vy * dt; if (solidAt(nx, r.y)) r.vx = -r.vx * 0.4; else r.x = nx; if (solidAt(r.x, ny)) r.vy = -r.vy * 0.4; else r.y = ny;
+    r.vz -= 480 * dt; r.z += r.vz * dt; const turn = () => { r.r = (r.r + (r.vx >= 0 ? 1 : 3)) % 4; };
+    if (r.z <= 0) { r.z = 0; if (r.vz < -40) { r.vz = -r.vz * 0.3; r.vx *= 0.55; r.vy *= 0.55; turn(); } else { r.vz = 0; const f = Math.exp(-9 * dt); r.vx *= f; r.vy *= f; } }
+    else if ((r.spin -= dt) <= 0) { r.spin = rand(0.07, 0.13); turn(); }
+    if ((r.z === 0 && r.vz === 0 && Math.hypot(r.vx, r.vy) < 3) || r.t > 4) { // still: left on the floor, unless it would lie across a wall
+      const cv = r.rot[r.r], x = Math.round(r.x - cv.width / 2), y = Math.round(r.y - cv.height + 1);
+      if ([[x, y], [x + cv.width - 1, y], [x, y + cv.height - 1], [x + cv.width - 1, y + cv.height - 1]].some(([a, b]) => solidAt(a, b))) r.fade = 0.001;
+      else { groundPaint(x, y, x + cv.width, y + cv.height, g => g.drawImage(cv, x, y)); r.done = true; }
+    }
+  }
+  removeIf(FX.rocks, r => r.done);
+}
+function drawRock(c, r) {
+  if (r.wait > 0) return; const cv = r.rot[r.r], x = Math.round(r.x - cv.width / 2), y = Math.round(r.y - r.z - cv.height + 1);
+  if (r.fade) c.globalAlpha = Math.max(0, 1 - r.fade / 0.5);
+  if (r.z > 1) { c.fillStyle = 'rgba(0,0,0,0.3)'; c.fillRect(Math.round(r.x - cv.width / 2 + 1), Math.round(r.y), Math.max(1, cv.width - 2), 1); }
+  c.drawImage(cv, x, y); c.globalAlpha = 1;
 }
 // --- drawing ---
 const SPARK_PAL = { fire: ['#ffffff', '#fff1a8', '#ffa23a', '#ff4a18'], bolt: ['#ffffff', '#d8e8ff', '#88b0ff', '#4a6cff'], heal: ['#ffffff', '#d8ffe0', '#7cff9c', '#20c060'], arcane: ['#ffffff', '#f0d0ff', '#c070ff', '#7020d0'], white: ['#ffffff', '#ffffff', '#e0e0ff', '#9090c0'], gold: ['#ffffff', '#fff3c0', '#ffd060', '#c08020'], poison: ['#ffffff', '#e8ffc0', '#a0ff50', '#40a020'], crimson: ['#ffffff', '#ffb0bc', '#ff3a5a', '#a00020'], holy: ['#ffffff', '#fffbe0', '#ffe080', '#d0a030'] };

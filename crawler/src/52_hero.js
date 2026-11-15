@@ -262,14 +262,17 @@ function breakProp(p) {
   if (chance(p.kind === 'chest' ? 1 : 0.25)) dropGold(p.x, p.cy, p.kind === 'chest' ? randi(6, 14) : randi(1, 4));
   const chest = p.kind === 'chest'; if (chance(chest ? 0.25 : 0.1)) dropItem('fish', p.x, p.cy); if (chance(chest ? 0.2 : 0.05)) dropItem('flask', p.x, p.cy);
 }
-// An ore rock takes three blows: each one flashes it, chips stone off it (glinting silver or gold where it has ore) and
-// rings; the third crumbles it away. Nothing inside yet.
+// An ore rock takes three blows: each one flashes it white (fading back, as a foe does), knocks a chip or two of its own
+// stone off, glints where it has silver or gold, and knocks; the third bursts it into chunks of itself that tumble
+// away and lie on the floor as rubble. Nothing inside yet.
 const ORE_GLINT = [null, ['#dfe8f0', '#9fc3dc'], ['#dfe8f0', '#9fc3dc'], ['#ffe27a', '#e3a92c']];
 function hitOre(p) {
-  if (p.crumble !== undefined) return; p.hp--; p.flashUntil = G.time + 0.07; SFX.stone(panOf(p.x), p.hp <= 0); shake(0.04);
-  debris(p.x, p.cy - 4, p.hp <= 0 ? 16 : 6, ['#5a4636', '#7a604a', '#3e3026'], 90, 120, 1.6);
-  if (ORE_GLINT[p.ore]) for (let i = 0; i < (p.hp <= 0 ? 8 : 3); i++) part({ k: 'spark', x: p.x + rand(-4, 4), y: p.cy, z: rand(4, 12), vx: rand(-60, 60), vy: rand(-30, 30), vz: rand(30, 90), g: 300, life: rand(0.3, 0.6), col: 'white', s0: 1 });
-  if (p.hp <= 0) { p.crumble = G.time; p.solid = false; smoke(p.x, p.cy, 3, 'dust', 9, 24, 0.9); }
+  if (p.burst) return; p.hp--; const last = p.hp <= 0, h = G.me, away = h ? angTo(h.x, h.y, p.x, p.cy) : null, sx = p.ore * 32, sy = p.shape * 32;
+  p.flashUntil = G.time + 0.12; SFX.stone(panOf(p.x), last); shake(last ? 0.09 : 0.04);
+  if (last) { p.burst = G.time + 0.05; p.solid = false; breakSprite(IMG.ores, sx, sy, 32, 32, p.x - 16, p.y - 30, p.y, randi(5, 7), away, 0.05, 1.15); smoke(p.x, p.cy, 5, 'dust', 10, 30, 1.1); }
+  else for (let i = 0; i < 2; i++) chipSprite(IMG.ores, sx, sy, 32, 32, p.x - 16, p.y - 30, p.y, away);
+  debris(p.x, p.cy - 4, last ? 8 : 3, ['#5a4636', '#7a604a', '#3e3026'], 80, 110, 1.4); // a little grit with it
+  if (ORE_GLINT[p.ore]) for (let i = 0; i < (last ? 8 : 3); i++) part({ k: 'spark', x: p.x + rand(-4, 4), y: p.cy, z: rand(4, 12), vx: rand(-60, 60), vy: rand(-30, 30), vz: rand(30, 90), g: 300, life: rand(0.3, 0.6), col: 'white', s0: 1 });
 }
 // Treasure chests (one in each treasure room): one blow opens it and it stays open. The colour says what is inside: black
 // and blue a little gold, red more, gold the most; every chest has a fish or a flask, the red and gold ones both.
