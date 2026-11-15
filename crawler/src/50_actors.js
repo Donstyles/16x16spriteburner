@@ -38,7 +38,8 @@ function hurt(u, dmg, src, o = {}) {
   if (u.def.armor) d *= 1 - u.def.armor;
   if (u.team === 'foe' && u.stun > 0) d *= 1.3; // a staggered foe is open
   d = Math.max(1, Math.round(d)); u.hp -= d; u.flash = 0.12;
-  if (o.poise && !(u.act && u.act.armored) && !(u.poiseGuard > 0)) { u.poise -= o.poise; u.poiseT = 2; if (u.poise <= 0) { u.poise = u.maxPoise; stagger(u, u.team === 'hero' ? 0.45 : 1.1); } }
+  // a killing blow does not stagger: the foe simply dies
+  if (o.poise && u.hp > 0 && !(u.act && u.act.armored) && !(u.poiseGuard > 0)) { u.poise -= o.poise; u.poiseT = 2; if (u.poise <= 0) { u.poise = u.maxPoise; stagger(u, u.team === 'hero' ? 0.45 : 1.1); } }
   const km = u.scale > 1.2 ? 0.45 : 1; u.kx += (o.kx || 0) * km; u.ky += (o.ky || 0) * km;
   const tag = o.sneak ? 'SNEAK ATTACK' : o.riposte ? 'RIPOSTE' : o.back ? 'BACKSTAB' : null;
   number(u.x, u.y, headZ(u) + 1, d, u.team === 'hero' ? 'red' : tag ? 'gold' : 'white', !!tag || d >= 40, u);

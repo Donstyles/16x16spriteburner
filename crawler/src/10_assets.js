@@ -5,7 +5,7 @@ async function loadAssets() {
   const A = window.__ASSETS;
   for (const k of ['cellar', 'mobs', 'doors']) IMG[k] = await loadImage(A ? A[k] : 'assets/' + (k === 'doors' ? 'cellar_doors' : k) + '.png');
   MOBS = A ? A.mobsJson : await (await fetch('assets/mobs.json')).json();
-  IMG.mobsW = silhouette(IMG.mobs); PIX.mobs = pixelData(IMG.mobs); cutSword();
+  IMG.mobsW = silhouette(IMG.mobs); PIX.mobs = pixelData(IMG.mobs); cutWeapons();
   for (const k in COL) { GLOW[k] = glowTex(COL[k]); }
   SMOKE.grey = smokeTex([70, 66, 72]); SMOKE.dust = smokeTex([122, 100, 78]); SMOKE.dark = smokeTex([22, 18, 24]); SMOKE.green = smokeTex([60, 120, 60]); SMOKE.breath = smokeTex([226, 230, 240]);
   ROCKS.length = 0; for (let i = 0; i < 6; i++) ROCKS.push(rockTex(i));
@@ -53,47 +53,78 @@ function rockTex(seed) {
   return cv;
 }
 
-// ---------- the sellsword's sword, cut out of his own sprite so that he can swing it ----------
-// At rest he is drawn as he always was. While he attacks, his frames are drawn without the sword (the fist kept, the gaps
-// outlined again) and the sword is drawn on its own, turned about the grip. The turned swords are made once, the RotSprite
-// way: the sword is scaled up 8x with Scale2x (which rounds its edges instead of making blocks), turned, and sampled back
-// down, so a blade at an angle keeps clean pixel lines. Quarter turns are exact copies.
-const WEAPON_CUT = { VeteranSwordsman: { grip: [[12, 8], [12, 9], [11, 9], [12, 9]] } }; // the top of the grip, frame by frame
-const SWORD = { cut: null, cutW: null, rot: [], fist: [], n: 64, r: 10 };
-function cutSword() {
-  const key = 'VeteranSwordsman', m = MOBS[key]; if (!m) return; const [sy, fw, fh] = m, W = PIX.mobs.w, D = PIX.mobs.d, OUT = [29, 29, 28, 255];
-  const px = (x, y) => { const i = ((sy + y) * W + x) * 4; return [D[i], D[i + 1], D[i + 2], D[i + 3]]; };
-  // the sword's pixels around the top of its grip: three columns from the tip's outline down to the pommel's, and the right
-  // end of the crossguard. The fist (two pixels left of the grip) stays on the body; on the sword those two pixels, and the
-  // guard's left end (where his arm is), become outline.
-  const rel = []; for (let dy = -8; dy <= 3; dy++) for (let dx = -1; dx <= 1; dx++) rel.push([dx, dy]); rel.push([2, -1]);
-  const isFist = (dx, dy) => dx === -1 && (dy === 0 || dy === 1);
-  const sw = 5, sh = 12, img = new Uint8ClampedArray(sw * sh * 4), [g0x, g0y] = WEAPON_CUT[key].grip[0];
-  for (const [dx, dy] of rel.concat([[-2, -1]])) { const c = isFist(dx, dy) || dx === -2 ? OUT : px(g0x + dx, g0y + dy), i = ((dy + 8) * sw + dx + 2) * 4; for (let k = 0; k < 4; k++) img[i + k] = c[k]; }
-  // his four frames without the sword
-  const cut = mkCanvas(fw * 4, fh), cx = cut.getContext('2d'), id = cx.createImageData(fw * 4, fh), E = id.data, at = (f, x, y) => (y * fw * 4 + f * fw + x) * 4;
-  for (let f = 0; f < 4; f++) for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) { const c = px(f * fw + x, y), i = at(f, x, y); for (let k = 0; k < 4; k++) E[i + k] = c[k]; }
+// ---------- each hero's weapon, cut out of his own sprite so that he can swing it ----------
+// At rest a hero is drawn as he always was. While he attacks, his frames are drawn without the weapon (the hand kept, the
+// cut edges outlined again) and the weapon is drawn on its own, turned about the hand. A weapon is found by its colours:
+// every pixel of one of its colours on its side of the sprite, plus the outline around those pixels that does not also
+// border the body. The turned weapons are made once, the RotSprite way: scaled up 8x with Scale2x (which rounds edges
+// instead of making blocks), turned, and sampled back down, so a blade at an angle keeps clean pixel lines. Quarter turns
+// are exact copies.
+const WEAPON_CUT = {
+  VeteranSwordsman: { core: ['dceaee', 'b8ccd8', '88a3bc', '5e718e', 'f8e398', '695b59', 'e1bf89'], xMin: 10, hand: ['464762'], grip: [12, 8] }, // arming sword (one frame holds it a pixel to the left)
+  BoldManAtArms: { core: ['ecebe7', '595757', 'cbc6c1', '724b2c'], xMin: 9, hand: ['33272a'], grip: [11, 8] },                              // spear, held mid-shaft
+  BlessedGladiator: { core: ['fcf7be', 'f6d896', 'e2b27e'], xMin: 12, hand: ['594d4d'], grip: [13, 8] },                                  // golden axe
+  HalflingAssassin: { core: ['003b62', '049050', '6ac81f', 'c1f567'], xMin: 11, hand: ['dfb2c6'], grip: [12, 11] },                       // dagger, reverse grip
+};
+const WEAPON = {}; const WEAPON_TURNS = 64, OUTLINE_RGB = [29, 29, 28];
+function cutWeapons() { for (const key in WEAPON_CUT) if (MOBS[key]) WEAPON[key] = cutWeapon(key, WEAPON_CUT[key]); }
+function cutWeapon(key, cfg) {
+  const [sy, fw, fh] = MOBS[key], SW = PIX.mobs.w, D = PIX.mobs.d, hex = c => c.map(v => v.toString(16).padStart(2, '0')).join('');
+  const px = (f, x, y) => { if (x < 0 || y < 0 || x >= fw || y >= fh) return null; const i = ((sy + y) * SW + f * fw + x) * 4; return D[i + 3] > 128 ? [D[i], D[i + 1], D[i + 2], 255] : null; };
+  const isOut = c => c && c[0] === OUTLINE_RGB[0] && c[1] === OUTLINE_RGB[1] && c[2] === OUTLINE_RGB[2];
+  const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]], N8 = N4.concat([[1, 1], [1, -1], [-1, 1], [-1, -1]]);
+  const frames = [];
   for (let f = 0; f < 4; f++) {
-    const [gx, gy] = WEAPON_CUT[key].grip[f], gone = [];
-    for (const [dx, dy] of rel) { const x = gx + dx, y = gy + dy; if (isFist(dx, dy) || x < 0 || y < 0 || x >= fw || y >= fh) continue; const i = at(f, x, y); if (E[i + 3]) { E[i + 3] = 0; gone.push([x, y]); } }
-    const solid = (x, y) => x >= 0 && y >= 0 && x < fw && y < fh && E[at(f, x, y) + 3] > 0, line = (x, y) => { const i = at(f, x, y); return E[i] === 29 && E[i + 1] === 29 && E[i + 2] === 28; };
-    for (const [x, y] of gone) if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => solid(x + a, y + b) && !line(x + a, y + b))) { const i = at(f, x, y); E[i] = 29; E[i + 1] = 29; E[i + 2] = 28; E[i + 3] = 255; }
-    SWORD.fist.push([[gx - 1, gy, px(f * fw + gx - 1, gy)], [gx - 1, gy + 1, px(f * fw + gx - 1, gy + 1)]]);
-  }
-  cx.putImageData(id, 0, 0); SWORD.cut = cut; SWORD.cutW = silhouette(cut);
-  // the sword turned to 64 angles about the centre of the grip's top pixel (2, 8)
-  let big = { w: sw, h: sh, d: img }; for (let k = 0; k < 3; k++) big = scale2x(big);
-  const R = SWORD.r, S = 2 * R + 1;
-  for (let a = 0; a < SWORD.n; a++) {
-    const ph = a / SWORD.n * TAU, co = Math.round(Math.cos(ph) * 1e9) / 1e9, si = Math.round(Math.sin(ph) * 1e9) / 1e9, exact = a % (SWORD.n / 4) === 0;
-    const cv = mkCanvas(S, S), x = cv.getContext('2d'), o = x.createImageData(S, S);
-    for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) {
-      const rx = xx - R, ry = y - R, ux = 2.5 + co * rx + si * ry, uy = 8.5 - si * rx + co * ry, j = (y * S + xx) * 4;
-      const src = exact ? { w: sw, h: sh, d: img } : big, k8 = exact ? 1 : 8, X = Math.floor(ux * k8), Y = Math.floor(uy * k8);
-      if (X < 0 || Y < 0 || X >= src.w || Y >= src.h) continue; const i = (Y * src.w + X) * 4; for (let k = 0; k < 4; k++) o.data[j + k] = src.d[i + k];
+    const core = (x, y) => { const c = px(f, x, y); return !!c && x >= cfg.xMin && cfg.core.includes(hex(c.slice(0, 3))); };
+    const body = (x, y) => { const c = px(f, x, y); return !!c && !isOut(c) && !core(x, y); };
+    const W = new Set(), key2 = (x, y) => x + ',' + y;
+    for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) {
+      if (core(x, y)) { W.add(key2(x, y)); continue; }
+      const c = px(f, x, y); if (!isOut(c)) continue;
+      if (N8.some(([a, b]) => core(x + a, y + b)) && !N4.some(([a, b]) => body(x + a, y + b))) W.add(key2(x, y));
     }
-    x.putImageData(o, 0, 0); SWORD.rot.push(cv);
+    const hands = []; for (let y = 0; y < fh; y++) for (let x = Math.max(0, cfg.xMin - 2); x < fw; x++) { const c = px(f, x, y); if (c && cfg.hand.includes(hex(c.slice(0, 3))) && N8.some(([a, b]) => W.has(key2(x + a, y + b)))) hands.push([x, y, c]); }
+    let mx = fw, my = fh; for (const k of W) { const [x, y] = k.split(',').map(Number); if (core(x, y)) { mx = Math.min(mx, x); my = Math.min(my, y); } }
+    frames.push({ W, hands, mx, my, core, body });
   }
+  // the grip in each frame: the weapon pixel beside the hand nearest to where frame 0's grip has moved to
+  const piv = frames.map((F, f) => {
+    const want = [cfg.grip[0] + F.mx - frames[0].mx, cfg.grip[1] + F.my - frames[0].my]; let best = want, bd = 1e9;
+    for (const [hx, hy] of F.hands) for (const [a, b] of N4) { const x = hx + a, y = hy + b; if (!F.core(x, y)) continue; const d = Math.hypot(x - want[0], y - want[1]); if (d < bd) { bd = d; best = [x, y]; } }
+    return f === 0 ? cfg.grip : best;
+  });
+  // the hero without his weapon, frame by frame
+  const cut = mkCanvas(fw * 4, fh), cx = cut.getContext('2d'), id = cx.createImageData(fw * 4, fh), E = id.data, at = (f, x, y) => (y * fw * 4 + f * fw + x) * 4;
+  for (let f = 0; f < 4; f++) {
+    const F = frames[f];
+    for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) { const c = px(f, x, y); if (!c || F.W.has(x + ',' + y)) continue; const i = at(f, x, y); E[i] = c[0]; E[i + 1] = c[1]; E[i + 2] = c[2]; E[i + 3] = 255; }
+    for (const k of F.W) { const [x, y] = k.split(',').map(Number); if (N4.some(([a, b]) => F.body(x + a, y + b) && !F.W.has((x + a) + ',' + (y + b)))) { const i = at(f, x, y); E[i] = OUTLINE_RGB[0]; E[i + 1] = OUTLINE_RGB[1]; E[i + 2] = OUTLINE_RGB[2]; E[i + 3] = 255; } }
+  }
+  cx.putImageData(id, 0, 0);
+  // the weapon alone, from frame 0, its outline closed where the hand held it
+  const F0 = frames[0], pts = [...F0.W].map(k => k.split(',').map(Number));
+  let x0 = fw, y0 = fh, x1 = 0, y1 = 0; for (const [x, y] of pts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  x0--; y0--; x1++; y1++; const iw = x1 - x0 + 1, ih = y1 - y0 + 1, img = new Uint8ClampedArray(iw * ih * 4), put = (x, y, c) => { const i = ((y - y0) * iw + (x - x0)) * 4; img[i] = c[0]; img[i + 1] = c[1]; img[i + 2] = c[2]; img[i + 3] = 255; };
+  for (const [x, y] of pts) put(x, y, px(0, x, y));
+  for (const [x, y] of pts) if (F0.core(x, y)) for (const [a, b] of N4) if (!F0.W.has((x + a) + ',' + (y + b))) put(x + a, y + b, OUTLINE_RGB);
+  const gx = cfg.grip[0] - x0, gy = cfg.grip[1] - y0;
+  // which way it points at rest: from the grip to its farthest coloured pixel, to the nearest quarter turn
+  let far = 0, ang = -Math.PI / 2; for (const [x, y] of pts) if (F0.core(x, y)) { const d = Math.hypot(x - cfg.grip[0], y - cfg.grip[1]); if (d > far) { far = d; ang = Math.atan2(y - cfg.grip[1], x - cfg.grip[0]); } }
+  const rest = Math.round(ang / (Math.PI / 2)) * (Math.PI / 2);
+  let R = 0; for (let y = 0; y < ih; y++) for (let x = 0; x < iw; x++) if (img[(y * iw + x) * 4 + 3]) R = Math.max(R, Math.ceil(Math.hypot(x - gx, y - gy)) + 1);
+  // turned to WEAPON_TURNS angles about the centre of the grip pixel
+  let big = { w: iw, h: ih, d: img }; for (let k = 0; k < 3; k++) big = scale2x(big);
+  const S = 2 * R + 1, rot = [];
+  for (let a = 0; a < WEAPON_TURNS; a++) {
+    const ph = a / WEAPON_TURNS * TAU, co = Math.round(Math.cos(ph) * 1e9) / 1e9, si = Math.round(Math.sin(ph) * 1e9) / 1e9, exact = a % (WEAPON_TURNS / 4) === 0;
+    const cv = mkCanvas(S, S), x = cv.getContext('2d'), o = x.createImageData(S, S), src = exact ? { w: iw, h: ih, d: img } : big, k8 = exact ? 1 : 8;
+    for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) {
+      const rx = xx - R, ry = y - R, ux = gx + 0.5 + co * rx + si * ry, uy = gy + 0.5 - si * rx + co * ry, X = Math.floor(ux * k8), Y = Math.floor(uy * k8);
+      if (X < 0 || Y < 0 || X >= src.w || Y >= src.h) continue; const i = (Y * src.w + X) * 4, j = (y * S + xx) * 4; for (let k = 0; k < 4; k++) o.data[j + k] = src.d[i + k];
+    }
+    x.putImageData(o, 0, 0); rot.push(cv);
+  }
+  return { cut, cutW: silhouette(cut), rot, r: R, piv, hands: frames.map(F => F.hands), rest, img: { w: iw, h: ih, d: img, gx, gy } };
 }
 // Scale2x (EPX): doubles a pixel image, following diagonal edges instead of turning every pixel into a block
 function scale2x(s) {

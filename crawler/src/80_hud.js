@@ -35,6 +35,7 @@ function drawHUD() {
   font(c, 600, 15, F_HUD); label(c, G.gold + ' GOLD', mb.x - mb.r - 10, T + 14, '#ffd860', { align: 'right', stroke: 3 });
   font(c, 500, 13, F_HUD); label(c, ARENA.name, mb.x - mb.r - 10, T + 30, 'rgba(240,224,192,0.7)', { align: 'right', stroke: 3 });
   if (!UI.paused) drawMinimap(c, R, my);
+  if (MENU.update && !UI.paused) { c.globalAlpha = 0.6 + 0.4 * Math.sin(performance.now() / 260); font(c, 600, 14, F_HUD); label(c, 'UPDATE READY · OPEN THE MENU', mb.x - mb.r - 10, T + 46, '#ffb860', { align: 'right', stroke: 3 }); c.globalAlpha = 1; }
   // banners
   const bn = G.banner; if (bn) {
     const u = bn.t / bn.life, a = u > 0.8 ? (1 - u) / 0.2 : Math.min(1, bn.t * 6), sz = clamp(Math.min(W, H) / 8, 26, 60) * (bn.small ? 0.55 : 1), y = bn.small ? H * 0.2 : H * 0.3, cc = COL[bn.col] || COL.gold;

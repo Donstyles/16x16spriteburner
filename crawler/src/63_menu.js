@@ -2,6 +2,14 @@
 const UI = { paused: false, titleT: 0 };
 const MENU = { screen: 'title', rects: [], sel: 0 };
 const KIT_ORDER = ['sellsword', 'lancer', 'gladiator', 'cutthroat'];
+// A newer build on the site: a menu simply reloads into it; during a run the HUD says so and the pause menu offers the
+// update (it ends the run). Checked every minute and whenever the game comes back to the front.
+const BUILD = window.__BUILD || 'dev';
+function checkVersion() {
+  if (!/^https?:$/.test(location.protocol) || BUILD === 'dev' || /claude/.test(location.hostname)) return;
+  fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (/^[0-9a-f]{8}$/.test(v) && v !== BUILD) { MENU.update = v; if (G.mode !== 'play') location.reload(); } }).catch(() => { });
+}
+setInterval(checkVersion, 60000); document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(); });
 function btn(c, x, y, w, h, txt, fn, o = {}) {
   MENU.rects.push({ r: [x, y, w, h], fn });
   c.fillStyle = o.on ? 'rgba(90,64,34,0.85)' : 'rgba(18,14,20,0.78)'; c.fillRect(x, y, w, h);
@@ -29,6 +37,7 @@ function drawMenu(c) {
     font(c, 500, clamp(big / 22, 14, 22), F_HUD); spaced(c, 'A DUNGEON CRAWL', W / 2, H * 0.36 + clamp(big / 12, 26, 44), 5, '#c8a870', 'center');
     const bw = Math.min(260, W * 0.4), bh = clamp(big / 9, 40, 54); btn(c, W / 2 - bw / 2, H * 0.6, bw, bh, 'DESCEND', () => { MENU.screen = 'kits'; });
     font(c, 500, 14, F_HUD); spaced(c, (G.best ? 'DEEPEST FLOOR ' + G.best + '   ·   ' : '') + 'SOLO FOR NOW  ·  CO-OP RETURNS IN A LATER BUILD', W / 2, H * 0.6 + bh + 30, 2, 'rgba(240,224,192,0.6)', 'center');
+    font(c, 500, 12, F_HUD); c.globalAlpha = 0.55; spaced(c, 'VERSION ' + BUILD.toUpperCase(), W - 14 - VIEW.safe.r, H - 12, 2, '#a8987e', 'right'); c.globalAlpha = 1;
   } else if (MENU.screen === 'kits') {
     font(c, 900, clamp(big / 9, 26, 46), F_DISP); label(c, 'Choose your kit', W / 2, H * 0.15, '#f8ecd6', { align: 'center' });
     const n = 4, gap = 10, cw = Math.min(190, (W - 40 - gap * 3) / n), ch = Math.min(H * 0.62, 250), x0 = W / 2 - (cw * n + gap * 3) / 2, y0 = H * 0.22;
@@ -57,4 +66,5 @@ function drawPause(c) {
   font(c, 500, 14, F_HUD);
   ['TAP ATTACK TO STRIKE, HOLD IT TO CHARGE A HEAVY BLOW', 'ROLL THROUGH BLOWS · HOLD BLOCK, OR RAISE IT JUST AS A BLOW LANDS TO PARRY', 'HIT SLEEPING OR UNAWARE FOES FOR A SNEAK ATTACK · RED MARKS SHOW WHERE A BLOW WILL LAND', 'KEYS: WASD · J ATTACK · SPACE ROLL · SHIFT BLOCK · F FLASK · ESC MENU'].forEach((L, i) => spaced(c, L, W / 2, H * 0.36 + i * 20, 1.5, 'rgba(240,224,192,0.8)', 'center'));
   const bw = Math.min(220, W * 0.32), bh = 42; btn(c, W / 2 - bw - 8, H * 0.66, bw, bh, 'RESUME', togglePause); btn(c, W / 2 + 8, H * 0.66, bw, bh, 'ABANDON RUN', abandonRun, { col: '#e8907a' });
+  if (MENU.update) btn(c, W / 2 - bw - 8, H * 0.66 + bh + 12, bw * 2 + 16, 38, 'NEW VERSION READY  ·  UPDATE NOW (ENDS THIS RUN)', () => location.reload(), { col: '#ffb860', size: 17, on: true });
 }

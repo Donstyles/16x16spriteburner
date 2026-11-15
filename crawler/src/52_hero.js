@@ -54,31 +54,40 @@ function pant(h, dt) {
   else H.t = 0.26 * slow;
   H.out = !H.out;
 }
-// The sellsword's sword, swung: the angle it points (screen space, about the grip) through each move. It starts from
-// wherever it is (a combo flows on), draws back in the wind-up, sweeps through the arc in the strike and settles back to
-// rest in the recovery. A thrust draws back and drives forward; the spin goes once round; charging, it is raised back.
-const SWORD_REST = -Math.PI / 2;
+// A hero's weapon, swung: the angle it points (screen space, about the hand) through each move. It starts from wherever
+// it is (a combo flows on), draws back in the wind-up, sweeps through the arc in the strike and settles back to rest in
+// the recovery. A thrust draws back and drives forward along the line (the shaft slides through the hand); a dash points
+// ahead; the spin goes once round; the slam is raised overhead and brought down on the spot ahead; charging, the weapon
+// is raised back over the shoulder.
 const angLerp = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t, easeOut = t => 1 - (1 - t) * (1 - t), easeIO = t => t * t * (3 - 2 * t);
-function swordPose(h) {
-  const a = h.act; if (h.weapon !== 'sword' || !a || h.dead) return null;
-  if (a.k === 'charge') { const p = Math.min(1, a.t / WEAPONS.sword.heavy.charge); return { th: angLerp(SWORD_REST, SWORD_REST - (h.face < 0 ? -1 : 1) * 1.0, easeOut(p)), push: 0, shake: p >= 1 }; } // raised back over the shoulder
+function weaponPose(h) {
+  const Wc = WEAPON[h.spr], a = h.act; if (!Wc || !a || h.dead) return null;
+  const R = Wc.rest, fs = h.face < 0 ? -1 : 1, UP = -Math.PI / 2;
+  if (a.k === 'charge') { const p = Math.min(1, a.t / weaponOf(h).heavy.charge); return { th: angLerp(R, UP - fs * 1.0, easeOut(p)), push: 0, shake: p >= 1 }; }
   if (a.k !== 'atk') return null;
-  if (a.th0 === undefined) a.th0 = h.swTh === undefined ? SWORD_REST : h.swTh;
-  const mv = a.mv, w = mv.wind, s = w + mv.act, t = a.t, d = a.dir, rec = clamp((t - s) / mv.rec, 0, 1);
+  if (a.th0 === undefined) a.th0 = h.swTh === undefined ? R : h.swTh;
+  const mv = a.mv, w = mv.wind, s = w + mv.act, t = a.t, d = a.dir, rec = clamp((t - s) / mv.rec, 0, 1), home = (th, from = 0.25) => angLerp(th, R, easeIO(clamp((rec - from) / (1 - from), 0, 1)));
   if (mv.k === 'arc') {
-    const sw = (mv.sweep || 1) * (h.face < 0 ? -1 : 1), half = mv.arc / 2 * 1.15, a0 = d - sw * half, a1 = d + sw * half;
+    const sw = (mv.sweep || 1) * fs, half = mv.arc / 2 * 1.15, a0 = d - sw * half, a1 = d + sw * half;
     if (t < w) return { th: angLerp(a.th0, a0, easeOut(t / w)), push: 0 };
     if (t < s) return { th: a0 + (a1 - a0) * easeOut((t - w) / mv.act), push: 1 };
-    return { th: angLerp(a1, SWORD_REST, easeIO(clamp((rec - 0.25) / 0.75, 0, 1))), push: 0 };
+    return { th: home(a1), push: 0 };
   }
   if (mv.k === 'line') {
-    if (t < w) { const p = easeOut(t / w); return { th: angLerp(a.th0, d, p), push: -1 * p }; }
-    if (t < s) return { th: d, push: -1 + 3 * easeOut((t - w) / mv.act) };
-    return { th: angLerp(d, SWORD_REST, easeIO(clamp((rec - 0.3) / 0.7, 0, 1))), push: 2 * (1 - rec) };
+    const reach = mv.dash ? 2 : mv.reach >= 30 ? 3 : 2;
+    if (t < w) { const p = easeOut(t / w); return { th: angLerp(a.th0, d, p), push: mv.dash ? 0 : -1.5 * p }; }
+    if (t < s) return { th: d, push: mv.dash ? reach : -1.5 + (reach + 1.5) * easeOut((t - w) / mv.act) };
+    return { th: home(d, 0.3), push: reach * (1 - rec) };
+  }
+  if (mv.slam) {
+    const up = UP - fs * 0.5, down = angLerp(d, Math.PI / 2, 0.35);
+    if (t < w) return { th: angLerp(a.th0, up, easeOut(t / w)), push: 0 };
+    if (t < s) return { th: angLerp(up, down, easeOut((t - w) / mv.act)), push: 1 };
+    return { th: home(down, 0.4), push: 0 };
   }
   if (t < w) return { th: angLerp(a.th0, d, t / w), push: 0 };
-  if (t < s) return { th: d + (h.face < 0 ? -1 : 1) * TAU * easeOut((t - w) / mv.act), push: 1 };
-  return { th: angLerp(d, SWORD_REST, easeIO(rec)), push: 0 };
+  if (t < s) return { th: d + fs * TAU * easeOut((t - w) / mv.act), push: 1 };
+  return { th: home(d, 0), push: 0 };
 }
 // a drop of sweat: one pixel flicked off the head, falling to the floor
 function sweat(h) { const side = chance(0.5) ? -1 : 1; part({ k: 'drop', x: h.x + side * rand(1, 4), y: h.y + rand(-1, 1), z: headZ(h) - rand(1, 5), vx: side * rand(14, 34), vy: rand(-6, 6), vz: rand(25, 55), g: 300, life: rand(0.45, 0.7), col: chance(0.7) ? '#cfe9ff' : '#9cc9ee' }); }
