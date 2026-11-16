@@ -11,14 +11,14 @@ const GORE = { level: 2, big: 0.5 }; // big: the least share of spray drops that
 try { const v = localStorage.getItem('cr2-gore'); if (v !== null && v !== '') GORE.level = clamp(Math.round(+v) || 0, 0, 2); } catch (e) { /* storage blocked: the default */ }
 function setGore(v) { GORE.level = v; try { localStorage.setItem('cr2-gore', String(v)); } catch (e) { /* not kept */ } }
 const GORE_NAMES = ['OFF', 'BLOOD', 'FULL'];
-const DRY = new Set(['bone', 'metal', 'straw']); // these do not bleed
+const DRY = new Set(['bone', 'stone', 'straw']); // these do not bleed: they shed bits instead (46_bits)
 const DUST = ['#5a5048', '#7d7064', '#3c342e'];
 const bleeds = u => GORE.level > 0 && !DRY.has(u.def.blood || 'red');
 const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const GIB_HOLD = 0.22; // how long a burst is held: the hero frozen, the pieces and spray moving slowly
 
 // --- where blood lies: a coarse map (4 px cells) of how much, and of which kind, so feet can pick it up
-const BK = ['red', 'slime', 'bug', 'sludge', 'bone', 'metal', 'straw'];
+const BK = ['red', 'slime', 'bug', 'sludge', 'bone', 'stone', 'straw'];
 const BMAP = { A: null, w: 0, a: null, k: null };
 function bmap() {
   const A = ARENA; if (BMAP.A !== A) { BMAP.A = A; BMAP.w = Math.ceil(A.w * TS / 4); const n = BMAP.w * Math.ceil(A.h * TS / 4); BMAP.a = new Uint8Array(n); BMAP.k = new Uint8Array(n); BTR.length = 0; }
@@ -133,10 +133,11 @@ function drawRuns(c) {
 // --- each frame, for every unit: the badly wounded drip as they go; a hero's blade dries, drips; his feet print
 function bloodTick(u, dt) {
   if (u.team === 'hero') { if (u.gore > 0) u.gore = Math.max(0, u.gore - 0.035 * dt); bladeDrip(u, dt); footprints(u); }
-  if (!bleeds(u) || u.hp >= u.maxHp * 0.5 || u.z > 2) { u.bx = u.x; u.by = u.y; return; }
+  const dry = u.def.blood === 'straw' || u.def.blood === 'bone'; // (the badly hurt bloodless leave stalks and chips)
+  if (!(bleeds(u) || dry) || u.hp >= u.maxHp * 0.5 || u.z > 2) { u.bx = u.x; u.by = u.y; return; }
   const d = Math.hypot(u.x - (u.bx === undefined ? u.x : u.bx), u.y - (u.by === undefined ? u.y : u.by)); u.bx = u.x; u.by = u.y;
   u.bd = (u.bd || 0) + d + dt * 3; // still, a wound drips slowly
-  if (u.bd > lerp(5, 15, u.hp / (u.maxHp * 0.5))) { u.bd = 0; drip(u.x + rand(-2, 2), u.y + rand(-1, 1), rand(3, 7) * (u.scale || 1), u.def.blood || 'red'); }
+  if (u.bd > lerp(5, 15, u.hp / (u.maxHp * 0.5)) * (dry ? 1.6 : 1)) { u.bd = 0; if (dry) shedTrail(u); else drip(u.x + rand(-2, 2), u.y + rand(-1, 1), rand(3, 7) * (u.scale || 1), u.def.blood || 'red'); }
 }
 function bladeDrip(h, dt) {
   if (!GORE.level || !(h.gore > 0.3) || h.dead || !(G.time - (h.tipT || -9) < 0.1)) return;
@@ -176,10 +177,12 @@ function bloodyTurn(Wc, kind, lv, a) {
 // --- a bigger foe blown apart: chunks cut from its own pixels, their broken edges raw, bleeding as they fly and where
 // they land; they lie a few seconds and fade (no bodies are left)
 function gibBurst(u) {
-  const m = MOBS[u.spr]; if (!m) return; const kind = u.def.blood || 'red', bl = BLOOD[kind], sc = u.scale || 1, o = u.lastBlow || {}, slow = G.time + GIB_HOLD;
-  const fr = ((u.anim * 9) | 0) % 4, flip = u.face < 0, opt = { away: o.ang === undefined ? null : o.ang, spd: 1.3, flip, edge: [bl[1], bl[0], bl[2]], bleed: kind, lie: rand(2.5, 4), slow };
+  const m = MOBS[u.spr]; if (!m) return; const kind = u.def.blood || 'red', bl = BLOOD[kind], sc = u.scale || 1, o = u.lastBlow || {}, slow = G.time + GIB_HOLD, dry = DRY.has(kind);
+  // the bloodless break into pieces of themselves too, edged with what they are made of; a scarecrow's shed hay as they fly
+  const fr = ((u.anim * 9) | 0) % 4, flip = u.face < 0, opt = { away: o.ang === undefined ? null : o.ang, spd: 1.3, flip, edge: dry ? BIT_EDGE[kind] : [bl[1], bl[0], bl[2]], bleed: dry ? null : kind, lie: rand(2.5, 4), slow, hay: kind === 'straw', tick: kind === 'bone' };
   if (sc !== 1) { const B = bigSprite(u.spr, sc); B.pd = B.pd || pixelData(B.cv); breakSprite(B.pd, fr * B.W, 0, B.W, B.H, Math.round(u.x - B.W / 2), Math.round(u.y - u.z - B.foot), u.y, randi(6, 8), opt); }
   else breakSprite(PIX.mobs, fr * m[1], m[0], m[1], m[2], Math.round(u.x - m[1] / 2), Math.round(u.y - u.z - footOf(u.spr) - 1), u.y, randi(5, 7), opt);
+  if (dry) { burstBits(u, o, slow); return; }
   spray(u, 60, { ...o, more: 1.6, slow, spd: 1.2 }); spray(u, 40, { style: 'slam', slow }); pool(u.x, u.y, kind, 2 + sc);
   SFX.gib(panOf(u.x)); shake(0.12); kick(0.03);
 }
@@ -235,10 +238,11 @@ function heroBurst(h, o) {
 
 // --- a brute's death throes: brought to 0 it does not drop at once. It stops, shaking and lurching, turning this way and
 // that; with every beat of its heart blood spurts from its chest, weaker each time, and the pool under it spreads; it
-// sinks to its knees and dies. Another blow finishes it at once. Those with no blood (golems, the scarecrow) shed dust.
+// sinks to its knees and dies. Another blow finishes it at once. Those with no blood shed instead: the scarecrow pours
+// hay, a golem crumbles.
 function throes(u, src) {
   u.hp = 0; u.act = null; u.tgt = null; u.dying = { t: 0, dur: rand(2.4, 3.2), next: 0.12, lurch: 0.2, src };
-  SFX.groan(panOf(u.x)); if (bleeds(u)) spray(u, 40, { ...(u.lastBlow || {}), more: 1.2 });
+  SFX.groan(panOf(u.x)); if (bleeds(u)) spray(u, 40, { ...(u.lastBlow || {}), more: 1.2 }); else if (DRY.has(u.def.blood)) shed(u, 40, { ...(u.lastBlow || {}), more: 1.2, quiet: true });
 }
 function throesTick(f, dt) {
   const D = f.dying; D.t += dt; f.vx = damp(f.vx, 0, 8, dt); f.vy = damp(f.vy, 0, 8, dt); f.moving = false; f.stun = 0.2; // (shaking)
@@ -248,7 +252,7 @@ function throesTick(f, dt) {
     if (bleeds(f)) {
       for (let i = 0, n = Math.round((8 + 12 * k) * sc); i < n; i++) { const a = rand(TAU), v = rand(15, 55) * k; part({ k: 'gore', x: f.x + rand(-2, 2), y: f.y + rand(-1, 1), z: 11 * sc, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.8, vz: rand(70, 160) * k, g: 420, life: 5, s0: chance(GORE.big) ? 2 : 1, col: pick(BLOOD[kind]), kind }); }
       pool(f.x + rand(-2, 2), f.y + 1, kind, 1.5 + D.t * 0.9); SFX.squelch(panOf(f.x), k > 0.6);
-    } else debris(f.x, f.y - 6, 5, DRY.has(kind) ? BLOOD[kind] : DUST, 50, 70, 1.4);
+    } else if (DRY.has(kind)) throesShed(f, k); else debris(f.x, f.y - 6, 5, DUST, 50, 70, 1.4);
   }
   if (D.t >= D.dur) { f.stun = 0; const src = D.src; f.dying = null; kill(f, src); }
 }

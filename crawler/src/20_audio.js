@@ -108,6 +108,28 @@ const SFX = {
   squelch(pan = 0, big = false) { if (!this.ok('squelch', 0.03)) return; this.noise(this.brown, big ? 0.24 : 0.13, 'lowpass', big ? 1300 : 1000, 160, 1.8, big ? 0.55 : 0.34, pan, 0, 0.003); this.noise(this.white, big ? 0.09 : 0.05, 'bandpass', 900, 280, 5, big ? 0.2 : 0.13, pan, 0.008, 0.002); },
   // a body blown apart: the wet burst, a crack of bone, then the pieces slapping down
   gib(pan = 0) { if (!this.ok('gib', 0.1)) return; this.squelch(pan, true); this.crack(pan); this.tone('sine', 110, 40, 0.3, 0.4, pan); for (let i = 0; i < 6; i++) this.noise(this.brown, 0.06, 'bandpass', rand(400, 900), 200, 4, rand(0.14, 0.26), pan + rand(-0.3, 0.3), rand(0.25, 0.9), 0.002); },
+  // bone struck: a hard dry clack (a bright burst through a high narrow band, a hollow wooden tock under it), then a
+  // little rattle of small clicks as the bits come loose
+  bone(pan = 0, big = false) {
+    if (!this.ok('bone', 0.04)) return;
+    this.noise(this.white, 0.035, 'bandpass', 2600, 1700, 3, big ? 0.5 : 0.36, pan, 0, 0.001, true);
+    this.tone('triangle', big ? 560 : 680, 400, 0.06, big ? 0.24 : 0.17, pan);
+    for (let i = 0, n = big ? 6 : 3; i < n; i++) this.noise(this.white, rand(0.01, 0.018), 'bandpass', rand(1600, 3800), 1400, 4, rand(0.05, 0.12), pan + rand(-0.2, 0.2), rand(0.04, big ? 0.35 : 0.2), 0.001);
+  },
+  // a small bone landing: one dry click
+  tick(pan = 0) { if (!this.ok('tick', 0.03)) return; const f = rand(900, 1400); this.tone('triangle', f, f * 0.7, 0.03, 0.06, pan); this.noise(this.white, 0.015, 'bandpass', rand(2500, 4000), 2000, 4, 0.07, pan, 0, 0.001); },
+  // a skeleton coming apart: a run of clicks and knocks, the bones falling and rolling, thinning out
+  clatter(pan = 0) {
+    if (!this.ok('clatter', 0.15)) return; this.tone('sine', 160, 70, 0.1, 0.2, pan);
+    for (let i = 0; i < 12; i++) { const t = 0.03 + Math.pow(i / 12, 1.4) * 0.75, f = rand(600, 1300); this.tone('triangle', f, f * 0.7, 0.035, 0.1 * (1 - i / 16), pan + rand(-0.3, 0.3), t); this.noise(this.white, 0.014, 'bandpass', rand(1800, 4200), 1500, 4, 0.09 * (1 - i / 16), pan + rand(-0.3, 0.3), t, 0.001); }
+  },
+  // straw struck: a soft dull whump, and the dry rustle and crackle of the stalks flying
+  hay(pan = 0, big = false) {
+    if (!this.ok('hay', 0.05)) return;
+    this.noise(this.brown, big ? 0.22 : 0.13, 'lowpass', 900, 220, 0.8, big ? 0.45 : 0.32, pan, 0, 0.004);
+    this.noise(this.white, big ? 0.4 : 0.22, 'bandpass', 4200, 2600, 1.2, big ? 0.1 : 0.07, pan, 0.01, 0.02);
+    for (let i = 0, n = big ? 12 : 6; i < n; i++) this.noise(this.white, rand(0.006, 0.012), 'highpass', rand(3000, 6000), 3000, 0.8, rand(0.04, 0.09), pan + rand(-0.25, 0.25), rand(0, big ? 0.4 : 0.22), 0.001);
+  },
   // a big creature's dying groan: a low rough voice falling away, breath through it
   groan(pan = 0) { if (!this.ok('groan', 0.6)) return; this.tone('sawtooth', 92, 62, 0.75, 0.11, pan, 0, 0.08); this.tone('sawtooth', 138, 92, 0.65, 0.045, pan, 0.02, 0.08); this.noise(this.brown, 0.7, 'bandpass', 420, 240, 2.5, 0.28, pan, 0, 0.06); },
   chest(pan = 0) { if (!this.ok('chest', 0.2)) return; this.noise(this.brown, 0.35, 'bandpass', 380, 220, 4, 0.35, pan, 0, 0.03); this.tone('sawtooth', 140, 90, 0.3, 0.05, pan, 0, 0.05); this.tone('triangle', 1568, 1568, 0.08, 0.1, pan, 0.25); this.tone('triangle', 2349, 2349, 0.16, 0.09, pan, 0.31); },

@@ -91,6 +91,8 @@ function updateFx(dt) {
   for (let i = P.length - 1; i >= 0; i--) {
     const p = P[i]; p.t += dt; if (p.t >= p.life) { P[i] = P[P.length - 1]; P.pop(); continue; }
     if (p.k === 'gore') { goreStep(p, dt); continue; }
+    if (p.k === 'hay') { hayStep(p, dt); continue; }
+    if (p.k === 'chip') { chipStep(p, dt); continue; }
     if (p.on) { const u = p.on; if (u.dead || (u.act && u.act.k === 'roll')) { p.on = null; p.g = 320; } else { p.row += p.rate * dt; placeDrop(p, u); if (p.row >= p.rowEnd) { p.on = null; p.g = 320; const out = p.side * (u.face < 0 ? -1 : 1); p.vx = (u.vx || 0) * 0.4 + out * rand(4, 10); p.vy = (u.vy || 0) * 0.4 + rand(2, 6); } continue; } } // a drop still running down the hero's head
     if (p.drag) { const f = Math.exp(-p.drag * dt); p.vx *= f; p.vy *= f; if (!p.g) p.vz *= f; }
     if (p.bounce && p.z < 40 && !solidAt(p.x, p.y)) { // shards, sparks and gibs glance off the walls (a mark already inside a wall is left alone)
@@ -121,7 +123,8 @@ function updateFx(dt) {
 // D: pixel data ({ w, d }); sx,sy,sw,sh: the sprite in it; ox,oy: where its top left is drawn; gy: the floor line it
 // stands on; n pieces. o: away (the angle the blow travelled: the pieces fly mostly that way), wait (seconds before they
 // appear), spd, flip (drawn mirrored), edge (colours for the broken edges, else they are darkened), bleed (a blood kind),
-// lie (seconds to lie before fading, instead of staying), slow (until this time the pieces move slowly)
+// lie (seconds to lie before fading, instead of staying), slow (until this time the pieces move slowly), hay (they shed
+// hay as they fly), tick (they click as they land)
 function breakSprite(D, sx, sy, sw, sh, ox, oy, gy, n, o = {}) {
   const W = D.w, px = [], spd = o.spd || 1, edge = o.edge ? o.edge.map(hexRgb) : null;
   for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) { const i = ((sy + y) * W + sx + (o.flip ? sw - 1 - x : x)) * 4; if (D.d[i + 3] > 128) px.push([x, y, i]); }
@@ -143,7 +146,7 @@ function breakSprite(D, sx, sy, sw, sh, ox, oy, gy, n, o = {}) {
     g.putImageData(id, 0, 0);
     const rot = [cv]; for (let r = 1; r < 4; r++) { const s = rot[r - 1], q = mkCanvas(s.height, s.width), og = q.getContext('2d'); og.setTransform(0, 1, -1, 0, s.height, 0); og.drawImage(s, 0, 0); rot.push(q); }
     const mx = (x0 + x1 + 1) / 2, ground = gy + rand(-3, 2), dx = (mx - cx0) / cx0, up = 1 - y1 / sh, a = o.away === null || o.away === undefined ? rand(TAU) : o.away, v = rand(35, 75) * spd;
-    FX.rocks.push({ rot, r: 0, x: ox + mx, y: ground, z: Math.max(0, ground - (oy + y1)), vx: dx * rand(40, 80) * spd + Math.cos(a) * v, vy: rand(-10, 30) * spd + Math.sin(a) * v * 0.7, vz: rand(50, 110) * spd + up * 60, spin: rand(0.06, 0.12), t: 0, wait: o.wait || 0, fade: 0, bleed: o.bleed, lie: o.lie, slow: o.slow || 0 });
+    FX.rocks.push({ rot, r: 0, x: ox + mx, y: ground, z: Math.max(0, ground - (oy + y1)), vx: dx * rand(40, 80) * spd + Math.cos(a) * v, vy: rand(-10, 30) * spd + Math.sin(a) * v * 0.7, vz: rand(50, 110) * spd + up * 60, spin: rand(0.06, 0.12), t: 0, wait: o.wait || 0, fade: 0, bleed: o.bleed, lie: o.lie, slow: o.slow || 0, hay: o.hay, tick: o.tick });
   });
   if (FX.rocks.length > 90) FX.rocks.splice(0, FX.rocks.length - 90);
 }
@@ -160,10 +163,12 @@ function updateRocks(dt) {
     const nx = r.x + r.vx * sdt, ny = r.y + r.vy * sdt; if (solidAt(nx, r.y)) r.vx = -r.vx * 0.4; else r.x = nx; if (solidAt(r.x, ny)) r.vy = -r.vy * 0.4; else r.y = ny;
     r.vz -= 480 * sdt; r.z += r.vz * sdt; const turn = () => { r.r = (r.r + (r.vx >= 0 ? 1 : 3)) % 4; };
     if (r.bleed && r.z > 1 && (r.dripT = (r.dripT || 0) + sdt) > 0.05) { r.dripT = 0; drip(r.x, r.y, r.z, r.bleed, r.vx * 0.3, r.vy * 0.3); }
-    if (r.z <= 0) { r.z = 0; if (r.vz < -40) { r.vz = -r.vz * 0.3; r.vx *= 0.55; r.vy *= 0.55; turn(); if (r.bleed) bloodMark(r.x, r.y, 6, r.bleed), goreLand(r.x, r.y, { s0: 2, col: pick(BLOOD[r.bleed]), kind: r.bleed }); if (r.clang) SFX.clang(panOf(r.x)); } else { r.vz = 0; const f = Math.exp(-9 * sdt); r.vx *= f; r.vy *= f; } }
+    if (r.hay && r.z > 1 && (r.dripT = (r.dripT || 0) + sdt) > 0.06) { r.dripT = 0; hay(r.x, r.y, r.z, r.vx * 0.3, r.vy * 0.3, rand(0, 30), r.slow); } // a bundle sheds stalks as it flies
+    if (r.z <= 0) { r.z = 0; if (r.vz < -40) { r.vz = -r.vz * 0.3; r.vx *= 0.55; r.vy *= 0.55; turn(); if (r.bleed) bloodMark(r.x, r.y, 6, r.bleed), goreLand(r.x, r.y, { s0: 2, col: pick(BLOOD[r.bleed]), kind: r.bleed }); if (r.clang) SFX.clang(panOf(r.x)); if (r.tick) SFX.tick(panOf(r.x)); } else { r.vz = 0; const f = Math.exp(-9 * sdt); r.vx *= f; r.vy *= f; } }
     else if ((r.spin -= sdt) <= 0) { r.spin = rand(0.07, 0.13); turn(); }
     if ((r.z === 0 && r.vz === 0 && Math.hypot(r.vx, r.vy) < 3) || r.t > 4) { // still
-      if (r.clang && r.rot[r.r].width < r.rot[r.r].height) r.r = (r.r + 1) % 4; // a dropped weapon comes to rest lying flat, not on its point
+      if ((r.clang || r.flat) && r.rot[r.r].width < r.rot[r.r].height) r.r = (r.r + 1) % 4; // a dropped weapon (or a bone) comes to rest lying flat, not on its point
+      if (r.upright) r.r = 0; // a skull rolls to a stop the right way up
       if (r.lie) { r.lieT = G.time; if (r.bleed) pool(r.x, r.y, r.bleed, 1); continue; } // flesh lies a while, then fades
       // stone is left on the floor, unless it would lie across a wall
       const cv = r.rot[r.r], x = Math.round(r.x - cv.width / 2), y = Math.round(r.y - cv.height + 1);
@@ -187,6 +192,8 @@ function drawWorldParts(ctx) { // normal blending: smoke, rubble, pixel shards (
     if (k === 'smoke') { const u = p.t / p.life, s = p.s0 + (p.s1 - p.s0) * u; ctx.globalAlpha = p.a0 + (p.a1 - p.a0) * u; ctx.drawImage(SMOKE[p.col], p.x - s, p.y - p.z - s, s * 2, s * 2); }
     else if (k === 'spike') { const u = p.t / p.life, h = p.s0 * (u < 0.15 ? u / 0.15 : u > 0.7 ? (1 - u) / 0.3 : 1), w = p.s0 * 0.45; ctx.globalAlpha = 1; ctx.fillStyle = '#6b625a'; ctx.beginPath(); ctx.moveTo(p.x - w, p.y); ctx.lineTo(p.x + w * 0.2, p.y - h * 1.6); ctx.lineTo(p.x + w, p.y); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#9a8c7c'; ctx.beginPath(); ctx.moveTo(p.x - w, p.y); ctx.lineTo(p.x + w * 0.2, p.y - h * 1.6); ctx.lineTo(p.x - w * 0.1, p.y); ctx.closePath(); ctx.fill(); }
     else if (k === 'gore') { ctx.globalAlpha = 1; ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y - p.z), p.s0, p.s0); }
+    else if (k === 'chip') { ctx.globalAlpha = 1; ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y - p.z), p.s0, 1); }
+    else if (k === 'hay') { ctx.globalAlpha = 1; ctx.fillStyle = p.col; hayPx(p, (a, b) => ctx.fillRect(a, b, 1, 1)); }
     else if (k === 'drop') { const left = p.life - p.t; ctx.globalAlpha = left < 0.25 ? left / 0.25 : 1; ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y - p.z), 1, 1); } // one whole pixel, never smeared
     else if (k === 'debris' || k === 'pix') { const left = p.life - p.t; ctx.globalAlpha = left < 0.4 ? left / 0.4 : 1; ctx.fillStyle = p.col; const s = p.s0; ctx.fillRect(p.x - s / 2, p.y - p.z - s / 2, s, s * (k === 'debris' ? 0.75 : 1)); }
   }

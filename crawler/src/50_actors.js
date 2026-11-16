@@ -45,18 +45,17 @@ function hurt(u, dmg, src, o = {}) {
   number(u.x, u.y, headZ(u) + 1, d, u.team === 'hero' ? 'red' : tag ? 'gold' : 'white', !!tag || d >= 40, u);
   if (tag) textPop(u.x, u.y, headZ(u) + 7, tag, 'gold', false, u);
   if (u.team === 'hero') { shake(0.12 + Math.min(0.3, d / 80)); G.hurtFlash = 0.35; }
-  const bl = BLOOD[u.def.blood || 'red'];
-  if (u.def.blood === 'bone' || u.def.blood === 'metal') { sparks(u.x, u.y, 8 * u.scale, 5, 'white', 110, 80); SFX.clang(panOf(u.x)); if (u.def.blood === 'bone') smoke(u.x, u.y, 2, 'dust', 6, 16, 0.7); }
+  if (DRY.has(u.def.blood)) { shed(u, d, o); SFX.hit(panOf(u.x)); } // bone, hay or stone instead of blood
   else if (bleeds(u)) { // the blood flies the way the blow went
     spray(u, d, o); SFX.hit(panOf(u.x)); SFX.squelch(panOf(u.x), d >= 30); if (d > 12 && chance(0.4)) pool(u.x + rand(-3, 3), u.y + rand(-2, 2), u.def.blood || 'red', 1);
     if (src && src.team === 'hero' && !o.ranged) { src.gore = Math.min(3, (src.gore || 0) + (u.hp <= 0 ? 1 : 0.3)); src.goreKind = u.def.blood || 'red'; }
   }
-  else { debris(u.x, u.y, 4, DRY.has(u.def.blood) ? bl : DUST, 70, 90, 1.4); SFX.hit(panOf(u.x)); }
+  else { debris(u.x, u.y, 4, DUST, 70, 90, 1.4); SFX.hit(panOf(u.x)); } // the gore is off
   if (u.hp <= 0) {
     u.lastBlow = o;
     // overkill: a killing blow that alone does more than half the foe's full health blows one of the bigger foes (never
     // the trash) apart, whatever it had left (a 51 blow on a foe at 1 of 100 does it)
-    if (GORE.level === 2 && u.team === 'foe' && u.def.role !== 'rush' && bleeds(u) && d > 0.5 * u.maxHp) { u.gib = true; if (src) { freeze(src, GIB_HOLD); if (src.gore !== undefined) src.gore = Math.min(3, src.gore + 0.5); } }
+    if (GORE.level === 2 && u.team === 'foe' && u.def.role !== 'rush' && (bleeds(u) || DRY.has(u.def.blood)) && d > 0.5 * u.maxHp) { u.gib = true; if (src) { freeze(src, GIB_HOLD); if (src.gore !== undefined && bleeds(u)) src.gore = Math.min(3, src.gore + 0.5); } }
     // a brute brought down goes into its death throes; a blow during them finishes it
     if (!u.gib && !u.dying && u.team === 'foe' && u.def.role === 'tank') throes(u, src); else { u.dying = null; kill(u, src); }
   }
@@ -81,15 +80,16 @@ function kill(u, src) {
   if (u.team === 'foe') { G.kills++; deathFx(u); dropLoot(u); if (u.dummy) dummyDied(u); if (src && src.team === 'hero') src.killsT = (src.killsT || 0) + 1; }
   else { heroFalls(u); smoke(u.x, u.y, 6, 'dark', 10, 20, 1.4); flashLight(u.x, u.y, 60, 'red', 1, 0.6); textPop(u.x, u.y, headZ(u) + 3, (u.pname || u.def.name) + ' FALLS', 'red'); SFX.boom(0.5, panOf(u.x)); shake(0.4); slowmo(0.3, 1.4); }
 }
-const BLOOD = { red: ['#7a0c14', '#a01420', '#5a0810'], bone: ['#cfc6b0', '#a49a84', '#7a705e'], metal: ['#9aa4b0', '#c8d0d8', '#6a7480'], slime: ['#3a8a30', '#60c040', '#2a5a20'], straw: ['#c8a040', '#e0c060', '#8a6a20'], bug: ['#7c8c1c', '#a6b630', '#4c5810'], sludge: ['#2a2219', '#40352a', '#120e0b'] }; // bug: green-yellow ichor; sludge: what the crypt dead have left
+const BLOOD = { red: ['#7a0c14', '#a01420', '#5a0810'], bone: ['#cfc6b0', '#a49a84', '#7a705e'], stone: ['#9b9c9b', '#6e6e6e', '#625353'], slime: ['#3a8a30', '#60c040', '#2a5a20'], straw: ['#c8a040', '#e0c060', '#8a6a20'], bug: ['#7c8c1c', '#a6b630', '#4c5810'], sludge: ['#2a2219', '#40352a', '#120e0b'] }; // bug: green-yellow ichor; sludge: what the crypt dead have left
 // the body shatters into its own pixels
 function deathFx(u) {
   if (u.gib) { gibBurst(u); return; }
   if (!MOBS[u.spr]) return; const px = spritePixels(u.spr), sc = u.scale, fl = u.face < 0 ? -1 : 1, bl = BLOOD[u.def.blood || 'red'], pw = Math.max(1, Math.round(sc));
-  const kx = clamp(u.kx * 0.4, -120, 120), ky = clamp(u.ky * 0.4, -120, 120), step = px.length > 200 ? 2 : 1;
-  for (let i = 0; i < px.length; i += step) { const p = px[i], a = Math.atan2(p.y * 0.3, p.x * fl) + rand(-0.6, 0.6); part({ k: 'pix', x: u.x + p.x * sc * fl, y: u.y + rand(-1, 1), z: (u.z || 0) - p.y * sc, vx: Math.cos(a) * rand(20, 120) + kx, vy: rand(-50, 50) + ky, vz: rand(40, 150), g: 420, bounce: 0.35, drag: 1.1, life: rand(1, 2), s0: pw, col: p.c }); }
+  const kx = clamp(u.kx * 0.4, -120, 120), ky = clamp(u.ky * 0.4, -120, 120), step = px.length > 200 ? 2 : 1, soft = u.def.blood === 'bone' ? 0.45 : 1; // a skeleton collapses more than it bursts
+  for (let i = 0; i < px.length; i += step) { const p = px[i], a = Math.atan2(p.y * 0.3, p.x * fl) + rand(-0.6, 0.6); part({ k: 'pix', x: u.x + p.x * sc * fl, y: u.y + rand(-1, 1), z: (u.z || 0) - p.y * sc, vx: (Math.cos(a) * rand(20, 120) + kx) * soft, vy: (rand(-50, 50) + ky) * soft, vz: rand(40, 150) * soft, g: 420, bounce: 0.35, drag: 1.1, life: rand(1, 2), s0: pw, col: p.c }); }
   if (bleeds(u)) { spray(u, 30, { ...(u.lastBlow || {}), more: 1.3 }); pool(u.x, u.y, u.def.blood || 'red', 2 + sc); debris(u.x, u.y, 4, bl, 100, 120, 1.4 * sc); }
-  else debris(u.x, u.y, 8, DRY.has(u.def.blood) ? bl : DUST, 120, 140, 1.6 * sc);
+  else if (DRY.has(u.def.blood)) remains(u); // a heap of bones, a cloud of hay, pieces of stone
+  else debris(u.x, u.y, 8, DUST, 120, 140, 1.6 * sc);
   SFX.pop(panOf(u.x));
 }
 // physics: own velocity plus knockback, then walls, props and each other

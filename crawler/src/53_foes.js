@@ -25,7 +25,7 @@ const ZONES = [
   { to: 6, name: 'THE CRYPT', grunt: ['DecrepitBones', 'MutilatedStumbler', 'GraveRevenant'], brute: ['FleshGolem', 'BoundCadaver'], archer: ['BrittleArcher'], skitter: ['SkitteringHand', 'SwoopingBat', 'ForagingMaggot'], flanker: ['SkeweringStalker', 'UnravelingCrawler'] },
   { to: 99, name: 'THE DEEP', grunt: ['LizardfolkGladiator', 'SandGhoul', 'BestialLizardfolk'], brute: ['StoneGolem', 'BestialMinotaur', 'ClayGolem'], archer: ['LizardfolkArcher', 'ElfSharpshooter'], skitter: ['AcidAnt', 'LavaAnt', 'RhinoBeetle'], flanker: ['SneakySatyr', 'LizardfolkScout', 'ToxicHound'] },
 ];
-const BLOOD_OF = { DecrepitBones: 'bone', BrittleArcher: 'bone', GraveRevenant: 'bone', SkitteringHand: 'bone', ScarecrowGolem: 'straw', StoneGolem: 'metal', ClayGolem: 'metal', TaintedCockroach: 'bug', AcidAnt: 'bug', LavaAnt: 'bug', RhinoBeetle: 'bug', FamishedTick: 'bug', ForagingMaggot: 'slime', UnravelingCrawler: 'bone', MutilatedStumbler: 'sludge', FleshGolem: 'sludge', BoundCadaver: 'sludge', SandGhoul: 'sludge' };
+const BLOOD_OF = { DecrepitBones: 'bone', BrittleArcher: 'bone', GraveRevenant: 'bone', SkitteringHand: 'bone', ScarecrowGolem: 'straw', StoneGolem: 'stone', ClayGolem: 'stone', TaintedCockroach: 'bug', AcidAnt: 'bug', LavaAnt: 'bug', RhinoBeetle: 'bug', FamishedTick: 'bug', ForagingMaggot: 'slime', UnravelingCrawler: 'bone', MutilatedStumbler: 'sludge', FleshGolem: 'sludge', BoundCadaver: 'sludge', SandGhoul: 'sludge' };
 const STONE_SHOT = { HalflingSlinger: true };
 // Bats fly: they hover over their shadow, bobbing with each wingbeat and fluttering this way and that; winding up to
 // strike they climb a little, then dive at their target and climb back; asleep they rest on the floor, and woken they
