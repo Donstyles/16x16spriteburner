@@ -82,9 +82,13 @@ function goreWall(p, ny) {
     return;
   }
   if (side && p.z > 1 && p.z < 30) { // the rim of a side wall (the tileset draws its dark edge 4 px past where the stone stops you)
-    const east = p.vx > 0, rim = east ? Math.floor(x0 / TS) * TS + 4 : Math.floor(p.x / TS) * TS - 5, x = rim + (east ? -randi(0, 2) : randi(0, 2)), gy = Math.round(p.y), y = Math.round(p.y - p.z), r = p.s0 === 2 ? rand(1.1, 1.7) : rand(0.6, 1.1);
+    const east = p.vx > 0, rim = east ? Math.floor(x0 / TS) * TS + 4 : Math.floor(p.x / TS) * TS - 5, x = rim + (east ? -randi(0, 2) : randi(0, 2)), gy = Math.round(p.y), r = p.s0 === 2 ? rand(1.1, 1.7) : rand(0.6, 1.1);
+    // only where the wall runs beside the floor: struck high near the wall's end, the splash moves down onto it
+    // (a wall's end is drawn a few px inside its tile)
+    const on = yy => solidAt(x0, yy - 4) && solidAt(x0, yy) && !solidAt(p.x, yy); let y = Math.round(p.y - p.z); while (y < gy && !on(y)) y++;
+    if (!on(y)) { goreLand(p.x, p.y, p); return; }
     groundPaint(x - 3, y - 3, x + 3, y + 3, g => { g.globalAlpha = rand(0.6, 0.9); g.fillStyle = p.col; g.beginPath(); g.ellipse(x + 0.5, y + 0.5, r * 0.8, r, 0, 0, TAU); g.fill(); g.globalAlpha = 1; });
-    if (BTR.length < 60 && chance(0.6)) BTR.push({ x, y: y + 1, end: gy, col: p.col, n: randi(2, 6), next: G.time + rand(0.15, 0.4) });
+    if (BTR.length < 60 && chance(0.6)) BTR.push({ x, y: y + 1, end: gy, col: p.col, n: randi(2, 6), next: G.time + rand(0.15, 0.4), on });
     bloodMark(x, gy, 2, p.kind); return;
   }
   if (p.vy > 0 && solidAt(p.x, ny) && !solidAt(p.x, p.y)) { // the south wall's edge: a splash against it
@@ -95,7 +99,7 @@ function goreWall(p, ny) {
 function updateBlood() {
   if (!ARENA) return; bmap();
   for (const t of BTR) {
-    if (G.time < t.next) continue; t.y++; t.n--;
+    if (G.time < t.next) continue; t.y++; t.n--; if (t.on && !t.on(t.y)) { t.done = true; continue; } // a run stops where its wall does
     const { x, y, col } = t; groundPaint(x - 1, y - 1, x + 2, y + 2, g => { g.globalAlpha = 0.85; g.fillStyle = col; g.fillRect(x, y, 1, 1); g.globalAlpha = 1; });
     t.next = G.time + rand(0.06, 0.16) * (1 + (16 - t.n) * 0.1); if (t.y >= t.end || t.n <= 0) t.done = true;
   }
