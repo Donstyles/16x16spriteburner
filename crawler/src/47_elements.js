@@ -27,6 +27,7 @@ function waterStep(p, dt) {
   const nx = p.x + p.vx * dt, ny = p.y + p.vy * dt;
   if (solidAt(nx, ny)) { wetSpot(p.x, p.y, rand(8, 12)); p.t = p.life; return; }
   p.x = nx; p.y = ny; p.vz -= p.g * dt; p.z += p.vz * dt;
+  if (p.z <= 0 && overWater(p.x, p.y)) { if (chance(0.3)) plip(p.x, p.y); p.t = p.life; return; } // (back into the water)
   if (p.z <= 0) { wetSpot(p.x, p.y, rand(9, 14), false, p.s0 === 2 ? rand(1.4, 2.2) : rand(0.8, 1.3)); if (chance(0.25)) wetSpot(p.x, p.y, rand(6, 10), true); p.t = p.life; }
 }
 // a puddle: wet spots over an ellipse, a few catching the light; they dry over life seconds

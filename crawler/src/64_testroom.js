@@ -36,10 +36,8 @@ function dummyDied(u) { const A = ARENA; G.sched.push({ t: 1.5, fn: () => { if (
 function shutDoor(A, d) {
   const th = A.th; for (const [x, y] of d.cells) { A.fl[y * A.w + x] = 0; if (d.side === 'N') A.fl[(y - 1) * A.w + x] = 0; }
   if (d.side === 'E' || d.side === 'W') { d.k = 1; return; }
-  for (const [x, y] of d.cells) groundPaint(x * TS, (y - 1) * TS, x * TS + TS, (y + 1) * TS, g => {
-    if (d.side === 'N') { g.drawImage(IMG.doors, TS, th.door * TS, TS, TS, x * TS, (y - 1) * TS, TS, TS); g.drawImage(IMG.doors, TS, (th.door + 1) * TS, TS, TS, x * TS, y * TS, TS, TS); }
-    else g.drawImage(IMG.doors, TS, (th.door + 1) * TS, TS, TS, x * TS, y * TS - 4, TS, TS);
-  });
+  if (d.side === 'S') { const xs = d.cells.map(c => c[0]), y = d.cells[0][1]; groundPaint(Math.min(...xs) * TS - 4, y * TS, (Math.max(...xs) + 1) * TS + 4, (y + 1) * TS + 4, g => drawSDoor(g, d.cells, 1, th.door + 1)); return; }
+  for (const [x, y] of d.cells) groundPaint(x * TS, (y - 1) * TS, x * TS + TS, (y + 1) * TS, g => { g.drawImage(IMG.doors, TS, th.door * TS, TS, TS, x * TS, (y - 1) * TS, TS, TS); g.drawImage(IMG.doors, TS, (th.door + 1) * TS, TS, TS, x * TS, y * TS, TS, TS); });
 }
 // the clean floor, kept when the room is made, to wipe back to
 function keepClean(A) { A.clean = A.chunks.map(k => { const c = mkCanvas(k.w, k.h); c.getContext('2d').drawImage(k.cv, 0, 0); return c; }); }

@@ -260,11 +260,12 @@ function endDrain(p) {
   A.flv = (A.flv || 0) + 1;
   // what lay at the bottom: a scatter of coins (no treasure chest: the sheet has no chest standing in water, so none was there)
   const s = p.spots.filter(([x, y]) => !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 14 && Math.abs(q.cy - (y * TS + 10)) < 12));
-  for (let i = 0; i < 5; i++) { const q = pick(s) || p.drainAt; G.drops.push({ k: 'gold', v: randi(1, 4), x: q[0] * TS + 8, y: q[1] * TS + 8, z: 1, vx: 0, vy: 0, vz: 30, t: 0, hold: 2.5 }); }
+  for (let i = 0; i < 5; i++) { const q = pick(s) || p.drainAt; G.drops.push({ k: 'gold', v: randi(1, 4), x: q[0] * TS + 8, y: q[1] * TS + 8, z: 1, vx: 0, vy: 0, vz: 30, t: 0, hold: 0.3 }); }
 }
 // what stood in the water is dry now: each turns into its dry twin, water running off it, and can be broken
 function dryOut(p) {
   p.dried = true;
+  if (ARENA.clouds) removeIf(ARENA.clouds, q => p.cells.has(Math.floor(q.y / TS) * ARENA.w + Math.floor(q.x / TS)));
   for (const q of ARENA.props) if (q.sunk === p && !q.dead) { q.tile = q.dry; q.hp = q.kind === 'wetpillar' ? 1e9 : 40; q.wet = q.sunk; q.sunk = null; water(q.x, q.y - 4, 4, 0, 0, rand(8, 18)); }
 }
 // the test room's refill: the water comes back in from the grate over a couple of seconds, everything that stood in it
@@ -301,11 +302,27 @@ function basinAt(x, y) { const A = ARENA; if (!A || !A.basin) return 0; const tx
 // a walker crossing a basin's rim, down into it or up out of it, gives a little hop (a puff of dust where it pushes off)
 function basinHop(u) {
   const b = basinAt(u.x, u.y);
-  if (u.inBasin !== undefined && b !== u.inBasin && !u.fly && !u.under && !u.dead && u.z <= 0.5) { u.vz = 70; u.z = 0.01; smoke(u.x, u.y, 2, 'dust', 4, 8, 0.5); }
+  if (u.inBasin !== undefined && b !== u.inBasin && !u.fly && !u.under && !u.dead && u.z <= 0.5 && !(u.hopT && G.time - u.hopT < 0.4)) hopNow(u);
   u.inBasin = b;
+}
+function hopNow(u) { u.vz = 70; u.z = 0.01; u.hopT = G.time; smoke(u.x, u.y, 2, 'dust', 4, 8, 0.5); }
+// Coming up to the rim, a walker checks for a moment (a fifth of its pace for a beat) and then hops, so the hop is seen
+// over the edge and not after it, however fast it was going. The answer scales this frame's move.
+function basinBrake(u, dt) {
+  const A = ARENA; if (!A || !A.basin || u.fly || u.under || u.dead || u.enter) return 1;
+  if (u.brake > 0) { u.brake -= dt; if (u.brake <= 0) hopNow(u); return 0.2; }
+  if (u.z > 0.5 || (u.hopCool || 0) > G.time) return 1;
+  const gk = u.gaitK === undefined ? 1 : u.gaitK, vx = u.vx * gk + u.kx, vy = u.vy * gk + u.ky, sp = Math.hypot(vx, vy); if (sp < 20) return 1;
+  const ahead = clamp(sp * 0.1, 3, 10), ax = u.x + vx / sp * ahead, ay = u.y + vy / sp * ahead;
+  if (basinAt(ax, ay) === basinAt(u.x, u.y) || !FLOOR(A.fl[Math.floor(ay / TS) * A.w + Math.floor(ax / TS)])) return 1;
+  u.brake = 0.08; u.hopCool = G.time + 0.45; return 0.2;
 }
 // a drop landing in full water: a ring on the water instead of a mark on the floor
 function wetAt(x, y) { const A = ARENA; if (!A || !A.fl) return false; const tx = Math.floor(x / TS), ty = Math.floor(y / TS); return tx >= 0 && ty >= 0 && tx < A.w && ty < A.h && A.fl[ty * A.w + tx] === 2; }
+// blood in the water: a red haze that spreads and thins away (gibs and bodies falling in leave a bigger one)
+function bloodCloud(x, y, col, size = 1) { const A = ARENA; if (!A) return; (A.clouds = A.clouds || []).push({ x, y, col, t: 0, life: rand(3.5, 5.5) * (0.8 + size * 0.2), r0: 1 + size, r1: 4 + size * 3.5, dx: rand(-2, 2), dy: rand(-1.5, 1.5) }); if (A.clouds.length > 60) A.clouds.shift(); }
+// over water: open water, or between a bridge's slats with water under them
+function overWater(x, y) { if (wetAt(x, y)) return true; const br = bridgeAt(x, y); return !!(br && br.at === 'gap' && br.p.level > 0); }
 function plip(x, y) { const A = ARENA; (A.plips = A.plips || []).push({ x, y, t: 0 }); if (A.plips.length > 40) A.plips.shift(); }
 
 // ---- drawing, on the floor under everyone (after the ground, before blood and wet)
@@ -328,17 +345,28 @@ function drawWorks(c) {
         for (let k = 0; k < 14; k++) { const a = G.time * 7 + k * 0.55, rr = (2 + k * 1.1) * (0.4 + p.level * 0.6); c.fillRect(Math.round(cx + Math.cos(a) * rr), Math.round(cy + Math.sin(a) * rr * 0.6), 1, 1); }
       }
     }
+    if (p.level > 0.2 && A.clouds && A.clouds.length) { // blood in the water, kept inside it
+      c.save(); c.beginPath(); for (const i of p.cells) c.rect((i % A.w) * TS, Math.floor(i / A.w) * TS, TS, TS); c.clip();
+      for (const q of A.clouds) { // a soft haze, darkest in its middle, spreading and thinning
+        const u = q.t / q.life; if (u >= 1 || !p.cells.has(Math.floor(q.y / TS) * A.w + Math.floor(q.x / TS))) continue; const r = q.r0 + (q.r1 - q.r0) * Math.sqrt(u);
+        if (!q.rgb) { const h = /^#?([0-9a-f]{6})$/i.exec(q.col || '') ? q.col.replace('#', '') : '6a1010'; q.rgb = [0, 2, 4].map(i => Math.round(parseInt(h.slice(i, i + 2), 16) * 0.75)).join(','); }
+        const gr = c.createRadialGradient(0, 0, 0, 0, 0, r); gr.addColorStop(0, `rgba(${q.rgb},${(0.5 * (1 - u) * Math.min(1, p.level * 1.5)).toFixed(3)})`); gr.addColorStop(1, `rgba(${q.rgb},0)`);
+        c.save(); c.translate(q.x + q.dx * u * 3, q.y + q.dy * u * 3); c.scale(1, 0.7); c.fillStyle = gr; c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fill(); c.restore();
+      }
+      c.restore();
+    }
     // the bridge over it
     if (!p.bridge) continue; const W = wkOf(A), bc = p.bridge.cells;
-    if (p.level > 0) { // its shadow lies on the water under all of it (dark between the slats) and runs a little out past its south edge
+    if (p.level > 0) { // its shadow lies on the water under all of it (dark between the slats and between its two rows) and runs a little out past its south edge
       const k = Math.min(1, p.level * 1.6); c.fillStyle = `rgba(8,16,34,${0.55 * k})`;
-      for (const [x, y] of bc) { c.fillRect(x * TS, y * TS + 2, TS, TS - 2); if (!bc.some(([a, b]) => a === x && b === y + 1) && A.fl[(y + 1) * A.w + x] === 2) c.fillRect(x * TS, (y + 1) * TS, TS, 3); }
+      for (const [x, y] of bc) { const top = bc.some(([a, b]) => a === x && b === y - 1) ? 0 : 2; c.fillRect(x * TS, y * TS + top, TS, TS - top); if (!bc.some(([a, b]) => a === x && b === y + 1) && A.fl[(y + 1) * A.w + x] === 2) c.fillRect(x * TS, (y + 1) * TS, TS, 3); }
     }
     for (const [x, y] of bc) sheetTile(c, p.bridge.horiz ? W.slatH : W.slatV, x * TS, y * TS);
     if (p.bridge.cv) c.drawImage(p.bridge.cv, p.bridge.bx0, p.bridge.by0); // blood on its slats
   }
   for (const q of A.plips || []) { q.t += 1 / 60; const u = q.t / 0.5; if (u >= 1) continue; c.strokeStyle = `rgba(220,240,255,${0.7 * (1 - u)})`; c.lineWidth = 1; c.beginPath(); c.ellipse(q.x, q.y, 1 + u * 4, (1 + u * 4) * 0.6, 0, 0, TAU); c.stroke(); }
   if (A.plips) removeIf(A.plips, q => q.t >= 0.5);
+  if (A.clouds) { for (const q of A.clouds) q.t += 1 / 60; removeIf(A.clouds, q => q.t >= q.life); }
   for (const pl of A.plates || []) sheetTile(c, pl.tile, pl.x - 8, pl.y - 8, pl.f, 0);
   for (const rn of A.runes || []) {
     sheetTile(c, rn.on ? rn.lit : rn.tile, rn.x - 8, rn.y - 8);

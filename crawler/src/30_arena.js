@@ -187,6 +187,23 @@ function blockAt(x, y) { return ARENA && ARENA.fl ? blockTile(Math.floor(x / TS)
 function solidAt(x, y) { return ARENA && ARENA.fl ? solidTile(Math.floor(x / TS), Math.floor(y / TS)) : false; }
 function roomAt(x, y, m = 0) { const A = ARENA; if (!A || !A.rooms) return null; const tx = x / TS, ty = y / TS; for (const r of A.rooms) if (tx >= r.ix0 + m && tx < r.ix1 + 1 - m && ty >= r.iy0 + m && ty < r.iy1 + 1 - m) return r; return null; }
 // a unit's feet are a small box; push it out of any wall tile it overlaps
+// a move, one axis at a time and in short steps: a step that would put the body into rock or water stops it flush against
+// it (so a fast dash or lunge never cuts in deep enough to be pushed out on the wrong side, along the water and into it)
+function slideMove(u, dx, dy) {
+  const n = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 4)); for (let i = 0; i < n; i++) { slideAxis(u, dx / n, 0); slideAxis(u, dy / n, 1); }
+}
+function slideAxis(u, d, ax) {
+  if (!d || !ARENA || !ARENA.fl) { if (ax) u.y += d; else u.x += d; return; } const hw = Math.max(3, u.r * 0.8), hh = Math.max(2, u.r * 0.45);
+  if (ax) u.y += d; else u.x += d;
+  const k = 0.02, tx0 = Math.floor((u.x - hw + k) / TS), tx1 = Math.floor((u.x + hw - k) / TS), ty0 = Math.floor((u.y - hh + k) / TS), ty1 = Math.floor((u.y + hh - k) / TS); let e = null; // (touching is not in)
+  for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+    if (!blockTile(tx, ty)) continue;
+    const v = ax ? (d > 0 ? ty * TS - hh - 0.01 : (ty + 1) * TS + hh + 0.01) : (d > 0 ? tx * TS - hw - 0.01 : (tx + 1) * TS + hw + 0.01);
+    if (e === null || (d > 0 ? v < e : v > e)) e = v;
+  }
+  if (e === null) return;
+  if (ax) { u.y = (d > 0 ? Math.max : Math.min)(u.y - d, e); u.ky *= -0.3; } else { u.x = (d > 0 ? Math.max : Math.min)(u.x - d, e); u.kx *= -0.3; } // flush, never back past where it started
+}
 function tileCollide(u) {
   const A = ARENA; if (!A || !A.fl) return; const hw = Math.max(3, u.r * 0.8), hh = Math.max(2, u.r * 0.45);
   for (let pass = 0; pass < 2; pass++) {

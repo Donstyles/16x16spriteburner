@@ -107,7 +107,7 @@ function moveActor(u, dt) {
   if (Number.isFinite(u.x + u.y)) { u.gx = u.x; u.gy = u.y; } else if (u.gx !== undefined) { u.x = u.gx; u.y = u.gy; }
   if (u.enter) { u.y += u.vy * dt; return; } // stepping out of the stairway, through the wall's face
   const gk = u.gaitK === undefined ? 1 : u.gaitK; // a gait's pace (56_gaits): the stumbler's lurch, the crawler's bursts
-  u.x += (u.vx * gk + u.kx) * dt; u.y += (u.vy * gk + u.ky) * dt; const f = Math.exp(-7 * dt); u.kx *= f; u.ky *= f;
+  const bk = basinBrake(u, dt); tileCollide(u); slideMove(u, (u.vx * gk + u.kx) * dt * bk, (u.vy * gk + u.ky) * dt * bk); const f = Math.exp(-7 * dt); u.kx *= f; u.ky *= f; // (any small push since last frame settled first)
   if (!u.fly && (u.z > 0 || u.vz > 0)) { u.vz -= 560 * dt; u.z += u.vz * dt; if (u.z <= 0) { u.z = 0; u.vz = 0; } }
   for (const p of ARENA.props) { if (!p.solid || p.dead) continue; const dx = u.x - p.x, dy = u.y - p.cy, d = Math.hypot(dx, dy), m = u.r + p.r; if (d < m) { const nx = d > 0.01 ? dx / d : 1, ny = d > 0.01 ? dy / d : 0; u.x = p.x + nx * m; u.y = p.cy + ny * m; } }
   tileCollide(u); basinHop(u); // (36_works: the step down into a drained cistern)
