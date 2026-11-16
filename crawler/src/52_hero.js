@@ -92,9 +92,10 @@ function weaponPose(h) {
     const p = easeOut(Math.min(1, h.blockT / 0.08)), from = h.swTh === undefined ? R : h.swTh;
     return { th: angLerp(from, th, p), push: 0, at: [mx - Math.cos(th) * Wc.mid, my - Math.sin(th) * Wc.mid], blend: p, front: Math.sin(d) > 0.3, behind: Math.sin(d) < -0.6 };
   }
-  if (!a) return null;
+  const still = h.gore > 0.05 && GORE.level ? { th: R, push: 0 } : null; // a bloodied blade is drawn on its own even at rest
+  if (!a) return still;
   if (a.k === 'charge') { const p = Math.min(1, a.t / weaponOf(h).heavy.charge); return { th: angLerp(R, UP - fs * 1.0, easeOut(p)), push: 0, shake: p >= 1 }; }
-  if (a.k !== 'atk') return null;
+  if (a.k !== 'atk') return still;
   if (a.th0 === undefined) a.th0 = h.swTh === undefined ? R : h.swTh;
   const mv = a.mv, w = mv.wind, s = w + mv.act, t = a.t, d = a.dir, rec = clamp((t - s) / mv.rec, 0, 1), home = (th, from = 0.25) => angLerp(th, R, easeIO(clamp((rec - from) / (1 - from), 0, 1)));
   if (mv.k === 'arc') {
@@ -200,7 +201,7 @@ function startMove(h, mv, want) {
 }
 function startRoll(h, want) {
   const K = KITS[h.kit], dir = want !== null ? want : h.dir + Math.PI, len = 46 * (K.roll || 1), dur = 0.34;
-  spendStam(h, 20, 0.6); h.blocking = false; h.sprint = false; h.iframe = 0.26;
+  spendStam(h, 20, 0.6); h.blocking = false; h.sprint = false; h.iframe = 0.26; if (h.gore) h.gore = Math.max(0, h.gore - 0.6); // a roll wipes some blood off the blade
   h.act = { k: 'roll', t: 0, dur, dir, spd: len / dur * 1.45 }; if (want !== null) faceTo(h, dir);
   smoke(h.x, h.y, 3, 'dust', 7, 26, 0.6); SFX.whoosh(panOf(h.x));
 }
@@ -251,7 +252,7 @@ function strikeHits(h, a) {
     else if (Math.abs(angDiff(f.dir, angTo(f.x, f.y, h.x, h.y))) > 2.1) { crit = 1.5 * (W.back || 1); o.back = true; }
     if (h.riposteT > 0 && f.stun > 0) { crit = Math.max(crit, 2.4); o.riposte = true; h.riposteT = 0; }
     const ka = angTo(h.x, h.y, f.x, f.y);
-    hurt(f, W.dmg * mv.dm, h, { ...o, crit, poise: mv.poise * (crit > 1 ? 1.5 : 1), kx: Math.cos(ka) * mv.push, ky: Math.sin(ka) * mv.push * 0.8 });
+    hurt(f, W.dmg * mv.dm, h, { ...o, crit, poise: mv.poise * (crit > 1 ? 1.5 : 1), kx: Math.cos(ka) * mv.push, ky: Math.sin(ka) * mv.push * 0.8, ang: ka, style: styleOf(h, mv), sweep: (mv.sweep || 1) * (h.face < 0 ? -1 : 1) });
     sparks(f.x, f.y, 8 * f.scale, 6, crit > 1 ? 'gold' : 'white', 120, 70, ka, 1.6); const big = mv.dm >= 2 || crit > 1; freeze(f, big ? 0.12 : 0.07); freeze(h, big ? 0.06 : 0.025); if (crit > 1) { kick(0.04); flashLight(f.x, f.y, 50, 'gold', 1, 0.2); }
   }
   for (const p of ARENA.props) if (!p.dead && p.hp < 1e8 && !a.hit.has(p) && hitsShape(src, { x: p.x, y: p.cy, r: p.r }, mv, a.dir)) { a.hit.add(p); breakProp(p); }
@@ -269,8 +270,8 @@ const ORE_GLINT = [null, ['#dfe8f0', '#9fc3dc'], ['#dfe8f0', '#9fc3dc'], ['#ffe2
 function hitOre(p) {
   if (p.burst) return; p.hp--; const last = p.hp <= 0, h = G.me, away = h ? angTo(h.x, h.y, p.x, p.cy) : null, sx = p.ore * 32, sy = p.shape * 32;
   p.flashUntil = G.time + 0.12; SFX.stone(panOf(p.x), last); shake(last ? 0.09 : 0.04);
-  if (last) { p.burst = G.time + 0.05; p.solid = false; breakSprite(IMG.ores, sx, sy, 32, 32, p.x - 16, p.y - 30, p.y, randi(5, 7), away, 0.05, 1.15); smoke(p.x, p.cy, 5, 'dust', 10, 30, 1.1); }
-  else for (let i = 0; i < 2; i++) chipSprite(IMG.ores, sx, sy, 32, 32, p.x - 16, p.y - 30, p.y, away);
+  if (last) { p.burst = G.time + 0.05; p.solid = false; breakSprite(PIX.ores, sx, sy, 32, 32, p.x - 16, p.y - 30, p.y, randi(5, 7), { away, wait: 0.05, spd: 1.15 }); smoke(p.x, p.cy, 5, 'dust', 10, 30, 1.1); }
+  else for (let i = 0; i < 2; i++) chipSprite(PIX.ores, sx, sy, 32, 32, p.x - 16, p.y - 30, p.y, away);
   debris(p.x, p.cy - 4, last ? 8 : 3, ['#5a4636', '#7a604a', '#3e3026'], 80, 110, 1.4); // a little grit with it
   if (ORE_GLINT[p.ore]) for (let i = 0; i < (last ? 8 : 3); i++) part({ k: 'spark', x: p.x + rand(-4, 4), y: p.cy, z: rand(4, 12), vx: rand(-60, 60), vy: rand(-30, 30), vz: rand(30, 90), g: 300, life: rand(0.3, 0.6), col: 'white', s0: 1 });
 }

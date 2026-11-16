@@ -222,7 +222,9 @@ function drawWeapon(c, u, p, Wc, fr, fw, foot, dip, cutRow) {
   if (p.at) { x = Math.round(lerp(x, p.at[0], p.blend)); y = Math.round(lerp(y, p.at[1], p.blend)); }
   if (p.shake) x += ((G.time * 30) | 0) % 2;
   const n = Wc.rot.length, i = ((Math.round((p.th - Wc.rest) / TAU * n) % n) + n) % n;
-  c.drawImage(Wc.rot[i], x - Wc.r, y - Wc.r);
+  const gl = u.gore > 0.05 && GORE.level ? Math.min(3, Math.ceil(u.gore)) : 0;
+  c.drawImage(gl ? bloodyTurn(Wc, u.goreKind || 'red', gl, i) : Wc.rot[i], x - Wc.r, y - Wc.r);
+  u.tipX = x + Math.cos(p.th) * Wc.tip; u.tipY = y + Math.sin(p.th) * Wc.tip; u.tipT = G.time;
   if (!p.at) for (const [hx, hy, q] of Wc.hands[fr]) { c.fillStyle = `rgb(${q[0]},${q[1]},${q[2]})`; c.fillRect(col(hx), row(hy), 1, 1); }
   u.swTh = p.th;
 }

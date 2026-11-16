@@ -25,7 +25,7 @@ const ZONES = [
   { to: 6, name: 'THE CRYPT', grunt: ['DecrepitBones', 'MutilatedStumbler', 'GraveRevenant'], brute: ['FleshGolem', 'BoundCadaver'], archer: ['BrittleArcher'], skitter: ['SkitteringHand', 'SwoopingBat', 'ForagingMaggot'], flanker: ['SkeweringStalker', 'UnravelingCrawler'] },
   { to: 99, name: 'THE DEEP', grunt: ['LizardfolkGladiator', 'SandGhoul', 'BestialLizardfolk'], brute: ['StoneGolem', 'BestialMinotaur', 'ClayGolem'], archer: ['LizardfolkArcher', 'ElfSharpshooter'], skitter: ['AcidAnt', 'LavaAnt', 'RhinoBeetle'], flanker: ['SneakySatyr', 'LizardfolkScout', 'ToxicHound'] },
 ];
-const BLOOD_OF = { DecrepitBones: 'bone', BrittleArcher: 'bone', GraveRevenant: 'bone', SkitteringHand: 'bone', ScarecrowGolem: 'straw', StoneGolem: 'metal', ClayGolem: 'metal', TaintedCockroach: 'bug', AcidAnt: 'bug', LavaAnt: 'bug', RhinoBeetle: 'bug', FamishedTick: 'bug', ForagingMaggot: 'slime', UnravelingCrawler: 'bone' };
+const BLOOD_OF = { DecrepitBones: 'bone', BrittleArcher: 'bone', GraveRevenant: 'bone', SkitteringHand: 'bone', ScarecrowGolem: 'straw', StoneGolem: 'metal', ClayGolem: 'metal', TaintedCockroach: 'bug', AcidAnt: 'bug', LavaAnt: 'bug', RhinoBeetle: 'bug', FamishedTick: 'bug', ForagingMaggot: 'slime', UnravelingCrawler: 'bone', MutilatedStumbler: 'sludge', FleshGolem: 'sludge', BoundCadaver: 'sludge', SandGhoul: 'sludge' };
 const STONE_SHOT = { HalflingSlinger: true };
 // creatures that already go on all fours (bugs, beasts, crawlers, a bat, a hand): asleep they stay on their feet and settle,
 // where the upright ones lie down on their backs
@@ -211,7 +211,7 @@ function foeHits(f, a) {
   const mv = a.mv, ox = mv.at ? Math.cos(a.dir) * mv.at : 0, oy = mv.at ? Math.sin(a.dir) * mv.at * 0.85 : 0, src = { x: f.x + ox, y: f.y + oy };
   for (const h of G.heroes) {
     if (h.dead || a.hit.has(h) || !hitsShape(src, h, mv, a.dir) || !lineOfSight(f.x, f.y - 4, h.x, h.y - 4)) continue; a.hit.add(h);
-    const ka = angTo(src.x, src.y, h.x, h.y); hurt(h, f.def.dmg * f.dmgMul * (mv.dm || 1), f, { poise: mv.poise, kx: Math.cos(ka) * mv.push, ky: Math.sin(ka) * mv.push * 0.8, unblockable: mv.unblockable });
+    const ka = angTo(src.x, src.y, h.x, h.y); hurt(h, f.def.dmg * f.dmgMul * (mv.dm || 1), f, { poise: mv.poise, kx: Math.cos(ka) * mv.push, ky: Math.sin(ka) * mv.push * 0.8, unblockable: mv.unblockable, ang: ka, style: 'bite' });
   }
 }
 // ---------- arrows and stones ----------
@@ -248,7 +248,7 @@ function updateProj(dt) {
         sparks(p.x, p.y, 7, 12, 'gold', 160, 80); SFX.clang(panOf(p.x)); textPop(u.x, u.y, headZ(u) + 3, 'DEFLECTED', 'gold', false); freeze(u, 0.06); break;
       }
       const from = { x: p.x - p.vx * 0.2, y: p.y - p.vy * 0.2, team: p.team, def: {} };
-      hurt(u, p.dmg, u.team === 'hero' ? from : p.src, { ranged: true, poise: 12, kx: p.vx * 0.3, ky: p.vy * 0.3 }); p.dead = true; break;
+      hurt(u, p.dmg, u.team === 'hero' ? from : p.src, { ranged: true, poise: 12, kx: p.vx * 0.3, ky: p.vy * 0.3, ang: Math.atan2(p.vy, p.vx), style: 'jet' }); p.dead = true; break;
     }
   }
   removeIf(G.proj, p => p.dead);

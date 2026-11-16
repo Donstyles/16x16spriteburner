@@ -90,6 +90,7 @@ function updateFx(dt) {
   const P = FX.P;
   for (let i = P.length - 1; i >= 0; i--) {
     const p = P[i]; p.t += dt; if (p.t >= p.life) { P[i] = P[P.length - 1]; P.pop(); continue; }
+    if (p.k === 'gore') { goreStep(p, dt); continue; }
     if (p.on) { const u = p.on; if (u.dead || (u.act && u.act.k === 'roll')) { p.on = null; p.g = 320; } else { p.row += p.rate * dt; placeDrop(p, u); if (p.row >= p.rowEnd) { p.on = null; p.g = 320; const out = p.side * (u.face < 0 ? -1 : 1); p.vx = (u.vx || 0) * 0.4 + out * rand(4, 10); p.vy = (u.vy || 0) * 0.4 + rand(2, 6); } continue; } } // a drop still running down the hero's head
     if (p.drag) { const f = Math.exp(-p.drag * dt); p.vx *= f; p.vy *= f; if (!p.g) p.vz *= f; }
     if (p.bounce && p.z < 40 && !solidAt(p.x, p.y)) { // shards, sparks and gibs glance off the walls (a mark already inside a wall is left alone)
@@ -112,15 +113,18 @@ function updateFx(dt) {
     if (ARENA) for (const s of c.segs) if (!s.p && c.t >= s.t0) { s.p = true; groundPaint(Math.min(s.x0, s.x1) - 3, Math.min(s.y0, s.y1) - 3, Math.max(s.x0, s.x1) + 3, Math.max(s.y0, s.y1) + 3, g => { g.strokeStyle = 'rgba(6,4,4,0.9)'; g.lineWidth = s.w + 0.6; g.lineCap = 'round'; g.beginPath(); g.moveTo(s.x0, s.y0); g.lineTo(s.x1, s.y1); g.stroke(); g.strokeStyle = 'rgba(255,230,190,0.18)'; g.lineWidth = 0.6; g.beginPath(); g.moveTo(s.x0 + 0.8, s.y0 + 0.8); g.lineTo(s.x1 + 0.8, s.y1 + 0.8); g.stroke(); }); if (chance(0.08)) { smoke(s.x1, s.y1, 1, 'dust', 8, 6, 1, 8); } }
   }
   removeIf(FX.cracks, c => c.t >= c.life);
-  updateRocks(dt);
+  updateRocks(dt); updateBlood();
 }
-// --- rock chunks: a sprite broken into pieces made of its own pixels, flung out, tumbling a quarter turn at a time (so the
-// pixels stay whole), bouncing off the floor and the walls; once one lies still it is left on the floor as rubble.
-// img/sx,sy,sw,sh: the sprite; ox,oy: where its top left is drawn; gy: the floor line it stands on; n pieces;
-// away: the angle a blow came from (the pieces fly mostly that way); wait: seconds before they appear
-function breakSprite(img, sx, sy, sw, sh, ox, oy, gy, n, away = null, wait = 0, spd = 1) {
-  const D = img === IMG.ores ? PIX.ores : pixelData(img), W = D.w, px = [];
-  for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) { const i = ((sy + y) * W + sx + x) * 4; if (D.d[i + 3] > 128) px.push([x, y, i]); }
+// --- chunks: a sprite broken into pieces made of its own pixels, flung out, tumbling a quarter turn at a time (so the
+// pixels stay whole), bouncing off the floor and the walls. Stone is left on the floor as rubble; flesh bleeds as it
+// flies and where it lands, lies a few seconds and fades.
+// D: pixel data ({ w, d }); sx,sy,sw,sh: the sprite in it; ox,oy: where its top left is drawn; gy: the floor line it
+// stands on; n pieces. o: away (the angle the blow travelled: the pieces fly mostly that way), wait (seconds before they
+// appear), spd, flip (drawn mirrored), edge (colours for the broken edges, else they are darkened), bleed (a blood kind),
+// lie (seconds to lie before fading, instead of staying), slow (until this time the pieces move slowly)
+function breakSprite(D, sx, sy, sw, sh, ox, oy, gy, n, o = {}) {
+  const W = D.w, px = [], spd = o.spd || 1, edge = o.edge ? o.edge.map(hexRgb) : null;
+  for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) { const i = ((sy + y) * W + sx + (o.flip ? sw - 1 - x : x)) * 4; if (D.d[i + 3] > 128) px.push([x, y, i]); }
   if (!px.length) return;
   const seeds = [pick(px)]; while (seeds.length < Math.min(n, px.length)) { let best = null, bd = -1; for (let k = 0; k < 24; k++) { const q = pick(px), d = Math.min(...seeds.map(s => Math.hypot(s[0] - q[0], s[1] - q[1]))); if (d > bd) { bd = d; best = q; } } seeds.push(best); }
   // each pixel goes to its nearest seed, the borders a little rough (fixed noise, so not ragged)
@@ -130,32 +134,37 @@ function breakSprite(img, sx, sy, sw, sh, ox, oy, gy, n, away = null, wait = 0, 
   parts.forEach((P, k) => {
     if (!P.length) return; let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1; for (const [x, y] of P) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
     const w = x1 - x0 + 1, h = y1 - y0 + 1, cv = mkCanvas(w, h), g = cv.getContext('2d'), id = g.createImageData(w, h);
-    for (const [x, y, i] of P) { // where it broke away from its neighbours the stone shows a darker edge
-      const j = ((y - y0) * w + x - x0) * 4, cut = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => { const o = owner.get(key(x + a, y + b)); return o !== undefined && o !== k; }), m = cut ? 0.62 : 1;
-      id.data[j] = D.d[i] * m; id.data[j + 1] = D.d[i + 1] * m; id.data[j + 2] = D.d[i + 2] * m; id.data[j + 3] = 255;
+    for (const [x, y, i] of P) { // where it broke away from its neighbours it shows a raw edge
+      const j = ((y - y0) * w + x - x0) * 4, cut = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => { const q = owner.get(key(x + a, y + b)); return q !== undefined && q !== k; });
+      if (cut && edge) { const c = edge[(x * 3 + y * 5) % edge.length]; id.data[j] = c[0]; id.data[j + 1] = c[1]; id.data[j + 2] = c[2]; }
+      else { const m = cut ? 0.62 : 1; id.data[j] = D.d[i] * m; id.data[j + 1] = D.d[i + 1] * m; id.data[j + 2] = D.d[i + 2] * m; }
+      id.data[j + 3] = 255;
     }
     g.putImageData(id, 0, 0);
-    const rot = [cv]; for (let r = 1; r < 4; r++) { const s = rot[r - 1], o = mkCanvas(s.height, s.width), og = o.getContext('2d'); og.setTransform(0, 1, -1, 0, s.height, 0); og.drawImage(s, 0, 0); rot.push(o); }
-    const mx = (x0 + x1 + 1) / 2, ground = gy + rand(-3, 2), dx = (mx - cx0) / cx0, up = 1 - y1 / sh, a = away === null ? rand(TAU) : away, s = rand(35, 75) * spd;
-    FX.rocks.push({ rot, r: 0, x: ox + mx, y: ground, z: Math.max(0, ground - (oy + y1)), vx: dx * rand(40, 80) * spd + Math.cos(a) * s, vy: rand(-10, 30) * spd + Math.sin(a) * s * 0.7, vz: rand(50, 110) * spd + up * 60, spin: rand(0.06, 0.12), t: 0, wait, fade: 0 });
+    const rot = [cv]; for (let r = 1; r < 4; r++) { const s = rot[r - 1], q = mkCanvas(s.height, s.width), og = q.getContext('2d'); og.setTransform(0, 1, -1, 0, s.height, 0); og.drawImage(s, 0, 0); rot.push(q); }
+    const mx = (x0 + x1 + 1) / 2, ground = gy + rand(-3, 2), dx = (mx - cx0) / cx0, up = 1 - y1 / sh, a = o.away === null || o.away === undefined ? rand(TAU) : o.away, v = rand(35, 75) * spd;
+    FX.rocks.push({ rot, r: 0, x: ox + mx, y: ground, z: Math.max(0, ground - (oy + y1)), vx: dx * rand(40, 80) * spd + Math.cos(a) * v, vy: rand(-10, 30) * spd + Math.sin(a) * v * 0.7, vz: rand(50, 110) * spd + up * 60, spin: rand(0.06, 0.12), t: 0, wait: o.wait || 0, fade: 0, bleed: o.bleed, lie: o.lie, slow: o.slow || 0 });
   });
   if (FX.rocks.length > 90) FX.rocks.splice(0, FX.rocks.length - 90);
 }
 // a chip knocked off a sprite: one small piece of its pixels from somewhere on it
-function chipSprite(img, sx, sy, sw, sh, ox, oy, gy, away) {
-  const D = img === IMG.ores ? PIX.ores : pixelData(img); let x = 0, y = 0;
-  for (let k = 0; k < 40; k++) { x = randi(1, sw - 5); y = randi(1, sh - 4); if (D.d[((sy + y) * D.w + sx + x) * 4 + 3] > 128) break; }
-  breakSprite(img, sx + x, sy + y, randi(3, 4), 3, ox + x, oy + y, gy, 1, away, 0, 0.8);
+function chipSprite(D, sx, sy, sw, sh, ox, oy, gy, away) {
+  let x = 0, y = 0; for (let k = 0; k < 40; k++) { x = randi(1, sw - 5); y = randi(1, sh - 4); if (D.d[((sy + y) * D.w + sx + x) * 4 + 3] > 128) break; }
+  breakSprite(D, sx + x, sy + y, randi(3, 4), 3, ox + x, oy + y, gy, 1, { away, spd: 0.8 });
 }
 function updateRocks(dt) {
   for (const r of FX.rocks) {
-    if (r.wait > 0) { r.wait -= dt; continue; } r.t += dt;
+    if (r.wait > 0) { r.wait -= dt; continue; } r.t += dt; const sdt = r.slow > G.time ? dt * 0.15 : dt;
     if (r.fade) { r.fade += dt; if (r.fade > 0.5) r.done = true; continue; }
-    const nx = r.x + r.vx * dt, ny = r.y + r.vy * dt; if (solidAt(nx, r.y)) r.vx = -r.vx * 0.4; else r.x = nx; if (solidAt(r.x, ny)) r.vy = -r.vy * 0.4; else r.y = ny;
-    r.vz -= 480 * dt; r.z += r.vz * dt; const turn = () => { r.r = (r.r + (r.vx >= 0 ? 1 : 3)) % 4; };
-    if (r.z <= 0) { r.z = 0; if (r.vz < -40) { r.vz = -r.vz * 0.3; r.vx *= 0.55; r.vy *= 0.55; turn(); } else { r.vz = 0; const f = Math.exp(-9 * dt); r.vx *= f; r.vy *= f; } }
-    else if ((r.spin -= dt) <= 0) { r.spin = rand(0.07, 0.13); turn(); }
-    if ((r.z === 0 && r.vz === 0 && Math.hypot(r.vx, r.vy) < 3) || r.t > 4) { // still: left on the floor, unless it would lie across a wall
+    if (r.lieT) { if (G.time - r.lieT > r.lie) r.fade = 0.001; continue; }
+    const nx = r.x + r.vx * sdt, ny = r.y + r.vy * sdt; if (solidAt(nx, r.y)) r.vx = -r.vx * 0.4; else r.x = nx; if (solidAt(r.x, ny)) r.vy = -r.vy * 0.4; else r.y = ny;
+    r.vz -= 480 * sdt; r.z += r.vz * sdt; const turn = () => { r.r = (r.r + (r.vx >= 0 ? 1 : 3)) % 4; };
+    if (r.bleed && r.z > 1 && (r.dripT = (r.dripT || 0) + sdt) > 0.05) { r.dripT = 0; drip(r.x, r.y, r.z, r.bleed, r.vx * 0.3, r.vy * 0.3); }
+    if (r.z <= 0) { r.z = 0; if (r.vz < -40) { r.vz = -r.vz * 0.3; r.vx *= 0.55; r.vy *= 0.55; turn(); if (r.bleed) bloodMark(r.x, r.y, 6, r.bleed), goreLand(r.x, r.y, { s0: 2, col: pick(BLOOD[r.bleed]), kind: r.bleed }); } else { r.vz = 0; const f = Math.exp(-9 * sdt); r.vx *= f; r.vy *= f; } }
+    else if ((r.spin -= sdt) <= 0) { r.spin = rand(0.07, 0.13); turn(); }
+    if ((r.z === 0 && r.vz === 0 && Math.hypot(r.vx, r.vy) < 3) || r.t > 4) { // still
+      if (r.lie) { r.lieT = G.time; if (r.bleed) pool(r.x, r.y, r.bleed, 1); continue; } // flesh lies a while, then fades
+      // stone is left on the floor, unless it would lie across a wall
       const cv = r.rot[r.r], x = Math.round(r.x - cv.width / 2), y = Math.round(r.y - cv.height + 1);
       if ([[x, y], [x + cv.width - 1, y], [x, y + cv.height - 1], [x + cv.width - 1, y + cv.height - 1]].some(([a, b]) => solidAt(a, b))) r.fade = 0.001;
       else { groundPaint(x, y, x + cv.width, y + cv.height, g => g.drawImage(cv, x, y)); r.done = true; }
@@ -176,6 +185,7 @@ function drawWorldParts(ctx) { // normal blending: smoke, rubble, pixel shards (
     const k = p.k;
     if (k === 'smoke') { const u = p.t / p.life, s = p.s0 + (p.s1 - p.s0) * u; ctx.globalAlpha = p.a0 + (p.a1 - p.a0) * u; ctx.drawImage(SMOKE[p.col], p.x - s, p.y - p.z - s, s * 2, s * 2); }
     else if (k === 'spike') { const u = p.t / p.life, h = p.s0 * (u < 0.15 ? u / 0.15 : u > 0.7 ? (1 - u) / 0.3 : 1), w = p.s0 * 0.45; ctx.globalAlpha = 1; ctx.fillStyle = '#6b625a'; ctx.beginPath(); ctx.moveTo(p.x - w, p.y); ctx.lineTo(p.x + w * 0.2, p.y - h * 1.6); ctx.lineTo(p.x + w, p.y); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#9a8c7c'; ctx.beginPath(); ctx.moveTo(p.x - w, p.y); ctx.lineTo(p.x + w * 0.2, p.y - h * 1.6); ctx.lineTo(p.x - w * 0.1, p.y); ctx.closePath(); ctx.fill(); }
+    else if (k === 'gore') { ctx.globalAlpha = 1; ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y - p.z), p.s0, p.s0); }
     else if (k === 'drop') { const left = p.life - p.t; ctx.globalAlpha = left < 0.25 ? left / 0.25 : 1; ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y - p.z), 1, 1); } // one whole pixel, never smeared
     else if (k === 'debris' || k === 'pix') { const left = p.life - p.t; ctx.globalAlpha = left < 0.4 ? left / 0.4 : 1; ctx.fillStyle = p.col; const s = p.s0; ctx.fillRect(p.x - s / 2, p.y - p.z - s / 2, s, s * (k === 'debris' ? 0.75 : 1)); }
   }

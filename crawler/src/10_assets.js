@@ -112,20 +112,22 @@ function cutWeapon(key, cfg) {
   let far = 0, ang = -Math.PI / 2; for (const [x, y] of pts) if (F0.core(x, y)) { const d = Math.hypot(x - cfg.grip[0], y - cfg.grip[1]); if (d > far) { far = d; ang = Math.atan2(y - cfg.grip[1], x - cfg.grip[0]); } }
   const rest = Math.round(ang / (Math.PI / 2)) * (Math.PI / 2);
   let R = 0; for (let y = 0; y < ih; y++) for (let x = 0; x < iw; x++) if (img[(y * iw + x) * 4 + 3]) R = Math.max(R, Math.ceil(Math.hypot(x - gx, y - gy)) + 1);
-  // turned to WEAPON_TURNS angles about the centre of the grip pixel
-  let big = { w: iw, h: ih, d: img }; for (let k = 0; k < 3; k++) big = scale2x(big);
-  const S = 2 * R + 1, rot = [];
-  for (let a = 0; a < WEAPON_TURNS; a++) {
-    const ph = a / WEAPON_TURNS * TAU, co = Math.round(Math.cos(ph) * 1e9) / 1e9, si = Math.round(Math.sin(ph) * 1e9) / 1e9, exact = a % (WEAPON_TURNS / 4) === 0;
-    const cv = mkCanvas(S, S), x = cv.getContext('2d'), o = x.createImageData(S, S), src = exact ? { w: iw, h: ih, d: img } : big, k8 = exact ? 1 : 8;
-    for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) {
-      const rx = xx - R, ry = y - R, ux = gx + 0.5 + co * rx + si * ry, uy = gy + 0.5 - si * rx + co * ry, X = Math.floor(ux * k8), Y = Math.floor(uy * k8);
-      if (X < 0 || Y < 0 || X >= src.w || Y >= src.h) continue; const i = (Y * src.w + X) * 4, j = (y * S + xx) * 4; for (let k = 0; k < 4; k++) o.data[j + k] = src.d[i + k];
-    }
-    x.putImageData(o, 0, 0); rot.push(cv);
-  }
+  const I = { w: iw, h: ih, d: img, gx, gy, R }, rot = []; for (let a = 0; a < WEAPON_TURNS; a++) rot.push(turnImg(I, a));
   let tip = 0, butt = 0; for (const [x, y] of pts) { const s = (x - cfg.grip[0]) * Math.cos(rest) + (y - cfg.grip[1]) * Math.sin(rest); tip = Math.max(tip, s); butt = Math.min(butt, s); }
-  return { mid: (tip + butt) / 2, len: tip - butt, cut, cutW: silhouette(cut), rot, r: R, piv, hands: frames.map(F => F.hands), rest, img: { w: iw, h: ih, d: img, gx, gy } };
+  return { mid: (tip + butt) / 2, len: tip - butt, cut, cutW: silhouette(cut), rot, r: R, piv, hands: frames.map(F => F.hands), rest, tip, img: I };
+}
+// one of WEAPON_TURNS turns of a weapon image about the centre of its grip pixel: the quarter turns copy pixels exactly,
+// the rest sample the image enlarged 8x by Scale2x (RotSprite), so edges stay clean. I: { w, h, d, gx, gy, R }
+function turnImg(I, a) {
+  if (!I.big) { let b = { w: I.w, h: I.h, d: I.d }; for (let k = 0; k < 3; k++) b = scale2x(b); I.big = b; }
+  const R = I.R, S = 2 * R + 1, ph = a / WEAPON_TURNS * TAU, co = Math.round(Math.cos(ph) * 1e9) / 1e9, si = Math.round(Math.sin(ph) * 1e9) / 1e9, exact = a % (WEAPON_TURNS / 4) === 0;
+  const cv = mkCanvas(S, S), x = cv.getContext('2d'), o = x.createImageData(S, S), src = exact ? I : I.big, k8 = exact ? 1 : 8;
+  for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) {
+    const rx = xx - R, ry = y - R, ux = I.gx + 0.5 + co * rx + si * ry, uy = I.gy + 0.5 - si * rx + co * ry, X = Math.floor(ux * k8), Y = Math.floor(uy * k8);
+    if (X < 0 || Y < 0 || X >= src.w || Y >= src.h) continue; const i = (Y * src.w + X) * 4, j = (y * S + xx) * 4; for (let k = 0; k < 4; k++) o.data[j + k] = src.d[i + k];
+  }
+  x.putImageData(o, 0, 0); return cv;
+
 }
 // Scale2x (EPX): doubles a pixel image, following diagonal edges instead of turning every pixel into a block
 function scale2x(s) {
