@@ -109,7 +109,7 @@ function buildArena(floor) {
   levelPlan(A, g); // the floor's set pieces: a flooded way, a gauntlet, a sentinel (37_levels)
   for (const r of rooms) worksBefore(A, r, g); // a cistern, a rune shrine (36_works)
   for (const r of rooms) furnish(A, r, g);
-  for (const r of rooms) worksAfter(A, r); for (const r of rooms) levelAfter(A, r); spikeHalls(A); wayArrows(A, g);
+  for (const r of rooms) worksAfter(A, r); for (const r of rooms) levelAfter(A, r); spikeHalls(A); corridorWood(A, g); wayArrows(A, g);
   // the stairway we came down, in the start room's north wall; the way down waits shut in the end room's
   { const r = A.start, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 12, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 13, (sx + i) * TS, (r.fy0 + 1) * TS); } }
   { const r = A.end, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 14, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 15, (sx + i) * TS, (r.fy0 + 1) * TS); } A.stairs = { x: (sx + 1.5) * TS, y: (r.fy0 + 2) * TS + 2, sx, sy: r.fy0, room: r.i }; }

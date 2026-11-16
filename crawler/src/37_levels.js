@@ -152,6 +152,41 @@ function wayArrows(A, g) {
     const at = cands.find(([x, y]) => free(x, y)); if (at) tileAt(g, COL[door.side], row, at[0] * TS, at[1] * TS);
   }
 }
+// ---- the corridors: some barricaded across with wooden furniture (it all breaks: smash a way through), some cluttered
+// along both sides with the middle lane left clear, and smashed crates lying about on their floors. The sheet's wood:
+// crates [25..26, 12], [24..26, 13]; crate stacks two high [27..29, 12]; pots [24..27, 8]; mine carts [30..31, 12..15];
+// a heap of pots two wide [22, 8]; the crates intact in row 10 and smashed in rows 9 and 11 ([24..28, 9..11], [31, 9..11]).
+const FURN = {
+  crate: [[25, 12], [26, 12], [24, 13], [25, 13], [26, 13], [24, 10], [25, 10], [26, 10], [27, 10], [28, 10], [31, 10]],
+  stack: [[27, 12], [28, 12], [29, 12]], pot: [[24, 8], [25, 8], [26, 8], [27, 8]], cart: [[30, 12], [31, 12], [30, 13], [31, 13], [30, 14], [31, 14], [30, 15], [31, 15]],
+  junk: [[24, 9], [24, 11], [25, 9], [25, 11], [26, 9], [26, 11], [27, 9], [27, 11], [28, 9], [28, 11], [31, 9], [31, 11]],
+};
+function corridorWood(A, g) {
+  const put = (kind, t, tx, ty, th = 1) => A.props.push({ kind, tile: t, th, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 40, hall: true });
+  const spiky = (x, y) => (A.spikes || []).some(s => s.tx === x && s.ty === y);
+  for (const hl of A.halls) {
+    // its own floor: across the door cells' rows (or columns), from a tile past the one wall to a tile short of the other
+    const h = hl.dir === 'h', a0 = h ? hl.x0 + 1 : hl.y0 + 1, a1 = h ? hl.x1 - 1 : hl.B.fy0 - 1, len = a1 - a0 + 1; if (len < 3) continue;
+    const at = (k, lane) => (h ? [k, hl.y0 + lane] : [hl.x0 + lane, k]);
+    const roll = Math.random();
+    if (roll < 0.22 && len >= 4) { // a barricade across it, somewhere along the middle
+      const k = randi(a0 + 1, a1 - 1); if ([0, 1, 2].some(l => spiky(...at(k, l)))) continue;
+      const style = pick(['carts', 'crates', 'mixed']);
+      for (let l = 0; l < 3; l++) {
+        const [x, y] = at(k, l), w = style === 'carts' ? ['cart', pick(FURN.cart)] : style === 'crates' ? ['crate', pick(FURN.crate)] : pick([['cart', pick(FURN.cart)], ['crate', pick(FURN.crate)], ['barrel', pick(FURN.pot)]]);
+        if (!h && l !== 1 && chance(0.4)) put('crate', pick(FURN.stack), x, y, 2); else put(w[0] === 'cart' ? 'crate' : w[0], w[1], x, y);
+      }
+      for (let i = 0; i < randi(1, 3); i++) { const [x, y] = at(randi(a0, a1), randi(0, 2)); tileAt(g, ...pick(FURN.junk), x * TS, y * TS); } // splinters about it
+    } else if (roll < 0.57) { // cluttered: things along both sides, the middle lane clear
+      for (let k = a0; k <= a1; k++) {
+        if (!chance(0.38)) continue; const lane = chance(0.5) ? 0 : 2, [x, y] = at(k, lane); if (spiky(x, y)) continue;
+        if (A.props.some(q => !q.dead && Math.abs(q.x - (x * TS + 8)) < 16 && Math.abs(q.cy - (y * TS + 10)) < 16)) continue;
+        const t = Math.random(); if (t < 0.4) put('crate', pick(FURN.crate), x, y); else if (t < 0.65) put('barrel', pick(FURN.pot), x, y); else if (t < 0.85) put('crate', pick(FURN.cart), x, y); else if (h && lane === 0 || !h) put('crate', pick(FURN.stack), x, y, 2); else put('crate', pick(FURN.crate), x, y);
+      }
+      for (let i = 0; i < randi(1, 3); i++) { const [x, y] = at(randi(a0, a1), chance(0.5) ? 0 : 2); tileAt(g, ...pick(FURN.junk), x * TS, y * TS); }
+    } else if (roll < 0.75) for (let i = 0; i < randi(1, 2); i++) { const [x, y] = at(randi(a0, a1), randi(0, 2)); tileAt(g, ...pick(FURN.junk), x * TS, y * TS); } // only some splinters
+  }
+}
 // ---- who stands in them: archers on the islands (turrets while the water is up); nobody in the flooded way yet
 function levelFoes(A, f) {
   const out = [];
