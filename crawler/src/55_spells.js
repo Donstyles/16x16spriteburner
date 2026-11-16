@@ -107,8 +107,6 @@ function drawBolt(c, p) { // in the world, sorted with everyone
   else if (p.k === 'flask') { const s = ((p.t * 14) | 0) % 2; c.fillStyle = '#1a2a10'; c.fillRect(x - 1, y - 2, 3, 4); c.fillStyle = '#80e040'; c.fillRect(x - 1, y - 1 + s, 3, 2 - s); c.fillStyle = '#c8b090'; c.fillRect(x, y - 3, 1, 1); c.fillStyle = 'rgba(0,0,0,0.3)'; c.fillRect(x - 1, Math.round(p.y), 3, 1); }
 }
 function drawSpellGlows(c) { // in the glow layer: they shine in the dark
-  for (const z of G.hz || []) { const R = sludgeSize(z), k = Math.min(1, (z.life - z.t) / 0.8) * Math.min(1, z.t / 0.3); c.globalAlpha = (0.3 + 0.08 * Math.sin(G.time * 3.2 + z.x)) * k; c.drawImage(GLOW.poison, z.x - R * 1.7, z.y - R * 1.15, R * 3.4, R * 2.3); } // the spill's sickly glow
-  c.globalAlpha = 1;
   for (const p of G.proj) {
     if (!p.spell && p.k !== 'flask') continue; const x = p.x, y = p.y - p.z, a = Math.atan2(p.vy, p.vx);
     if (p.k === 'laser') { // its shine lies on its own pixels, one wide, brightest at the head: a thin bolt, not a beam
@@ -135,7 +133,7 @@ function flaskStep(p, dt) {
   if (u < 1) return;
   p.dead = true; sparks(p.x, p.y, 2, 10, 'white', 90, 60); sparks(p.x, p.y, 2, 14, 'poison', 120, 80); SFX.shatter(panOf(p.x)); SFX.splash(panOf(p.x), false);
   for (let i = 0; i < 18; i++) { const a = rand(TAU), v = rand(30, 90); part({ k: 'glow', x: p.x, y: p.y, z: 2, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.7, vz: rand(20, 70), g: 200, life: rand(0.4, 0.8), s0: 1.6, s1: 0.4, col: 'poison', a0: 0.9, a1: 0 }); }
-  G.hz.push({ x: p.x, y: p.y, r: 15, t: 0, life: 4.5, dps: (p.src ? p.src.def.dmg * p.src.dmgMul : 11) * 0.8, tick: 0, src: p.src });
+  G.hz.push({ x: p.x, y: p.y, r: 15, t: 0, life: 4.5, dps: (p.src ? p.src.def.dmg * p.src.dmgMul : 11) * 0.8, tick: 0, src: p.src, dir: Math.atan2(p.vy, p.vx) });
 }
 // the poison pools: they bubble and burn whoever stands in them, then sink away
 // Standing in the acid, he is told it is the floor that hurts: each burn hisses and steams at his feet (no blood, a sour
@@ -158,12 +156,13 @@ function updateHazards(dt) {
     for (const q of bub) if (q.t >= q.life) { for (let i = 0; i < 3; i++) part({ k: 'glow', x: q.x + rand(-1, 1), y: q.y, z: 1, vz: rand(10, 22), vx: rand(-8, 8), life: rand(0.25, 0.45), s0: 1.4, s1: 0.4, col: 'poison', a0: 0.9, a1: 0 }); } // it pops
     removeIf(bub, q => q.t >= q.life);
     if (z.t < z.life - 0.6) {
-      const R = sludgeSize(z);
+      const R = z.r * 0.8;
       if (chance(dt * 7)) { const a = rand(TAU), d = Math.sqrt(Math.random()) * R * 0.6; bub.push({ x: z.x + Math.cos(a) * d, y: z.y + Math.sin(a) * d * 0.62, t: 0, life: rand(0.5, 1.1), s: rand(0.8, 2.6) }); }
       if (chance(dt * 2.5)) smoke(z.x + rand(-R * 0.5, R * 0.5), z.y + rand(-2, 2), 1, 'green', 4, 3, 1.8, 9); // fumes
-      if (chance(dt * 6)) { const a = rand(TAU), d = Math.sqrt(Math.random()) * R * 0.8; part({ k: 'glow', x: z.x + Math.cos(a) * d, y: z.y + Math.sin(a) * d * 0.62, z: 0, vz: rand(6, 14), life: rand(0.4, 0.8), s0: rand(1, 2), s1: 2.5, col: 'poison', a0: 0.75, a1: 0 }); } // motes of it rising
+      if (chance(dt * 2.5)) { const a = rand(TAU), d = Math.sqrt(Math.random()) * R * 0.8; part({ k: 'glow', x: z.x + Math.cos(a) * d, y: z.y + Math.sin(a) * d * 0.62, z: 0, vz: rand(6, 12), life: rand(0.3, 0.6), s0: rand(0.8, 1.4), s1: 1.6, col: 'poison', a0: 0.6, a1: 0 }); } // a mote of it rising
     }
   }
+  for (const z of G.hz) if (z.t >= z.life) splat(z.x, z.y, '#26361a', 7, z.r * 0.55); // spent: a dark stain where it lay
   removeIf(G.hz, z => z.t >= z.life);
 }
 // a burn from the acid underfoot: steam and spatter off his feet and a hiss, where a blow would draw blood
@@ -172,47 +171,40 @@ function acidBurn(u) {
   for (let i = 0; i < 5; i++) { const a = rand(TAU), v = rand(15, 40); part({ k: 'gore', x: u.x + rand(-3, 3), y: u.y, z: rand(1, 3), vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6, vz: rand(25, 55), g: 420, life: 1.5, s0: 1, col: pick(['#a6e040', '#d8f060', '#7cc030']), kind: 'bug' }); }
   sparks(u.x, u.y, 3, 4, 'poison', 50, 40); SFX.sizzle(panOf(u.x));
 }
-// The witch's spill is bright, thick, irradiated sludge: a lumpy blob (a few lumps, fixed for each spill, not a neat oval)
-// with a dark crust round its edge, its surface churning in bands of toxic green, bubbles swelling and popping on it,
-// fumes rising off it, a sickly glow over it and a green light of its own that shows it in the dark. The surface is
-// drawn pixel by pixel into a little canvas of its own a dozen times a second, then stamped on the floor.
-const SLUDGE = ['#1a3c07', '#2e7a0d', '#4cc416', '#7af52a', '#b8ff5a', '#efffb8'];
-function sludgeLobes(z) {
-  if (z.lobes) return z.lobes; const L = [{ x: 0, y: 0, r: 0.82 }], n = 4 + ((Math.random() * 3) | 0);
-  for (let i = 0; i < n; i++) { const a = i / n * TAU + rand(-0.45, 0.45), d = rand(0.3, 0.55); L.push({ x: Math.cos(a) * d, y: Math.sin(a) * d, r: rand(0.36, 0.52) }); }
-  return (z.lobes = L);
-}
-const sludgeSize = z => z.r * (0.55 + 0.45 * Math.min(1, z.t / 0.35)) * (0.7 + 0.3 * Math.min(1, (z.life - z.t) / 0.8));
-function sludgeSurface(z, R) {
-  const W = Math.ceil(R * 1.3), H = Math.ceil(R * 0.62 * 1.3), cv = z.cv || (z.cv = document.createElement('canvas'));
-  if (cv.width !== W * 2 + 1 || cv.height !== H * 2 + 1) { cv.width = W * 2 + 1; cv.height = H * 2 + 1; }
-  const g = cv.getContext('2d'), L = sludgeLobes(z), T = G.time + z.x * 0.013; g.clearRect(0, 0, cv.width, cv.height);
-  for (let dy = -H; dy <= H; dy++) {
-    let run = -1, from = 0;
-    for (let dx = -W; dx <= W + 1; dx++) {
-      let k = -1;
-      if (dx <= W) {
-        let f = -1; for (const l of L) { const ex = (dx / R - l.x) / l.r, ey = (dy / (R * 0.62) - l.y) / l.r; const v = 1 - ex * ex - ey * ey; if (v > f) f = v; }
-        if (f > 0) { if (f < 0.16) k = 0; else { const sw = Math.sin(dx * 0.55 + T * 2.1) + Math.sin(dy * 0.95 - T * 1.7 + dx * 0.21) * 0.9 + f * 2.4; k = sw > 2.5 ? 4 : sw > 1.4 ? 3 : sw > 0.2 ? 2 : 1; } }
-      }
-      if (k !== run) { if (run >= 0) { g.fillStyle = SLUDGE[run]; g.fillRect(from + W, dy + H, dx - from, 1); } run = k; from = dx; }
-    }
-  }
-  z.cvT = G.time; z.cvR = R; z.cvW = W; z.cvH = H;
+// The witch's spill is painted the way blood pools are: a cluster of wet blobs, the deepest green under and brighter on
+// top, so its edge comes out ragged; splashes thrown on in the way the flask flew; bits of the flask's glass lying in it.
+// It is alive while it lasts: bubbles swell and pop on it, a few glints of sheen drift over it, it fumes and casts a faint
+// green light of its own; spent, it shrinks away and leaves a dark stain on the stone.
+const ACID = { deep: '#2a6a0c', mid: '#4cb618', bright: '#7ee02c', sheen: '#c2f56a', glint: '#f0fcc4', glass: ['#dcefe4', '#a2c2b0'] };
+function spillOf(z) {
+  if (z.sp) return z.sp; const r = z.r, B = [], S = [], GL = [], dir = z.dir === undefined ? rand(TAU) : z.dir;
+  B.push({ x: 0, y: 0, rx: r * 0.72, ry: r * 0.44, c: 'deep', a: 0.9 }); // its body
+  for (let i = 0; i < 11; i++) { const a = rand(TAU), d = rand(0.45, 0.8) * r, br = rand(2.6, 5) * r / 15; B.push({ x: Math.cos(a) * (d - br * 0.6), y: Math.sin(a) * (d - br * 0.6) * 0.62, rx: br, ry: br * 0.72, c: 'deep', a: rand(0.8, 0.95) }); } // lumps that make its edge
+  for (let i = 0; i < 8; i++) { const a = rand(TAU), d = Math.sqrt(Math.random()) * r * 0.5, br = rand(2, 3.8) * r / 15; B.push({ x: Math.cos(a) * d, y: Math.sin(a) * d * 0.62, rx: br, ry: br * 0.72, c: 'mid', a: rand(0.75, 0.95) }); }
+  for (let i = 0; i < 4; i++) { const a = rand(TAU), d = Math.sqrt(Math.random()) * r * 0.32, br = rand(1.2, 2.4) * r / 15; B.push({ x: Math.cos(a) * d - r * 0.12, y: Math.sin(a) * d * 0.62 - r * 0.08, rx: br, ry: br * 0.7, c: 'bright', a: rand(0.7, 0.9) }); } // brighter on top, towards the light
+  for (let i = 0; i < 9; i++) { const a = dir + rand(-1, 1) * (chance(0.3) ? 2.6 : 0.9), d = rand(0.9, 1.35) * r; S.push({ x: Math.cos(a) * d, y: Math.sin(a) * d * 0.62, r: rand(0.6, 1.5) }); } // splashes, most of them on in the way it flew
+  for (let i = 0; i < 4; i++) { const a = rand(TAU), d = rand(0.15, 0.75) * r; GL.push({ x: Math.round(Math.cos(a) * d), y: Math.round(Math.sin(a) * d * 0.62), c: pick(ACID.glass), w: chance(0.4) ? 2 : 1 }); } // the flask's glass
+  return (z.sp = { B, S, GL });
 }
 function drawHazards(c) { // on the floor, under everyone
   for (const z of G.hz || []) {
-    const R = sludgeSize(z), fade = Math.min(1, (z.life - z.t) / 0.8);
-    if (!z.cv || G.time - z.cvT > 0.08 || Math.abs(R - z.cvR) > 0.4) sludgeSurface(z, R);
-    c.globalAlpha = Math.min(1, fade * 1.5); c.drawImage(z.cv, Math.round(z.x) - z.cvW, Math.round(z.y) - z.cvH);
-    for (const q of z.bub || []) { // the bubbles: swelling, a lit top, then gone
+    const sp = spillOf(z), land = Math.min(1, z.t / 0.22), k = Math.min(1, (z.life - z.t) / 0.8), s = (0.35 + 0.65 * land) * (0.75 + 0.25 * k), X = z.x, Y = z.y;
+    for (const b of sp.B) { c.globalAlpha = b.a * k; c.fillStyle = ACID[b.c]; c.beginPath(); c.ellipse(X + b.x * s, Y + b.y * s, b.rx * s, b.ry * s, 0, 0, TAU); c.fill(); }
+    if (land >= 1) { c.fillStyle = ACID.mid; for (const q of sp.S) { c.globalAlpha = 0.9 * k; c.beginPath(); c.ellipse(X + q.x, Y + q.y, q.r, q.r * 0.75, 0, 0, TAU); c.fill(); } }
+    c.globalAlpha = k;
+    for (const g of sp.GL) { c.fillStyle = g.c; c.fillRect(Math.round(X + g.x * s), Math.round(Y + g.y * s), g.w, 1); }
+    for (let i = 0; i < 3; i++) { // sheen drifting on it
+      const a = G.time * 0.5 + i * 2.1 + z.x * 0.1, gx = Math.round(X + Math.cos(a) * z.r * 0.38 * s), gy = Math.round(Y + Math.sin(a * 1.3) * z.r * 0.2 * s);
+      c.fillStyle = ACID.sheen; c.fillRect(gx - 1, gy, 3, 1); c.fillStyle = ACID.glint; c.fillRect(gx, gy, 1, 1);
+    }
+    for (const q of z.bub || []) { // bubbles: swelling, a lit top, then gone
       const u = q.t / q.life, rr = q.s * Math.min(1, u * 1.3), bx = Math.round(q.x), by = Math.round(q.y);
-      if (rr < 1.2) { c.fillStyle = SLUDGE[4]; c.fillRect(bx, by - 1, 2, 2); c.fillStyle = SLUDGE[5]; c.fillRect(bx, by - 1, 1, 1); }
-      else { const d = Math.round(rr); c.fillStyle = SLUDGE[1]; c.fillRect(bx - d, by - d, d * 2 + 1, d + 1); c.fillStyle = SLUDGE[4]; c.fillRect(bx - d + 1, by - d, d * 2 - 1, d); c.fillStyle = SLUDGE[5]; c.fillRect(bx - d + 1, by - d, 1, 1); }
+      if (rr < 1.2) { c.fillStyle = ACID.bright; c.fillRect(bx, by - 1, 2, 2); c.fillStyle = ACID.glint; c.fillRect(bx, by - 1, 1, 1); }
+      else { const d = Math.round(rr); c.fillStyle = ACID.deep; c.fillRect(bx - d, by - d, d * 2 + 1, d + 1); c.fillStyle = ACID.bright; c.fillRect(bx - d + 1, by - d, d * 2 - 1, d); c.fillStyle = ACID.glint; c.fillRect(bx - d + 1, by - d, 1, 1); }
     }
     c.globalAlpha = 1;
-    for (const q of z.rip || []) { if (q.t < 0) continue; const u = q.t / 0.8, Rr = 5 + 15 * (1 - (1 - u) * (1 - u)); c.strokeStyle = `rgba(239,255,184,${0.95 * (1 - u) * fade})`; c.lineWidth = 1; c.beginPath(); c.ellipse(q.x, q.y + 1, Rr, Rr * 0.62, 0, 0, TAU); c.stroke(); } // two ripples out from his feet
-    light(z.x, z.y, R * 2.6 + 3 * Math.sin(G.time * 3 + z.x), 'poison', 0.6 * fade); // it lights the dark round it
+    for (const q of z.rip || []) { if (q.t < 0) continue; const u = q.t / 0.8, Rr = 5 + 15 * (1 - (1 - u) * (1 - u)); c.strokeStyle = `rgba(240,252,196,${0.9 * (1 - u) * k})`; c.lineWidth = 1; c.beginPath(); c.ellipse(q.x, q.y + 1, Rr, Rr * 0.62, 0, 0, TAU); c.stroke(); } // two ripples out from his feet
+    light(X, Y, z.r * 2.2, 'poison', 0.4 * k); // a faint green light of its own
   }
 }
 
