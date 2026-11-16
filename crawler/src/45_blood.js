@@ -26,17 +26,11 @@ function bmap() {
 }
 function bloodMark(x, y, amt, kind) { if (!ARENA) return; const M = bmap(), i = Math.floor(y / 4) * M.w + Math.floor(x / 4); if (i < 0 || i >= M.a.length) return; M.a[i] = Math.min(255, M.a[i] + amt); M.k[i] = Math.max(0, BK.indexOf(kind)); }
 function bloodAt(x, y) { if (!ARENA) return [0, 'red']; const M = bmap(), i = Math.floor(y / 4) * M.w + Math.floor(x / 4); return i < 0 || i >= M.a.length ? [0, 'red'] : [M.a[i], BK[M.k[i]]]; }
-// a pool: whole pixels in a rough flattened disc, dark where it is deep, lighter at its edge
+// a pool: soft overlapping blotches (as the floor blood has always been), a darker one or two where it is deep
 function pool(x, y, kind, size) {
-  if (!GORE.level || !ARENA) return; const bl = BLOOD[kind], r = size * 1.6, cx = Math.round(x), cy = Math.round(y), R = Math.ceil(r);
-  groundPaint(cx - R - 2, cy - R - 2, cx + R + 2, cy + R + 2, g => {
-    for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
-      const e = Math.hypot(dx, dy / 0.7) / r + NOISE[((cx + dx) * 7 + (cy + dy) * 13) & 1023] * 0.3; if (e > 1) continue;
-      g.globalAlpha = e < 0.6 ? 0.92 : 0.7; g.fillStyle = e < 0.45 ? bl[2] : bl[0]; g.fillRect(cx + dx, cy + dy, 1, 1);
-    }
-    g.globalAlpha = 1;
-  });
-  for (let dy = -R; dy <= R; dy += 4) for (let dx = -R; dx <= R; dx += 4) bloodMark(x + dx, y + dy * 0.7, 14, kind);
+  if (!GORE.level || !ARENA) return; const bl = BLOOD[kind], r = size * 1.6;
+  splat(x, y, bl[0], 3 + size * 2, r); if (size >= 2) splat(x, y, bl[2], 1 + size * 0.5, r * 0.4);
+  for (let dy = -r; dy <= r; dy += 4) for (let dx = -r; dx <= r; dx += 4) bloodMark(x + dx, y + dy * 0.7, 14, kind);
 }
 
 // --- the spray
@@ -71,20 +65,32 @@ function goreStep(p, dt) {
   if (p.z <= 0) { goreLand(p.x, p.y, p); p.t = p.life; }
 }
 function goreLand(x, y, p) {
-  if (!ARENA) return; x = Math.round(x); y = Math.round(y); const s = p.s0, h = s === 2 && chance(0.5) ? 2 : 1, a = rand(0.75, 1);
-  groundPaint(x - 1, y - 1, x + 3, y + 3, g => { g.globalAlpha = a; g.fillStyle = p.col; g.fillRect(x, y, s, h); g.globalAlpha = 1; });
-  bloodMark(x, y, s === 2 ? 5 : 2, p.kind); if (p.quiet) SFX.drip(panOf(x));
+  if (!ARENA) return; const r = p.s0 === 2 ? rand(1.2, 2) : rand(0.6, 1.2), a = rand(0.45, 0.8); // a small soft blotch where it lands
+  groundPaint(x - 3, y - 3, x + 3, y + 3, g => { g.globalAlpha = a; g.fillStyle = p.col; g.beginPath(); g.ellipse(x, y, r, r * 0.75, 0, 0, TAU); g.fill(); g.globalAlpha = 1; });
+  bloodMark(x, y, p.s0 === 2 ? 5 : 2, p.kind); if (p.quiet) SFX.drip(panOf(x));
 }
-// the wall to the north shows its face: a drop that reaches it splashes where it struck and runs down to the floor
-const BTR = [];
+const BTR = []; // blood running down walls, a pixel at a time
+// Where a drop meets a wall. The north walls show their face: it splashes where it struck and runs down to the floor.
+// The side walls show only a rim along the floor's edge: it splashes on the rim at the height it struck and runs down
+// along it to the floor. The south walls show only their top edge: it splashes against it.
 function goreWall(p, ny) {
-  if (p.vy < 0 && solidAt(p.x, ny) && !solidAt(p.x, p.y) && p.z > 1 && p.z < 22) {
+  const x0 = p.x + p.vx * 0.016, side = solidAt(x0, p.y) && !solidAt(p.x, p.y);
+  if (p.vy < 0 && solidAt(p.x, ny) && !solidAt(p.x, p.y) && !side && p.z > 1 && p.z < 22) {
     const yb = Math.floor(p.y / TS) * TS, x = Math.round(p.x), y = Math.round(yb - p.z);
     groundPaint(x - 1, y - 1, x + 3, y + 3, g => { g.fillStyle = p.col; g.fillRect(x, y, p.s0, p.s0); });
     if (BTR.length < 60) BTR.push({ x, y: y + p.s0 - 1, end: yb - 1, col: p.col, n: randi(3, 16), next: G.time + rand(0.15, 0.4) });
     return;
   }
-  goreLand(p.x, p.y, p); // a side wall: it falls at its foot
+  if (side && p.z > 1 && p.z < 30) { // the rim of a side wall (the tileset draws its dark edge 4 px past where the stone stops you)
+    const east = p.vx > 0, rim = east ? Math.floor(x0 / TS) * TS + 4 : Math.floor(p.x / TS) * TS - 5, x = rim + (east ? -randi(0, 2) : randi(0, 2)), gy = Math.round(p.y), y = Math.round(p.y - p.z), r = p.s0 === 2 ? rand(1.1, 1.7) : rand(0.6, 1.1);
+    groundPaint(x - 3, y - 3, x + 3, y + 3, g => { g.globalAlpha = rand(0.6, 0.9); g.fillStyle = p.col; g.beginPath(); g.ellipse(x + 0.5, y + 0.5, r * 0.8, r, 0, 0, TAU); g.fill(); g.globalAlpha = 1; });
+    if (BTR.length < 60 && chance(0.6)) BTR.push({ x, y: y + 1, end: gy, col: p.col, n: randi(2, 6), next: G.time + rand(0.15, 0.4) });
+    bloodMark(x, gy, 2, p.kind); return;
+  }
+  if (p.vy > 0 && solidAt(p.x, ny) && !solidAt(p.x, p.y)) { // the south wall's edge: a splash against it
+    const yb = Math.floor(ny / TS) * TS - 1; goreLand(p.x, yb, { ...p, s0: 2 }); return;
+  }
+  goreLand(p.x, p.y, p); // too high or too low: it falls at the wall's foot
 }
 function updateBlood() {
   if (!ARENA) return; bmap();
@@ -117,7 +123,7 @@ function footprints(h) {
   // a print: the sole (two pixels across the way he walks) and a pixel of heel behind it, fainter with every step
   const a = Math.atan2(h.y - h.fy, h.x - h.fx), side = (h.fpS = -(h.fpS || 1)), x = Math.round(h.x + Math.cos(a + Math.PI / 2) * 1.5 * side), y = Math.round(h.y + Math.sin(a + Math.PI / 2) * 1.2 * side), al = 0.3 + 0.07 * h.fpN, bl = BLOOD[h.fpK];
   const hx = Math.round(x - Math.cos(a) * 2), hy = Math.round(y - Math.sin(a) * 2), across = Math.abs(Math.cos(a)) < 0.7;
-  groundPaint(Math.min(x, hx) - 2, Math.min(y, hy) - 2, Math.max(x, hx) + 3, Math.max(y, hy) + 3, g => { g.globalAlpha = al; g.fillStyle = bl[1]; g.fillRect(x, y, across ? 2 : 1, across ? 1 : 2); g.fillStyle = bl[0]; g.fillRect(hx, hy, 1, 1); g.globalAlpha = 1; });
+  groundPaint(Math.min(x, hx) - 3, Math.min(y, hy) - 3, Math.max(x, hx) + 3, Math.max(y, hy) + 3, g => { g.globalAlpha = al * 0.8; g.fillStyle = bl[0]; g.beginPath(); g.ellipse(x + 0.5, y + 0.5, across ? 1.3 : 0.8, across ? 0.8 : 1.3, 0, 0, TAU); g.fill(); g.globalAlpha = al * 0.6; g.beginPath(); g.ellipse(hx + 0.5, hy + 0.5, 0.7, 0.6, 0, 0, TAU); g.fill(); g.globalAlpha = 1; });
   h.fpN--; h.fx = h.x; h.fy = h.y;
 }
 
