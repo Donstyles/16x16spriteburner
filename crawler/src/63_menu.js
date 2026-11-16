@@ -9,7 +9,7 @@ function checkVersion() {
   if (!/^https?:$/.test(location.protocol) || BUILD === 'dev' || /claude/.test(location.hostname)) return;
   fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (/^[0-9a-f]{8}$/.test(v) && v !== BUILD) { MENU.update = v; if (G.mode !== 'play') location.reload(); } }).catch(() => { });
 }
-setInterval(checkVersion, 60000); document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(); });
+setInterval(checkVersion, 60000); document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkVersion(); if (SFX.ctx && SFX.ctx.state !== 'running') SFX.ctx.resume().catch(() => {}); } });
 function btn(c, x, y, w, h, txt, fn, o = {}) {
   MENU.rects.push({ r: [x, y, w, h], fn });
   c.fillStyle = o.on ? 'rgba(90,64,34,0.85)' : 'rgba(18,14,20,0.78)'; c.fillRect(x, y, w, h);

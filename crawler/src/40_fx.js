@@ -74,8 +74,13 @@ function bloodPaint(x, y, pal, n, spread) { if (!ARENA) return; const R = []; fo
 function splat(x, y, col, n = 6, spread = 7) { if (!ARENA) return; const R = []; for (let i = 0; i < n; i++) R.push([rand(0.35, 0.75), rand(0.8, 2.6), x + rand(-spread, spread), y + rand(-spread, spread) * 0.7]);
   groundPaint(x - spread - 3, y - spread - 3, x + spread + 3, y + spread + 3, g => { g.fillStyle = col; for (const [a, r, ex, ey] of R) { g.globalAlpha = a; g.beginPath(); g.ellipse(ex, ey, r, r * 0.75, 0, 0, TAU); g.fill(); } g.globalAlpha = 1; }); }
 // a wet pixel where a drop of sweat landed: it darkens the stone and dries
-function wetSpot(x, y) { FX.wet.push({ x: Math.round(x), y: Math.round(y), t: 0, life: rand(7, 11) }); if (FX.wet.length > 160) FX.wet.shift(); }
-function drawWet(c) { for (const w of FX.wet) { c.fillStyle = `rgba(6,10,18,${0.5 * Math.min(1, (w.life - w.t) / 3)})`; c.fillRect(w.x, w.y, 1, 1); } }
+// a wet pixel on the floor that dries in time; a glint is one catching the light (a puddle has a few); r: a soft wet
+// patch of that size instead of a pixel (water darkens the floor a little, bluish)
+function wetSpot(x, y, life = rand(7, 11), glint = false, r = 0) { FX.wet.push({ x: Math.round(x), y: Math.round(y), t: 0, life, glint, r }); if (FX.wet.length > 900) FX.wet.shift(); }
+function drawWet(c) {
+  for (const w of FX.wet) if (w.r) { const k = Math.min(1, (w.life - w.t) / 4); c.fillStyle = `rgba(34,62,96,${0.17 * k})`; c.beginPath(); c.ellipse(w.x, w.y, w.r, w.r * 0.62, 0, 0, TAU); c.fill(); }
+  for (const w of FX.wet) if (!w.r) { const k = Math.min(1, (w.life - w.t) / 3); c.fillStyle = w.glint ? `rgba(200,232,255,${0.55 * k})` : `rgba(6,10,18,${0.5 * k})`; c.fillRect(w.x, w.y, 1, 1); }
+}
 // --- floating combat numbers ---
 function number(x, y, z, n, col, big, who = null) { FX.nums.push({ x: x + rand(-4, 4), y, z, vz: rand(50, 80), vx: rand(-12, 12), txt: String(n), col, big, t: 0, life: big ? 1.1 : 0.8, who }); if (FX.nums.length > 90) FX.nums.shift(); }
 function textPop(x, y, z, txt, col, big = true, who = null) { FX.nums.push({ x, y, z, vz: 40, vx: 0, txt, col, big, t: 0, life: 1.4, who }); }
@@ -93,6 +98,8 @@ function updateFx(dt) {
     if (p.k === 'gore') { goreStep(p, dt); continue; }
     if (p.k === 'hay') { hayStep(p, dt); continue; }
     if (p.k === 'chip') { chipStep(p, dt); continue; }
+    if (p.k === 'water') { waterStep(p, dt); continue; }
+    if (p.k === 'pdust') { dustStep(p, dt); continue; }
     if (p.on) { const u = p.on; if (u.dead || (u.act && u.act.k === 'roll')) { p.on = null; p.g = 320; } else { p.row += p.rate * dt; placeDrop(p, u); if (p.row >= p.rowEnd) { p.on = null; p.g = 320; const out = p.side * (u.face < 0 ? -1 : 1); p.vx = (u.vx || 0) * 0.4 + out * rand(4, 10); p.vy = (u.vy || 0) * 0.4 + rand(2, 6); } continue; } } // a drop still running down the hero's head
     if (p.drag) { const f = Math.exp(-p.drag * dt); p.vx *= f; p.vy *= f; if (!p.g) p.vz *= f; }
     if (p.bounce && p.z < 40 && !solidAt(p.x, p.y)) { // shards, sparks and gibs glance off the walls (a mark already inside a wall is left alone)
@@ -163,7 +170,7 @@ function updateRocks(dt) {
     const nx = r.x + r.vx * sdt, ny = r.y + r.vy * sdt; if (solidAt(nx, r.y)) r.vx = -r.vx * 0.4; else r.x = nx; if (solidAt(r.x, ny)) r.vy = -r.vy * 0.4; else r.y = ny;
     r.vz -= 480 * sdt; r.z += r.vz * sdt; const turn = () => { r.r = (r.r + (r.vx >= 0 ? 1 : 3)) % 4; };
     if (r.bleed && r.z > 1 && (r.dripT = (r.dripT || 0) + sdt) > 0.05) { r.dripT = 0; drip(r.x, r.y, r.z, r.bleed, r.vx * 0.3, r.vy * 0.3); }
-    if (r.hay && r.z > 1 && (r.dripT = (r.dripT || 0) + sdt) > 0.06) { r.dripT = 0; hay(r.x, r.y, r.z, r.vx * 0.3, r.vy * 0.3, rand(0, 30), r.slow); } // a bundle sheds stalks as it flies
+    if (r.hay && r.z > 1 && (r.dripT = (r.dripT || 0) + sdt) > 0.06) { r.dripT = 0; hay(r.x, r.y, r.z, r.vx * 0.3, r.vy * 0.3, rand(0, 30), r.slow, r.hay === true ? null : r.hay, r.hay === true ? 0 : 2); } // a bundle sheds stalks as it flies
     if (r.z <= 0) { r.z = 0; if (r.vz < -40) { r.vz = -r.vz * 0.3; r.vx *= 0.55; r.vy *= 0.55; turn(); if (r.bleed) bloodMark(r.x, r.y, 6, r.bleed), goreLand(r.x, r.y, { s0: 2, col: pick(BLOOD[r.bleed]), kind: r.bleed }); if (r.clang) SFX.clang(panOf(r.x)); if (r.tick) SFX.tick(panOf(r.x)); } else { r.vz = 0; const f = Math.exp(-9 * sdt); r.vx *= f; r.vy *= f; } }
     else if ((r.spin -= sdt) <= 0) { r.spin = rand(0.07, 0.13); turn(); }
     if ((r.z === 0 && r.vz === 0 && Math.hypot(r.vx, r.vy) < 3) || r.t > 4) { // still
@@ -192,6 +199,7 @@ function drawWorldParts(ctx) { // normal blending: smoke, rubble, pixel shards (
     if (k === 'smoke') { const u = p.t / p.life, s = p.s0 + (p.s1 - p.s0) * u; ctx.globalAlpha = p.a0 + (p.a1 - p.a0) * u; ctx.drawImage(SMOKE[p.col], p.x - s, p.y - p.z - s, s * 2, s * 2); }
     else if (k === 'spike') { const u = p.t / p.life, h = p.s0 * (u < 0.15 ? u / 0.15 : u > 0.7 ? (1 - u) / 0.3 : 1), w = p.s0 * 0.45; ctx.globalAlpha = 1; ctx.fillStyle = '#6b625a'; ctx.beginPath(); ctx.moveTo(p.x - w, p.y); ctx.lineTo(p.x + w * 0.2, p.y - h * 1.6); ctx.lineTo(p.x + w, p.y); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#9a8c7c'; ctx.beginPath(); ctx.moveTo(p.x - w, p.y); ctx.lineTo(p.x + w * 0.2, p.y - h * 1.6); ctx.lineTo(p.x - w * 0.1, p.y); ctx.closePath(); ctx.fill(); }
     else if (k === 'gore') { ctx.globalAlpha = 1; ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y - p.z), p.s0, p.s0); }
+    else if (k === 'water') { ctx.globalAlpha = 0.9; ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y - p.z), p.s0, p.s0); }
     else if (k === 'chip') { ctx.globalAlpha = 1; ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y - p.z), p.s0, 1); }
     else if (k === 'hay') { ctx.globalAlpha = 1; ctx.fillStyle = p.col; hayPx(p, (a, b) => ctx.fillRect(a, b, 1, 1)); }
     else if (k === 'drop') { const left = p.life - p.t; ctx.globalAlpha = left < 0.25 ? left / 0.25 : 1; ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y - p.z), 1, 1); } // one whole pixel, never smeared
@@ -205,6 +213,7 @@ function drawFxParts(ctx) { // additive: fire, glow, sparks, embers, glowing sha
     const k = p.k;
     if (k === 'glow' || k === 'ember') { const u = p.t / p.life; let a = p.a0 + (p.a1 - p.a0) * u; if (k === 'ember') a *= 0.55 + 0.45 * Math.sin(p.t * 34 + p.x); const s = p.s0 + (p.s1 - p.s0) * u; if (a < 0.02 || s < 0.1) continue; ctx.globalAlpha = a > 1 ? 1 : a; ctx.drawImage(GLOW[p.col], p.x - s, p.y - p.z - s, s * 2, s * 2); }
     else if (k === 'spark') { const h = Math.min(3, (p.t / p.life * 4) | 0), key = p.col + h; (buckets[key] || (buckets[key] = [])).push(p); }
+    else if (k === 'pdust') drawDust(ctx, p);
     else if (k === 'pixa') { const u = p.t / p.life; ctx.globalAlpha = 1 - u; ctx.drawImage(GLOW[p.col], p.x - 2.5, p.y - p.z - 2.5, 5, 5); ctx.fillStyle = p.c2 || '#fff'; ctx.fillRect(p.x - p.s0 / 2, p.y - p.z - p.s0 / 2, p.s0, p.s0); }
   }
   ctx.globalAlpha = 1; ctx.lineCap = 'round';

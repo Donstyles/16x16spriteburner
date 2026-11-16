@@ -26,13 +26,14 @@ const BIT_ART = {
   tuft: ['h.hh.', 'hhhhh', '.hh.h'],
   clump: ['.hhh', 'hhhh', 'hhh.'],
 };
+const BIT_PAL = {}; // more colours by letter (the wood's: 47_elements)
 const BIT_ROT = {}; // each piece in its four quarter turns, a few of each (the hay in its own colours each time)
 function bitRot(name) {
   const L = BIT_ROT[name] || (BIT_ROT[name] = []); if (L.length >= 4) return pick(L);
   const art = BIT_ART[name], w = art[0].length, h = art.length, cv = mkCanvas(w + 2, h + 2), g = cv.getContext('2d'), on = (x, y) => art[y] && art[y][x] && art[y][x] !== '.';
-  g.fillStyle = art.some(r => r.includes('h')) ? 'rgba(70,46,22,0.55)' : 'rgba(29,29,28,0.8)'; // the outline
+  g.fillStyle = art.some(r => /[LMDK]/.test(r)) ? 'rgba(29,29,28,0.8)' : 'rgba(70,46,22,0.55)'; // the outline: dark round bone, soft brown round hay and wood
   for (let y = -1; y <= h; y++) for (let x = -1; x <= w; x++) if (!on(x, y) && (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1))) g.fillRect(x + 1, y + 1, 1, 1);
-  art.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '.') return; g.fillStyle = ch === 'h' ? pick(HAY) : ch === 't' ? TWINE : BONE[ch]; g.fillRect(x + 1, y + 1, 1, 1); }));
+  art.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '.') return; g.fillStyle = ch === 'h' ? pick(HAY) : ch === 't' ? TWINE : BIT_PAL[ch] || BONE[ch]; g.fillRect(x + 1, y + 1, 1, 1); }));
   const rot = [cv]; for (let r = 1; r < 4; r++) { const s = rot[r - 1], q = mkCanvas(s.height, s.width), og = q.getContext('2d'); og.setTransform(0, 1, -1, 0, s.height, 0); og.drawImage(s, 0, 0); rot.push(q); }
   L.push(rot); return rot;
 }
@@ -58,8 +59,9 @@ const bundle = (u, ang, o = {}) => tossBit(pick(['sheaf', 'tuft', 'clump']), u.x
 // a stalk, 2-4 px long, lying one of four ways: along, slanting down, upright, slanting up
 const HAY_DIR = [[1, 0], [1, 1], [0, 1], [1, -1]];
 function hayPx(p, f) { const [dx, dy] = HAY_DIR[p.o], x0 = Math.round(p.x), y0 = Math.round(p.y - p.z), h = p.len >> 1; for (let i = 0; i < p.len; i++) f(x0 + dx * (i - h), y0 + dy * (i - h)); }
-function hay(x, y, z, vx, vy, vz, slow = 0) {
-  part({ k: 'hay', x, y, z, vx, vy, vz, life: 9, len: chance(0.3) ? 4 : chance(0.6) ? 3 : 2, o: randi(0, 3), ot: rand(0.05, 0.2), ph: rand(TAU), w: rand(5, 9), col: pick(HAY), slow });
+// (cols: other colours, as for the treant's leaves; len: a fixed length)
+function hay(x, y, z, vx, vy, vz, slow = 0, cols = null, len = 0) {
+  part({ k: 'hay', x, y, z, vx, vy, vz, life: 9, len: len || (chance(0.3) ? 4 : chance(0.6) ? 3 : 2), o: randi(0, 3), ot: rand(0.05, 0.2), ph: rand(TAU), w: rand(5, 9), col: pick(cols || HAY), slow });
 }
 // light as it is, it soon loses its speed; it sinks slowly, swaying, turning over and over, and settles where it comes down
 function hayStep(p, dt) {
@@ -103,6 +105,7 @@ function ownChip(u, away) {
 function shed(u, d, o = {}) {
   const kind = u.def.blood, sc = u.scale || 1, S = SPRAY[o.style] || SPRAY.bite, k = clamp(d / 12, 0.5, 3.5) * (o.more || 1), pan = panOf(u.x);
   const a0 = o.ang === undefined ? rand(TAU) : o.ang, way = () => a0 + (o.sweep || 1) * S.bias + rand(-S.spread, S.spread) * 1.3, z0 = (u.z || 0) + 6 * sc;
+  if (kind === 'water' || kind === 'wood' || kind === 'dust') { shedElement(u, d, o, k, a0, way, z0, pan); return; }
   if (kind === 'straw') {
     for (let i = 0, n = Math.min(60, Math.round(10 * k)); i < n; i++) { const a = way(), v = rand(S.v[0], S.v[1]) * 0.9; hay(u.x + rand(-2, 2), u.y + rand(-1, 1), z0 + rand(-3, 4), Math.cos(a) * v, Math.sin(a) * v * 0.8, rand(40, 130), o.slow); }
     smoke(u.x, u.y, d >= 25 ? 2 : 1, 'dust', 6, 14, 0.8); // chaff
@@ -123,6 +126,7 @@ function shed(u, d, o = {}) {
 // the badly wounded leave a trail of what they are made of: a stalk, a chip
 function shedTrail(u) {
   const z = rand(4, 8) * (u.scale || 1);
+  if (u.def.blood === 'wood') { hay(u.x + rand(-4, 4), u.y + rand(-1, 1), z + 8, rand(-10, 10), rand(-6, 6), rand(0, 20), 0, LEAF, 2); return; }
   if (u.def.blood === 'straw') hay(u.x + rand(-2, 2), u.y + rand(-1, 1), z, rand(-10, 10), rand(-6, 6), rand(0, 20));
   else if (u.def.blood === 'bone') chip(u.x + rand(-2, 2), u.y + rand(-1, 1), z, rand(-15, 15), rand(-10, 10), rand(10, 40), pick(bitCols(u)));
 }
@@ -130,6 +134,7 @@ function shedTrail(u) {
 // and bundles; a golem breaks into pieces of itself
 function remains(u) {
   const kind = u.def.blood, sc = u.scale || 1, o = u.lastBlow || {}, a = o.ang, pan = panOf(u.x);
+  if (kind === 'water' || kind === 'wood' || kind === 'dust') { remainsElement(u, o, pan); return; }
   if (kind === 'bone') {
     while (looseBone(u, null, { v: rand(15, 60), up: rand(40, 100) })); // all it has left
     skull(u, { ang: a, v: rand(35, 70), up: rand(50, 90) });
@@ -144,6 +149,7 @@ function remains(u) {
 // a brute's death throes, for those that do not bleed: the scarecrow's hay pours out of it, a golem crumbles
 function throesShed(f, k) {
   const kind = f.def.blood, sc = f.scale || 1;
+  if (kind === 'water' || kind === 'wood') { throesElement(f, k); return; }
   if (kind === 'straw') {
     for (let i = 0, n = Math.round((5 + 7 * k) * sc); i < n; i++) { const a = rand(TAU), v = rand(10, 45) * k; hay(f.x + rand(-3, 3), f.y + rand(-1, 1), 11 * sc + rand(-2, 2), Math.cos(a) * v, Math.sin(a) * v * 0.8, rand(30, 110) * k); }
     if (chance(0.3)) bundle(f, null, { v: rand(15, 40), up: rand(40, 80) }); SFX.hay(panOf(f.x), false);
@@ -156,7 +162,8 @@ function throesShed(f, k) {
 // an overkill on one that does not bleed: it bursts, as the bleeding do, into pieces of itself, and its bits fly (a
 // skeleton into its bones: what it has left of them, flung hard, and its skull)
 function burstBits(u, o, slow) {
-  const kind = u.def.blood, pan = panOf(u.x); shed(u, 70, { ...o, more: 2.2, quiet: true, slow });
+  const kind = u.def.blood, pan = panOf(u.x);
+  if (kind === 'water' || kind === 'wood') { burstElement(u, o, slow, pan); return; } shed(u, 70, { ...o, more: 2.2, quiet: true, slow });
   if (kind === 'bone') { while (looseBone(u, o.ang, { v: rand(60, 130), slow })); skull(u, { ang: o.ang, v: rand(80, 130), slow }); SFX.clatter(pan); SFX.bone(pan, true); }
   else if (kind === 'straw') { for (let i = 0; i < 4; i++) bundle(u, o.ang, { v: rand(50, 120), slow }); shed(u, 60, { style: 'slam', quiet: true, slow }); smoke(u.x, u.y, 6, 'dust', 11, 30, 1.4); SFX.hay(pan, true); }
   else { for (let i = 0; i < 3; i++) ownChip(u, o.ang); smoke(u.x, u.y, 6, 'dust', 12, 30, 1.5); SFX.stone(pan, true); }

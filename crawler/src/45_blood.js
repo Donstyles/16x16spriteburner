@@ -11,14 +11,14 @@ const GORE = { level: 2, big: 0.5 }; // big: the least share of spray drops that
 try { const v = localStorage.getItem('cr2-gore'); if (v !== null && v !== '') GORE.level = clamp(Math.round(+v) || 0, 0, 2); } catch (e) { /* storage blocked: the default */ }
 function setGore(v) { GORE.level = v; try { localStorage.setItem('cr2-gore', String(v)); } catch (e) { /* not kept */ } }
 const GORE_NAMES = ['OFF', 'BLOOD', 'FULL'];
-const DRY = new Set(['bone', 'stone', 'straw']); // these do not bleed: they shed bits instead (46_bits)
+const DRY = new Set(['bone', 'stone', 'straw', 'water', 'wood', 'dust']); // these do not bleed: they shed bits instead (46_bits)
 const DUST = ['#5a5048', '#7d7064', '#3c342e'];
 const bleeds = u => GORE.level > 0 && !DRY.has(u.def.blood || 'red');
 const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const GIB_HOLD = 0.22; // how long a burst is held: the hero frozen, the pieces and spray moving slowly
 
 // --- where blood lies: a coarse map (4 px cells) of how much, and of which kind, so feet can pick it up
-const BK = ['red', 'slime', 'bug', 'sludge', 'bone', 'stone', 'straw'];
+const BK = ['red', 'slime', 'bug', 'sludge', 'bone', 'stone', 'straw', 'water', 'wood', 'dust'];
 const BMAP = { A: null, w: 0, a: null, k: null };
 function bmap() {
   const A = ARENA; if (BMAP.A !== A) { BMAP.A = A; BMAP.w = Math.ceil(A.w * TS / 4); const n = BMAP.w * Math.ceil(A.h * TS / 4); BMAP.a = new Uint8Array(n); BMAP.k = new Uint8Array(n); BTR.length = 0; }
@@ -133,7 +133,9 @@ function drawRuns(c) {
 // --- each frame, for every unit: the badly wounded drip as they go; a hero's blade dries, drips; his feet print
 function bloodTick(u, dt) {
   if (u.team === 'hero') { if (u.gore > 0) u.gore = Math.max(0, u.gore - 0.035 * dt); bladeDrip(u, dt); footprints(u); }
-  const dry = u.def.blood === 'straw' || u.def.blood === 'bone'; // (the badly hurt bloodless leave stalks and chips)
+  if (u.wetT > 0) wetSteps(u, dt); // soaked by the water elemental
+  if (!u.dead && u.def.blood === 'water') waterTrail(u, dt); else if (!u.dead && u.def.blood === 'dust' && u.z > 1) dustTrail(u, dt);
+  const dry = u.def.blood === 'straw' || u.def.blood === 'bone' || u.def.blood === 'wood'; // (the badly hurt bloodless leave stalks, chips and leaves)
   if (!(bleeds(u) || dry) || u.hp >= u.maxHp * 0.5 || u.z > 2) { u.bx = u.x; u.by = u.y; return; }
   const d = Math.hypot(u.x - (u.bx === undefined ? u.x : u.bx), u.y - (u.by === undefined ? u.y : u.by)); u.bx = u.x; u.by = u.y;
   u.bd = (u.bd || 0) + d + dt * 3; // still, a wound drips slowly
@@ -179,8 +181,9 @@ function bloodyTurn(Wc, kind, lv, a) {
 function gibBurst(u) {
   const m = MOBS[u.spr]; if (!m) return; const kind = u.def.blood || 'red', bl = BLOOD[kind], sc = u.scale || 1, o = u.lastBlow || {}, slow = G.time + GIB_HOLD, dry = DRY.has(kind);
   // the bloodless break into pieces of themselves too, edged with what they are made of; a scarecrow's shed hay as they fly
-  const fr = ((u.anim * 9) | 0) % 4, flip = u.face < 0, opt = { away: o.ang === undefined ? null : o.ang, spd: 1.3, flip, edge: dry ? BIT_EDGE[kind] : [bl[1], bl[0], bl[2]], bleed: dry ? null : kind, lie: rand(2.5, 4), slow, hay: kind === 'straw', tick: kind === 'bone' };
-  if (kind === 'bone') { shatter(u, 1.5); burstBits(u, o, slow); return; } // a skeleton: its bones fly, not chunks of its picture (whose head would be a second skull)
+  const fr = ((u.anim * 9) | 0) % 4, flip = u.face < 0, opt = { away: o.ang === undefined ? null : o.ang, spd: 1.3, flip, edge: dry ? BIT_EDGE[kind] : [bl[1], bl[0], bl[2]], bleed: dry ? null : kind, lie: rand(2.5, 4), slow, hay: kind === 'straw' ? true : kind === 'wood' ? LEAF : null, tick: kind === 'bone' };
+  if (kind === 'bone') { shatter(u, 1.5); burstBits(u, o, slow); return; }
+  if (kind === 'water') { burstBits(u, o, slow); return; } // water has no pieces: all of it splashes // a skeleton: its bones fly, not chunks of its picture (whose head would be a second skull)
   if (sc !== 1) { const B = bigSprite(u.spr, sc); B.pd = B.pd || pixelData(B.cv); breakSprite(B.pd, fr * B.W, 0, B.W, B.H, Math.round(u.x - B.W / 2), Math.round(u.y - u.z - B.foot), u.y, randi(6, 8), opt); }
   else breakSprite(PIX.mobs, fr * m[1], m[0], m[1], m[2], Math.round(u.x - m[1] / 2), Math.round(u.y - u.z - footOf(u.spr) - 1), u.y, randi(5, 7), opt);
   if (dry) { burstBits(u, o, slow); return; }

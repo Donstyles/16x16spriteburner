@@ -3,7 +3,9 @@ const BREATH_GAIN = 0.55;
 const SFX = {
   ctx: null, on: false, master: null, last: {},
   init() {
-    if (this.ctx) { this.ctx.resume(); this.on = true; return; }
+    // iOS stops the sound when the phone switches apps or locks, and lets it start again only on a real tap (touchend, not
+    // touchstart), so every tap and every return to the game tries to wake it
+    if (this.ctx) { if (this.ctx.state !== 'running') { this.ctx.resume().catch(() => {}); this.unlock(); } this.on = true; return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     const c = this.ctx = new AC();
     const comp = c.createDynamicsCompressor(); comp.threshold.value = -16; comp.knee.value = 10; comp.ratio.value = 8; comp.attack.value = 0.002; comp.release.value = 0.3;
@@ -12,18 +14,23 @@ const SFX = {
     this.white = c.createBuffer(1, n, c.sampleRate); const w = this.white.getChannelData(0); for (let i = 0; i < n; i++) w[i] = Math.random() * 2 - 1;
     this.brown = c.createBuffer(1, n, c.sampleRate); const b = this.brown.getChannelData(0); let l = 0; for (let i = 0; i < n; i++) { l = (l + 0.02 * (Math.random() * 2 - 1)) / 1.02; b[i] = l * 3.5; }
     this.crunch = c.createWaveShaper(); const curve = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 3.2); } this.crunch.curve = curve; this.crunch.connect(this.master);
-    this.on = true; this.drone();
+    this.unlock(); this.on = true; this.drone();
   },
+  // a moment of silence played inside the tap itself: older iPhones only let a page's sound start that way
+  unlock() { try { const c = this.ctx, s = c.createBufferSource(); s.buffer = c.createBuffer(1, 1, 22050); s.connect(c.destination); s.start(0); } catch (e) { /* not needed here */ } },
   toggle() { if (!this.ctx) { this.init(); return; } this.on = !this.on; this.master.gain.setTargetAtTime(this.on ? 0.85 : 0, this.ctx.currentTime, 0.05); },
-  ok(name, gap) { if (!this.on || !this.ctx) return false; const t = this.ctx.currentTime; if (this.last[name] !== undefined && t - this.last[name] < gap) return false; this.last[name] = t; return true; },
-  dest(pan, crunch) { const d = crunch ? this.crunch : this.master; if (pan && this.ctx.createStereoPanner) { const p = this.ctx.createStereoPanner(); p.pan.value = clamp(pan, -0.9, 0.9); p.connect(d); return p; } return d; },
-  noise(buf, dur, type, f0, f1, q, gain, pan, t0 = 0, att = 0.004, crunch = false) {
+  // (while the sound sleeps nothing is played, so nothing piles up to blare out when it wakes)
+  ok(name, gap) { if (!this.on || !this.ctx || this.ctx.state !== 'running') return false; const t = this.ctx.currentTime; if (this.last[name] !== undefined && t - this.last[name] < gap) return false; this.last[name] = t; return true; },
+  dest(pan, crunch) { const d = crunch ? this.crunch : this.master; if (!Number.isFinite(pan)) pan = 0; if (pan && this.ctx.createStereoPanner) { const p = this.ctx.createStereoPanner(); p.pan.value = clamp(pan, -0.9, 0.9); p.connect(d); return p; } return d; },
+  noise(buf, dur, type, f0, f1, q, gain, pan, t0 = 0, att = 0.004, crunch = false) { try { this.noise1(buf, dur, type, f0, f1, q, gain, pan, t0, att, crunch); } catch (e) { /* a bad value: that sound is skipped */ } },
+  noise1(buf, dur, type, f0, f1, q, gain, pan, t0, att, crunch) {
     const c = this.ctx, t = c.currentTime + t0, s = c.createBufferSource(); s.buffer = buf; s.loop = true;
     const f = c.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur); f.Q.value = q;
     const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + att); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     s.connect(f); f.connect(g); g.connect(this.dest(pan, crunch)); s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.05);
   },
-  tone(type, f0, f1, dur, gain, pan, t0 = 0, att = 0.004, crunch = false) {
+  tone(type, f0, f1, dur, gain, pan, t0 = 0, att = 0.004, crunch = false) { try { this.tone1(type, f0, f1, dur, gain, pan, t0, att, crunch); } catch (e) { /* skipped */ } },
+  tone1(type, f0, f1, dur, gain, pan, t0, att, crunch) {
     const c = this.ctx, t = c.currentTime + t0, o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(10, f1), t + dur);
     const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + att); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(this.dest(pan, crunch)); o.start(t); o.stop(t + dur + 0.05);
@@ -129,6 +136,28 @@ const SFX = {
     this.noise(this.brown, big ? 0.22 : 0.13, 'lowpass', 900, 220, 0.8, big ? 0.45 : 0.32, pan, 0, 0.004);
     this.noise(this.white, big ? 0.4 : 0.22, 'bandpass', 4200, 2600, 1.2, big ? 0.1 : 0.07, pan, 0.01, 0.02);
     for (let i = 0, n = big ? 12 : 6; i < n; i++) this.noise(this.white, rand(0.006, 0.012), 'highpass', rand(3000, 6000), 3000, 0.8, rand(0.04, 0.09), pan + rand(-0.25, 0.25), rand(0, big ? 0.4 : 0.22), 0.001);
+  },
+  // water: a slap and a bloop (a short tone sweeping up), the hiss of spray, then drops pattering down
+  splash(pan = 0, big = false) {
+    if (!this.ok('splash', 0.05)) return;
+    this.noise(this.brown, big ? 0.2 : 0.12, 'lowpass', 1400, 300, 0.9, big ? 0.5 : 0.36, pan, 0, 0.002);
+    this.tone('sine', big ? 220 : 320, big ? 700 : 900, 0.07, big ? 0.22 : 0.16, pan, 0.01);
+    this.noise(this.white, big ? 0.45 : 0.22, 'highpass', 2600, 5000, 0.7, big ? 0.14 : 0.09, pan, 0.01, 0.01);
+    for (let i = 0, n = big ? 10 : 4; i < n; i++) this.noise(this.white, rand(0.008, 0.016), 'bandpass', rand(1800, 4200), 1500, 3, rand(0.04, 0.09), pan + rand(-0.3, 0.3), rand(0.1, big ? 0.7 : 0.35), 0.001);
+  },
+  // wood: a hollow knock and a dry crack; a big one splits with a groan of timber
+  wood(pan = 0, big = false) {
+    if (!this.ok('wood', 0.05)) return;
+    this.tone('triangle', big ? 150 : 210, big ? 90 : 140, 0.09, big ? 0.32 : 0.24, pan);
+    this.noise(this.brown, 0.06, 'lowpass', 1100, 300, 1, big ? 0.4 : 0.3, pan, 0, 0.002, true);
+    this.noise(this.white, 0.03, 'bandpass', 2200, 1600, 2.5, big ? 0.22 : 0.14, pan, 0.005, 0.001);
+    if (big) { this.tone('sawtooth', 90, 55, 0.45, 0.05, pan, 0.05, 0.05); for (let i = 0; i < 5; i++) this.noise(this.white, 0.02, 'bandpass', rand(900, 2000), 800, 3, 0.1, pan + rand(-0.2, 0.2), rand(0.08, 0.5), 0.001); }
+  },
+  // pixie dust: a few high chimes from a bright scale, and a shimmer
+  chime(pan = 0) {
+    if (!this.ok('chime', 0.06)) return; const N = [1568, 1760, 2093, 2349, 2637, 3136];
+    for (let i = 0; i < 3; i++) { const f = pick(N); this.tone('sine', f, f, 0.35, 0.05, pan + rand(-0.2, 0.2), i * rand(0.03, 0.07), 0.003); }
+    this.noise(this.white, 0.3, 'highpass', 6000, 9000, 0.7, 0.03, pan, 0, 0.02);
   },
   // a big creature's dying groan: a low rough voice falling away, breath through it
   groan(pan = 0) { if (!this.ok('groan', 0.6)) return; this.tone('sawtooth', 92, 62, 0.75, 0.11, pan, 0, 0.08); this.tone('sawtooth', 138, 92, 0.65, 0.045, pan, 0.02, 0.08); this.noise(this.brown, 0.7, 'bandpass', 420, 240, 2.5, 0.28, pan, 0, 0.06); },

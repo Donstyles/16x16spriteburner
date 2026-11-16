@@ -254,6 +254,7 @@ function foeAct(f, t, dt) {
 function foeStrike(f, a) {
   const mv = a.mv; SFX.slash(panOf(f.x));
   if (mv.k === 'arc') arcFx(f.x, f.y - 5 * f.scale, a.dir, mv.arc, mv.reach, 'red', 0.15, 3);
+  else if (mv.slam && f.def.blood === 'water') waterSlam(f.x + Math.cos(a.dir) * mv.at, f.y + Math.sin(a.dir) * mv.at * 0.85, mv.reach);
   else if (mv.slam) { const cx = f.x + Math.cos(a.dir) * mv.at, cy = f.y + Math.sin(a.dir) * mv.at * 0.85; ring(cx, cy, mv.reach * 1.2, 'white', 0.35, 4); debris(cx, cy, 16, ['#5a5048', '#7d7064'], 130, 170, 1.8); smoke(cx, cy, 6, 'dust', 10, 40, 1); cracks(cx, cy, 3, 16, 200, 1); shake(0.4); SFX.boom(0.8, panOf(cx)); }
 }
 function foeHits(f, a) {

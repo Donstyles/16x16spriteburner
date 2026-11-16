@@ -33,7 +33,7 @@ function setupInput() {
     for (const t of e.changedTouches) { const s = INPUT.stick; if (s && s.id === t.identifier) { const [x, y] = screenPt(t), R = 52 * ctrlScale(), dx = x - s.bx, dy = y - s.by, d = Math.hypot(dx, dy); if (d > R) { s.bx = x - dx / d * R; s.by = y - dy / d * R; } s.x = x; s.y = y; const m = Math.min(1, d / R); s.vx = d > 6 ? dx / d * m : 0; s.vy = d > 6 ? dy / d * m : 0; } }
   }, { passive: false });
   const end = e => { e.preventDefault(); for (const t of e.changedTouches) { const T = TOUCHES.get(t.identifier); TOUCHES.delete(t.identifier); if (!T) continue; if (T.k === 'stick') INPUT.stick = null; else release(T.b); } };
-  c.addEventListener('touchend', end, { passive: false }); c.addEventListener('touchcancel', end, { passive: false });
+  c.addEventListener('touchend', e => { SFX.init && SFX.init(); end(e); }, { passive: false }); c.addEventListener('touchcancel', end, { passive: false });
   addEventListener('keydown', e => {
     if (e.repeat) return; SFX.init && SFX.init(); INPUT.keys.add(e.code);
     if (G.mode !== 'play' || UI.paused) { uiKey(e.code); return; }

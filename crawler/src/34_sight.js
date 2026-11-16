@@ -10,7 +10,7 @@ function initSight(A) {
   SIGHT.t = 0;
 }
 // light sources that reveal what they shine on: wall torches and braziers (always lit for now)
-function staticLights(A) { if (!A.lights) A.lights = A.torches.map(t => ({ x: t.x, y: t.y + 10, r: 58 })).concat(A.props.filter(p => p.kind === 'brazier').map(p => ({ x: p.x, y: p.y, r: 80 }))); return A.lights; }
+function staticLights(A) { if (!A.lights) A.lights = A.torches.map(t => ({ x: t.x, y: t.y + 10, r: 58 })).concat(A.props.filter(p => p.kind === 'brazier' && !p.dead).map(p => ({ x: p.x, y: p.y, r: 80 }))); return A.lights; }
 // which tiles the fixed lights reach, worked out once per floor
 function staticLit(A) {
   if (A.slit) return A.slit; const s = A.slit = new Uint8Array(A.w * A.h);

@@ -45,7 +45,8 @@ function hurt(u, dmg, src, o = {}) {
   number(u.x, u.y, headZ(u) + 1, d, u.team === 'hero' ? 'red' : tag ? 'gold' : 'white', !!tag || d >= 40, u);
   if (tag) textPop(u.x, u.y, headZ(u) + 7, tag, 'gold', false, u);
   if (u.team === 'hero') { shake(0.12 + Math.min(0.3, d / 80)); G.hurtFlash = 0.35; }
-  if (DRY.has(u.def.blood)) { shed(u, d, o); SFX.hit(panOf(u.x)); } // bone, hay or stone instead of blood
+  if (DRY.has(u.def.blood)) { shed(u, d, o); SFX.hit(panOf(u.x)); } // bone, hay, stone, water, wood or pixie dust instead of blood
+  if (u.team === 'hero' && src && src.def && src.def.blood === 'water' && !o.ranged) soak(u); // a blow of water leaves him dripping
   else if (bleeds(u)) { // the blood flies the way the blow went
     spray(u, d, o); SFX.hit(panOf(u.x)); SFX.squelch(panOf(u.x), d >= 30); if (d > 12 && chance(0.4)) pool(u.x + rand(-3, 3), u.y + rand(-2, 2), u.def.blood || 'red', 1);
     if (src && src.team === 'hero' && !o.ranged) { src.gore = Math.min(3, (src.gore || 0) + (u.hp <= 0 ? 1 : 0.3)); src.goreKind = u.def.blood || 'red'; }
@@ -80,7 +81,7 @@ function kill(u, src) {
   if (u.team === 'foe') { G.kills++; deathFx(u); dropLoot(u); if (u.dummy) dummyDied(u); if (src && src.team === 'hero') src.killsT = (src.killsT || 0) + 1; }
   else { heroFalls(u); smoke(u.x, u.y, 6, 'dark', 10, 20, 1.4); flashLight(u.x, u.y, 60, 'red', 1, 0.6); textPop(u.x, u.y, headZ(u) + 3, (u.pname || u.def.name) + ' FALLS', 'red'); SFX.boom(0.5, panOf(u.x)); shake(0.4); slowmo(0.3, 1.4); }
 }
-const BLOOD = { red: ['#7a0c14', '#a01420', '#5a0810'], bone: ['#cfc6b0', '#a49a84', '#7a705e'], stone: ['#9b9c9b', '#6e6e6e', '#625353'], slime: ['#3a8a30', '#60c040', '#2a5a20'], straw: ['#c8a040', '#e0c060', '#8a6a20'], bug: ['#7c8c1c', '#a6b630', '#4c5810'], sludge: ['#2a2219', '#40352a', '#120e0b'] }; // bug: green-yellow ichor; sludge: what the crypt dead have left
+const BLOOD = { red: ['#7a0c14', '#a01420', '#5a0810'], bone: ['#cfc6b0', '#a49a84', '#7a705e'], stone: ['#9b9c9b', '#6e6e6e', '#625353'], water: ['#8cc8f0', '#5a9ad0', '#bfe4ff'], wood: ['#7a5230', '#5a3a1e', '#b08a58'], dust: ['#ffd6f5', '#c8f0ff', '#fff4b0'], slime: ['#3a8a30', '#60c040', '#2a5a20'], straw: ['#c8a040', '#e0c060', '#8a6a20'], bug: ['#7c8c1c', '#a6b630', '#4c5810'], sludge: ['#2a2219', '#40352a', '#120e0b'] }; // bug: green-yellow ichor; sludge: what the crypt dead have left
 // the body shatters into its own pixels (k: how hard they fly)
 function shatter(u, k) {
   const px = spritePixels(u.spr), sc = u.scale, fl = u.face < 0 ? -1 : 1, pw = Math.max(1, Math.round(sc));
