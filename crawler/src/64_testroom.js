@@ -64,7 +64,10 @@ const CREATURE_TESTS = [
   ['ELF ENCHANTER · HEALS AND WARDS', [['archer', 'ElfEnchanter', 1], ['brute', 'GrizzledTreant', 1], ['grunt', 'ElfBladedancer', 2]]],
   ['SCARECROW · CHEST GUARD', [['brute', 'ScarecrowGolem', 1]]], ['STONE GOLEM · CHEST GUARD', [['brute', 'StoneGolem', 1]]], ['CLAY GOLEM · CHEST GUARD', [['brute', 'ClayGolem', 1]]],
 ];
-function creatureTests() { return CREATURE_TESTS.concat(Object.keys(ARMIES).map(k => [ARMIES[k].name, ['grunt', 'brute', 'archer', 'skitter', 'flanker'].flatMap(t => ARMIES[k][t].map(s => [t, s, 1]))])); }
+function creatureTests() { // the set pieces, then every army on a floor, then the reserve (named as such)
+  const of = (A, k, tag) => [A[k].name + tag, ['grunt', 'brute', 'archer', 'skitter', 'flanker'].flatMap(t => A[k][t].map(s => [t, s, 1]))];
+  return CREATURE_TESTS.concat(Object.keys(ARMIES).map(k => of(ARMIES, k, '')), Object.keys(RESERVE).map(k => of(RESERVE, k, ' · RESERVE')));
+}
 function beginCreatureTest(kit) {
   beginTest(kit); G.foes.length = 0; G.units = G.heroes.slice(); G.sched.length = 0;
   Object.assign(TEST, { mode: 'creatures', god: true, i: 0, list: creatureTests(), gen: 0 }); ARENA.name = 'CREATURE TEST ROOM';

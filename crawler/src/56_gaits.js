@@ -1,6 +1,6 @@
 // ===================== how some creatures move =====================
 // The mutilated stumbler shuffles: slow lurching steps with a stop between them, swaying as it drags itself on, rot
-// dripping off it and a groan now and then. The dismembered crawler scuttles: no faster than any other flanker, but its
+// dripping off it and groaning (more once it has seen you); it never sleeps, and idle it shuffles about aimlessly. The dismembered crawler scuttles: no faster than any other flanker, but its
 // limbs scrabble at a quicker cadence. The tunneling mole travels under the floor: all
 // you see is a mound of earth moving, throwing up dirt and leaving a furrow; it bursts up out of the floor to strike, and
 // a blow on the mound knocks it up into the open for a moment.
@@ -12,7 +12,7 @@ function gaitTick(f, dt) {
     F.ph += dt * 1.9; const s = Math.max(0, Math.sin(F.ph * Math.PI)); // one step a beat: lurch forward, stop
     f.gaitK = busy ? 1 : 0.12 + 0.6 * s * s; f.animK = 0.55; f.sway = f.moving && !busy ? Math.round(Math.sin(F.ph * Math.PI * 0.5)) : 0;
     if (f.moving && (F.drip = (F.drip || 0) - dt) <= 0) { F.drip = rand(0.25, 0.6); drip(f.x + rand(-2, 2), f.y + rand(-1, 1), rand(3, 8), 'sludge'); }
-    if (f.aware && chance(dt * 0.12)) SFX.groan(panOf(f.x));
+    if (chance(dt * (f.aware ? 0.24 : 0.09)) && G.me && dist(f.x, f.y, G.me.x, G.me.y) < 220) SFX.groan(panOf(f.x)); // groaning as it goes, more once it has you
   } else if (g === 'scuttle') { // a flanker's pace, but its limbs go quicker than anyone's
     f.animK = 1.35; f.gaitK = 1; f.sway = 0;
   } else if (g === 'burrow') {

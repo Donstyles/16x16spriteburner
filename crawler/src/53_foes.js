@@ -23,30 +23,38 @@ const FOE_TYPES = {
 // The armies. Each floor is held by one army of its depth, every role from one faction; an army that lacks a role fields
 // more of its others (the vermin have no archers, the bone legion no brutes). The rusher is the 'grunt' type.
 const ARMIES = {
-  goblins: { name: 'THE GOBLIN WARBAND', grunt: ['GoblinFighter'], brute: ['GoblinWolfRider'], archer: ['GoblinArcher', 'GoblinOccultist'], skitter: ['InfectedMouse'], flanker: ['GoblinFanatic'] },
+  goblins: { name: 'THE GOBLIN WARBAND', grunt: ['GoblinFighter'], brute: ['GoblinWolfRider'], archer: ['GoblinArcher', 'GoblinOccultist'], skitter: ['VoraciousMouse'], flanker: ['GoblinFanatic'] },
   vermin: { name: 'THE CELLAR VERMIN', grunt: ['BloatedBedbug', 'TaintedCockroach'], brute: ['MawingBeaver'], archer: [], skitter: ['EngorgedTick', 'FamishedTick'], flanker: ['TunnelingMole'] },
-  cutthroats: { name: 'THE CUTTHROATS\u2019 DEN', grunt: ['TaintedScoundrel'], brute: ['DepravedBlackguard'], archer: ['HalflingSlinger', 'HalflingRanger'], skitter: [], flanker: ['HalflingRogue'] },
-  bones: { name: 'THE BONE LEGION', grunt: ['DecrepitBones', 'GraveRevenant'], brute: [], archer: ['BrittleArcher', 'AdeptNecromancer'], skitter: ['SkitteringHand', 'SwoopingBat'], flanker: ['UnravelingCrawler', 'SkeweringStalker'] },
-  rot: { name: 'THE ROT', grunt: ['MutilatedStumbler', 'SandGhoul'], brute: ['FleshGolem', 'BoundCadaver'], archer: ['VileWitch'], skitter: ['ForagingMaggot', 'CarcassFeeder'], flanker: ['DismemberedCrawler'] },
+  bones: { name: 'THE BONE LEGION', grunt: ['DecrepitBones', 'GraveRevenant'], brute: ['GrapplerMummy'], archer: ['BrittleArcher', 'AdeptNecromancer'], skitter: ['VampireBat'], flanker: ['UnravelingCrawler', 'SkeweringStalker'] },
+  rot: { name: 'THE ROT', grunt: ['MutilatedStumbler', 'SandGhoul'], brute: ['FleshGolem', 'BoundCadaver'], archer: ['VileWitch', 'RottingArcher'], skitter: ['ForagingMaggot', 'CarcassFeeder'], flanker: ['DismemberedCrawler'] },
   lizardfolk: { name: 'THE LIZARDFOLK TRIBE', grunt: ['LizardfolkSpearman', 'MudWyvern'], brute: ['BestialLizardfolk'], archer: ['LizardfolkArcher', 'LizardfolkScout'], skitter: ['PygmyWyvern'], flanker: ['LizardfolkGladiator'] },
   merfolk: { name: 'THE MERFOLK RAIDERS', grunt: ['MerfolkJavelineer', 'MerfolkScout'], brute: ['WaterElemental'], archer: ['MerfolkAquamancer'], skitter: [], flanker: ['MerfolkImpaler'] },
   elves: { name: 'THE ELVEN HOST', grunt: ['ElfBladedancer', 'ElfWayfarer'], brute: ['GrizzledTreant'], archer: ['ElfSharpshooter', 'ElfEnchanter'], skitter: ['FlutteringPixie'], flanker: ['SneakySatyr'] },
+  demons: { name: 'THE DEMON HORDE', grunt: ['FledglingDemon', 'PointedDemonspawn'], brute: ['BloodDrinker'], archer: ['CrimsonImp'], skitter: ['RascallyDemonling', 'NefariousScamp'], flanker: ['GrinningGremlin'] },
   ants: { name: 'THE ANT COLONY', grunt: ['SoldierAnt', 'LavaAnt'], brute: ['RhinoBeetle'], archer: ['AcidAnt'], skitter: ['DungBeetle'], flanker: [] },
-  demons: { name: 'THE DEMON HORDE', grunt: ['FledglingDemon', 'PointedDemonspawn'], brute: ['ClawedAbomination'], archer: ['CrimsonImp'], skitter: ['RascallyDemonling', 'NefariousScamp'], flanker: ['GrinningGremlin'] },
 };
 const ZONES = [
-  { to: 3, name: 'THE CELLARS', armies: ['goblins', 'vermin', 'cutthroats'] },
+  { to: 3, name: 'THE CELLARS', armies: ['goblins', 'vermin', 'ants'] },
   { to: 6, name: 'THE CRYPT', armies: ['bones', 'rot'] },
-  { to: 99, name: 'THE DEEP', armies: ['lizardfolk', 'merfolk', 'elves', 'ants', 'demons'] },
+  { to: 99, name: 'THE DEEP', armies: ['lizardfolk', 'merfolk', 'elves', 'demons'] },
 ];
-// Kept for later, in no army yet: the king's soldiers, the minotaur and the toxic hound. The scarecrow and the golems guard
-// the treasure rooms meanwhile (the scarecrow in the cellars, a golem deeper down).
-const RESERVE = { soldiers: { grunt: ['DeterminedSoldier'], brute: ['Cavalry'], archer: ['Bowman', 'SkilledBattlemage'], skitter: [], flanker: ['SilentRanger'] }, wanderers: ['BestialMinotaur', 'ToxicHound'] };
+// Kept for later, on no floor yet (the army board's reserve): the king's soldiers, the wanderers (the minotaur and the
+// toxic hound), the gnolls, the gnomes, the ratkin, the kobolds and the orcs. The creature test room shows them all. The
+// scarecrow and the golems guard the treasure rooms (the scarecrow in the cellars, a golem deeper down).
+const RESERVE = {
+  soldiers: { name: 'THE KING’S SOLDIERS', grunt: ['DeterminedSoldier'], brute: ['Cavalry'], archer: ['Bowman', 'SkilledBattlemage'], skitter: [], flanker: ['SilentRanger'] },
+  wanderers: { name: 'WANDERERS', grunt: [], brute: ['BestialMinotaur'], archer: [], skitter: ['ToxicHound'], flanker: [] },
+  gnolls: { name: 'THE CACKLING PACK', grunt: ['GnollGrunt', 'GnollPikeman'], brute: ['GnollWarlord', 'GnollBrute'], archer: [], skitter: [], flanker: ['GnollRipper'] },
+  gnomes: { name: 'THE TINKERS’ GUILD', grunt: ['GnomeWanderer'], brute: ['MithrilConstruct'], archer: ['GnomeTinkerer', 'GnomeMage', 'GnomeAlchemist', 'Pyro'], skitter: [], flanker: [] },
+  ratkin: { name: 'THE PLAGUE NEST', grunt: ['MonstrousRat'], brute: ['RatkinMutant'], archer: ['RatkinCrossbowman', 'RatkinPlaguespreader', 'RatkinPoisoner'], skitter: ['VoraciousMouse', 'GiantRat'], flanker: ['RatkinStabber'] },
+  kobolds: { name: 'THE KOBOLD WARREN', grunt: ['KoboldDigger', 'KoboldTrapper'], brute: [], archer: ['KoboldRockthrower', 'KoboldTrickster'], skitter: [], flanker: ['KoboldScavenger'] },
+  orcs: { name: 'THE SKULLSPLITTER CLAN', grunt: ['OrcReaver', 'OrcSavage'], brute: ['Brakgul'], archer: ['OrcWarlock'], skitter: ['OrcShaman'], flanker: ['OrcCaptain'] },
+};
 const GUARDS = [['ScarecrowGolem'], ['StoneGolem', 'ClayGolem'], ['StoneGolem', 'ClayGolem']]; // by depth
 // the army holding a floor: one of its depth's, not the one that held the floor above if there is another
 function pickArmy(f) { const L = zoneAt(f).armies, prev = G.army && L.length > 1 ? L.filter(a => a !== G.army) : L; return (G.army = pick(prev)); }
-const BLOOD_OF = { AdeptNecromancer: 'sludge', WaterElemental: 'water', GrizzledTreant: 'wood', FlutteringPixie: 'dust', SoldierAnt: 'bug', DungBeetle: 'bug', CarcassFeeder: 'bug', DismemberedCrawler: 'sludge', DecrepitBones: 'bone', BrittleArcher: 'bone', GraveRevenant: 'bone', SkitteringHand: 'bone', ScarecrowGolem: 'straw', StoneGolem: 'stone', ClayGolem: 'stone', TaintedCockroach: 'bug', AcidAnt: 'bug', LavaAnt: 'bug', RhinoBeetle: 'bug', FamishedTick: 'bug', ForagingMaggot: 'slime', UnravelingCrawler: 'bone', MutilatedStumbler: 'sludge', FleshGolem: 'sludge', BoundCadaver: 'sludge', SandGhoul: 'sludge' };
-const STONE_SHOT = { HalflingSlinger: true };
+const BLOOD_OF = { AcidAnt: 'bug', AdeptNecromancer: 'sludge', BoundCadaver: 'sludge', BrittleArcher: 'bone', CarcassFeeder: 'sludge', ClayGolem: 'stone', DecrepitBones: 'bone', DismemberedCrawler: 'sludge', DungBeetle: 'bug', FamishedTick: 'bug', FleshGolem: 'sludge', FlutteringPixie: 'dust', ForagingMaggot: 'bug', GrapplerMummy: 'bone', GraveRevenant: 'bone', GrizzledTreant: 'wood', LavaAnt: 'bug', MithrilConstruct: 'stone', MutilatedStumbler: 'sludge', RhinoBeetle: 'bug', RottingArcher: 'sludge', SandGhoul: 'sludge', ScarecrowGolem: 'straw', SkitteringHand: 'bone', SoldierAnt: 'bug', StoneGolem: 'stone', TaintedCockroach: 'bug', UnravelingCrawler: 'bone', WaterElemental: 'water' };
+const STONE_SHOT = { HalflingSlinger: true, KoboldRockthrower: true };
 // Bats fly: they hover over their shadow, rising and sinking gently with their wingbeats and drifting in slow loops; they
 // turn in wide arcs, not on the spot (see steer); winding up to strike they climb a little, then dive at their target
 // and climb back; asleep they rest on the floor, and woken they take off. Killed, they fall out of the air.
@@ -65,7 +73,7 @@ function flyTick(u, dt) {
 }
 // creatures that already go on all fours (bugs, beasts, crawlers, a bat, a hand): asleep they stay on their feet and settle,
 // where the upright ones lie down on their backs
-const FLAT_SLEEPERS = new Set(['BloatedBedbug', 'EngorgedTick', 'TunnelingMole', 'CarcassFeeder', 'DismemberedCrawler', 'DungBeetle', 'SoldierAnt', 'PygmyWyvern', 'MudWyvern', 'WaterElemental', 'GrizzledTreant', 'GoblinWolfRider', 'FlutteringPixie', 'InfectedMouse', 'TaintedCockroach', 'FamishedTick', 'SkitteringHand', 'SwoopingBat', 'ForagingMaggot', 'AcidAnt', 'LavaAnt', 'RhinoBeetle', 'MawingBeaver', 'ToxicHound', 'UnravelingCrawler']);
+const FLAT_SLEEPERS = new Set(['BloatedBedbug', 'EngorgedTick', 'TunnelingMole', 'CarcassFeeder', 'DismemberedCrawler', 'DungBeetle', 'SoldierAnt', 'PygmyWyvern', 'MudWyvern', 'WaterElemental', 'GrizzledTreant', 'GoblinWolfRider', 'FlutteringPixie', 'InfectedMouse', 'TaintedCockroach', 'FamishedTick', 'SkitteringHand', 'SwoopingBat', 'ForagingMaggot', 'AcidAnt', 'LavaAnt', 'RhinoBeetle', 'MawingBeaver', 'ToxicHound', 'UnravelingCrawler', 'VoraciousMouse', 'GiantRat', 'MonstrousRat']);
 const zoneAt = f => ZONES.find(z => f <= z.to) || ZONES[ZONES.length - 1];
 function floorName(f) { const z = zoneAt(f), first = ZONES.indexOf(z) ? ZONES[ZONES.indexOf(z) - 1].to + 1 : 1; return z.name + ' · ' + ['I', 'II', 'III', 'IV', 'V', 'VI'][Math.min(5, f - first)]; }
 function troops(type, army) { const L = army && ARMIES[army] && ARMIES[army][type]; if (L && L.length) return L; return Object.values(ARMIES).flatMap(a => a[type]); }
@@ -89,10 +97,13 @@ function populateRoom(A, r, f) {
   const ok = (x, y) => !solidAt(x, y) && !A.props.some(p => !p.dead && dist(p.x, p.cy, x, y) < p.r + 8) && !r.doors.some(d => d.cells.some(([cx, cy]) => dist(cx * TS + 8, cy * TS + 8, x, y) < 40)) && !spots.some(s => dist(s.x, s.y, x, y) < 12);
   let guard = 0; while (budget > 1.5 && guard++ < 30) {
     const has = t => !A.army || ARMIES[A.army][t].length; // only groups the army can field
-    const G0 = pick(GROUPS.filter(G1 => (G1.min || 1) <= f && cost(G1.g) <= budget + 1 && G1.g.every(has) && (f > 1 || !G1.g.includes('brute') || chance(0.3))));
-    if (!G0) break; const g = G0.g; budget -= cost(g);
-    const ax = rand(r.ix0 + 2, r.ix1 - 1) * TS, ay = rand(r.iy0 + 1.5, r.iy1) * TS, sleepy = chance(0.45);
-    for (const t of g) { let x, y, n = 0; do { x = ax + rand(-24, 24); y = ay + rand(-16, 16); } while (!ok(x, y) && n++ < 20); if (n > 20) continue; spots.push({ x, y }); const u = mkFoe(t, f, x, y); if (sleepy && chance(1 - (FOE_TYPES[t].sleepy || 0))) u.state = 'sleep'; u.room = r.i; out.push(u); }
+    // an army with the mutilated stumblers often sends them as a horde: four to six of them, awake and milling about
+    let G0 = null; const n = budget >= 13 ? 6 : budget >= 9 ? 5 : 4;
+    if (A.army && ARMIES[A.army].grunt.includes('MutilatedStumbler') && chance(0.45) && cost(Array(n).fill('grunt')) <= budget + 1) G0 = { g: Array(n).fill('grunt'), spr: 'MutilatedStumbler', horde: true };
+    if (!G0) G0 = pick(GROUPS.filter(G1 => (G1.min || 1) <= f && cost(G1.g) <= budget + 1 && G1.g.every(has) && (f > 1 || !G1.g.includes('brute') || chance(0.3))));
+    if (!G0) break; const g = G0.g, wide = G0.horde ? 1.5 : 1; budget -= cost(g);
+    const ax = rand(r.ix0 + 2, r.ix1 - 1) * TS, ay = rand(r.iy0 + 1.5, r.iy1) * TS, sleepy = !G0.horde && chance(0.45);
+    for (const t of g) { let x, y, k = 0; do { x = ax + rand(-24, 24) * wide; y = ay + rand(-16, 16) * wide; } while (!ok(x, y) && k++ < 20); if (k > 20) continue; spots.push({ x, y }); const u = mkFoe(t, f, x, y, G0.spr); if (sleepy && chance(1 - (FOE_TYPES[t].sleepy || 0)) && GAIT[u.spr] !== 'shuffle') u.state = 'sleep'; u.room = r.i; out.push(u); }
   }
   return out;
 }
@@ -258,7 +269,8 @@ function flankMind(f, t, dt, d, sees) {
 function strafe(f, t, spd, dt) { const a = angTo(t.x, t.y, f.x, f.y) + (f.id % 2 ? 0.9 : -0.9) * dt * 2, d = dist(f.x, f.y, t.x, t.y); steer(f, t.x + Math.cos(a) * d, t.y + Math.sin(a) * d * 0.85, spd, dt); }
 function idleFoe(f, dt) {
   if (f.state === 'sleep') { f.vx = f.vy = 0; f.moving = false; if (chance(dt * 0.6)) snore(f); return; }
-  if ((f.wanderT -= dt) <= 0) { f.wanderT = rand(2, 5); const a = rand(TAU); f.wx = f.home.x + Math.cos(a) * rand(0, 22); f.wy = f.home.y + Math.sin(a) * rand(0, 14); }
+  const aimless = GAIT[f.spr] === 'shuffle'; // the stumblers mill about: barely a pause before they lurch off somewhere else
+  if ((f.wanderT -= dt) <= 0) { f.wanderT = aimless ? rand(0.7, 2.2) : rand(2, 5); const a = rand(TAU), R = aimless ? 34 : 22; f.wx = f.home.x + Math.cos(a) * rand(aimless ? 10 : 0, R); f.wy = f.home.y + Math.sin(a) * rand(0, R * 0.64); }
   if (f.wx !== undefined && dist(f.x, f.y, f.wx, f.wy) > 3 && !solidAt(f.wx, f.wy)) { pathTo(f, f.wx, f.wy, f.def.spd * 0.35, dt, 2); faceTo(f, angTo(f.x, f.y, f.wx, f.wy)); }
   else { holdStill(f, dt); if (chance(dt * 0.3)) faceTo(f, f.dir + rand(-1.8, 1.8)); } // standing about, it looks around
 }
