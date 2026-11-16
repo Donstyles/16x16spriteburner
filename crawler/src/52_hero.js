@@ -94,7 +94,12 @@ function weaponPose(h) {
   }
   const still = h.gore > 0.05 && GORE.level ? { th: R, push: 0 } : null; // a bloodied blade is drawn on its own even at rest
   if (!a) return still;
-  if (a.k === 'charge') { const p = Math.min(1, a.t / weaponOf(h).heavy.charge); return { th: angLerp(R, UP - fs * 1.0, easeOut(p)), push: 0, shake: p >= 1 }; }
+  if (a.k === 'charge') {
+    const p = Math.min(1, a.t / weaponOf(h).heavy.charge);
+    // a spear charging its thrust: it turns to point where he aims and is drawn straight back along that line, the further the fuller the charge
+    if (h.weapon === 'spear') return { th: angLerp(R, h.dir, easeOut(Math.min(1, p * 4))), push: -5 * easeOut(p), shake: p >= 1 };
+    return { th: angLerp(R, UP - fs * 1.0, easeOut(p)), push: 0, shake: p >= 1 };
+  }
   if (a.k !== 'atk') return still;
   if (a.th0 === undefined) a.th0 = h.swTh === undefined ? R : h.swTh;
   const mv = a.mv, w = mv.wind, s = w + mv.act, t = a.t, d = a.dir, rec = clamp((t - s) / mv.rec, 0, 1), home = (th, from = 0.25) => angLerp(th, R, easeIO(clamp((rec - from) / (1 - from), 0, 1)));

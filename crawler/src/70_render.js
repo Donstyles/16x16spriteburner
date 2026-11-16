@@ -83,7 +83,8 @@ function drawUnit(c, u) {
   const Wc = u.team === 'hero' && !ra ? WEAPON[u.spr] : null, pose = Wc ? weaponPose(u) : null, back = pose && (pose.behind || (!pose.front && Math.cos(pose.th) * (u.face < 0 ? -1 : 1) < -0.15));
   if (back) drawWeapon(c, u, pose, Wc, fr, fw, foot, dip, cut);
   c.save(); if (u.z < 0) { c.beginPath(); c.rect(u.x - 40, u.y - 90, 80, 91); c.clip(); } // rising out of the floor: nothing shows below it
-  c.translate(u.x + jit + (dp ? dp.jit : 0) + (u.sway || 0), u.y - u.z);
+  // on whole pixels: drawn at a fraction of one, a frame's edge columns read past it into the next frame on the sheet (a dark pixel by a head)
+  c.translate(Math.round(u.x + jit + (dp ? dp.jit : 0) + (u.sway || 0)), Math.round(u.y - u.z));
   if ((sleep && !FLAT_SLEEPERS.has(u.spr)) || (dp && dp.lie)) { const L = lieOf(u.spr, sc), fs = u.face < 0 ? -1 : 1; c.translate(fs * L.half, L.dy); c.rotate(-fs * Math.PI / 2); } // asleep: lying on its back, its front turned up (a quarter turn, exact to the pixel)
   if (ra) { // a roll: one full turn the way the hero travels, in quarter turns so every pixel stays on the grid
     const p = Math.min(1, ra.t / ra.dur), turn = Math.min(4, Math.floor((p + 0.14) * 4.5)) / 4, cy = Math.round(-6 * sc);
@@ -155,7 +156,7 @@ function drawTelegraphs(c) {
     c.fill(); c.stroke();
   }
 }
-function drawGhosts(c) { for (const g of FX.ghosts) { const m = MOBS[g.spr]; if (!m) continue; const foot = footOf(g.spr), u = g.t / g.life; c.globalAlpha = 0.45 * (1 - u); c.save(); c.translate(g.x, g.y - g.z); c.scale(g.sc * (g.face < 0 ? -1 : 1), g.sc); c.drawImage(IMG.mobsW, g.fr * m[1], m[0], m[1], m[2], -m[1] / 2, -foot - 1, m[1], m[2]); c.restore(); } c.globalAlpha = 1; }
+function drawGhosts(c) { for (const g of FX.ghosts) { const m = MOBS[g.spr]; if (!m) continue; const foot = footOf(g.spr), u = g.t / g.life; c.globalAlpha = 0.45 * (1 - u); c.save(); c.translate(Math.round(g.x), Math.round(g.y - g.z)); c.scale(g.sc * (g.face < 0 ? -1 : 1), g.sc); c.drawImage(IMG.mobsW, g.fr * m[1], m[0], m[1], m[2], -m[1] / 2, -foot - 1, m[1], m[2]); c.restore(); } c.globalAlpha = 1; }
 function drawAuras(c) {
   for (const t of ARENA.torches) { const f = 0.8 + 0.2 * noise1(G.time * 9 + t.tx); c.globalAlpha = 0.55 * f; c.drawImage(GLOW.torch, t.x - 6, t.y - 13, 12, 12); }
   for (const p of ARENA.props) if (p.kind === 'brazier' && !p.dead) { c.globalAlpha = 0.6; c.drawImage(GLOW.torch, p.x - 9, p.y - 22, 18, 16); }
