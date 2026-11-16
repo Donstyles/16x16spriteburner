@@ -152,7 +152,7 @@ function updateHazards(dt) {
       const d = hurt(h, z.dps * 0.45, { x: z.x, y: z.y, team: 'foe', def: {} }, { ranged: true, poise: 0, unblockable: true, acid: true });
       if (d > 0) { rip.push({ x: h.x, y: h.y, t: 0 }, { x: h.x, y: h.y, t: -0.18 }); if (!(z.told || (z.told = new Set())).has(h)) { z.told.add(h); textPop(h.x, h.y, headZ(h) + 8, 'ACID', 'acid', false, h); } }
     } }
-    if (chance(dt * 9) && z.t < z.life - 0.5) { const a = rand(TAU), d = Math.sqrt(Math.random()) * z.r * 0.9; part({ k: 'glow', x: z.x + Math.cos(a) * d, y: z.y + Math.sin(a) * d * 0.62, z: 0, vz: rand(4, 10), life: rand(0.3, 0.6), s0: rand(1, 2), s1: 2.5, col: 'poison', a0: 0.7, a1: 0 }); }
+    if (chance(dt * 5) && z.t < z.life - 0.5) { const a = rand(TAU), d = Math.sqrt(Math.random()) * z.r * 0.85; part({ k: 'glow', x: z.x + Math.cos(a) * d, y: z.y + Math.sin(a) * d * 0.62, z: 0, vz: rand(4, 10), life: rand(0.3, 0.5), s0: rand(0.8, 1.4), s1: 1.8, col: 'poison', a0: 0.45, a1: 0 }); } // a bubble now and then
   }
   removeIf(G.hz, z => z.t >= z.life);
 }
@@ -165,8 +165,11 @@ function acidBurn(u) {
 function drawHazards(c) { // on the floor, under everyone
   for (const z of G.hz || []) {
     const k = Math.min(1, z.t / 0.25) * Math.min(1, (z.life - z.t) / 0.8), r = z.r * (0.7 + 0.3 * Math.min(1, z.t / 0.4));
-    c.fillStyle = `rgba(70,140,30,${0.38 * k})`; c.beginPath(); c.ellipse(z.x, z.y, r, r * 0.62, 0, 0, TAU); c.fill();
-    c.fillStyle = `rgba(150,230,80,${0.25 * k})`; c.beginPath(); c.ellipse(z.x - r * 0.15, z.y - r * 0.1, r * 0.55, r * 0.32, 0, 0, TAU); c.fill();
+    // a thin film you see the floor through, held in by a hard edge: it reads as a spill to keep out of, not as a light
+    c.fillStyle = `rgba(70,140,30,${0.22 * k})`; c.beginPath(); c.ellipse(z.x, z.y, r, r * 0.62, 0, 0, TAU); c.fill();
+    c.fillStyle = `rgba(150,230,80,${0.09 * k})`; c.beginPath(); c.ellipse(z.x - r * 0.15, z.y - r * 0.1, r * 0.55, r * 0.32, 0, 0, TAU); c.fill();
+    c.lineWidth = 1; c.strokeStyle = `rgba(28,64,12,${0.8 * k})`; c.beginPath(); c.ellipse(z.x, z.y, r, r * 0.62, 0, 0, TAU); c.stroke(); // the edge of the spill
+    c.strokeStyle = `rgba(178,240,96,${0.45 * k})`; c.beginPath(); c.ellipse(z.x, z.y, r - 1.2, r * 0.62 - 1.2, 0, Math.PI * 1.05, Math.PI * 1.95); c.stroke(); // its wet lip, lit from above
     for (const q of z.rip || []) { if (q.t < 0) continue; const u = q.t / 0.8, R = 5 + 15 * (1 - (1 - u) * (1 - u)); c.strokeStyle = `rgba(232,255,150,${0.95 * (1 - u) * k})`; c.lineWidth = 1; c.beginPath(); c.ellipse(q.x, q.y + 1, R, R * 0.62, 0, 0, TAU); c.stroke(); } // two ripples out from his feet, past the edge of the pool
   }
 }
