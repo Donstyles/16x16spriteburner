@@ -71,7 +71,7 @@ function waterBody(A, cells, set, W, dual) {
 // ---- building (called from buildArena): before the room is furnished, and after
 function worksBefore(A, r, g) {
   if (r.kind !== 'room' || r.chest || r.set || r.sluice) return; // (a set piece's room, or the room with its sluice: 37_levels)
-  if (!A.cistern && r.w >= 12 && r.h >= 8 && chance(0.6)) cistern(A, r, g);
+  if (!A.cistern && r.w >= 12 && r.h >= 8 && beyondHost(A, r) && chance(0.6)) cistern(A, r, g); // (only where its sluice can be beyond it: 37_levels)
   else if (!A.shrine && r.w >= 12 && r.h >= 8 && chance(0.55)) { A.shrine = r; r.shrine = true; }
   else if (chance(0.3)) ponds(A, r, g);
 }
@@ -213,13 +213,20 @@ function spikeFrame(s) { const t = (G.time + s.ph) % SPIKE_T; return t < 1.55 ? 
 function worksTick(dt) {
   const A = ARENA; if (!A) return; const heroes = G.heroes.filter(h => !h.dead && !h.enter);
   for (const pl of A.plates || []) {
-    // the plate stands a little proud of the floor: a hero steps up onto it with a small hop, once each time he comes on
-    if (!pl.down) for (const h of heroes) { const near = Math.abs(h.x - pl.x) < 12 && Math.abs(h.y - pl.y) < 10, far = Math.abs(h.x - pl.x) > 16 || Math.abs(h.y - pl.y) > 14; pl.on = pl.on || new Set(); if (near && !pl.on.has(h)) { pl.on.add(h); if (h.z <= 0.5) hopNow(h); } else if (far) pl.on.delete(h); }
-    if (!pl.down && pl.pool && !sluiceLive(pl.pool)) { // sealed: the button will not go down until its water has been seen
-      if (heroes.some(h => Math.abs(h.x - pl.x) < 8 && Math.abs(h.y - pl.y) < 7) && G.time - (pl.jamT || -9) > 1.2) { pl.jamT = G.time; SFX.stone(panOf(pl.x), false); smoke(pl.x, pl.y + 2, 2, 'dust', 4, 8, 0.5); }
-      continue;
+    // the plate stands well proud of the floor: a hero coming at it stops short, crouches a beat and hops up onto it, and is
+    // drawn onto the middle of the raised button (drawn 4 px up from its tile) through the hop and a moment after landing
+    if (!pl.down) for (const h of heroes) {
+      const tx = pl.x, ty = pl.y - 4, dx = tx - h.x, dy = ty - h.y, d = Math.hypot(dx, dy); pl.on = pl.on || new Set();
+      if (!pl.on.has(h) && d < 22 && d > 7 && h.z <= 0.5 && !(h.brake > 0) && h.vx * dx + h.vy * dy > 0) { pl.on.add(h); Object.assign(h, { brake: 0.2, brakeK: 0.08, hopV: 98, plateTgt: { x: tx, y: ty, pl, t: 0 } }); }
+      else if (d > 26) { pl.on.delete(h); if (h.plateTgt && h.plateTgt.pl === pl) h.plateTgt = null; }
     }
-    if (!pl.down && heroes.some(h => Math.abs(h.x - pl.x) < 8 && Math.abs(h.y - pl.y) < 7)) { pl.down = true; pl.t = 0; SFX.stone(panOf(pl.x), true); shake(0.05); }
+    for (const h of heroes) { // the magnet: on its way up and just after, onto the button's middle
+      const T = h.plateTgt; if (!T || T.pl !== pl || h.brake > 0) continue; const d = Math.hypot(T.x - h.x, T.y - h.y);
+      if (h.z > 0.3 || d < 12) { h.x = damp(h.x, T.x, 34, dt); h.y = damp(h.y, T.y, 34, dt); h.vx *= 0.5; h.vy *= 0.5; if (h.z <= 0.3) T.t += dt; }
+      if (T.t > 0.35 || d > 26) h.plateTgt = null;
+    }
+    // (pressed once he has landed on it)
+    if (!pl.down && heroes.some(h => h.z <= 0.5 && Math.abs(h.x - pl.x) < 8 && Math.abs(h.y - pl.y) < 7)) { pl.down = true; pl.t = 0; SFX.stone(panOf(pl.x), true); shake(0.05); }
     if (pl.down) { pl.t += dt; pl.f = Math.min(3, Math.floor(pl.t / 0.06)); if (pl.pool && !pl.pool.drain && pl.t > 0.35) { if (pl.remote) startCine(pl); else startDrain(pl.pool); } }
   }
   for (const p of A.pools || []) if (p.drain === 1) {
@@ -271,6 +278,8 @@ function endDrain(p) {
   // what lay at the bottom: a scatter of coins (no treasure chest: the sheet has no chest standing in water, so none was there)
   const s = p.spots.filter(([x, y]) => !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 14 && Math.abs(q.cy - (y * TS + 10)) < 12));
   for (let i = 0; i < 5; i++) { const q = pick(s) || p.drainAt; G.drops.push({ k: 'gold', v: randi(1, 4), x: q[0] * TS + 8, y: q[1] * TS + 8, z: 1, vx: 0, vy: 0, vz: 30, t: 0, hold: 0.3 }); }
+  // in a big one, now and then a fish or two left behind, flopping on the wet stone
+  if (p.cells.size >= 40 && chance(0.55)) for (let i = randi(1, 2); i > 0; i--) { const q = pick(s) || p.drainAt; G.drops.push({ k: 'fish', x: q[0] * TS + 8 + rand(-3, 3), y: q[1] * TS + 9, z: 0, vx: 0, vy: 0, vz: 0, t: 0, flop: true }); }
 }
 // what stood in the water is dry now: each turns into its dry twin, water running off it, and can be broken
 function dryOut(p) {
@@ -315,12 +324,12 @@ function basinHop(u) {
   if (u.inBasin !== undefined && b !== u.inBasin && !u.fly && !u.under && !u.dead && u.z <= 0.5 && !(u.hopT && G.time - u.hopT < 0.4)) hopNow(u);
   u.inBasin = b;
 }
-function hopNow(u) { u.vz = 70; u.z = 0.01; u.hopT = G.time; smoke(u.x, u.y, 2, 'dust', 4, 8, 0.5); }
+function hopNow(u) { u.vz = u.hopV || 70; u.z = 0.01; u.hopT = G.time; u.hopV = 0; u.brakeK = 0; smoke(u.x, u.y, 2, 'dust', 4, 8, 0.5); }
 // Coming up to the rim, a walker checks for a moment (a fifth of its pace for a beat) and then hops, so the hop is seen
 // over the edge and not after it, however fast it was going. The answer scales this frame's move.
 function basinBrake(u, dt) {
+  if (u.brake > 0) { u.brake -= dt; const k = u.brakeK || 0.2; if (u.brake <= 0) hopNow(u); return k; } // (a plate's stop and hop too: 36_works plates)
   const A = ARENA; if (!A || !A.basin || u.fly || u.under || u.dead || u.enter) return 1;
-  if (u.brake > 0) { u.brake -= dt; if (u.brake <= 0) hopNow(u); return 0.2; }
   if (u.z > 0.5 || (u.hopCool || 0) > G.time) return 1;
   const gk = u.gaitK === undefined ? 1 : u.gaitK, vx = u.vx * gk + u.kx, vy = u.vy * gk + u.ky, sp = Math.hypot(vx, vy); if (sp < 20) return 1;
   const ahead = clamp(sp * 0.1, 3, 10), ax = u.x + vx / sp * ahead, ay = u.y + vy / sp * ahead;

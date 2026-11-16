@@ -190,14 +190,6 @@ const SFX = {
   // a clay pot or a crate giving way: a dull crunch, then the bits rattling down
   crack(pan = 0) { if (!this.ok('crack', 0.04)) return; this.noise(this.brown, 0.2, 'lowpass', 1800, 260, 0.8, 0.5, pan, 0, 0.002, true); this.tone('sine', 140, 70, 0.1, 0.25, pan);
     for (let i = 0; i < 4; i++) this.noise(this.white, 0.03, 'bandpass', rand(700, 1600), 600, 3, 0.1, pan + rand(-0.2, 0.2), 0.06 + i * rand(0.04, 0.07)); },
-  // a clay pot breaking: the dull thunk of its body giving, a short hollow ring, then the shards clinking down
-  pot(pan = 0) {
-    if (!this.ok('pot', 0.04)) return;
-    this.noise(this.brown, 0.1, 'lowpass', 900, 250, 0.8, 0.45, pan);
-    this.tone('triangle', rand(520, 640), 380, 0.07, 0.16, pan);
-    for (let i = 0; i < 6; i++) this.tone('triangle', rand(1300, 2600), rand(1100, 2000), rand(0.03, 0.06), rand(0.05, 0.09), pan + rand(-0.25, 0.25), 0.02 + i * rand(0.02, 0.05));
-    this.noise(this.white, 0.12, 'bandpass', 3200, 1800, 1.5, 0.12, pan, 0.01);
-  },
   shatter(pan = 0) { if (!this.ok('shatter', 0.04)) return; this.noise(this.white, 0.28, 'highpass', 2500, 7000, 0.7, 0.28, pan); for (let i = 0; i < 4; i++) this.tone('triangle', rand(1800, 4200), 1500, 0.12, 0.05, pan, i * 0.03); },
   drum(inten = 0) { if (!this.ok('drum', 0.2)) return; const g = 0.35 + 0.45 * inten; this.tone('sine', 95, 38, 0.32, g, 0, 0, 0.002, true); this.noise(this.brown, 0.18, 'lowpass', 500, 120, 0.8, g * 0.6, 0); if (inten > 0.6) this.tone('sine', 70, 40, 0.25, g * 0.6, 0, 0.16, 0.002, true); },
   beam(dur = 1.5, pitch = 1) {

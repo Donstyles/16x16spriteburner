@@ -73,10 +73,10 @@ function bloodPaint(x, y, pal, n, spread) { if (!ARENA) return; const R = []; fo
   groundPaint(x - spread - 2, y - spread - 2, x + spread + 2, y + spread + 2, g => { for (const r of R) { g.globalAlpha = r[0]; g.fillStyle = r[1]; g.fillRect(r[2], r[3], r[4], r[5]); } g.globalAlpha = 1; }); }
 function splat(x, y, col, n = 6, spread = 7) { if (!ARENA) return; const R = []; for (let i = 0; i < n; i++) R.push([rand(0.35, 0.75), rand(0.8, 2.6), x + rand(-spread, spread), y + rand(-spread, spread) * 0.7]);
   groundPaint(x - spread - 3, y - spread - 3, x + spread + 3, y + spread + 3, g => { g.fillStyle = col; for (const [a, r, ex, ey] of R) { g.globalAlpha = a; g.beginPath(); g.ellipse(ex, ey, r, r * 0.75, 0, 0, TAU); g.fill(); } g.globalAlpha = 1; }); }
-// a wet pixel where a drop of sweat landed: it darkens the stone and dries
+// a wet pixel where a drop of sweat landed: it darkens the stone and dries (on water there is nothing to darken: a ring instead)
 // a wet pixel on the floor that dries in time; a glint is one catching the light (a puddle has a few); r: a soft wet
 // patch of that size instead of a pixel (water darkens the floor a little, bluish)
-function wetSpot(x, y, life = rand(7, 11), glint = false, r = 0) { FX.wet.push({ x: Math.round(x), y: Math.round(y), t: 0, life, glint, r }); if (FX.wet.length > 900) FX.wet.shift(); }
+function wetSpot(x, y, life = rand(7, 11), glint = false, r = 0) { if (ARENA && overWater(x, y)) { if (!glint && !r && chance(0.5)) plip(x, y); return; } FX.wet.push({ x: Math.round(x), y: Math.round(y), t: 0, life, glint, r }); if (FX.wet.length > 900) FX.wet.shift(); }
 function drawWet(c) {
   for (const w of FX.wet) if (w.r) { const k = Math.min(1, (w.life - w.t) / 4); c.fillStyle = `rgba(34,62,96,${0.17 * k})`; c.beginPath(); c.ellipse(w.x, w.y, w.r, w.r * 0.62, 0, 0, TAU); c.fill(); }
   for (const w of FX.wet) if (!w.r) { const k = Math.min(1, (w.life - w.t) / 3); c.fillStyle = w.glint ? `rgba(200,232,255,${0.55 * k})` : `rgba(6,10,18,${0.5 * k})`; c.fillRect(w.x, w.y, 1, 1); }
