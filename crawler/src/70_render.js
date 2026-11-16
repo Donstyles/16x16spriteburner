@@ -71,18 +71,18 @@ function bigSprite(spr, sc) {
 }
 function drawUnit(c, u) {
   const m = MOBS[u.spr]; if (!m) return; if (u.team === 'foe' && !foeShown(u)) return;
-  const sy = m[0], fw = m[1], fh = m[2], foot = footOf(u.spr), sleep = u.state === 'sleep' && !u.aware;
+  const sy = m[0], fw = m[1], fh = m[2], foot = footOf(u.spr), sleep = u.state === 'sleep' && !u.aware, dp = u.team === 'hero' && u.dead ? deathPose(u) : null; if (dp && dp.gone) return;
   const creep = u.team === 'hero' && u.moving && u.noise === 0 && !u.act;
-  const fr = sleep || (u.act && u.act.k === 'roll') ? 0 : ((u.anim * (u.moving ? (creep ? 5 : u.sprint ? 14 : 9) : 5)) | 0) % 4, sc = u.scale, jit = u.freeze > 0 && u.team === 'foe' ? (((G.time * 60) | 0) % 2 ? 1 : -1) : u.stun > 0 ? Math.sin(u.anim * 50) * 0.6 : 0;
+  const fr = sleep || dp || (u.act && u.act.k === 'roll') ? 0 : ((u.anim * (u.moving ? (creep ? 5 : u.sprint ? 14 : 9) : 5)) | 0) % 4, sc = u.scale, jit = u.freeze > 0 && u.team === 'foe' ? (((G.time * 60) | 0) % 2 ? 1 : -1) : u.stun > 0 ? Math.sin(u.anim * 50) * 0.6 : 0;
   const ra = u.team === 'hero' && u.act && u.act.k === 'roll' ? u.act : null;
   // A pixel sprite cannot be squeezed without dropping rows, so a crouch or a landing lowers the upper body by
   // whole pixels instead: the sprite is cut at the waist and the top part drawn lower, over the legs.
-  const dip = u.team === 'hero' && !ra ? Math.min(2, (creep ? 1 : 0) + (u.dipT > 0 ? 1 : 0)) : sleep && FLAT_SLEEPERS.has(u.spr) && sc === 1 ? 1 : 0, cut = Math.max(4, foot - 5);
+  const dip = u.team === 'hero' && !ra ? (dp ? dp.dip : Math.min(2, (creep ? 1 : 0) + (u.dipT > 0 ? 1 : 0))) : sleep && FLAT_SLEEPERS.has(u.spr) && sc === 1 ? 1 : 0, cut = Math.max(4, foot - 5);
   // the sellsword swinging: drawn without his sword, and the sword drawn on its own, behind him when it points behind him
   const Wc = u.team === 'hero' && !ra ? WEAPON[u.spr] : null, pose = Wc ? weaponPose(u) : null, back = pose && (pose.behind || (!pose.front && Math.cos(pose.th) * (u.face < 0 ? -1 : 1) < -0.15));
   if (back) drawWeapon(c, u, pose, Wc, fr, fw, foot, dip, cut);
-  c.save(); c.translate(u.x + jit, u.y - u.z);
-  if (sleep && !FLAT_SLEEPERS.has(u.spr)) { const L = lieOf(u.spr, sc), fs = u.face < 0 ? -1 : 1; c.translate(fs * L.half, L.dy); c.rotate(-fs * Math.PI / 2); } // asleep: lying on its back, its front turned up (a quarter turn, exact to the pixel)
+  c.save(); c.translate(u.x + jit + (dp ? dp.jit : 0), u.y - u.z);
+  if ((sleep && !FLAT_SLEEPERS.has(u.spr)) || (dp && dp.lie)) { const L = lieOf(u.spr, sc), fs = u.face < 0 ? -1 : 1; c.translate(fs * L.half, L.dy); c.rotate(-fs * Math.PI / 2); } // asleep: lying on its back, its front turned up (a quarter turn, exact to the pixel)
   if (ra) { // a roll: one full turn the way the hero travels, in quarter turns so every pixel stays on the grid
     const p = Math.min(1, ra.t / ra.dur), turn = Math.min(4, Math.floor((p + 0.14) * 4.5)) / 4, cy = Math.round(-6 * sc);
     const way = Math.abs(Math.cos(ra.dir)) > 0.2 ? Math.sign(Math.cos(ra.dir)) : (u.face < 0 ? -1 : 1); // turn with the travel (a backward roll goes back over the head)
@@ -93,10 +93,11 @@ function drawUnit(c, u) {
   const blitB = img => c.drawImage(img, fr * B.W, 0, B.W, B.H, -B.W / 2, -B.foot, B.W, B.H);
   const blit = (img, oy = sy) => { if (!dip) { c.drawImage(img, fr * fw, oy, fw, fh, -fw / 2, -foot - 1, fw, fh); return; }
     c.drawImage(img, fr * fw, oy + cut, fw, fh - cut, -fw / 2, -foot - 1 + cut, fw, fh - cut); c.drawImage(img, fr * fw, oy, fw, cut, -fw / 2, -foot - 1 + dip, fw, cut); };
-  if (B) blitB(B.cv); else if (pose) blit(Wc.cut, 0); else blit(IMG.mobs);
+  const bare = pose || (Wc && u.dropped); // swinging, or his weapon gone from his hand
+  if (B) blitB(B.cv); else if (bare) blit(Wc.cut, 0); else blit(IMG.mobs);
   const a = u.act, warn = u.team === 'foe' && a && ((a.k === 'atk' && a.phase === 'wind') || (a.k === 'aim' && a.t > a.dur - 0.25));
   if (warn) { c.globalAlpha = 0.35 + 0.35 * Math.sin(G.time * 40); if (B) blitB(B.red); else blit(mobsRed()); }
-  if (u.flash > 0) { c.globalAlpha = Math.min(1, u.flash * 9); if (B) blitB(B.white); else if (pose) blit(Wc.cutW, 0); else blit(IMG.mobsW); }
+  if (u.flash > 0) { c.globalAlpha = Math.min(1, u.flash * 9); if (B) blitB(B.white); else if (bare) blit(Wc.cutW, 0); else blit(IMG.mobsW); }
   c.restore(); c.globalAlpha = 1;
   if (pose && !back) drawWeapon(c, u, pose, Wc, fr, fw, foot, dip, cut);
   if (u.team === 'foe' && u.hp < u.maxHp && !u.dead) { const w = 10 * sc, x = u.x - w / 2, y = u.y - u.z + 3; c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(x - 0.5, y - 0.5, w + 1, 2.5); c.fillStyle = u.stun > 0 ? '#ffd24a' : '#e8443a'; c.fillRect(x, y, w * clamp(u.hp / u.maxHp, 0, 1), 1.5); }
@@ -164,7 +165,7 @@ function renderLight() {
   if (menu) { lctx.fillStyle = 'rgb(70,62,74)'; lctx.fillRect(0, 0, bw, bh); } else maskToMemory(lctx, PXO.x, PXO.y, 'source-over');
   lctx.globalCompositeOperation = 'lighter'; lctx.imageSmoothingEnabled = false; lctx.setTransform(1, 0, 0, 1, -PXO.x, -PXO.y);
   const L = (x, y, r, k, a) => { if (a <= 0.01) return; const t = lightTex(k); for (let i = 0; i < 2 && a > 0.01; i++, a -= 1) { lctx.globalAlpha = Math.min(1, a); lctx.drawImage(t, x - r, y - r * 0.8, r * 2, r * 1.6); } };
-  for (const h of G.heroes) if (!h.dead) { const hs = h.hush || 1; L(h.x, h.y - 6, h.lightR * 1.35 * hs, 'hot', 1.15 * hs); L(h.x, h.y - 6, h.lightR * 0.7 * hs, 'torch', 0.35); }
+  for (const h of G.heroes) { const hs = (h.hush || 1) * (h.dead ? Math.max(0.45, 1 - (h.deadT || 0) * 0.14) : 1); L(h.x, h.y - 6, h.lightR * 1.35 * hs, 'hot', 1.15 * hs); L(h.x, h.y - 6, h.lightR * 0.7 * hs, 'torch', 0.35); } // a fallen hero's lamp burns on, dimming
   for (const t of ARENA.torches) L(t.x, t.y + 6, 62 + 6 * noise1(G.time * 7 + t.tx), 'torch', 0.85);
   for (const p of ARENA.props) if (p.kind === 'brazier') L(p.x, p.y - 4, 90 + 8 * noise1(G.time * 6 + p.x), 'torch', 0.95);
   const A = FX.lights; for (let i = 0; i < A.length; i += 5) L(A[i], A[i + 1], A[i + 2], A[i + 3], A[i + 4]); A.length = 0;

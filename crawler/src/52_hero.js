@@ -151,7 +151,7 @@ function placeDrop(p, u) {
 }
 function canRoll(h) { const a = h.act; return h.stam > 0 && h.stun <= 0 && (!a || a.k === 'charge' || (a.k === 'atk' && a.phase === 'rec') || a.k === 'drink'); }
 function heroTick(h, dt) {
-  const I = h.inp; if (h.dead) { h.deadT += dt; I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }
+  const I = h.inp; if (h.dead) { h.deadT += dt; deathTick(h, dt); I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }
   if (h.iframe > 0) h.iframe -= dt; if (h.riposteT > 0) h.riposteT -= dt; if (h.comboT > 0) h.comboT -= dt;
   if (h.poiseT > 0) h.poiseT -= dt; else h.poise = h.maxPoise; if (h.poiseGuard > 0) h.poiseGuard -= dt;
   if (h.dipT > 0) h.dipT -= dt; if (h.huff) pant(h, dt);

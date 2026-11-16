@@ -160,9 +160,10 @@ function updateRocks(dt) {
     const nx = r.x + r.vx * sdt, ny = r.y + r.vy * sdt; if (solidAt(nx, r.y)) r.vx = -r.vx * 0.4; else r.x = nx; if (solidAt(r.x, ny)) r.vy = -r.vy * 0.4; else r.y = ny;
     r.vz -= 480 * sdt; r.z += r.vz * sdt; const turn = () => { r.r = (r.r + (r.vx >= 0 ? 1 : 3)) % 4; };
     if (r.bleed && r.z > 1 && (r.dripT = (r.dripT || 0) + sdt) > 0.05) { r.dripT = 0; drip(r.x, r.y, r.z, r.bleed, r.vx * 0.3, r.vy * 0.3); }
-    if (r.z <= 0) { r.z = 0; if (r.vz < -40) { r.vz = -r.vz * 0.3; r.vx *= 0.55; r.vy *= 0.55; turn(); if (r.bleed) bloodMark(r.x, r.y, 6, r.bleed), goreLand(r.x, r.y, { s0: 2, col: pick(BLOOD[r.bleed]), kind: r.bleed }); } else { r.vz = 0; const f = Math.exp(-9 * sdt); r.vx *= f; r.vy *= f; } }
+    if (r.z <= 0) { r.z = 0; if (r.vz < -40) { r.vz = -r.vz * 0.3; r.vx *= 0.55; r.vy *= 0.55; turn(); if (r.bleed) bloodMark(r.x, r.y, 6, r.bleed), goreLand(r.x, r.y, { s0: 2, col: pick(BLOOD[r.bleed]), kind: r.bleed }); if (r.clang) SFX.clang(panOf(r.x)); } else { r.vz = 0; const f = Math.exp(-9 * sdt); r.vx *= f; r.vy *= f; } }
     else if ((r.spin -= sdt) <= 0) { r.spin = rand(0.07, 0.13); turn(); }
     if ((r.z === 0 && r.vz === 0 && Math.hypot(r.vx, r.vy) < 3) || r.t > 4) { // still
+      if (r.clang && r.rot[r.r].width < r.rot[r.r].height) r.r = (r.r + 1) % 4; // a dropped weapon comes to rest lying flat, not on its point
       if (r.lie) { r.lieT = G.time; if (r.bleed) pool(r.x, r.y, r.bleed, 1); continue; } // flesh lies a while, then fades
       // stone is left on the floor, unless it would lie across a wall
       const cv = r.rot[r.r], x = Math.round(r.x - cv.width / 2), y = Math.round(r.y - cv.height + 1);

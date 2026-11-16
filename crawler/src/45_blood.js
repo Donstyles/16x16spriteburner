@@ -149,3 +149,51 @@ function gibBurst(u) {
   spray(u, 60, { ...o, more: 1.6, slow, spd: 1.2 }); spray(u, 40, { style: 'slam', slow }); pool(u.x, u.y, kind, 2 + sc);
   SFX.gib(panOf(u.x)); shake(0.12); kick(0.03);
 }
+
+// --- the hero's death. The killing blow throws a heavy spray; he reels, his weapon flies out of his hand and clatters
+// across the floor, he drops to his knees (the upper body a pixel, then two, lower) and falls flat on his back away
+// from whoever killed him. Then he bleeds out: a jet of blood with each heartbeat, weaker each time, the beat slowing,
+// the pool under him spreading. A killing blow far past what he had left (with gore at FULL) bursts him apart instead.
+function heroFalls(h) {
+  const o = h.lastBlow || {}; if (o.ang !== undefined) h.face = Math.cos(o.ang) < 0 ? 1 : -1; // facing his killer, he falls back away
+  h.deadT = 0; h.gone = false; h.dropped = false;
+  if (bleeds(h)) { spray(h, 60, { ...o, more: 2.2, spd: 1.2 }); SFX.squelch(panOf(h.x), true); }
+  if (GORE.level === 2 && (h.overkill || 0) >= 0.18 * h.maxHp) heroBurst(h, o);
+}
+function deathPose(u) {
+  if (u.gone) return { gone: true }; const t = u.deadT || 0;
+  return { lie: t > 0.55, dip: t > 0.55 ? 0 : t > 0.42 ? 2 : t > 0.3 ? 1 : 0, jit: t < 0.3 ? (((G.time * 40) | 0) % 2 ? 1 : -1) : 0 };
+}
+function deathTick(h, dt) {
+  const t = h.deadT, p = t - dt, at = s => p < s && t >= s; if (h.gone) return;
+  if (at(0.15)) dropWeapon(h, 1);
+  if (at(0.55)) { SFX.boom(0.25, panOf(h.x)); shake(0.12); smoke(h.x, h.y, 3, 'dust', 8, 18, 0.8); }
+  [0.8, 1.4, 2.1, 2.9, 3.8].forEach((s, i) => {
+    if (!at(s)) return; const k = 1 - i * 0.17; SFX.heart(0.5 * k); if (!bleeds(h)) return;
+    const fs = h.face < 0 ? -1 : 1, x = h.x - fs * 3, y = h.y; // the wound, about his chest as he lies
+    for (let j = 0, n = Math.round(12 * k); j < n; j++) part({ k: 'gore', x: x + rand(-1, 1), y: y + rand(-1, 1), z: 3, vx: rand(-22, 22) * k, vy: rand(-12, 12) * k, vz: rand(55, 115) * k, g: 420, life: 5, s0: chance(0.2) ? 2 : 1, col: pick(BLOOD.red), kind: 'red' });
+    pool(x, y + 1, 'red', 2.4 + i * 1.3); // the pool spreads out from under him with every beat
+  });
+}
+// a canvas cropped to its pixels (so a thrown weapon lies on the floor, not above it)
+function tight(cv) {
+  const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+  for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) if (d[(y * cv.width + x) * 4 + 3]) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  if (x1 < 0) return cv; const o = mkCanvas(x1 - x0 + 1, y1 - y0 + 1); o.getContext('2d').drawImage(cv, -x0, -y0); return o;
+}
+// his weapon out of his hand: it tumbles a quarter turn at a time (bloodied if it was), rings on the stone and lies there
+function dropWeapon(h, spd) {
+  const Wc = WEAPON[h.spr]; if (!Wc || h.dropped) return; h.dropped = true;
+  const gl = h.gore > 0.05 && GORE.level ? Math.min(3, Math.ceil(h.gore)) : 0, turn = a => gl ? bloodyTurn(Wc, h.goreKind || 'red', gl, a) : Wc.rot[a], Q = WEAPON_TURNS / 4;
+  const o = h.lastBlow || {}, a = (o.ang === undefined ? rand(TAU) : o.ang) + rand(-0.9, 0.9), v = rand(40, 70) * spd, fs = h.face < 0 ? -1 : 1;
+  FX.rocks.push({ rot: [0, Q, 2 * Q, 3 * Q].map(k => tight(turn(k))), r: 0, x: h.x + fs * 4, y: h.y + 1, z: 9, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.7, vz: rand(60, 90) * spd, spin: 0.08, t: 0, wait: 0, fade: 0, lie: 99, clang: true });
+}
+// blown apart: chunks of his own body (without the weapon, which flies off on its own), the run's last few seconds
+function heroBurst(h, o) {
+  const Wc = WEAPON[h.spr], m = MOBS[h.spr]; if (!m) return; const fw = m[1], fh = m[2], slow = G.time + GIB_HOLD;
+  const D = Wc ? (Wc.cutPD = Wc.cutPD || pixelData(Wc.cut)) : PIX.mobs;
+  dropWeapon(h, 1.6);
+  breakSprite(D, 0, Wc ? 0 : m[0], fw, fh, Math.round(h.x - fw / 2), Math.round(h.y - h.z - footOf(h.spr) - 1), h.y, randi(6, 8), { away: o.ang === undefined ? null : o.ang, spd: 1.4, flip: h.face < 0, edge: BLOOD.red, bleed: 'red', lie: 99, slow });
+  spray(h, 60, { ...o, more: 1.6, slow, spd: 1.3 }); spray(h, 50, { style: 'slam', slow }); pool(h.x, h.y, 'red', 4);
+  h.gone = true; SFX.gib(panOf(h.x)); shake(0.3);
+}

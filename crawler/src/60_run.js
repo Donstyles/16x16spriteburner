@@ -43,7 +43,7 @@ function updateRun(dt) {
     const s = ARENA.stairs; if (G.heroes.some(h => alive(h) && Math.abs(h.x - s.x) < 18 && h.y < s.y + 6 && h.y > s.y - 20)) { G.phase = 'descend'; G.phaseT = 0; SFX.whoosh(0); }
   } else if (G.phase === 'descend') {
     G.fade = Math.min(1, G.phaseT / 0.7);
-    if (G.phaseT > 0.9) { G.floor++; G.best = Math.max(G.best, G.floor); saveBest(); for (const h of G.heroes) { if (h.dead) { h.dead = false; h.hp = Math.round(h.maxHp * 0.3); } } startFloor(); }
+    if (G.phaseT > 0.9) { G.floor++; G.best = Math.max(G.best, G.floor); saveBest(); for (const h of G.heroes) { if (h.dead) { h.dead = false; h.gone = h.dropped = false; h.hp = Math.round(h.maxHp * 0.3); } } startFloor(); }
   } else if (G.phase === 'dead') {
     if (G.phaseT > 3.2) G.fade = Math.min(1, (G.phaseT - 3.2) / 0.8);
     if (G.phaseT > 4.2) { G.mode = 'menu'; MENU.screen = 'summary'; G.fade = 0; }
