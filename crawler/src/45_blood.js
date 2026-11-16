@@ -55,7 +55,7 @@ function spray(u, d, o = {}) {
     part({ k: 'gore', x: u.x + rand(-2, 2), y: u.y + rand(-1, 1), z: 6 * sc + rand(-3, 3), vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.8, vz: rand(S.up[0], S.up[1]), g: 420, life: 5, s0: chance(S.clot) ? 2 : 1, col: pick(bl), kind, slow: o.slow || 0 });
   }
 }
-function drip(x, y, z, kind, vx = 0, vy = 0) { if (GORE.level) part({ k: 'gore', x, y, z, vx: vx + rand(-6, 6), vy: vy + rand(-4, 4), vz: rand(-5, 10), g: 420, life: 5, s0: 1, col: pick(BLOOD[kind]), kind, quiet: true }); }
+function drip(x, y, z, kind, vx = 0, vy = 0) { if (GORE.level) part({ k: 'gore', x, y, z, vx: vx + rand(-6, 6), vy: vy + rand(-4, 4), vz: rand(-5, 10), g: 420, life: 5, s0: 1, col: pick(BLOOD[kind]), kind }); }
 // a drop in flight: it lands as a pixel on the floor, or splashes on the face of a wall it reaches
 function goreStep(p, dt) {
   if (p.slow > G.time) dt *= 0.15;
@@ -67,7 +67,7 @@ function goreStep(p, dt) {
 function goreLand(x, y, p) {
   if (!ARENA) return; const r = p.s0 === 2 ? rand(1.2, 2) : rand(0.6, 1.2), a = rand(0.45, 0.8); // a small soft blotch where it lands
   groundPaint(x - 3, y - 3, x + 3, y + 3, g => { g.globalAlpha = a; g.fillStyle = p.col; g.beginPath(); g.ellipse(x, y, r, r * 0.75, 0, 0, TAU); g.fill(); g.globalAlpha = 1; });
-  bloodMark(x, y, p.s0 === 2 ? 5 : 2, p.kind); if (p.quiet) SFX.drip(panOf(x));
+  bloodMark(x, y, p.s0 === 2 ? 5 : 2, p.kind);
 }
 const BTR = []; // blood running down walls, a pixel at a time
 // Where a drop meets a wall. The north walls show their face: it splashes where it struck and runs down to the floor.
