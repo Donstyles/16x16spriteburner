@@ -87,7 +87,7 @@ function deathFx(u) {
   if (u.gib) { gibBurst(u); return; }
   if (!MOBS[u.spr]) return; const px = spritePixels(u.spr), sc = u.scale, fl = u.face < 0 ? -1 : 1, bl = BLOOD[u.def.blood || 'red'], pw = Math.max(1, Math.round(sc));
   const kx = clamp(u.kx * 0.4, -120, 120), ky = clamp(u.ky * 0.4, -120, 120), step = px.length > 200 ? 2 : 1;
-  for (let i = 0; i < px.length; i += step) { const p = px[i], a = Math.atan2(p.y * 0.3, p.x * fl) + rand(-0.6, 0.6); part({ k: 'pix', x: u.x + p.x * sc * fl, y: u.y + rand(-1, 1), z: -p.y * sc, vx: Math.cos(a) * rand(20, 120) + kx, vy: rand(-50, 50) + ky, vz: rand(40, 150), g: 420, bounce: 0.35, drag: 1.1, life: rand(1, 2), s0: pw, col: p.c }); }
+  for (let i = 0; i < px.length; i += step) { const p = px[i], a = Math.atan2(p.y * 0.3, p.x * fl) + rand(-0.6, 0.6); part({ k: 'pix', x: u.x + p.x * sc * fl, y: u.y + rand(-1, 1), z: (u.z || 0) - p.y * sc, vx: Math.cos(a) * rand(20, 120) + kx, vy: rand(-50, 50) + ky, vz: rand(40, 150), g: 420, bounce: 0.35, drag: 1.1, life: rand(1, 2), s0: pw, col: p.c }); }
   if (bleeds(u)) { spray(u, 30, { ...(u.lastBlow || {}), more: 1.3 }); pool(u.x, u.y, u.def.blood || 'red', 2 + sc); debris(u.x, u.y, 4, bl, 100, 120, 1.4 * sc); }
   else debris(u.x, u.y, 8, DRY.has(u.def.blood) ? bl : DUST, 120, 140, 1.6 * sc);
   SFX.pop(panOf(u.x));
@@ -97,7 +97,7 @@ function moveActor(u, dt) {
   if (!Number.isFinite(u.vx + u.vy + u.kx + u.ky)) { u.vx = u.vy = u.kx = u.ky = 0; }
   if (Number.isFinite(u.x + u.y)) { u.gx = u.x; u.gy = u.y; } else if (u.gx !== undefined) { u.x = u.gx; u.y = u.gy; }
   u.x += (u.vx + u.kx) * dt; u.y += (u.vy + u.ky) * dt; const f = Math.exp(-7 * dt); u.kx *= f; u.ky *= f;
-  if (u.z > 0 || u.vz > 0) { u.vz -= 560 * dt; u.z += u.vz * dt; if (u.z <= 0) { u.z = 0; u.vz = 0; } }
+  if (!u.fly && (u.z > 0 || u.vz > 0)) { u.vz -= 560 * dt; u.z += u.vz * dt; if (u.z <= 0) { u.z = 0; u.vz = 0; } }
   for (const p of ARENA.props) { if (!p.solid || p.dead) continue; const dx = u.x - p.x, dy = u.y - p.cy, d = Math.hypot(dx, dy), m = u.r + p.r; if (d < m) { const nx = d > 0.01 ? dx / d : 1, ny = d > 0.01 ? dy / d : 0; u.x = p.x + nx * m; u.y = p.cy + ny * m; } }
   tileCollide(u);
   if (u.squash > 0) u.squash = Math.max(0, u.squash - dt * 2.5);

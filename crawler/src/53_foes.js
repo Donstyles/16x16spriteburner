@@ -27,6 +27,19 @@ const ZONES = [
 ];
 const BLOOD_OF = { DecrepitBones: 'bone', BrittleArcher: 'bone', GraveRevenant: 'bone', SkitteringHand: 'bone', ScarecrowGolem: 'straw', StoneGolem: 'metal', ClayGolem: 'metal', TaintedCockroach: 'bug', AcidAnt: 'bug', LavaAnt: 'bug', RhinoBeetle: 'bug', FamishedTick: 'bug', ForagingMaggot: 'slime', UnravelingCrawler: 'bone', MutilatedStumbler: 'sludge', FleshGolem: 'sludge', BoundCadaver: 'sludge', SandGhoul: 'sludge' };
 const STONE_SHOT = { HalflingSlinger: true };
+// Bats fly: they hover over their shadow, bobbing with each wingbeat and fluttering this way and that; winding up to
+// strike they climb a little, then dive at their target and climb back; asleep they rest on the floor, and woken they
+// take off. Killed, they fall out of the air.
+const FLYERS = new Set(['SwoopingBat', 'PlagueBat', 'VampireBat']);
+function makeFlyer(u) { if (!FLYERS.has(u.spr)) { u.fly = null; return; } u.fly = { alt: rand(10, 14), ph: rand(TAU), t: 0, fl: 0 }; u.z = u.state === 'sleep' ? 0 : u.fly.alt; }
+function flyTick(u, dt) {
+  const F = u.fly, a = u.act, asleep = u.state === 'sleep' && !u.aware; F.t += dt;
+  let alt = asleep ? 0 : F.alt + Math.sin(F.t * 9 + F.ph) * 1.5, k = 6;
+  if (a && a.k === 'atk' && !asleep) { if (a.phase === 'wind') alt += 4; else if (a.phase === 'act') { alt = 3; k = 18; } }
+  if (u.stun > 0) alt *= 0.6; // knocked about
+  u.z = damp(u.z, alt, k, dt); u.vz = 0;
+  if (!asleep && !(a && a.phase === 'act') && (F.fl -= dt) <= 0) { F.fl = rand(0.15, 0.4); const r = rand(TAU); u.kx += Math.cos(r) * 35; u.ky += Math.sin(r) * 25; } // a flutter
+}
 // creatures that already go on all fours (bugs, beasts, crawlers, a bat, a hand): asleep they stay on their feet and settle,
 // where the upright ones lie down on their backs
 const FLAT_SLEEPERS = new Set(['InfectedMouse', 'TaintedCockroach', 'FamishedTick', 'SkitteringHand', 'SwoopingBat', 'ForagingMaggot', 'AcidAnt', 'LavaAnt', 'RhinoBeetle', 'MawingBeaver', 'ToxicHound', 'UnravelingCrawler']);
@@ -36,7 +49,7 @@ function mkFoe(type, f, x, y) {
   const T = FOE_TYPES[type], z = zoneAt(f), spr = pick(z[type]), mul = 1 + 0.18 * (f - 1);
   const u = mkActor('foe', { ...T, spr, blood: BLOOD_OF[spr] || 'red', name: type }, x, y, mul);
   Object.assign(u, { type, dmgMul: 1 + 0.12 * (f - 1), aware: false, state: 'idle', home: { x, y }, cdT: rand(0.4, 1), tgt: null, wanderT: rand(1, 4), face: chance(0.5) ? 1 : -1, jit: rand(-1, 1), jit2: rand(-1, 1), lostT: 0 });
-  u.dir = u.face < 0 ? Math.PI : 0; return u;
+  u.dir = u.face < 0 ? Math.PI : 0; makeFlyer(u); return u;
 }
 // a room's foes: groups bought from a budget that grows with depth and the size of the room
 const GROUPS = [

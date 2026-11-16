@@ -52,7 +52,7 @@ function spray(u, d, o = {}) {
   const a0 = o.ang === undefined ? rand(TAU) : o.ang, n = Math.min(44, Math.round(S.n * clamp(d / 12, 0.5, 3.5) * (o.more || 1)));
   for (let i = 0; i < n; i++) {
     const a = a0 + (o.sweep || 1) * S.bias + rand(-S.spread, S.spread), v = rand(S.v[0], S.v[1]) * (o.spd || 1);
-    part({ k: 'gore', x: u.x + rand(-2, 2), y: u.y + rand(-1, 1), z: 6 * sc + rand(-3, 3), vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.8, vz: rand(S.up[0], S.up[1]), g: 420, life: 5, s0: chance(Math.max(S.clot, GORE.big)) ? 2 : 1, col: pick(bl), kind, slow: o.slow || 0 });
+    part({ k: 'gore', x: u.x + rand(-2, 2), y: u.y + rand(-1, 1), z: (u.z || 0) + 6 * sc + rand(-3, 3), vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.8, vz: rand(S.up[0], S.up[1]), g: 420, life: 5, s0: chance(Math.max(S.clot, GORE.big)) ? 2 : 1, col: pick(bl), kind, slow: o.slow || 0 });
   }
 }
 function drip(x, y, z, kind, vx = 0, vy = 0) { if (GORE.level) part({ k: 'gore', x, y, z, vx: vx + rand(-6, 6), vy: vy + rand(-4, 4), vz: rand(-5, 10), g: 420, life: 5, s0: 1, col: pick(BLOOD[kind]), kind }); }

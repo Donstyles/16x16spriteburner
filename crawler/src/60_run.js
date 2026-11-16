@@ -35,6 +35,7 @@ function updateRun(dt) {
   aiPrep(dt); for (const f of G.foes) if (!f.held) foeTick(f, dt);
   for (const u of G.units) if (!u.dead && !u.held) moveActor(u, dt);
   for (const u of G.units) if (!u.dead) bloodTick(u, dt);
+  for (const u of G.units) if (u.fly && !u.dead && !u.held) flyTick(u, dt);
   separate(G.units);
   updateProj(dt); updateDrops(dt); updateSight(dt);
   removeIf(G.foes, f => f.dead); removeIf(G.units, u => u.dead && u.team === 'foe');
