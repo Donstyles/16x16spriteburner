@@ -9,8 +9,9 @@
 // - the merfolk aquamancer's wave: a rolling wall of water that knocks you back and soaks you
 // - the adept necromancer raises the dead: a green circle turns on the floor near you and a skeleton claws its way up out
 //   of it (no more than two of his at a time); with two up he throws bolts of green soul-fire that bend towards you
-// - the elf enchanter tends her own: a stream of green light into the most wounded elf heals it, or she wards one (a
-//   shimmer round it that takes the next blow for it, and breaks); with nobody to tend she throws thorns
+// - the elf enchanter wards her own (a stream of green light puts a shimmer round one that takes three blows for it) and
+//   throws thorns; her treant comes first: unwarded, it is even odds each turn, and never more than two thorns before
+//   she wards it again (her healing is off for now)
 // Bolts that fly straight (the laser, the hex, the soul-fire, the thorns) can be parried back like arrows; a wave or a
 // flask cannot.
 const CAST = { LizardfolkScout: 'laser', GoblinOccultist: 'hex', VileWitch: 'flask', MerfolkAquamancer: 'wave', AdeptNecromancer: 'raise', ElfEnchanter: 'heal', AcidAnt: 'spit' };
@@ -31,7 +32,7 @@ const RAISE_MAX = 4; // skeletons a necromancer keeps up at once
 function castShot(f, dir) {
   const c = castOf(f); if (!c) return false; const t = f.tgt;
   if (c === 'flask') { if (t) lobFlask(f, t); return true; }
-  f.shotNext = false;
+  f.shotNext = false; if (c === 'heal') { f.thorns = (f.thorns || 0) + 1; f.pick = undefined; } // (her thorns since she last warded the treant)
   const kind = c === 'raise' ? 'soul' : c === 'heal' ? 'thorn' : c, S = SPELL[kind], pan = panOf(f.x);
   const x = f.x + Math.cos(dir) * 7, y = f.y - 2 + Math.sin(dir) * 4;
   G.proj.push({ k: kind, x, y, z: kind === 'wave' ? 2 : 7, vx: Math.cos(dir) * S.spd, vy: Math.sin(dir) * S.spd * 0.85, team: 'foe', dmg: f.def.dmg * f.dmgMul * S.dmg, src: f, life: S.life, r: S.r, tgt: t, ph: rand(TAU), spell: true, nopar: S.nopar, hit: new Set() });
@@ -223,6 +224,14 @@ function castMind(f, t, dt, d, sees) {
   }
   if (c === 'heal') {
     const near = G.foes.filter(u => u !== f && !u.dead && !u.dying && u.aware && dist(u.x, u.y, f.x, f.y) < 150 && lineOfSight(f.x, f.y - 4, u.x, u.y - 4));
+    // the treant first: while it is near her and unwarded, each time she is free to act it is even odds whether she wards
+    // it or throws a thorn, and after two thorns she always wards it (the choice holds until she has done it)
+    const tree = near.find(u => u.spr === 'GrizzledTreant' && !u.ward);
+    if (tree) {
+      if (f.pick === undefined) f.pick = (f.thorns || 0) >= 2 || chance(0.5);
+      if (!f.pick) return false;
+      f.act = { k: 'cast', spell: 'ward', t: 0, dur: 0.8, who: tree }; FX.beams.push({ x0: f.x, y0: f.y - 8, x1: tree.x, y1: tree.y - 8, w: 1.2, col: 'heal', life: 0.8, t: 0, steady: true, cap: true, who: tree, from: f }); SFX.chime(panOf(f.x)); return true;
+    }
     if (f.shotNext || (f.wardT || 0) > G.time) return false; // a ward, then a thorn: she does not spend all her time on wards
     const hurtOne = ENCHANTER_HEALS ? near.filter(u => u.hp < u.maxHp * 0.8).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0] : null;
     const wardOne = !hurtOne && near.filter(u => !u.ward && (u.wardCd || 0) < G.time).sort((a, b) => b.maxHp - a.maxHp)[0];
@@ -239,7 +248,7 @@ function castTick(f, a, dt) {
     a.done = true;
     if (a.spell === 'raise') for (const [x, y] of a.spots) raiseDead(f, x, y, a.tgt);
     else if (a.spell === 'heal' && !a.who.dead) { const n = Math.round(a.who.maxHp * 0.3); a.who.hp = Math.min(a.who.maxHp, a.who.hp + n); glows(a.who.x, a.who.y, 10, 14, 'heal', 30, 3, 0.9); number(a.who.x, a.who.y, headZ(a.who) + 1, '+' + n, 'heal', false, a.who); SFX.heal(); }
-    else if (a.spell === 'ward' && !a.who.dead) { a.who.ward = WARD_BLOWS; a.who.wardCd = G.time + 8; f.shotNext = true; f.wardT = G.time + 6; ring(a.who.x, a.who.y - 6, 14, 'heal', 0.4, 2); SFX.chime(panOf(a.who.x)); }
+    else if (a.spell === 'ward' && !a.who.dead) { a.who.ward = WARD_BLOWS; a.who.wardCd = G.time + 8; f.shotNext = true; f.wardT = G.time + 6; f.pick = undefined; if (a.who.spr === 'GrizzledTreant') f.thorns = 0; ring(a.who.x, a.who.y - 6, 14, 'heal', 0.4, 2); SFX.chime(panOf(a.who.x)); }
   }
   if (a.t >= a.dur + 0.45) { f.act = null; f.cdT = a.spell === 'ward' ? rand(0.5, 0.9) : rand(2.2, 3.6); } // after a ward a thorn comes soon
 }

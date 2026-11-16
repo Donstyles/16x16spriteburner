@@ -61,7 +61,7 @@ const CREATURE_TESTS = [
   ['DISMEMBERED CRAWLERS · THE SCUTTLE', [['flanker', 'DismemberedCrawler', 2]]], ['TUNNELING MOLES · UNDER THE FLOOR', [['flanker', 'TunnelingMole', 2]]],
   ['GOBLIN OCCULTISTS · THE HEX', [['archer', 'GoblinOccultist', 2]]], ['VILE WITCHES · POISON FLASKS', [['archer', 'VileWitch', 2]]],
   ['MERFOLK AQUAMANCERS · WAVES', [['archer', 'MerfolkAquamancer', 2]]], ['ACID ANTS · GREEN SPIT', [['archer', 'AcidAnt', 2]]], ['ADEPT NECROMANCER · RAISES THE DEAD', [['archer', 'AdeptNecromancer', 1]]],
-  ['ELF ENCHANTER · HEALS AND WARDS', [['archer', 'ElfEnchanter', 1], ['brute', 'GrizzledTreant', 1], ['grunt', 'ElfBladedancer', 2]]],
+  ['ELF ENCHANTER · WARDS THE TREANT', [['archer', 'ElfEnchanter', 1], ['brute', 'GrizzledTreant', 1], ['grunt', 'ElfBladedancer', 2]]],
   ['SCARECROW · CHEST GUARD', [['brute', 'ScarecrowGolem', 1]]], ['STONE GOLEM · CHEST GUARD', [['brute', 'StoneGolem', 1]]], ['CLAY GOLEM · CHEST GUARD', [['brute', 'ClayGolem', 1]]],
 ];
 function creatureTests() { // the set pieces, then every army on a floor, then the reserve (named as such)
