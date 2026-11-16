@@ -168,7 +168,7 @@ function groundChunks(A) {
   A.ground = A.g = null; if (A.keepClean) keepClean(A); return A.chunks;
 }
 // fn paints in map coordinates into every square the box touches
-function groundPaint(x0, y0, x1, y1, fn) { const A = ARENA; if (!A) return; for (const k of groundChunks(A)) if (x1 >= k.x && x0 < k.x + k.w && y1 >= k.y && y0 < k.y + k.h) fn(k.g); }
+function groundPaint(x0, y0, x1, y1, fn) { const A = ARENA; if (!A) return; for (const k of groundChunks(A)) if (x1 >= k.x && x0 < k.x + k.w && y1 >= k.y && y0 < k.y + k.h) fn(k.g); bridgePaint(x0, y0, x1, y1, fn); } // (and on a bridge's slats: 36_works)
 // draws the floor inside a box of the map (c is already in map coordinates)
 // the ceiling layer over a box of the map (on the glow layer, 'destination-out' cuts the glow away under it)
 function drawCeil(c, sx, sy, sw, sh) {

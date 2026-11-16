@@ -107,6 +107,13 @@ function cistern(A, r, g) {
   if (horiz) { const m = Math.floor((p.y0 + p.y1) / 2); for (let x = p.x0; x <= p.x1; x++) p.bridge.cells.push([x, m], [x, m + 1]); }
   else { const m = Math.floor((p.x0 + p.x1) / 2); for (let y = p.y0; y <= p.y1; y++) p.bridge.cells.push([m, y], [m + 1, y]); }
   for (const [x, y] of p.bridge.cells) A.fl[y * A.w + x] = 3;
+  { // blood on the bridge: its own layer over the slats, clipped to them (what lands in a gap falls through, 45_blood)
+    const B = p.bridge, xs = B.cells.map(c => c[0]), ys = B.cells.map(c => c[1]); B.bx0 = Math.min(...xs) * TS; B.by0 = Math.min(...ys) * TS;
+    const w = (Math.max(...xs) + 1) * TS - B.bx0, h = (Math.max(...ys) + 1) * TS - B.by0, W = wkOf(A);
+    B.mask = mkCanvas(w, h); const mg = B.mask.getContext('2d'); for (const [x, y] of B.cells) sheetTile(mg, B.horiz ? W.slatH : W.slatV, x * TS - B.bx0, y * TS - B.by0);
+    const md = mg.getImageData(0, 0, w, h).data; B.solid = new Uint8Array(w * h); for (let i = 0; i < w * h; i++) B.solid[i] = md[i * 4 + 3] > 0 ? 1 : 0;
+    B.w = w; B.h = h; B.cv = mkCanvas(w, h); B.g = B.cv.getContext('2d'); B.g.translate(-B.bx0, -B.by0);
+  }
   // the basin under the water, with its drain grate, off the bridge
   g.drawImage(p.bed, p.px0, p.py0);
   const bc = p.bridge.cells, free = (x, y) => !bc.some(([a, b]) => a === x && b === y);
@@ -275,6 +282,20 @@ function refillPool(p) {
   for (const pl of A.plates || []) if (pl.pool === p) { pl.down = false; pl.t = 0; pl.f = 0; }
   const [dx, dy] = p.drainAt; SFX.drain(panOf(dx * TS)); textPop(dx * TS + 8, dy * TS + 8, 18, 'THE CISTERN FILLS', 'white', false);
 }
+// painting on the floor (groundPaint) paints the bridges too, clipped to their slats
+function bridgePaint(x0, y0, x1, y1, fn) {
+  for (const p of ARENA.pools || []) {
+    const B = p.bridge; if (!B || !B.g || x1 < B.bx0 || x0 >= B.bx0 + B.w || y1 < B.by0 || y0 >= B.by0 + B.h) continue;
+    B.g.save(); fn(B.g); B.g.restore();
+    B.g.save(); B.g.setTransform(1, 0, 0, 1, 0, 0); B.g.globalCompositeOperation = 'destination-in'; B.g.drawImage(B.mask, 0, 0); B.g.restore();
+  }
+}
+// a point over a bridge: 'slat' on a plank, 'gap' between them (then it falls through, to the water or the dry bed), or null
+function bridgeAt(x, y) {
+  const A = ARENA; if (!A || !A.pools) return null; const tx = Math.floor(x / TS), ty = Math.floor(y / TS); if (A.fl[ty * A.w + tx] !== 3) return null;
+  for (const p of A.pools) { const B = p.bridge; if (!B || !B.solid) continue; const lx = Math.floor(x - B.bx0), ly = Math.floor(y - B.by0); if (lx < 0 || ly < 0 || lx >= B.w || ly >= B.h) continue; return { p, at: B.solid[ly * B.w + lx] ? 'slat' : 'gap' }; }
+  return null;
+}
 // whether a point is down in a drained basin
 function basinAt(x, y) { const A = ARENA; if (!A || !A.basin) return 0; const tx = Math.floor(x / TS), ty = Math.floor(y / TS); return tx >= 0 && ty >= 0 && tx < A.w && ty < A.h ? A.basin[ty * A.w + tx] : 0; }
 // a walker crossing a basin's rim, down into it or up out of it, gives a little hop (a puff of dust where it pushes off)
@@ -314,6 +335,7 @@ function drawWorks(c) {
       for (const [x, y] of bc) { c.fillRect(x * TS, y * TS + 2, TS, TS - 2); if (!bc.some(([a, b]) => a === x && b === y + 1) && A.fl[(y + 1) * A.w + x] === 2) c.fillRect(x * TS, (y + 1) * TS, TS, 3); }
     }
     for (const [x, y] of bc) sheetTile(c, p.bridge.horiz ? W.slatH : W.slatV, x * TS, y * TS);
+    if (p.bridge.cv) c.drawImage(p.bridge.cv, p.bridge.bx0, p.bridge.by0); // blood on its slats
   }
   for (const q of A.plips || []) { q.t += 1 / 60; const u = q.t / 0.5; if (u >= 1) continue; c.strokeStyle = `rgba(220,240,255,${0.7 * (1 - u)})`; c.lineWidth = 1; c.beginPath(); c.ellipse(q.x, q.y, 1 + u * 4, (1 + u * 4) * 0.6, 0, 0, TAU); c.stroke(); }
   if (A.plips) removeIf(A.plips, q => q.t >= 0.5);
