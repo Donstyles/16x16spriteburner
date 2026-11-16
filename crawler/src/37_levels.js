@@ -12,7 +12,9 @@
 // - THE SENTINEL: a pond in an ordinary room with a single archer on an island in its middle, shooting at whatever moves;
 //   its sluice too is in another room.
 // Every sluice (the cisterns' too) is in a room of its own, under an outlet in the north wall that trickles while its
-// water is up; stepping on it shows that water draining. And each room has an arrow in its floor toward the stairs.
+// water is up; stepping on it shows that water draining. A sluice is never found before its water: a crossable piece's is
+// in a room that can only be reached through it; the flooded way's (and any with no room beyond) is sealed, its outlet dry
+// and its button stuck fast, until that water has been seen. And each room has an arrow in its floor toward the stairs.
 const FORCE = { set: false }; // the puzzle floor (kit screen): every set piece that fits, on one floor
 
 function levelPlan(A, g) {
@@ -21,10 +23,12 @@ function levelPlan(A, g) {
   const free = r => r.kind === 'room' && !r.chest && !r.set && !r.sluice, shuffled = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(v => v[1]);
   A.sets = [];
   if (FORCE.set || chance(0.55)) for (const r of shuffled(rooms.filter(r => free(r) && !reach(r).has(A.end)))) {
-    const R = reach(r), hosts = [...R].filter(q => q !== r && q.kind !== 'treasure' && !q.chest && q.w >= 6);
-    const host = hosts.filter(q => q !== A.start).sort((a, b) => adj(a).length - adj(b).length)[0] || hosts[0]; if (!host) continue;
+    // its sluice can only be on this side of it: in the deepest dead end there (and sealed until the flooded room is seen)
+    const R = reach(r), depth = new Map([[A.start, 0]]), dq = [A.start]; while (dq.length) { const a = dq.shift(); for (const n of adj(a)) if (n !== r && !depth.has(n)) { depth.set(n, depth.get(a) + 1); dq.push(n); } }
+    const hosts = [...R].filter(q => q !== r && q.kind !== 'treasure' && !q.chest && !q.sluice && q.w >= 6);
+    const host = hosts.filter(q => q !== A.start).sort((a, b) => (adj(a).length === 1 ? 0 : 1) - (adj(b).length === 1 ? 0 : 1) || depth.get(b) - depth.get(a))[0] || hosts[0]; if (!host) continue;
     const p = floodedWay(A, r, g); if (!p) continue;
-    r.set = 'flood'; A.sets.push('flood'); hostSluice(A, host, p);
+    r.set = 'flood'; A.sets.push('flood'); hostSluice(A, host, p); p.gated = true;
     break;
   }
   if (FORCE.set || chance(0.45)) for (const r of shuffled(rooms.filter(r => free(r) && r.w >= 12 && r.h >= 8 && r.doors.length >= 2))) if (gauntlet(A, r, g)) { r.set = 'gauntlet'; A.sets.push('gauntlet'); remoteSluice(A, r, r.pool); break; }
@@ -34,11 +38,21 @@ function levelPlan(A, g) {
 // crossing (or the archer) to get past first, and the sluice to find. A room is the sluice's host when it has nothing of
 // its own going on; one beyond the water (further from the start) is liked best, then one away from it.
 function remoteSluice(A, r, p) {
+  // a room that can only be reached through this one: whoever finds the sluice has crossed the water (or its archer) first
   const adj = q => A.halls.filter(h => h.A === q || h.B === q).map(h => (h.A === q ? h.B : h.A));
-  const depth = new Map([[A.start, 0]]), q = [A.start]; while (q.length) { const a = q.shift(); for (const n of adj(a)) if (!depth.has(n)) { depth.set(n, depth.get(a) + 1); q.push(n); } }
+  const near = new Set([A.start]), q = [A.start]; if (r !== A.start) while (q.length) { const a = q.shift(); for (const n of adj(a)) if (n !== r && !near.has(n)) { near.add(n); q.push(n); } }
   const ok = h => h !== r && h.kind !== 'treasure' && !h.chest && !h.set && !h.sluice && !h.pool && !h.shrine && h.w >= 6;
-  const hosts = A.rooms.filter(ok).map(h => [h, (depth.get(h) > depth.get(r) ? 0 : 2) + (adj(r).includes(h) ? 1 : 0) + (h === A.start ? 3 : 0) + Math.random()]).sort((a, b) => a[1] - b[1]);
-  if (!hosts.length) return false; hostSluice(A, hosts[0][0], p); return true;
+  const beyond = A.rooms.filter(h => ok(h) && !near.has(h)).sort((a, b) => (adj(r).includes(a) ? 1 : 0) - (adj(r).includes(b) ? 1 : 0) || Math.random() - 0.5);
+  if (beyond.length) { hostSluice(A, beyond[0], p); return true; }
+  // none beyond it (it is a dead end, or a loop runs round it): elsewhere, but sealed until its water has been seen
+  const hosts = A.rooms.filter(ok).sort((a, b) => (a === A.start ? 1 : 0) - (b === A.start ? 1 : 0) || Math.random() - 0.5);
+  if (!hosts.length) return false; hostSluice(A, hosts[0], p); p.gated = true; return true;
+}
+// whether a sealed sluice's water has been seen yet (it is in the party's memory of the floor)
+function sluiceLive(p) {
+  if (!p.gated || p.seen) return true; const A = ARENA; if (!A || !A.mem) return false;
+  if ((p.seenT = (p.seenT || 0) - 1) > 0) return false; p.seenT = 20; // (looked at every twentieth frame)
+  for (const i of p.cells) if (A.mem[i]) { p.seen = true; return true; } return false;
 }
 function hostSluice(A, host, p) {
   host.sluice = p; p.host = host;
@@ -164,6 +178,8 @@ const FURN = {
 function corridorWood(A, g) {
   const put = (kind, t, tx, ty, th = 1) => A.props.push({ kind, tile: t, th, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 40, hall: true });
   const spiky = (x, y) => (A.spikes || []).some(s => s.tx === x && s.ty === y);
+  // a smashed crate: still a heap of wood in the way (it takes a blow to clear)
+  const junkAt = (x, y) => { if (spiky(x, y) || A.props.some(q => !q.dead && Math.abs(q.x - (x * TS + 8)) < 14 && Math.abs(q.cy - (y * TS + 10)) < 14)) return; put('crate', pick(FURN.junk), x, y); };
   for (const hl of A.halls) {
     // its own floor: across the door cells' rows (or columns), from a tile past the one wall to a tile short of the other
     const h = hl.dir === 'h', a0 = h ? hl.x0 + 1 : hl.y0 + 1, a1 = h ? hl.x1 - 1 : hl.B.fy0 - 1, len = a1 - a0 + 1; if (len < 3) continue;
@@ -176,15 +192,15 @@ function corridorWood(A, g) {
         const [x, y] = at(k, l), w = style === 'carts' ? ['cart', pick(FURN.cart)] : style === 'crates' ? ['crate', pick(FURN.crate)] : pick([['cart', pick(FURN.cart)], ['crate', pick(FURN.crate)], ['barrel', pick(FURN.pot)]]);
         if (!h && l !== 1 && chance(0.4)) put('crate', pick(FURN.stack), x, y, 2); else put(w[0] === 'cart' ? 'crate' : w[0], w[1], x, y);
       }
-      for (let i = 0; i < randi(1, 3); i++) { const [x, y] = at(randi(a0, a1), randi(0, 2)); tileAt(g, ...pick(FURN.junk), x * TS, y * TS); } // splinters about it
+      for (let i = 0; i < randi(1, 3); i++) junkAt(...at(randi(a0, a1), chance(0.5) ? 0 : 2)); // smashed crates about it
     } else if (roll < 0.57) { // cluttered: things along both sides, the middle lane clear
       for (let k = a0; k <= a1; k++) {
         if (!chance(0.38)) continue; const lane = chance(0.5) ? 0 : 2, [x, y] = at(k, lane); if (spiky(x, y)) continue;
         if (A.props.some(q => !q.dead && Math.abs(q.x - (x * TS + 8)) < 16 && Math.abs(q.cy - (y * TS + 10)) < 16)) continue;
         const t = Math.random(); if (t < 0.4) put('crate', pick(FURN.crate), x, y); else if (t < 0.65) put('barrel', pick(FURN.pot), x, y); else if (t < 0.85) put('crate', pick(FURN.cart), x, y); else if (h && lane === 0 || !h) put('crate', pick(FURN.stack), x, y, 2); else put('crate', pick(FURN.crate), x, y);
       }
-      for (let i = 0; i < randi(1, 3); i++) { const [x, y] = at(randi(a0, a1), chance(0.5) ? 0 : 2); tileAt(g, ...pick(FURN.junk), x * TS, y * TS); }
-    } else if (roll < 0.75) for (let i = 0; i < randi(1, 2); i++) { const [x, y] = at(randi(a0, a1), randi(0, 2)); tileAt(g, ...pick(FURN.junk), x * TS, y * TS); } // only some splinters
+      for (let i = 0; i < randi(1, 3); i++) junkAt(...at(randi(a0, a1), chance(0.5) ? 0 : 2));
+    } else if (roll < 0.75) for (let i = 0; i < randi(1, 2); i++) junkAt(...at(randi(a0, a1), chance(0.5) ? 0 : 2)); // only a smashed crate or two
   }
 }
 // ---- who stands in them: archers on the islands (turrets while the water is up); nobody in the flooded way yet
@@ -250,7 +266,7 @@ function dormantTick(f, dt) {
 function levelTick(dt) {
   // an island's archer is watching the water: it sees anyone in its sight across it
   for (const f of G.foes) if (f.turret && !f.aware && !f.dead) { const h = G.heroes.find(h => alive(h) && dist(h.x, h.y, f.x, f.y) < 150 && lineOfSight(f.x, f.y - 4, h.x, h.y - 4)); if (h) wakeFoe(f, h, 'sight'); }
-  for (const pl of ARENA.plates || []) if (pl.outlet && !pl.down && pl.pool && !pl.pool.drain && chance(dt * 5)) water(pl.outlet.x + rand(-2, 2), pl.outlet.y, 8, rand(-4, 4), rand(2, 8), 0);
+  for (const pl of ARENA.plates || []) if (pl.outlet && !pl.down && pl.pool && !pl.pool.drain && sluiceLive(pl.pool) && chance(dt * 5)) water(pl.outlet.x + rand(-2, 2), pl.outlet.y, 8, rand(-4, 4), rand(2, 8), 0);
 }
 // ---- the puzzle floor (kit screen): a run whose first floor holds every set piece that will fit
 function beginPuzzleFloor(kit) {

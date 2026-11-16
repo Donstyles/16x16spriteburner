@@ -111,6 +111,7 @@ function beginWaterTest(kit) {
   if (!ARENA.cistern) { beginTest(kit); return; }
   const A = ARENA, r = A.cistern, p = r.pool, h = G.me; let pl = (A.plates || []).find(q => q.pool === p);
   if (pl && pl.remote && p.localAt) Object.assign(pl, { x: p.localAt[0] * TS + 8, y: p.localAt[1] * TS + 8, tx: p.localAt[0], ty: p.localAt[1], remote: false, outlet: null, room: r.i }); // (here the plate is on the cistern's walk)
+  p.gated = false;
   TEST.on = true; Object.assign(TEST, { mode: 'water', god: true, label: 'STEP ON THE PLATE TO DRAIN IT' }); A.name = 'WATER TEST ROOM';
   G.foes.length = 0; G.units = G.heroes.slice(); G.sched.length = 0; G.drops.length = 0;
   removeIf(A.props, q => q.sunk === p && q.kind !== 'wetpillar'); sinkThings(A, p, SUNK.length, SUNK.slice().sort(() => Math.random() - 0.5)); // one of each, as many as fit

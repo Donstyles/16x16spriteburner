@@ -5,10 +5,21 @@ async function loadAssets() {
   const A = window.__ASSETS;
   for (const k of ['cellar', 'mobs', 'doors', 'items', 'ores']) IMG[k] = await loadImage(A ? A[k] : 'assets/' + (k === 'doors' ? 'cellar_doors' : k) + '.png');
   MOBS = A ? A.mobsJson : await (await fetch('assets/mobs.json')).json();
+  padMobs();
   IMG.mobsW = silhouette(IMG.mobs); IMG.oresW = silhouette(IMG.ores); PIX.ores = pixelData(IMG.ores); PIX.mobs = pixelData(IMG.mobs); PIX.cellar = pixelData(IMG.cellar); cutWeapons();
   for (const k in COL) { GLOW[k] = glowTex(COL[k]); }
   SMOKE.grey = smokeTex([70, 66, 72]); SMOKE.dust = smokeTex([122, 100, 78]); SMOKE.dark = smokeTex([22, 18, 24]); SMOKE.green = smokeTex([60, 120, 60]); SMOKE.breath = smokeTex([226, 230, 240]);
   ROCKS.length = 0; for (let i = 0; i < 6; i++) ROCKS.push(rockTex(i));
+}
+// The sheet's creatures sit one under another with no gap between them, and a frame drawn scaled (a bob, a squash) can
+// pick up a row past its edge: the feet of whatever stands above it on the sheet showed as dark dots over a hero's head.
+// So the strips are spread out on a copy, two clear rows between each, and the offsets moved to match.
+function padMobs() {
+  const keys = Object.keys(MOBS).sort((a, b) => MOBS[a][0] - MOBS[b][0]), pos = {}; let y = 2;
+  for (const k of keys) { pos[k] = y; y += MOBS[k][2] + 2; }
+  const c = mkCanvas(IMG.mobs.width, y), g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+  for (const k of keys) g.drawImage(IMG.mobs, 0, MOBS[k][0], IMG.mobs.width, MOBS[k][2], 0, pos[k], IMG.mobs.width, MOBS[k][2]);
+  const M = {}; for (const k of keys) { M[k] = MOBS[k].slice(); M[k][0] = pos[k]; } MOBS = M; IMG.mobs = c;
 }
 function silhouette(img) { const c = mkCanvas(img.width, img.height), x = c.getContext('2d'); x.drawImage(img, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); return c; }
 const PIX = {}, PIXCACHE = {};

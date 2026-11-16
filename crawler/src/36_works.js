@@ -14,7 +14,8 @@
 // - a bridge across a cistern: the stone slats ([17, 29] grey, [21, 29] brown) laid two wide along a north-south bridge,
 //   and the upright slats ([16, 30] / [20, 30]) along an east-west one
 // - pillars standing in the water: the sheet's flooded column, its foot in the water ([1, 16..17] / [1, 19..20])
-// - the drain: a pressure plate on the cistern's walk ([10..13, 26] / [10..13, 27], four frames sinking under a foot).
+// - the drain: a pressure plate (its socket [13, 26] / [13, 27] with the stone button raised in it, [10..13, 28] / [10..13, 29]
+//   four frames sinking flush under a foot).
 //   Stepped on, it sinks with a clunk, the water gurgles away down the grate over a few seconds and the basin can be
 //   walked; what stood in the water can be broken, and coins lie at the bottom
 // - a rune shrine: three rune plates in the floor (unlit [27..29, 3] / [27..29, 6], lit [27..29, 4] / [27..29, 7]) and in
@@ -23,8 +24,8 @@
 // - spike traps: a row of spikes across a corridor ([0..3, 28] / [5..8, 28]: the hole, then the spike rising), on a beat:
 //   they hurt anyone standing over them as they shoot up, foe or hero alike
 const WK = {
-  grey: { square: [[20, 19], [20, 16]], round: [[16, 19], [16, 16]], deep: [[24, 19], [24, 16]], slatV: [17, 29], slatH: [16, 30], plate: [10, 26], rune: [27, 3], runeOn: [27, 4], block: [10, 28], spike: [0, 28], drain: [18, 4], wetPillar: [1, 16], dryPillar: [24, 2], basin: [54, 56, 62] },
-  brown: { square: [[20, 26], [20, 23]], round: [[16, 26], [16, 23]], deep: [[24, 26], [24, 23]], slatV: [21, 29], slatH: [20, 30], plate: [10, 27], rune: [27, 6], runeOn: [27, 7], block: [10, 29], spike: [5, 28], drain: [18, 7], wetPillar: [1, 19], dryPillar: [24, 5], basin: [64, 54, 44] },
+  grey: { square: [[20, 19], [20, 16]], round: [[16, 19], [16, 16]], deep: [[24, 19], [24, 16]], slatV: [17, 29], slatH: [16, 30], plate: [10, 26], socket: [13, 26], rune: [27, 3], runeOn: [27, 4], block: [10, 28], spike: [0, 28], drain: [18, 4], wetPillar: [1, 16], dryPillar: [24, 2], basin: [54, 56, 62] },
+  brown: { square: [[20, 26], [20, 23]], round: [[16, 26], [16, 23]], deep: [[24, 26], [24, 23]], slatV: [21, 29], slatH: [20, 30], plate: [10, 27], socket: [13, 27], rune: [27, 6], runeOn: [27, 7], block: [10, 29], spike: [5, 28], drain: [18, 7], wetPillar: [1, 19], dryPillar: [24, 5], basin: [64, 54, 44] },
 };
 const wkOf = A => WK[A.th === THEMES.grey ? 'grey' : 'brown'];
 const sheetTile = (g, [tx, ty], x, y, dx = 0, dy = 0) => g.drawImage(IMG.cellar, (tx + dx) * TS, (ty + dy) * TS, TS, TS, x, y, TS, TS);
@@ -117,9 +118,10 @@ function cistern(A, r, g) {
   // the basin under the water, with its drain grate, off the bridge
   g.drawImage(p.bed, p.px0, p.py0);
   const bc = p.bridge.cells, free = (x, y) => !bc.some(([a, b]) => a === x && b === y);
-  const cands = []; for (let ty = p.y0 + 1; ty < p.y1; ty++) for (let tx = p.x0 + 1; tx < p.x1; tx++) if (free(tx, ty)) cands.push([tx, ty]);
-  const cx = (p.x0 + p.x1) / 2, cy = (p.y0 + p.y1) / 2; cands.sort((a, b) => Math.hypot(a[0] - cx, a[1] - cy) - Math.hypot(b[0] - cx, b[1] - cy));
-  p.drainAt = cands[0] || [p.x0 + 1, p.y0 + 1];
+  // (the inner cells first, the rim's after them, never a bridge's: a narrow cistern's bridge can take all its inner rows)
+  const cands = []; for (let ty = p.y0; ty <= p.y1; ty++) for (let tx = p.x0; tx <= p.x1; tx++) if (free(tx, ty)) cands.push([tx, ty, tx > p.x0 && tx < p.x1 && ty > p.y0 && ty < p.y1 ? 0 : 1]);
+  const cx = (p.x0 + p.x1) / 2, cy = (p.y0 + p.y1) / 2; cands.sort((a, b) => a[2] - b[2] || Math.hypot(a[0] - cx, a[1] - cy) - Math.hypot(b[0] - cx, b[1] - cy));
+  p.drainAt = cands[0] || [p.x0, p.y0];
   { // the grate (the sheet's small square one), wet and dark like the stone round it
     const t = mkCanvas(TS, TS), tg = t.getContext('2d'), [br, bgc, bb] = W.basin; sheetTile(tg, W.drain, 0, 0);
     tg.globalCompositeOperation = 'source-atop'; tg.fillStyle = `rgba(${br},${bgc},${bb},0.45)`; tg.fillRect(0, 0, TS, TS); g.drawImage(t, p.drainAt[0] * TS, p.drainAt[1] * TS);
@@ -209,6 +211,12 @@ function spikeFrame(s) { const t = (G.time + s.ph) % SPIKE_T; return t < 1.55 ? 
 function worksTick(dt) {
   const A = ARENA; if (!A) return; const heroes = G.heroes.filter(h => !h.dead && !h.enter);
   for (const pl of A.plates || []) {
+    // the plate stands a little proud of the floor: a hero steps up onto it with a small hop, once each time he comes on
+    if (!pl.down) for (const h of heroes) { const near = Math.abs(h.x - pl.x) < 12 && Math.abs(h.y - pl.y) < 10, far = Math.abs(h.x - pl.x) > 16 || Math.abs(h.y - pl.y) > 14; pl.on = pl.on || new Set(); if (near && !pl.on.has(h)) { pl.on.add(h); if (h.z <= 0.5) hopNow(h); } else if (far) pl.on.delete(h); }
+    if (!pl.down && pl.pool && !sluiceLive(pl.pool)) { // sealed: the button will not go down until its water has been seen
+      if (heroes.some(h => Math.abs(h.x - pl.x) < 8 && Math.abs(h.y - pl.y) < 7) && G.time - (pl.jamT || -9) > 1.2) { pl.jamT = G.time; SFX.stone(panOf(pl.x), false); smoke(pl.x, pl.y + 2, 2, 'dust', 4, 8, 0.5); }
+      continue;
+    }
     if (!pl.down && heroes.some(h => Math.abs(h.x - pl.x) < 8 && Math.abs(h.y - pl.y) < 7)) { pl.down = true; pl.t = 0; SFX.stone(panOf(pl.x), true); shake(0.05); }
     if (pl.down) { pl.t += dt; pl.f = Math.min(3, Math.floor(pl.t / 0.06)); if (pl.pool && !pl.pool.drain && pl.t > 0.35) { if (pl.remote) startCine(pl); else startDrain(pl.pool); } }
   }
@@ -367,7 +375,9 @@ function drawWorks(c) {
   for (const q of A.plips || []) { q.t += 1 / 60; const u = q.t / 0.5; if (u >= 1) continue; c.strokeStyle = `rgba(220,240,255,${0.7 * (1 - u)})`; c.lineWidth = 1; c.beginPath(); c.ellipse(q.x, q.y, 1 + u * 4, (1 + u * 4) * 0.6, 0, 0, TAU); c.stroke(); }
   if (A.plips) removeIf(A.plips, q => q.t >= 0.5);
   if (A.clouds) { for (const q of A.clouds) q.t += 1 / 60; removeIf(A.clouds, q => q.t >= q.life); }
-  for (const pl of A.plates || []) sheetTile(c, pl.tile, pl.x - 8, pl.y - 8, pl.f, 0);
+  // a plate: its socket in the floor ([13, 26] / [13, 27]), the stone button standing raised in it, which a foot drives down
+  // flush in four frames ([10..13, 28] / [10..13, 29]); the socket is never seen empty
+  { const Wk = wkOf(A); for (const pl of A.plates || []) { sheetTile(c, Wk.socket, pl.x - 8, pl.y - 8); sheetTile(c, Wk.block, pl.x - 8, pl.y - 8, pl.f, 0); } }
   for (const rn of A.runes || []) {
     sheetTile(c, rn.on ? rn.lit : rn.tile, rn.x - 8, rn.y - 8);
     if (rn.on) light(rn.x, rn.y, 46 + 4 * Math.sin(G.time * 3 + rn.x), 'gold', 0.55);
