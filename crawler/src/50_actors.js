@@ -81,12 +81,16 @@ function kill(u, src) {
   else { heroFalls(u); smoke(u.x, u.y, 6, 'dark', 10, 20, 1.4); flashLight(u.x, u.y, 60, 'red', 1, 0.6); textPop(u.x, u.y, headZ(u) + 3, (u.pname || u.def.name) + ' FALLS', 'red'); SFX.boom(0.5, panOf(u.x)); shake(0.4); slowmo(0.3, 1.4); }
 }
 const BLOOD = { red: ['#7a0c14', '#a01420', '#5a0810'], bone: ['#cfc6b0', '#a49a84', '#7a705e'], stone: ['#9b9c9b', '#6e6e6e', '#625353'], slime: ['#3a8a30', '#60c040', '#2a5a20'], straw: ['#c8a040', '#e0c060', '#8a6a20'], bug: ['#7c8c1c', '#a6b630', '#4c5810'], sludge: ['#2a2219', '#40352a', '#120e0b'] }; // bug: green-yellow ichor; sludge: what the crypt dead have left
-// the body shatters into its own pixels
+// the body shatters into its own pixels (k: how hard they fly)
+function shatter(u, k) {
+  const px = spritePixels(u.spr), sc = u.scale, fl = u.face < 0 ? -1 : 1, pw = Math.max(1, Math.round(sc));
+  const kx = clamp(u.kx * 0.4, -120, 120), ky = clamp(u.ky * 0.4, -120, 120), step = px.length > 200 ? 2 : 1;
+  for (let i = 0; i < px.length; i += step) { const p = px[i], a = Math.atan2(p.y * 0.3, p.x * fl) + rand(-0.6, 0.6); part({ k: 'pix', x: u.x + p.x * sc * fl, y: u.y + rand(-1, 1), z: (u.z || 0) - p.y * sc, vx: (Math.cos(a) * rand(20, 120) + kx) * k, vy: (rand(-50, 50) + ky) * k, vz: rand(40, 150) * k, g: 420, bounce: 0.35, drag: 1.1, life: rand(1, 2), s0: pw, col: p.c }); }
+}
 function deathFx(u) {
   if (u.gib) { gibBurst(u); return; }
-  if (!MOBS[u.spr]) return; const px = spritePixels(u.spr), sc = u.scale, fl = u.face < 0 ? -1 : 1, bl = BLOOD[u.def.blood || 'red'], pw = Math.max(1, Math.round(sc));
-  const kx = clamp(u.kx * 0.4, -120, 120), ky = clamp(u.ky * 0.4, -120, 120), step = px.length > 200 ? 2 : 1, soft = u.def.blood === 'bone' ? 0.45 : 1; // a skeleton collapses more than it bursts
-  for (let i = 0; i < px.length; i += step) { const p = px[i], a = Math.atan2(p.y * 0.3, p.x * fl) + rand(-0.6, 0.6); part({ k: 'pix', x: u.x + p.x * sc * fl, y: u.y + rand(-1, 1), z: (u.z || 0) - p.y * sc, vx: (Math.cos(a) * rand(20, 120) + kx) * soft, vy: (rand(-50, 50) + ky) * soft, vz: rand(40, 150) * soft, g: 420, bounce: 0.35, drag: 1.1, life: rand(1, 2), s0: pw, col: p.c }); }
+  if (!MOBS[u.spr]) return; const sc = u.scale, bl = BLOOD[u.def.blood || 'red'];
+  shatter(u, u.def.blood === 'bone' ? 0.45 : 1); // a skeleton collapses more than it bursts
   if (bleeds(u)) { spray(u, 30, { ...(u.lastBlow || {}), more: 1.3 }); pool(u.x, u.y, u.def.blood || 'red', 2 + sc); debris(u.x, u.y, 4, bl, 100, 120, 1.4 * sc); }
   else if (DRY.has(u.def.blood)) remains(u); // a heap of bones, a cloud of hay, pieces of stone
   else debris(u.x, u.y, 8, DUST, 120, 140, 1.6 * sc);

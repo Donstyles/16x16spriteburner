@@ -180,6 +180,7 @@ function gibBurst(u) {
   const m = MOBS[u.spr]; if (!m) return; const kind = u.def.blood || 'red', bl = BLOOD[kind], sc = u.scale || 1, o = u.lastBlow || {}, slow = G.time + GIB_HOLD, dry = DRY.has(kind);
   // the bloodless break into pieces of themselves too, edged with what they are made of; a scarecrow's shed hay as they fly
   const fr = ((u.anim * 9) | 0) % 4, flip = u.face < 0, opt = { away: o.ang === undefined ? null : o.ang, spd: 1.3, flip, edge: dry ? BIT_EDGE[kind] : [bl[1], bl[0], bl[2]], bleed: dry ? null : kind, lie: rand(2.5, 4), slow, hay: kind === 'straw', tick: kind === 'bone' };
+  if (kind === 'bone') { shatter(u, 1.5); burstBits(u, o, slow); return; } // a skeleton: its bones fly, not chunks of its picture (whose head would be a second skull)
   if (sc !== 1) { const B = bigSprite(u.spr, sc); B.pd = B.pd || pixelData(B.cv); breakSprite(B.pd, fr * B.W, 0, B.W, B.H, Math.round(u.x - B.W / 2), Math.round(u.y - u.z - B.foot), u.y, randi(6, 8), opt); }
   else breakSprite(PIX.mobs, fr * m[1], m[0], m[1], m[2], Math.round(u.x - m[1] / 2), Math.round(u.y - u.z - footOf(u.spr) - 1), u.y, randi(5, 7), opt);
   if (dry) { burstBits(u, o, slow); return; }
