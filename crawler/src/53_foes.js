@@ -45,7 +45,7 @@ const RESERVE = { soldiers: { grunt: ['DeterminedSoldier'], brute: ['Cavalry'], 
 const GUARDS = [['ScarecrowGolem'], ['StoneGolem', 'ClayGolem'], ['StoneGolem', 'ClayGolem']]; // by depth
 // the army holding a floor: one of its depth's, not the one that held the floor above if there is another
 function pickArmy(f) { const L = zoneAt(f).armies, prev = G.army && L.length > 1 ? L.filter(a => a !== G.army) : L; return (G.army = pick(prev)); }
-const BLOOD_OF = { WaterElemental: 'water', GrizzledTreant: 'wood', FlutteringPixie: 'dust', SoldierAnt: 'bug', DungBeetle: 'bug', CarcassFeeder: 'bug', DismemberedCrawler: 'sludge', DecrepitBones: 'bone', BrittleArcher: 'bone', GraveRevenant: 'bone', SkitteringHand: 'bone', ScarecrowGolem: 'straw', StoneGolem: 'stone', ClayGolem: 'stone', TaintedCockroach: 'bug', AcidAnt: 'bug', LavaAnt: 'bug', RhinoBeetle: 'bug', FamishedTick: 'bug', ForagingMaggot: 'slime', UnravelingCrawler: 'bone', MutilatedStumbler: 'sludge', FleshGolem: 'sludge', BoundCadaver: 'sludge', SandGhoul: 'sludge' };
+const BLOOD_OF = { AdeptNecromancer: 'sludge', WaterElemental: 'water', GrizzledTreant: 'wood', FlutteringPixie: 'dust', SoldierAnt: 'bug', DungBeetle: 'bug', CarcassFeeder: 'bug', DismemberedCrawler: 'sludge', DecrepitBones: 'bone', BrittleArcher: 'bone', GraveRevenant: 'bone', SkitteringHand: 'bone', ScarecrowGolem: 'straw', StoneGolem: 'stone', ClayGolem: 'stone', TaintedCockroach: 'bug', AcidAnt: 'bug', LavaAnt: 'bug', RhinoBeetle: 'bug', FamishedTick: 'bug', ForagingMaggot: 'slime', UnravelingCrawler: 'bone', MutilatedStumbler: 'sludge', FleshGolem: 'sludge', BoundCadaver: 'sludge', SandGhoul: 'sludge' };
 const STONE_SHOT = { HalflingSlinger: true };
 // Bats fly: they hover over their shadow, rising and sinking gently with their wingbeats and drifting in slow loops; they
 // turn in wide arcs, not on the spot (see steer); winding up to strike they climb a little, then dive at their target
@@ -134,9 +134,9 @@ function senses(f, dt) {
 const AI = { archers: [], tanks: [] }, SQUAD = { tank: 42, archer: 100, gap: 22, cover: 3, volley: 0.6 };
 function aiPrep(dt) {
   AI.archers = G.foes.filter(o => o.aware && !o.dead && o.def.role === 'archer'); AI.tanks = G.foes.filter(o => o.aware && !o.dead && o.def.role === 'tank');
-  for (const o of AI.archers) o.sq = null; for (const o of AI.tanks) o.sq = null;
+  for (const o of AI.archers) { o.sq = null; o.duo = null; } for (const o of AI.tanks) o.sq = null;
   for (const t of G.heroes) {
-    if (t.dead) continue; const tanks = AI.tanks.filter(o => o.tgt === t).sort((a, b) => a.id - b.id); if (!tanks.length) continue;
+    if (t.dead) continue; const tanks = AI.tanks.filter(o => o.tgt === t).sort((a, b) => a.id - b.id); if (!tanks.length) { pairUp(t, dt); continue; }
     const archers = AI.archers.filter(o => o.tgt === t).sort((a, b) => a.id - b.id), cap = Math.min(SQUAD.cover, Math.ceil(archers.length / tanks.length));
     const groups = tanks.map(k => ({ tank: k, archers: [] })), placed = new Set();
     for (const a of archers) { const g = groups.find(q => q.tank === a.squadTank); if (g && g.archers.length < cap) { g.archers.push(a); placed.add(a); } }
@@ -150,7 +150,18 @@ function aiPrep(dt) {
       k.sq = { bear: k.bear, archers: g.archers };
       g.archers.forEach((a, i) => { a.squadTank = k; a.sq = { tank: k, i, n: g.archers.length, bear: k.bear }; });
     });
+    pairUp(t, dt);
   }
+}
+// Archers and casters with no tank to screen them work as a pair: they hold bearings a quarter turn apart round the hero,
+// so he cannot face them both at once, and the pair swings round slowly as one to follow where they stand. A third or a
+// fourth takes the next quarter round; any more fight on their own.
+function pairUp(t, dt) {
+  const L = AI.archers.filter(o => o.tgt === t && !o.sq).sort((a, b) => a.id - b.id).slice(0, 4);
+  if (L.length < 2) { t.duoBear = undefined; return; }
+  const ang = L.map(o => angTo(t.x, t.y, o.x, o.y)), mean = Math.atan2(ang.reduce((s, a) => s + Math.sin(a), 0), ang.reduce((s, a) => s + Math.cos(a), 0));
+  t.duoBear = t.duoBear === undefined ? mean : angLerp(t.duoBear, mean, Math.min(1, dt * 0.8));
+  L.map((o, i) => ({ o, off: angDiff(t.duoBear, ang[i]) })).sort((a, b) => a.off - b.off).forEach((e, i) => { e.o.duo = { bear: t.duoBear + (i - (L.length - 1) / 2) * Math.PI / 2 }; });
 }
 // where a squad member stands: on the squad's bearing at its distance from the hero, the archers spread across it
 function squadSpot(t, bear, R, lat, from) { const ux = Math.cos(bear), uy = Math.sin(bear); let x = t.x + ux * R - uy * lat, y = t.y + uy * R * 0.85 + ux * lat; if (solidAt(x, y) || !boxFree(x, y, 5)) [x, y] = clipToWalls(from.x, from.y, x, y, 5); return [x, y]; }
@@ -208,12 +219,14 @@ function tankMind(f, t, dt, d, sees) {
   if (d > reach * 0.9 || !sees) chase(f, t, T.spd, dt, reach * 0.6); else strafe(f, t, T.spd * 0.5, dt);
 }
 // an archer: with a squad, at its distance on the squad's bearing behind the tank, spread across it; to get to the other
-// side of the hero it goes round him, never through his reach. Alone, at a distance. Too close, it backs off. It shoots
+// side of the hero it goes round him, never through his reach. With no tank but another archer, on its quarter of the
+// pair (see pairUp), going round him the same way. Alone, at a distance. Too close, it backs off. It shoots
 // whenever it has a clear line and it is its squad's turn (one archer of a squad aims at a time, so the arrows come in a
 // stream), the others keep moving to their places meanwhile.
 function archerMind(f, t, dt, d, sees) {
   const T = f.def, spd = T.spd, q = f.sq, me = angTo(t.x, t.y, f.x, f.y); let gx = null, gy = null, round = 0;
   if (q) { const lat = (q.i - (q.n - 1) / 2) * SQUAD.gap + f.jit2 * 6 + Math.sin(G.time * 0.6 + f.id) * 3 + (f.shift || 0); [gx, gy] = squadSpot(t, q.bear, SQUAD.archer + f.jit * 8, lat, q.tank); const off = angDiff(me, q.bear); if (Math.abs(off) > 0.7) round = Math.sign(off); }
+  else if (f.duo) { [gx, gy] = squadSpot(t, f.duo.bear, (T.keep[0] + T.keep[1]) / 2 + f.jit * 8, Math.sin(G.time * 0.6 + f.id) * 3 + (f.shift || 0), t); const off = angDiff(me, f.duo.bear); if (Math.abs(off) > 0.7) round = Math.sign(off); } // its quarter of the pair
   faceTo(f, angTo(f.x, f.y, t.x, t.y));
   if (castOf(f) && castMind(f, t, dt, d, sees)) return; // raising the dead, tending her own
   const turn = !q || G.time >= (q.tank.volleyT || 0);

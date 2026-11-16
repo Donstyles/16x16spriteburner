@@ -109,7 +109,10 @@ function drawBolt(c, p) { // in the world, sorted with everyone
 function drawSpellGlows(c) { // in the glow layer: they shine in the dark
   for (const p of G.proj) {
     if (!p.spell && p.k !== 'flask') continue; const x = p.x, y = p.y - p.z, a = Math.atan2(p.vy, p.vx);
-    if (p.k === 'laser') { const tx = x - Math.cos(a) * 11, ty = y - Math.sin(a) * 11; c.lineCap = 'round'; c.strokeStyle = 'rgba(120,255,60,0.35)'; c.lineWidth = 3; c.beginPath(); c.moveTo(tx, ty); c.lineTo(x, y); c.stroke(); c.strokeStyle = 'rgba(220,255,190,0.85)'; c.lineWidth = 1; c.beginPath(); c.moveTo(tx + Math.cos(a) * 3, ty + Math.sin(a) * 3); c.lineTo(x, y); c.stroke(); }
+    if (p.k === 'laser') { // its shine lies on its own pixels, one wide, brightest at the head: a thin bolt, not a beam
+      for (let i = 0; i < 10; i++) { c.globalAlpha = 0.75 * (1 - i / 10); c.fillStyle = i < 4 ? '#e8ffd0' : '#7cff40'; c.fillRect(Math.round(x - Math.cos(a) * i), Math.round(y - Math.sin(a) * i), 1, 1); }
+      c.globalAlpha = 0.3; c.drawImage(GLOW.poison, x - 3, y - 3, 6, 6);
+    }
     else if (p.k === 'spit') { c.globalAlpha = 0.55; c.drawImage(GLOW.poison, x - 5, y - 5, 10, 10); }
     else if (p.k === 'hex' || p.k === 'soul') { const s = 6 + Math.sin(G.time * 20 + p.ph); c.globalAlpha = 0.8; c.drawImage(GLOW[SPELL[p.k].col], x - s, y - s, s * 2, s * 2); }
     else if (p.k === 'thorn') { c.globalAlpha = 0.5; c.drawImage(GLOW.heal, x - 4, y - 4, 8, 8); }
@@ -194,7 +197,7 @@ function raiseDead(f, x, y, t) {
 function wardBreaks(u) {
   if (!u.ward) return false; u.ward--; u.flash = 0.06;
   if (u.ward > 0) { sparks(u.x, u.y, 10, 8, 'heal', 100, 60); ring(u.x, u.y - 6, 13, 'heal', 0.25, 2); SFX.clang(panOf(u.x)); return true; }
-  sparks(u.x, u.y, 10, 16, 'heal', 150, 90); ring(u.x, u.y - 6, 18, 'heal', 0.35, 3); textPop(u.x, u.y, headZ(u) + 4, 'WARD BROKEN', 'heal', false, u); SFX.shatter(panOf(u.x)); return true;
+  sparks(u.x, u.y, 10, 16, 'heal', 150, 90); ring(u.x, u.y - 6, 18, 'heal', 0.35, 3); SFX.shatter(panOf(u.x)); return true;
 }
 // acid splashing: green drops thrown out, a hiss, a sizzle of smoke
 function acidSplat(x, y) { for (let i = 0; i < 10; i++) { const a = rand(TAU), v = rand(20, 70); part({ k: 'gore', x, y, z: rand(2, 6), vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.7, vz: rand(20, 60), g: 420, life: 5, s0: chance(0.4) ? 2 : 1, col: pick(['#7cc030', '#a6e040', '#4c8a18']), kind: 'bug' }); } smoke(x, y, 2, 'green', 5, 10, 0.7, 12); SFX.hex(panOf(x), true); }

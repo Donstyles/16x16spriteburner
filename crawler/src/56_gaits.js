@@ -1,7 +1,7 @@
 // ===================== how some creatures move =====================
 // The mutilated stumbler shuffles: slow lurching steps with a stop between them, swaying as it drags itself on, rot
-// dripping off it and a groan now and then. The dismembered crawler scuttles: quick bursts at a frantic cadence, freezing
-// between them, twitching, jerking aside, never quite where you expect. The tunneling mole travels under the floor: all
+// dripping off it and a groan now and then. The dismembered crawler scuttles: no faster than any other flanker, but its
+// limbs scrabble at a quicker cadence. The tunneling mole travels under the floor: all
 // you see is a mound of earth moving, throwing up dirt and leaving a furrow; it bursts up out of the floor to strike, and
 // a blow on the mound knocks it up into the open for a moment.
 const GAIT = { MutilatedStumbler: 'shuffle', DismemberedCrawler: 'scuttle', TunnelingMole: 'burrow' };
@@ -13,21 +13,16 @@ function gaitTick(f, dt) {
     f.gaitK = busy ? 1 : 0.12 + 0.6 * s * s; f.animK = 0.55; f.sway = f.moving && !busy ? Math.round(Math.sin(F.ph * Math.PI * 0.5)) : 0;
     if (f.moving && (F.drip = (F.drip || 0) - dt) <= 0) { F.drip = rand(0.25, 0.6); drip(f.x + rand(-2, 2), f.y + rand(-1, 1), rand(3, 8), 'sludge'); }
     if (f.aware && chance(dt * 0.12)) SFX.groan(panOf(f.x));
-  } else if (g === 'scuttle') {
-    f.animK = 1.7;
-    if (busy) { f.gaitK = 1; f.sway = 0; return; }
-    if ((F.mode -= dt) <= 0) {
-      F.dash = !F.dash || chance(0.5); F.mode = F.dash ? rand(0.35, 0.7) : rand(0.06, 0.14); // long scurries, now and then a short halt
-      if (F.dash && f.moving && chance(0.3)) { const a = Math.atan2(f.vy, f.vx) + (chance(0.5) ? 1 : -1) * Math.PI / 2, k = rand(10, 22); f.kx += Math.cos(a) * k; f.ky += Math.sin(a) * k * 0.8; } // jerking aside
-      if (!F.dash && chance(0.12)) f.face = -f.face; // a twitch round
-    }
-    f.gaitK = F.dash ? 1.35 : 0.15; f.sway = 0;
+  } else if (g === 'scuttle') { // a flanker's pace, but its limbs go quicker than anyone's
+    f.animK = 1.35; f.gaitK = 1; f.sway = 0;
   } else if (g === 'burrow') {
     const t = f.tgt, far = t && !t.dead && dist(f.x, f.y, t.x, t.y) > 18; // (after a strike it dives again as soon as it is up long enough to be hit)
     if (f.under && (busy || !f.moving || !far || (f.upT || 0) > G.time)) emerge(f, !!f.act);
     else if (!f.under && f.aware && f.moving && far && !busy && (f.upT || 0) < G.time) { f.under = true; F.wx = undefined; debris(f.x, f.y, 6, DIRT, 50, 70, 1.4); SFX.dig(panOf(f.x)); }
     if (f.under) { // the furrow, the dirt thrown up, and a wake of heaped earth sinking back behind the mound
-      const wd = Math.hypot(f.x - (F.wx === undefined ? f.x : F.wx), f.y - (F.wy === undefined ? f.y : F.wy)); if (F.wx === undefined || wd >= 4) { if (F.wx !== undefined) FX.wake.push({ x: f.x, y: f.y, t: 0, life: rand(1.4, 2), s: rand(0.8, 1.15) }); F.wx = f.x; F.wy = f.y; if (FX.wake.length > 160) FX.wake.shift(); }
+      if (F.wx === undefined) { F.wx = f.x; F.wy = f.y; } // its trail: a hump every 2 px of the way, filled in however far it went this frame
+      const wd = Math.hypot(f.x - F.wx, f.y - F.wy);
+      if (wd >= 2) { const n = Math.min(40, Math.floor(wd / 2)); for (let i = 1; i <= n; i++) { const k = i * 2 / wd; FX.wake.push({ x: F.wx + (f.x - F.wx) * k, y: F.wy + (f.y - F.wy) * k, t: 0, life: 1.8, s: rand(0.9, 1.1) }); } const k = n * 2 / wd; F.wx += (f.x - F.wx) * k; F.wy += (f.y - F.wy) * k; if (FX.wake.length > 600) FX.wake.splice(0, FX.wake.length - 600); }
       if ((F.dug -= dt) <= 0) { F.dug = 0.07; const x = Math.round(f.x + rand(-2, 2)), y = Math.round(f.y + rand(-1, 1)); groundPaint(x - 2, y - 2, x + 3, y + 2, gc => { gc.fillStyle = 'rgba(48,34,22,0.45)'; gc.fillRect(x, y, 2, 1); }); if (chance(0.5)) debris(f.x, f.y, 1, DIRT, 30, 50, 1.2); }
       if (chance(dt * 2)) SFX.dig(panOf(f.x));
     }
@@ -35,15 +30,19 @@ function gaitTick(f, dt) {
 }
 const DIRT = ['#5a4636', '#7a604a', '#3e3026', '#8a7058'];
 function emerge(f, strike) {
-  f.under = false; f.upT = G.time + (strike ? 1.4 : 1.2); // after its strike it stays up a moment: the time to hit it debris(f.x, f.y, strike ? 16 : 10, DIRT, 90, 130, 1.6); smoke(f.x, f.y, 3, 'dust', 8, 18, 0.8); SFX.crack(panOf(f.x));
+  f.under = false; f.upT = G.time + (strike ? 1.4 : 1.2); // after its strike it stays up a moment: the time to hit it
+  debris(f.x, f.y, strike ? 16 : 10, DIRT, 90, 130, 1.6); smoke(f.x, f.y, 3, 'dust', 8, 18, 0.8); SFX.crack(panOf(f.x));
 }
-// its wake: humps of turned earth that sink back into the floor
+// its wake: humps of turned earth, close enough to run together into one ridge whichever way it went, sinking back into
+// the floor from the tail end
 function updateWake(dt) { for (const w of FX.wake) w.t += dt; removeIf(FX.wake, w => w.t >= w.life); }
-function drawWake(c) {
-  for (const w of FX.wake) {
-    const k = 1 - w.t / w.life, x = Math.round(w.x), y = Math.round(w.y), hw = Math.max(1, Math.round(4 * k * w.s)), hh = k > 0.55 ? 2 : 1;
-    c.globalAlpha = Math.min(1, k * 1.6); c.fillStyle = '#3e3026'; c.fillRect(x - hw, y - hh, hw * 2 + 1, hh); c.fillStyle = '#6a5440'; c.fillRect(x - hw + 1, y - hh, Math.max(1, hw * 2 - 1), 1);
-  }
+function drawWake(c) { // lit from the top left: the dark body of every hump, its lit top and left edges, then the dark
+  // inside of every hump again, so where humps overlap the lit edges inside the ridge are covered and only its outline shows
+  const hump = w => { const k = 1 - w.t / w.life; return { k, x: Math.round(w.x), y: Math.round(w.y), hw: Math.max(1, Math.round(3.5 * k * w.s)), hh: k > 0.5 ? 3 : k > 0.2 ? 2 : 1 }; };
+  const H = FX.wake.map(hump);
+  for (const h of H) { c.globalAlpha = Math.min(1, h.k * 2); c.fillStyle = '#3e3026'; c.fillRect(h.x - h.hw, h.y - h.hh + 1, h.hw * 2 + 1, h.hh); }
+  for (const h of H) { if (h.k < 0.2) continue; c.globalAlpha = Math.min(1, h.k * 2); c.fillStyle = '#6a5440'; c.fillRect(h.x - h.hw, h.y - h.hh + 1, h.hw * 2 + 1, 1); c.fillRect(h.x - h.hw, h.y - h.hh + 1, 1, h.hh); }
+  for (const h of H) { if (h.hh < 2) continue; c.globalAlpha = Math.min(1, h.k * 2); c.fillStyle = '#3e3026'; c.fillRect(h.x - h.hw + 1, h.y - h.hh + 2, h.hw * 2, h.hh - 1); }
   c.globalAlpha = 1;
 }
 // the mound: a hump of turned earth that heaves as it goes
