@@ -163,6 +163,8 @@ const SFX = {
   laser(pan = 0) { if (!this.ok('laser', 0.05)) return; this.tone('square', 2400, 380, 0.14, 0.07, pan); this.tone('sawtooth', 1200, 220, 0.12, 0.05, pan, 0.005); this.noise(this.white, 0.05, 'highpass', 4000, 7000, 0.7, 0.12, pan); },
   // a hex leaving the hand (or striking): a hollow whispering whoosh and a falling, wavering note; soul-fire lower
   hex(pan = 0, low = false) { if (!this.ok('hex', 0.08)) return; const f = low ? 260 : 420; this.tone('triangle', f, f * 0.55, 0.35, 0.08, pan, 0, 0.03); this.tone('sine', f * 1.5, f * 0.7, 0.3, 0.04, pan, 0.02, 0.03); this.noise(this.white, 0.3, 'bandpass', 900, 2400, 3, 0.07, pan, 0, 0.08); },
+  // acid on skin and leather: a short hiss with a sputter in it
+  sizzle(pan = 0) { if (!this.ok('sizzle', 0.1)) return; this.noise(this.white, 0.38, 'highpass', 5200, 2400, 0.7, 0.12, pan, 0, 0.01); this.noise(this.white, 0.1, 'bandpass', 1800, 900, 4, 0.07, pan, 0.06, 0.004); },
   // digging: a muffled crunch of earth
   dig(pan = 0) { if (!this.ok('dig', 0.12)) return; this.noise(this.brown, rand(0.08, 0.14), 'lowpass', 700, 180, 0.8, 0.22, pan, 0, 0.01); },
   // a big creature's dying groan: a low rough voice falling away, breath through it

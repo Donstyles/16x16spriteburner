@@ -136,18 +136,38 @@ function flaskStep(p, dt) {
   G.hz.push({ x: p.x, y: p.y, r: 15, t: 0, life: 4.5, dps: (p.src ? p.src.def.dmg * p.src.dmgMul : 11) * 0.8, tick: 0, src: p.src });
 }
 // the poison pools: they bubble and burn whoever stands in them, then sink away
+// Standing in the acid, he is told it is the floor that hurts: each burn hisses and steams at his feet (no blood, a sour
+// yellow number, see acidBurn), the first burn of each pool pops ACID over him, the pool ripples out from his feet with
+// every burn and bubbles hard round them while he stands in it, and his health bar's edge burns sour green meanwhile.
+const inPool = (h, z) => dist(h.x, h.y, z.x, z.y) < z.r && Math.abs(h.y - z.y) < z.r * 0.62;
 function updateHazards(dt) {
+  for (const h of G.heroes) if (h.acidT > 0) h.acidT -= dt;
   for (const z of G.hz) {
-    z.t += dt; if ((z.tick -= dt) <= 0) { z.tick = 0.45; for (const h of G.heroes) if (!h.dead && dist(h.x, h.y, z.x, z.y) < z.r && Math.abs(h.y - z.y) < z.r * 0.62) { hurt(h, z.dps * 0.45, { x: z.x, y: z.y, team: 'foe', def: {} }, { ranged: true, poise: 0, unblockable: true, ang: angTo(z.x, z.y, h.x, h.y), style: 'bite' }); h.poisonT = 1; } }
+    z.t += dt; const rip = z.rip || (z.rip = []); for (const r of rip) r.t += dt; removeIf(rip, r => r.t >= 0.8);
+    for (const h of G.heroes) { // round his feet it seethes
+      if (h.dead || !inPool(h, z)) continue; h.acidT = 0.25;
+      if (chance(dt * 16)) { const a = rand(TAU), d = rand(2, 7); part({ k: 'glow', x: h.x + Math.cos(a) * d, y: h.y + Math.sin(a) * d * 0.62, z: 0, vz: rand(6, 14), life: rand(0.25, 0.5), s0: rand(1, 2), s1: 2.8, col: 'poison', a0: 0.85, a1: 0 }); }
+    }
+    if ((z.tick -= dt) <= 0) { z.tick = 0.45; for (const h of G.heroes) if (!h.dead && inPool(h, z)) {
+      const d = hurt(h, z.dps * 0.45, { x: z.x, y: z.y, team: 'foe', def: {} }, { ranged: true, poise: 0, unblockable: true, acid: true });
+      if (d > 0) { rip.push({ x: h.x, y: h.y, t: 0 }, { x: h.x, y: h.y, t: -0.18 }); if (!(z.told || (z.told = new Set())).has(h)) { z.told.add(h); textPop(h.x, h.y, headZ(h) + 8, 'ACID', 'acid', false, h); } }
+    } }
     if (chance(dt * 9) && z.t < z.life - 0.5) { const a = rand(TAU), d = Math.sqrt(Math.random()) * z.r * 0.9; part({ k: 'glow', x: z.x + Math.cos(a) * d, y: z.y + Math.sin(a) * d * 0.62, z: 0, vz: rand(4, 10), life: rand(0.3, 0.6), s0: rand(1, 2), s1: 2.5, col: 'poison', a0: 0.7, a1: 0 }); }
   }
   removeIf(G.hz, z => z.t >= z.life);
+}
+// a burn from the acid underfoot: steam and spatter off his feet and a hiss, where a blow would draw blood
+function acidBurn(u) {
+  smoke(u.x, u.y, 3, 'green', 4, 8, 0.7, 20);
+  for (let i = 0; i < 5; i++) { const a = rand(TAU), v = rand(15, 40); part({ k: 'gore', x: u.x + rand(-3, 3), y: u.y, z: rand(1, 3), vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6, vz: rand(25, 55), g: 420, life: 1.5, s0: 1, col: pick(['#a6e040', '#d8f060', '#7cc030']), kind: 'bug' }); }
+  sparks(u.x, u.y, 3, 4, 'poison', 50, 40); SFX.sizzle(panOf(u.x));
 }
 function drawHazards(c) { // on the floor, under everyone
   for (const z of G.hz || []) {
     const k = Math.min(1, z.t / 0.25) * Math.min(1, (z.life - z.t) / 0.8), r = z.r * (0.7 + 0.3 * Math.min(1, z.t / 0.4));
     c.fillStyle = `rgba(70,140,30,${0.38 * k})`; c.beginPath(); c.ellipse(z.x, z.y, r, r * 0.62, 0, 0, TAU); c.fill();
     c.fillStyle = `rgba(150,230,80,${0.25 * k})`; c.beginPath(); c.ellipse(z.x - r * 0.15, z.y - r * 0.1, r * 0.55, r * 0.32, 0, 0, TAU); c.fill();
+    for (const q of z.rip || []) { if (q.t < 0) continue; const u = q.t / 0.8, R = 5 + 15 * (1 - (1 - u) * (1 - u)); c.strokeStyle = `rgba(232,255,150,${0.95 * (1 - u) * k})`; c.lineWidth = 1; c.beginPath(); c.ellipse(q.x, q.y + 1, R, R * 0.62, 0, 0, TAU); c.stroke(); } // two ripples out from his feet, past the edge of the pool
   }
 }
 

@@ -1,6 +1,6 @@
 // ===================== HUD: health, stamina, flasks, gold, the floor, banners =====================
 const F_DISP = '"Grenze Gotisch", "Palatino Linotype", Palatino, "Book Antiqua", serif', F_HUD = 'Teko, "Arial Narrow", "Avenir Next Condensed", sans-serif';
-const NUMCOL = { red: '#ff5a46', white: '#ffffff', gold: '#ffd860', heal: '#7cff9c', curse: '#d9a0ff' };
+const NUMCOL = { red: '#ff5a46', white: '#ffffff', gold: '#ffd860', heal: '#7cff9c', curse: '#d9a0ff', acid: '#e8f02c' }; // acid: a sour yellow, well clear of the mint of healing
 function font(c, w, size, fam) { c.font = `${w} ${size}px ${fam}`; }
 function label(c, s, x, y, col, o = {}) { c.textAlign = o.align || 'left'; c.textBaseline = o.base || 'alphabetic'; if (o.stroke) { c.lineWidth = o.stroke; c.strokeStyle = 'rgba(8,6,8,0.9)'; c.lineJoin = 'round'; c.strokeText(s, x, y); } c.fillStyle = col; c.fillText(s, x, y); }
 function spaced(c, s, x, y, sp, col, align = 'left') { let w = 0; for (const ch of s) w += c.measureText(ch).width + sp; w -= sp; let px = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x; c.textAlign = 'left'; c.textBaseline = 'alphabetic'; c.fillStyle = col; for (const ch of s) { c.fillText(ch, px, y); px += c.measureText(ch).width + sp; } }
@@ -27,6 +27,7 @@ function drawHeroPanel(c, h, L, T, W) {
   font(c, 900, 18, F_DISP); label(c, KITS[h.kit].name, x0, T + 13, '#f8ecd6', { stroke: 3 });
   // health
   hudBar(c, x0, T + 18, bw, 10, h.hp / h.maxHp, 'hpT', low ? [`rgb(255,${Math.round(110 + 60 * beat)},90)`, '#d0302a', '#6a0e10'] : ['#ff6a50', '#c8302a', '#6e1214'], Math.max(1, Math.floor(h.maxHp / 25)));
+  if (h.acidT > 0) { const p = 0.55 + 0.45 * Math.sin(G.time * 14); c.strokeStyle = `rgba(214,255,60,${0.5 + 0.5 * p})`; c.lineWidth = 2; c.strokeRect(x0 - 3, T + 15, bw + 6, 16); c.lineWidth = 1; } // standing in acid: the bar's edge burns sour green
   font(c, 600, 12, F_HUD); label(c, Math.max(0, Math.ceil(h.hp)) + ' / ' + h.maxHp, x0 + bw - 3, T + 26.5, 'rgba(255,244,228,0.92)', { align: 'right', stroke: 3 });
   // stamina
   const tired = G.tiredT > 0 || h.huff, cursed = h.curseT > 0, flick = tired && ((G.time * 8) | 0) % 2;
