@@ -140,7 +140,10 @@ function furnish(A, r, g) {
   corner(r.ix0, r.iy0); corner(r.ix1, r.iy0); corner(r.ix0, r.iy1); corner(r.ix1, r.iy1);
   if (r.kind === 'room' && !r.pool && !r.shrine && chance(0.3)) for (let x = r.ix0 + 1; x < r.ix1; x++) { // a storeroom: stock along its north wall
     if (!chance(0.45) || nearDoor(x, r.iy0, 2) || (r.stairX !== undefined && x >= r.stairX - 1 && x <= r.stairX + 3) || !free(x * TS + 8, r.iy0 * TS + 14, 14)) continue;
-    const t = pick(STOCK); prop(t[2], x, r.iy0, { tile: [t[0], t[1]], th: t[3] || 1, tw: t[4] || 1, hp: 40, r: (t[4] || 1) > 1 ? 9 : 5 }); if ((t[4] || 1) > 1) x++;
+    // a two-wide heap takes this tile and the next whole (set between them), so it never laps over a neighbour
+    let t = pick(STOCK); const two = (t[4] || 1) > 1;
+    if (two && (x + 1 >= r.ix1 || nearDoor(x + 1, r.iy0, 2) || (r.stairX !== undefined && x + 1 >= r.stairX - 1 && x + 1 <= r.stairX + 3) || !free((x + 1) * TS + 8, r.iy0 * TS + 14, 14))) t = STOCK[0];
+    const w = t[4] || 1; prop(t[2], x + (w - 1) / 2, r.iy0, { tile: [t[0], t[1]], th: t[3] || 1, tw: w, hp: 40, r: w > 1 ? 9 : 5 }); if (w > 1) x++;
   }
   if (r.kind === 'treasure' || r.chest) { const cx = Math.round((r.ix0 + r.ix1) / 2), spots = [0, 1, -1, 2, -2, 3, -3].map(k => [cx + k, r.iy0 + 1]).concat([[cx, Math.round((r.iy0 + r.iy1) / 2)]]), at = spots.find(([x, y]) => !nearDoor(x, y)) || spots[spots.length - 1]; prop('tchest', at[0], at[1], { tier: chestTier(A.floor), hp: 1, r: 6, open: false }); } // its treasure chest, against the north wall if a spot there is clear of the doors
   if ((r.kind === 'room' || r.kind === 'end') && chance(0.35)) for (let i = randi(1, 2); i > 0; i--) { // an ore rock or two against a wall

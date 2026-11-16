@@ -110,7 +110,7 @@ function moveActor(u, dt) {
   u.x += (u.vx * gk + u.kx) * dt; u.y += (u.vy * gk + u.ky) * dt; const f = Math.exp(-7 * dt); u.kx *= f; u.ky *= f;
   if (!u.fly && (u.z > 0 || u.vz > 0)) { u.vz -= 560 * dt; u.z += u.vz * dt; if (u.z <= 0) { u.z = 0; u.vz = 0; } }
   for (const p of ARENA.props) { if (!p.solid || p.dead) continue; const dx = u.x - p.x, dy = u.y - p.cy, d = Math.hypot(dx, dy), m = u.r + p.r; if (d < m) { const nx = d > 0.01 ? dx / d : 1, ny = d > 0.01 ? dy / d : 0; u.x = p.x + nx * m; u.y = p.cy + ny * m; } }
-  tileCollide(u);
+  tileCollide(u); basinHop(u); // (36_works: the step down into a drained cistern)
   if (u.squash > 0) u.squash = Math.max(0, u.squash - dt * 2.5);
 }
 function separate(list) {
