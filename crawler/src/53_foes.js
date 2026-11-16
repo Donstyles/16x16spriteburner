@@ -94,7 +94,7 @@ const GROUPS = [
 function populateRoom(A, r, f) {
   const area = r.w * r.h; let budget = (3.5 + f * 1.4) * clamp(area / 150, 0.6, 1.4) * (r.kind === 'end' ? 1.6 : 1);
   const out = [], spots = [], cost = g => g.reduce((a, t) => a + FOE_TYPES[t].cost, 0);
-  const ok = (x, y) => !solidAt(x, y) && !A.props.some(p => !p.dead && dist(p.x, p.cy, x, y) < p.r + 8) && !r.doors.some(d => d.cells.some(([cx, cy]) => dist(cx * TS + 8, cy * TS + 8, x, y) < 40)) && !spots.some(s => dist(s.x, s.y, x, y) < 12);
+  const ok = (x, y) => !blockAt(x, y) && !A.props.some(p => !p.dead && dist(p.x, p.cy, x, y) < p.r + 8) && !r.doors.some(d => d.cells.some(([cx, cy]) => dist(cx * TS + 8, cy * TS + 8, x, y) < 40)) && !spots.some(s => dist(s.x, s.y, x, y) < 12);
   let guard = 0; while (budget > 1.5 && guard++ < 30) {
     const has = t => !A.army || ARMIES[A.army][t].length; // only groups the army can field
     // an army with the mutilated stumblers often sends them as a horde: four to six of them, awake and milling about
@@ -112,7 +112,7 @@ function chestGuards(A, f) {
   const out = [], d = ZONES.indexOf(zoneAt(f));
   for (const r of A.rooms) {
     if (!(r.kind === 'treasure' || r.chest)) continue; const ch = A.props.find(p => p.kind === 'tchest' && p.room === r.i); if (!ch) continue;
-    let x = ch.x, y = ch.y + 22; if (solidAt(x, y)) y = ch.y + 12;
+    let x = ch.x, y = ch.y + 22; if (blockAt(x, y)) y = ch.y + 12;
     const u = mkFoe('brute', f, x, y, pick(GUARDS[Math.min(d, GUARDS.length - 1)])); u.room = r.i; u.guard = true; u.face = chance(0.5) ? 1 : -1; out.push(u);
   }
   return out;
@@ -271,7 +271,7 @@ function idleFoe(f, dt) {
   if (f.state === 'sleep') { f.vx = f.vy = 0; f.moving = false; if (chance(dt * 0.6)) snore(f); return; }
   const aimless = GAIT[f.spr] === 'shuffle'; // the stumblers mill about: barely a pause before they lurch off somewhere else
   if ((f.wanderT -= dt) <= 0) { f.wanderT = aimless ? rand(0.7, 2.2) : rand(2, 5); const a = rand(TAU), R = aimless ? 34 : 22; f.wx = f.home.x + Math.cos(a) * rand(aimless ? 10 : 0, R); f.wy = f.home.y + Math.sin(a) * rand(0, R * 0.64); }
-  if (f.wx !== undefined && dist(f.x, f.y, f.wx, f.wy) > 3 && !solidAt(f.wx, f.wy)) { pathTo(f, f.wx, f.wy, f.def.spd * 0.35, dt, 2); faceTo(f, angTo(f.x, f.y, f.wx, f.wy)); }
+  if (f.wx !== undefined && dist(f.x, f.y, f.wx, f.wy) > 3 && !blockAt(f.wx, f.wy)) { pathTo(f, f.wx, f.wy, f.def.spd * 0.35, dt, 2); faceTo(f, angTo(f.x, f.y, f.wx, f.wy)); }
   else { holdStill(f, dt); if (chance(dt * 0.3)) faceTo(f, f.dir + rand(-1.8, 1.8)); } // standing about, it looks around
 }
 function foeAct(f, t, dt) {
@@ -365,7 +365,7 @@ function updateDrops(dt) {
   for (const d of G.drops) {
     if (d.wait > 0) { d.wait -= dt; if (d.wait <= 0) SFX.toss(panOf(d.x), d.k === 'gold'); continue; }
     d.t += dt; d.vz -= 400 * dt; d.z += d.vz * dt; if (d.z < 0) { d.z = 0; d.vz = -d.vz * 0.35; d.vx *= 0.6; d.vy *= 0.6; }
-    const f = Math.exp(-3 * dt); d.vx *= f; d.vy *= f; const nx = d.x + d.vx * dt, ny = d.y + d.vy * dt; if (!solidAt(nx, ny)) { d.x = nx; d.y = ny; }
+    const f = Math.exp(-3 * dt); d.vx *= f; d.vy *= f; const nx = d.x + d.vx * dt, ny = d.y + d.vy * dt; if (!blockAt(nx, ny)) { d.x = nx; d.y = ny; }
     if (d.t < (d.hold || 0.4)) continue;
     if (d.k !== 'gold') { const h = nearest(d, G.heroes.filter(alive), 8); if (h && d.z < 2 && takeItem(d, h)) d.dead = true; continue; } // stepped on, and of use
     const h = nearest(d, G.heroes.filter(alive), 26); if (!h) continue;

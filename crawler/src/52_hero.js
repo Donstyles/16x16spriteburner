@@ -261,7 +261,8 @@ function strikeHits(h, a) {
   for (const p of ARENA.props) if (!p.dead && p.hp < 1e8 && !a.hit.has(p) && hitsShape(src, { x: p.x, y: p.cy, r: p.r }, mv, a.dir)) { a.hit.add(p); breakProp(p); }
 }
 function breakProp(p) {
-  if (p.dead || p.hp > 1e8) return; if (p.kind === 'tchest') { openChest(p); return; } if (p.kind === 'ore') { hitOre(p); return; } p.dead = true; p.solid = false;
+  // (a shrine's chest opens only once its vault does)
+  if (p.dead || p.hp > 1e8) return; if (p.kind === 'tchest') { if (p.sealed && !p.sealed.open) { SFX.clang(panOf(p.x)); return; } openChest(p); return; } if (p.kind === 'ore') { hitOre(p); return; } p.dead = true; p.solid = false;
   debris(p.x, p.cy, 18, ['#6a4a2a', '#8a6638', '#4a3018', '#a07848'], 140, 180, 2.2); smoke(p.x, p.cy, 4, 'dust', 9, 30, 1.2); SFX.crack(panOf(p.x));
   if (chance(p.kind === 'chest' ? 1 : 0.25)) dropGold(p.x, p.cy, p.kind === 'chest' ? randi(6, 14) : randi(1, 4));
   // a fish or a flask in a pot, barrel or crate is a rare find (a little less rare in a small chest); the treasure chests hold them

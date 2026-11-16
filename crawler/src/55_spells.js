@@ -124,7 +124,7 @@ function drawSpellGlows(c) { // in the glow layer: they shine in the dark
 
 // --- the witch's flask: thrown up in an arc at a spot (a little ahead of a moving target), marked on the floor
 function lobFlask(f, t) {
-  let tx = t.x + (t.vx || 0) * 0.45, ty = t.y + (t.vy || 0) * 0.45; if (solidAt(tx, ty)) { tx = t.x; ty = t.y; }
+  let tx = t.x + (t.vx || 0) * 0.45, ty = t.y + (t.vy || 0) * 0.45; if (blockAt(tx, ty)) { tx = t.x; ty = t.y; }
   const T = clamp(dist(f.x, f.y, tx, ty) / 120, 0.6, 1.1);
   G.proj.push({ k: 'flask', x: f.x, y: f.y, z: 10, x0: f.x, y0: f.y, x1: tx, y1: ty, t: 0, T, vx: tx - f.x, vy: ty - f.y, team: 'foe', src: f, life: T + 1, r: 0, dmg: 0 });
   teleg(tx, ty, 15, T, 'red'); SFX.whoosh(panOf(f.x));

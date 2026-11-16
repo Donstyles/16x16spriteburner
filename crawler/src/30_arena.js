@@ -106,7 +106,9 @@ function buildArena(floor) {
   const wallSpot = r => { const nd = r.doors.filter(d => d.side === 'N').flatMap(d => d.cells.map(c => c[0])); let best = r.cx - 1, bd = 1e9; for (let x = r.ix0 + 1; x + 2 <= r.ix1 - 1; x++) { if (nd.some(c => c >= x - 1 && c <= x + 3)) continue; const d = Math.abs(x + 1 - (r.ix0 + r.ix1) / 2); if (d < bd) { bd = d; best = x; } } return best; };
   A.start.stairX = wallSpot(A.start); A.end.stairX = wallSpot(A.end);
   if (!rooms.some(q => q.kind === 'treasure')) { const q = pick(rooms.filter(q => q.kind === 'room')); if (q) q.chest = true; } // no dead end: a guarded room keeps the chest
+  for (const r of rooms) worksBefore(A, r, g); // a cistern, a rune shrine (36_works)
   for (const r of rooms) furnish(A, r, g);
+  for (const r of rooms) worksAfter(A, r); spikeHalls(A);
   // the stairway we came down, in the start room's north wall; the way down waits shut in the end room's
   { const r = A.start, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 12, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 13, (sx + i) * TS, (r.fy0 + 1) * TS); } }
   { const r = A.end, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 14, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 15, (sx + i) * TS, (r.fy0 + 1) * TS); } A.stairs = { x: (sx + 1.5) * TS, y: (r.fy0 + 2) * TS + 2, sx, sy: r.fy0, room: r.i }; }
@@ -115,6 +117,10 @@ function buildArena(floor) {
   Object.assign(A, { x0: TS, x1: (A.w - 1) * TS, y0: TS, y1: (A.h - 1) * TS });
   return A;
 }
+// what stands about a cellar (sheet tile x, y, its kind, how many tiles tall, how many wide): pots, the two small chests,
+// crates and crate stacks, and the heap of sacks; all of it breaks
+const CLUTTER = [[24, 8], [25, 8], [26, 8], [27, 8], [28, 8], [30, 8], [25, 12, 'crate'], [26, 12, 'crate'], [24, 13, 'crate'], [25, 13, 'crate'], [26, 13, 'crate']];
+const STOCK = [[25, 12, 'crate'], [26, 12, 'crate'], [24, 13, 'crate'], [25, 13, 'crate'], [26, 13, 'crate'], [27, 12, 'crate', 2], [28, 12, 'crate', 2], [29, 12, 'crate', 2], [22, 8, 'sacks', 1, 2], [24, 8], [26, 8]].map(t => t[2] ? t : [t[0], t[1], 'barrel']);
 // torches, banners, braziers, clutter and pillars for one room
 function furnish(A, r, g) {
   const th = A.th, nearDoor = (tx, ty, m = 2) => r.doors.some(d => d.cells.some(([x, y]) => Math.abs(x - tx) <= m && Math.abs(y - ty) <= m)), used = new Set();
@@ -122,15 +128,25 @@ function furnish(A, r, g) {
   if (r.stairX !== undefined) for (let k = -1; k <= 3; k++) used.add(r.stairX + k);
   for (let x = r.ix0 + 1; x < r.ix1; x += 4) { const tx = x + (used.has(x) ? 3 : 0); if (tx >= r.ix1 || used.has(tx)) continue; used.add(tx); A.torches.push({ x: tx * TS + 8, y: (r.fy0 + 1) * TS + 9, tx, f: randi(0, 3) }); }
   for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || used.has(x - 1) || used.has(x + 1) || !chance(0.3)) continue; const b = randi(20, 31); tileAt(g, b, 0, x * TS, r.fy0 * TS); tileAt(g, b, 1, x * TS, (r.fy0 + 1) * TS); used.add(x); }
+  // between the banners, now and then a barred window or a vent in the brick (grey [16..20, 2..3], brown three rows down)
+  const wy = th === THEMES.brown ? 3 : 0, WIN = [[16, 2], [16, 3], [17, 3], [18, 3], [19, 2], [19, 3], [20, 3]];
+  for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || !chance(0.16)) continue; const [wx, wy0] = pick(WIN); tileAt(g, wx, wy0 + wy, x * TS, (r.fy0 + 1) * TS); used.add(x); }
+  // an inlaid mosaic in the floor of some rooms (grey [16..18, 9], brown [19..21, 9]); a rug at the foot of the stairs
+  if ((r.kind === 'room' || r.kind === 'end') && !r.pool && !r.shrine && chance(0.35)) { const mx = Math.round((r.ix0 + r.ix1) / 2) + randi(-2, 2), my = Math.round((r.iy0 + r.iy1) / 2) + randi(-1, 1); tileAt(g, (th === THEMES.brown ? 19 : 16) + randi(0, 2), 9, mx * TS, my * TS); }
+  if (r.kind === 'start' && r.stairX !== undefined) { const rx = r.stairX + 0.5, ry = r.iy0 + 1, rr = th === THEMES.brown ? 14 : 12; for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) tileAt(g, 22 + i, rr + j, (rx + i) * TS, (ry + j) * TS); }
   const prop = (kind, tx, ty, o = {}) => A.props.push(Object.assign({ kind, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o));
   const free = (x, y, d = 10) => !A.props.some(p => Math.abs(p.x - x) < d && Math.abs(p.y - y) < d);
   if (r.w * r.h >= 100) for (const [tx, ty] of [[r.ix0 + 1, r.iy1 - 1], [r.ix1 - 1, r.iy0 + 1]]) if (!nearDoor(tx, ty)) prop('brazier', tx, ty, { f: randi(0, 3) });
-  const corner = (cx, cy) => { for (let i = 0; i < randi(1, 3); i++) { const tx = clamp(cx + randi(-1, 1), r.ix0, r.ix1), ty = clamp(cy + randi(-1, 1), r.iy0, r.iy1); if (nearDoor(tx, ty) || !free(tx * TS + 8, ty * TS + 14)) continue; const t = pick([[24, 8], [25, 8], [26, 8], [27, 8], [28, 8], [30, 8]]); prop(t[0] >= 28 ? 'chest' : 'barrel', tx, ty, { tile: t, hp: 40 }); } };
+  const corner = (cx, cy) => { for (let i = 0; i < randi(1, 3); i++) { const tx = clamp(cx + randi(-1, 1), r.ix0, r.ix1), ty = clamp(cy + randi(-1, 1), r.iy0, r.iy1); if (nearDoor(tx, ty) || !free(tx * TS + 8, ty * TS + 14)) continue; const t = pick(CLUTTER); prop(t[2] || (t[0] >= 28 && t[1] === 8 ? 'chest' : 'barrel'), tx, ty, { tile: [t[0], t[1]], th: t[3] || 1, hp: 40 }); } };
   corner(r.ix0, r.iy0); corner(r.ix1, r.iy0); corner(r.ix0, r.iy1); corner(r.ix1, r.iy1);
+  if (r.kind === 'room' && !r.pool && !r.shrine && chance(0.3)) for (let x = r.ix0 + 1; x < r.ix1; x++) { // a storeroom: stock along its north wall
+    if (!chance(0.45) || nearDoor(x, r.iy0, 2) || (r.stairX !== undefined && x >= r.stairX - 1 && x <= r.stairX + 3) || !free(x * TS + 8, r.iy0 * TS + 14, 14)) continue;
+    const t = pick(STOCK); prop(t[2], x, r.iy0, { tile: [t[0], t[1]], th: t[3] || 1, tw: t[4] || 1, hp: 40, r: (t[4] || 1) > 1 ? 9 : 5 }); if ((t[4] || 1) > 1) x++;
+  }
   if (r.kind === 'treasure' || r.chest) { const cx = Math.round((r.ix0 + r.ix1) / 2), spots = [0, 1, -1, 2, -2, 3, -3].map(k => [cx + k, r.iy0 + 1]).concat([[cx, Math.round((r.iy0 + r.iy1) / 2)]]), at = spots.find(([x, y]) => !nearDoor(x, y)) || spots[spots.length - 1]; prop('tchest', at[0], at[1], { tier: chestTier(A.floor), hp: 1, r: 6, open: false }); } // its treasure chest, against the north wall if a spot there is clear of the doors
   if ((r.kind === 'room' || r.kind === 'end') && chance(0.35)) for (let i = randi(1, 2); i > 0; i--) { // an ore rock or two against a wall
     const west = chance(0.5), tx = west ? r.ix0 : r.ix1, ty = randi(r.iy0 + 1, r.iy1 - 1); if (!nearDoor(tx, ty, 2) && free(tx * TS + 8, ty * TS + 14)) prop('ore', tx, ty, { shape: randi(0, 6), ore: pick([0, 0, 1, 2, 3]), hp: 3, r: 6 }); }
-  if (r.kind === 'room' || r.kind === 'end') {
+  if ((r.kind === 'room' || r.kind === 'end') && !r.pool && !r.shrine) {
     if (r.w >= 15 && r.h >= 9 && chance(0.7)) { const P = th.pillar[randi(0, 1)]; for (const [fx, fy] of chance(0.5) ? [[0.27, 0.4], [0.73, 0.4], [0.27, 0.78], [0.73, 0.78]] : [[0.3, 0.55], [0.7, 0.55]]) { const tx = Math.round(r.ix0 + fx * (r.w - 1)), ty = Math.max(r.iy0 + 3, Math.round(r.iy0 + fy * (r.h - 1))); if (!nearDoor(tx, ty, 2)) prop('pillar', tx, ty, { tile: P, r: 6 }); } }
   }
 }
@@ -159,7 +175,12 @@ function drawCeil(c, sx, sy, sw, sh) {
 function drawGround(c, sx, sy, sw, sh) {
   for (const k of groundChunks(ARENA)) { const x0 = Math.max(sx, k.x), y0 = Math.max(sy, k.y), x1 = Math.min(sx + sw, k.x + k.w), y1 = Math.min(sy + sh, k.y + k.h); if (x1 > x0 && y1 > y0) c.drawImage(k.cv, x0 - k.x, y0 - k.y, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0); }
 }
-function solidTile(tx, ty) { const A = ARENA; if (tx < 0 || ty < 0 || tx >= A.w || ty >= A.h) return true; const v = A.fl[ty * A.w + tx]; return v !== 1; }
+// The floor grid: 0 rock, 1 floor, 2 water (feet cannot go in, but sight and shots pass over it), 3 a bridge over water
+// (floor). solid*: rock, for sight and shots; block*: rock or water, for feet.
+const FLOOR = v => v === 1 || v === 3;
+function solidTile(tx, ty) { const A = ARENA; if (tx < 0 || ty < 0 || tx >= A.w || ty >= A.h) return true; return A.fl[ty * A.w + tx] === 0; }
+function blockTile(tx, ty) { const A = ARENA; if (tx < 0 || ty < 0 || tx >= A.w || ty >= A.h) return true; return !FLOOR(A.fl[ty * A.w + tx]); }
+function blockAt(x, y) { return ARENA && ARENA.fl ? blockTile(Math.floor(x / TS), Math.floor(y / TS)) : false; }
 function solidAt(x, y) { return ARENA && ARENA.fl ? solidTile(Math.floor(x / TS), Math.floor(y / TS)) : false; }
 function roomAt(x, y, m = 0) { const A = ARENA; if (!A || !A.rooms) return null; const tx = x / TS, ty = y / TS; for (const r of A.rooms) if (tx >= r.ix0 + m && tx < r.ix1 + 1 - m && ty >= r.iy0 + m && ty < r.iy1 + 1 - m) return r; return null; }
 // a unit's feet are a small box; push it out of any wall tile it overlaps
@@ -168,7 +189,7 @@ function tileCollide(u) {
   for (let pass = 0; pass < 2; pass++) {
     const tx0 = Math.floor((u.x - hw) / TS), tx1 = Math.floor((u.x + hw) / TS), ty0 = Math.floor((u.y - hh) / TS), ty1 = Math.floor((u.y + hh) / TS);
     for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
-      if (!solidTile(tx, ty)) continue;
+      if (!blockTile(tx, ty)) continue;
       const ox = Math.min(u.x + hw - tx * TS, (tx + 1) * TS - (u.x - hw)), oy = Math.min(u.y + hh - ty * TS, (ty + 1) * TS - (u.y - hh));
       if (ox <= 0 || oy <= 0) continue;
       if (ox < oy) { const s = u.x < tx * TS + TS / 2 ? -1 : 1; u.x += s * ox; u.kx *= -0.3; } else { const s = u.y < ty * TS + TS / 2 ? -1 : 1; u.y += s * oy; u.ky *= -0.3; }

@@ -39,7 +39,7 @@ function updateRun(dt) {
   for (const u of G.units) if (u.fly && !u.dead && !u.held) flyTick(u, dt);
   separate(G.units);
   if (TEST.on && TEST.mode === 'creatures') creatureTick(dt);
-  updateProj(dt); updateHazards(dt); updateDrops(dt); updateSight(dt);
+  updateProj(dt); updateHazards(dt); worksTick(dt); updateDrops(dt); updateSight(dt);
   removeIf(G.foes, f => f.dead); removeIf(G.units, u => u.dead && u.team === 'foe');
   if (G.hurtFlash > 0) G.hurtFlash -= dt; if (G.tiredT > 0) G.tiredT -= dt;
   if (G.phase === 'play') {

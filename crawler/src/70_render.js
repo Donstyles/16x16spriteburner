@@ -107,14 +107,15 @@ function drawUnit(c, u) {
 }
 function drawProp(c, p) {
   if (p.kind === 'pillar') { const [tx, ty] = p.tile; for (let i = 0; i < 3; i++) c.drawImage(IMG.cellar, tx * TS, (ty + i) * TS, TS, TS, p.x - 8, p.y - 14 - 32 + i * TS, TS, TS); }
-  else if (p.kind === 'brazier') { const f = ((G.time * 8 + p.f) | 0) % 4; c.drawImage(IMG.cellar, f * TS, 27 * TS, TS, TS, p.x - 8, p.y - 14, TS, TS); }
+  else if (p.kind === 'brazier') { const f = ((G.time * 8 + p.f) | 0) % 4 + (ARENA.th === THEMES.brown ? 5 : 0); c.drawImage(IMG.cellar, f * TS, 27 * TS, TS, TS, p.x - 8, p.y - 14, TS, TS); }
   else if (p.kind === 'ore') { // struck, it flashes white and fades back as a foe does; the last blow, a beat later, it bursts into chunks
     if (p.burst && G.time >= p.burst) { p.dead = true; return; } const fl = (p.flashUntil || 0) - G.time;
     c.drawImage(IMG.ores, p.ore * 32, p.shape * 32, 32, 32, p.x - 16, p.y - 30, 32, 32);
     if (fl > 0) { c.globalAlpha = Math.min(1, fl * 9); c.drawImage(IMG.oresW, p.ore * 32, p.shape * 32, 32, 32, p.x - 16, p.y - 30, 32, 32); c.globalAlpha = 1; }
   }
   else if (p.kind === 'tchest') { const [cx, cy] = CHEST[p.tier].at; c.drawImage(IMG.items, cx + (p.open ? 16 : 0), cy, 16, 16, p.x - 8, p.y - 14, 16, 16); }
-  else { const w = (p.tw || 1) * TS; c.drawImage(IMG.cellar, p.tile[0] * TS, p.tile[1] * TS, w, TS, p.x - w / 2, p.y - 14, w, TS); }
+  else if (p.kind === 'block') c.drawImage(IMG.cellar, (p.tile[0] + p.f) * TS, p.tile[1] * TS, TS, TS, p.x - 8, p.y - 14, TS, TS); // a vault's block, sinking frame by frame
+  else { const w = (p.tw || 1) * TS, n = p.th || 1; for (let i = 0; i < n; i++) c.drawImage(IMG.cellar, p.tile[0] * TS, (p.tile[1] + i) * TS, w, TS, p.x - w / 2, p.y - 14 - (n - 1 - i) * TS, w, TS); } // (th: how many tiles tall)
 }
 // an arrow or a stone in flight (its shadow on the floor below it)
 function drawProj(c, p) {
@@ -196,8 +197,8 @@ function render() {
   const X = c => c.setTransform(1, 0, 0, 1, -ox, -oy);
   const c = wbc; c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; c.fillStyle = '#0b0c0f'; c.fillRect(0, 0, bw, bh); c.imageSmoothingEnabled = false; X(c);
   drawGround(c, ox, oy, bw, bh);
-  for (const t of ARENA.torches) { const f = ((G.time * 9 + t.f) | 0) % 4; c.drawImage(IMG.cellar, f * TS, 26 * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); }
-  drawWet(c); drawHazards(c); drawWake(c); drawRuns(c); drawDoors(c); drawTele(c); drawTelegraphs(c);
+  const tb = ARENA.th === THEMES.brown ? 5 : 0; for (const t of ARENA.torches) { const f = ((G.time * 9 + t.f) | 0) % 4; c.drawImage(IMG.cellar, (tb + f) * TS, 26 * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); } // (the brown floors' own, iron on stone)
+  drawWorks(c); drawWet(c); drawHazards(c); drawWake(c); drawRuns(c); drawDoors(c); drawTele(c); drawTelegraphs(c);
   for (const u of G.units) { if (u.dead && u.team === 'foe') continue; if (u.team === 'foe' && !foeShown(u)) continue; if (u.under) continue; pxShadow(c, u.x, u.y, u.r * 1.3 * (1 - Math.min(0.6, u.z / 160))); }
   // everything standing, lying or flying, drawn back to front by where it meets the floor
   const list = []; for (const u of G.units) list.push([u.y, 0, u]); for (const p of ARENA.props) if (!p.dead) list.push([p.y, 1, p]);
@@ -207,7 +208,7 @@ function render() {
   renderLight();
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'multiply'; c.drawImage(lc, 0, 0);
   fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.globalCompositeOperation = 'source-over'; fctx.globalAlpha = 1; fctx.clearRect(0, 0, bw, bh); fctx.globalCompositeOperation = 'lighter'; fctx.imageSmoothingEnabled = false; X(fctx);
-  drawAuras(fctx); drawGhosts(fctx); drawRings(fctx); drawFxParts(fctx); drawBolts(fctx); drawArrowGlints(fctx); drawSpellGlows(fctx); drawCharges(fctx);
+  drawAuras(fctx); drawGhosts(fctx); drawRings(fctx); drawFxParts(fctx); drawBolts(fctx); drawArrowGlints(fctx); drawSpellGlows(fctx); drawWorksGlow(fctx); drawCharges(fctx);
   if (G.mode === 'play') maskToMemory(fctx, ox, oy, 'destination-in'); // no glow, spark or flame shows where nobody has looked
   fctx.globalCompositeOperation = 'destination-out'; drawCeil(fctx, ox, oy, bw, bh); fctx.globalCompositeOperation = 'lighter'; // nor over the tops of the walls
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'lighter'; c.drawImage(fxc, 0, 0);

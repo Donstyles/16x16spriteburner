@@ -19,7 +19,8 @@ function drawHeroPanel(c, h, L, T, W) {
   // the portrait
   c.fillStyle = 'rgba(10,8,12,0.78)'; c.fillRect(L, T, P, P);
   const g = c.createRadialGradient(L + P / 2, T + P * 0.62, 2, L + P / 2, T + P * 0.62, P * 0.6); g.addColorStop(0, h.dead ? 'rgba(120,20,20,0.5)' : 'rgba(255,170,80,0.38)'); g.addColorStop(1, 'rgba(255,170,80,0)'); c.fillStyle = g; c.fillRect(L, T, P, P);
-  const m = MOBS[h.spr]; if (m) { const fr = h.dead ? 0 : ((G.time * 4) | 0) % 4, fw = m[1], fh = m[2], sc = 2; c.imageSmoothingEnabled = false; c.globalAlpha = h.dead ? 0.45 : 1; c.drawImage(IMG.mobs, fr * fw, m[0], fw, fh, Math.round(L + P / 2 - fw * sc / 2), Math.round(T + P - 4 - fh * sc), fw * sc, fh * sc); c.globalAlpha = 1; }
+  // his face, close up: a 9 x 9 pixel square round his head (found from his sprite), four times over (its idle frames breathe)
+  const m = MOBS[h.spr], fc = m && faceOf(h.spr); if (fc) { const fr = h.dead ? 0 : ((G.time * 4) | 0) % 4, sc = 4; c.imageSmoothingEnabled = false; c.globalAlpha = h.dead ? 0.45 : 1; c.drawImage(IMG.mobs, fr * m[1] + fc.x, m[0] + fc.y, 9, 9, L + 2, T + 2, 9 * sc, 9 * sc); c.globalAlpha = 1; }
   c.strokeStyle = low ? `rgba(255,${Math.round(70 + 80 * (1 - beat))},60,${0.7 + 0.3 * beat})` : '#7a6040'; c.lineWidth = 1; c.strokeRect(L + 0.5, T + 0.5, P - 1, P - 1);
   c.strokeStyle = 'rgba(0,0,0,0.7)'; c.strokeRect(L + 1.5, T + 1.5, P - 3, P - 3);
   c.fillStyle = '#c8a060'; for (const [cx, cy] of [[L, T], [L + P - 2, T], [L, T + P - 2], [L + P - 2, T + P - 2]]) c.fillRect(cx, cy, 2, 2); // the frame's corner studs
@@ -38,6 +39,16 @@ function drawHeroPanel(c, h, L, T, W) {
   c.imageSmoothingEnabled = false;
   for (let i = 0; i < h.maxFlasks; i++) { const fx = x0 + i * 15, fy = T + 41, full = i < h.flasks; c.globalAlpha = full ? 1 : 0.22; c.drawImage(IMG.items, 21, 3, 6, 9, fx, fy, 12, 18); } // the flask from the item sheet, at twice its size
   c.globalAlpha = 1;
+}
+// where a hero's face is on his sprite: the top of the figure, and across, the middle of his body a little below it
+// (so a weapon raised beside his head does not pull the square off his face)
+const FACES = {};
+function faceOf(spr) {
+  if (FACES[spr]) return FACES[spr]; const m = MOBS[spr], P = PIX.mobs; if (!m || !P) return null; const [sy, fw, fh] = m, a = (x, y) => P.d[((sy + y) * P.w + x) * 4 + 3] > 0;
+  let y0 = 0; while (y0 < fh - 1 && ![...Array(fw).keys()].some(x => a(x, y0))) y0++;
+  const xs = []; for (let y = y0 + 4; y <= Math.min(fh - 1, y0 + 10); y++) for (let x = 0; x < fw; x++) if (a(x, y)) xs.push(x);
+  const cx = xs.length ? xs.sort((p, q) => p - q)[xs.length >> 1] : fw >> 1;
+  return (FACES[spr] = { x: clamp(cx - 4, 0, fw - 9), y: clamp(y0 - 1, 0, fh - 9) });
 }
 // a bevelled bar: a dark frame, the fill shaded top to bottom with a gloss along its top, the part just lost lingering pale
 // before it drains, notches (n of them) across it

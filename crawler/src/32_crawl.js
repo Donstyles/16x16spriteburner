@@ -1,6 +1,6 @@
 // ===================== crawling: walls, paths, sight lines, doors, the map ========================
 // a unit-sized box fits here without touching a wall
-function boxFree(x, y, r) { const hw = Math.max(3, r * 0.8), hh = Math.max(2, r * 0.45); for (const [px, py] of [[x - hw, y - hh], [x + hw, y - hh], [x - hw, y + hh], [x + hw, y + hh]]) if (solidAt(px, py)) return false; return true; }
+function boxFree(x, y, r) { const hw = Math.max(3, r * 0.8), hh = Math.max(2, r * 0.45); for (const [px, py] of [[x - hw, y - hh], [x + hw, y - hh], [x - hw, y + hh], [x + hw, y + hh]]) if (blockAt(px, py)) return false; return true; }
 // the farthest point along a straight move that does not end inside a wall (dashes and leaps never pass through stone)
 function clipToWalls(x0, y0, x1, y1, r) {
   if (!ARENA || !ARENA.fl) return [x1, y1]; const d = dist(x0, y0, x1, y1), n = Math.max(1, Math.ceil(d / 3)); let lx = x0, ly = y0;
@@ -12,7 +12,7 @@ function findPath(x0, y0, x1, y1) {
   if (!Number.isFinite(x0 + y0 + x1 + y1)) return null; // no real place to go: no path (it would never end)
   const A = ARENA, W = A.w, s = Math.floor(y0 / TS) * W + Math.floor(x0 / TS), g = Math.floor(y1 / TS) * W + Math.floor(x1 / TS);
   if (s === g) return []; const from = new Int32Array(W * A.h).fill(-1); from[s] = s; const q = [s];
-  const open = i => A.fl[i] === 1;
+  const open = i => FLOOR(A.fl[i]);
   for (let qi = 0; qi < q.length; qi++) {
     const i = q[qi]; if (i === g) break; const x = i % W, y = (i / W) | 0;
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
@@ -56,10 +56,10 @@ function drawDoors(c) {
 let MINI = null;
 function drawMinimap(c, xr, y0) {
   const A = ARENA; if (!A || !A.mem) return;
-  if (!MINI || MINI.A !== A || MINI.n !== A.memN) { // redrawn only when the party has seen something new
+  if (!MINI || MINI.A !== A || MINI.n !== A.memN + (A.flv || 0) * 1e6) { // redrawn only when the party has seen something new (or a cistern drained)
     const cv = MINI && MINI.A === A ? MINI.cv : mkCanvas(A.w, A.h), x = cv.getContext('2d'), id = x.createImageData(A.w, A.h), d = id.data;
-    for (let i = 0; i < A.w * A.h; i++) { if (!A.mem[i]) continue; const f = A.fl[i] === 1, o = i * 4; d[o] = f ? 118 : 58; d[o + 1] = f ? 104 : 50; d[o + 2] = f ? 92 : 46; d[o + 3] = f ? 230 : 200; }
-    x.putImageData(id, 0, 0); MINI = { A, n: A.memN, cv };
+    for (let i = 0; i < A.w * A.h; i++) { if (!A.mem[i]) continue; const v = A.fl[i], f = v === 1 || v === 3, w = v === 2, o = i * 4; d[o] = w ? 52 : f ? 118 : 58; d[o + 1] = w ? 96 : f ? 104 : 50; d[o + 2] = w ? 150 : f ? 92 : 46; d[o + 3] = f || w ? 230 : 200; } // water blue
+    x.putImageData(id, 0, 0); MINI = { A, n: A.memN + (A.flv || 0) * 1e6, cv };
   }
   const s = clamp(Math.min(VIEW.w, VIEW.h) / 430, 0.85, 1.3) * 1.5, w = A.w * s, h = A.h * s, x0 = Math.round(xr - w);
   c.globalAlpha = 0.85; c.fillStyle = 'rgba(8,7,10,0.6)'; c.fillRect(x0 - 4, y0 - 4, w + 8, h + 8);

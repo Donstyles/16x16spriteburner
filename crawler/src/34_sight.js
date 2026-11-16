@@ -26,7 +26,7 @@ function updateSight(dt) {
   // a fallen hero's lamp still burns, so whoever killed him stays in sight
   const W = A.w, H = A.h, vis = A.vis, lamps = G.heroes; staticLit(A); vis.fill(0); let fresh = 0;
   // a seen tile is remembered in full; the tiles around it get a half-dim band, so memory ends in a softer pixel step
-  const D = A.memId.data, paint = (i, a) => { const o = i * 4; if (D[o + 3] >= a) return; D[o] = 46; D[o + 1] = 40; D[o + 2] = 52; D[o + 3] = a; };
+  const D = A.memId.data, paint = (i, a) => { const o = i * 4; if (D[o + 3] >= a) return; D[o] = 66; D[o + 1] = 58; D[o + 2] = 72; D[o + 3] = a; };
   const see = i => { if (vis[i]) return; vis[i] = 1; if (!A.mem[i]) { A.mem[i] = 1; fresh++; paint(i, 255); const x = i % W, y = (i / W) | 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < W && Y < H) paint(Y * W + X, 96); } } };
   for (const h of G.heroes) {
     const hx = h.x / TS, hy = (h.y - 4) / TS, R = SIGHT.R;
@@ -35,8 +35,8 @@ function updateSight(dt) {
       let x = hx, y = hy;
       for (let s = 0; s < R / 0.35; s++) {
         x += dx; y += dy; const tx = Math.floor(x), ty = Math.floor(y); if (tx < 0 || ty < 0 || tx >= W || ty >= H) break;
-        const i = ty * W + tx, solid = A.fl[i] !== 1;
-        if (litTile(A, tx, ty, lamps) || solid && litTile(A, tx, ty + 1, lamps)) { see(i); if (solid && ty > 0 && A.fl[i - W] !== 1) see(i - W); } // a north wall's face hides its rim: both are seen
+        const i = ty * W + tx, solid = A.fl[i] === 0;
+        if (litTile(A, tx, ty, lamps) || solid && litTile(A, tx, ty + 1, lamps)) { see(i); if (solid && ty > 0 && A.fl[i - W] === 0) see(i - W); } // a north wall's face hides its rim: both are seen
         if (solid) break;
       }
     }
