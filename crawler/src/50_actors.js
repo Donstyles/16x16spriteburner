@@ -111,7 +111,8 @@ function steer(u, tx, ty, spd, dt, stopAt = 0) {
   if (d <= stopAt + 0.5) { u.vx = damp(u.vx, 0, 12, dt); u.vy = damp(u.vy, 0, 12, dt); u.moving = false; return d; }
   dx /= d; dy /= d;
   for (const p of ARENA.props) { if (!p.solid || p.dead) continue; const ox = p.x - u.x, oy = p.cy - u.y, od = Math.hypot(ox, oy); if (od < u.r + p.r + 14 && (ox * dx + oy * dy) > 0) { const side = (ox * dy - oy * dx) > 0 ? 1 : -1, sx = -dy * side, sy = dx * side; dx += sx * 1.2; dy += sy * 1.2; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l; } }
-  u.vx = damp(u.vx, dx * spd, 10, dt); u.vy = damp(u.vy, dy * spd, 10, dt); u.moving = true; return d;
+  const grip = u.fly ? 3.5 : 10; // a flyer turns in wide arcs
+  u.vx = damp(u.vx, dx * spd, grip, dt); u.vy = damp(u.vy, dy * spd, grip, dt); u.moving = true; return d;
 }
 // follow the corridors toward a point out of sight: a path over the tiles, refreshed now and then
 function pathTo(u, tx, ty, spd, dt, stopAt = 0) {

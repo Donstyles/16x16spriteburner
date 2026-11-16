@@ -27,18 +27,21 @@ const ZONES = [
 ];
 const BLOOD_OF = { DecrepitBones: 'bone', BrittleArcher: 'bone', GraveRevenant: 'bone', SkitteringHand: 'bone', ScarecrowGolem: 'straw', StoneGolem: 'stone', ClayGolem: 'stone', TaintedCockroach: 'bug', AcidAnt: 'bug', LavaAnt: 'bug', RhinoBeetle: 'bug', FamishedTick: 'bug', ForagingMaggot: 'slime', UnravelingCrawler: 'bone', MutilatedStumbler: 'sludge', FleshGolem: 'sludge', BoundCadaver: 'sludge', SandGhoul: 'sludge' };
 const STONE_SHOT = { HalflingSlinger: true };
-// Bats fly: they hover over their shadow, bobbing with each wingbeat and fluttering this way and that; winding up to
-// strike they climb a little, then dive at their target and climb back; asleep they rest on the floor, and woken they
-// take off. Killed, they fall out of the air.
+// Bats fly: they hover over their shadow, rising and sinking gently with their wingbeats and drifting in slow loops; they
+// turn in wide arcs, not on the spot (see steer); winding up to strike they climb a little, then dive at their target
+// and climb back; asleep they rest on the floor, and woken they take off. Killed, they fall out of the air.
 const FLYERS = new Set(['SwoopingBat', 'PlagueBat', 'VampireBat']);
-function makeFlyer(u) { if (!FLYERS.has(u.spr)) { u.fly = null; return; } u.fly = { alt: rand(10, 14), ph: rand(TAU), t: 0, fl: 0 }; u.z = u.state === 'sleep' ? 0 : u.fly.alt; }
+function makeFlyer(u) { if (!FLYERS.has(u.spr)) { u.fly = null; return; } u.fly = { alt: rand(10, 14), ph: rand(TAU), t: 0 }; u.z = u.state === 'sleep' ? 0 : u.fly.alt; }
 function flyTick(u, dt) {
   const F = u.fly, a = u.act, asleep = u.state === 'sleep' && !u.aware; F.t += dt;
-  let alt = asleep ? 0 : F.alt + Math.sin(F.t * 9 + F.ph) * 1.5, k = 6;
+  let alt = asleep ? 0 : F.alt + Math.sin(F.t * 4.5 + F.ph) * 1.2, k = 4;
   if (a && a.k === 'atk' && !asleep) { if (a.phase === 'wind') alt += 4; else if (a.phase === 'act') { alt = 3; k = 18; } }
   if (u.stun > 0) alt *= 0.6; // knocked about
   u.z = damp(u.z, alt, k, dt); u.vz = 0;
-  if (!asleep && !(a && a.phase === 'act') && (F.fl -= dt) <= 0) { F.fl = rand(0.15, 0.4); const r = rand(TAU); u.kx += Math.cos(r) * 35; u.ky += Math.sin(r) * 25; } // a flutter
+  if (!asleep && !(a && a.phase === 'act')) { // the drift: two slow swells each way, so it wanders in loose loops (pushed in through the knock-back, which follows it smoothly)
+    const t = F.t, dx = (Math.sin(t * 1.3 + F.ph) * 0.6 + Math.sin(t * 2.1 + F.ph * 2) * 0.4) * 14, dy = (Math.sin(t * 1.1 + F.ph * 3) * 0.6 + Math.sin(t * 1.7 + F.ph) * 0.4) * 10;
+    u.kx += dx * 7 * dt; u.ky += dy * 7 * dt;
+  }
 }
 // creatures that already go on all fours (bugs, beasts, crawlers, a bat, a hand): asleep they stay on their feet and settle,
 // where the upright ones lie down on their backs
