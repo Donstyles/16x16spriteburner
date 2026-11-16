@@ -20,12 +20,12 @@ function beginTest(kit) {
 }
 function spawnDummy(s, quiet) {
   const f = mkFoe(s.type, 1, s.x, s.y), z = pick(ZONES); f.spr = f.def.spr = pick(z[s.type]); f.def.blood = BLOOD_OF[f.spr] || 'red';
-  Object.assign(f, { dummy: true, spot: s, aware: true, state: 'fight', face: G.me && G.me.x < s.x ? -1 : 1 });
+  Object.assign(f, { dummy: true, spot: s, aware: true, state: 'fight', face: G.me && G.me.x < s.x ? -1 : 1, dir: G.me ? angTo(s.x, s.y, G.me.x, G.me.y) : 0 });
   G.foes.push(f); G.units.push(f); if (!quiet) smoke(s.x, s.y, 3, 'dust', 8, 16, 0.6);
 }
 // a dummy turns to face the hero, drifts back to its spot after a blow, and does nothing else
 function dummyTick(f, dt) {
-  const h = G.me; f.act = null; f.aware = true; f.state = 'fight'; if (h) f.face = h.x < f.x ? -1 : 1;
+  const h = G.me; f.act = null; f.aware = true; f.state = 'fight'; if (h) { f.face = h.x < f.x ? -1 : 1; f.dir = angTo(f.x, f.y, h.x, h.y); } // it faces the hero (so a blow is never a backstab)
   f.vx = clamp((f.spot.x - f.x) * 4, -30, 30); f.vy = clamp((f.spot.y - f.y) * 4, -30, 30); f.moving = false;
 }
 function dummyDied(u) { const A = ARENA; G.sched.push({ t: 1.5, fn: () => { if (TEST.on && ARENA === A) spawnDummy(u.spot); } }); }
