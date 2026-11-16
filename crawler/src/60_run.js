@@ -9,7 +9,7 @@ const G = {
 };
 function after(t, fn) { G.sched.push({ t, fn }); }
 function startRun(kit) {
-  G.run++; G.floor = 1; G.kills = 0; G.gold = 0; G.kit = kit; G.summary = null; G.time = 0;
+  G.run++; G.floor = 1; G.army = null; G.kills = 0; G.gold = 0; G.kit = kit; G.summary = null; G.time = 0;
   const h = makeHero(kit); G.heroes = [h]; G.me = h;
   startFloor();
   G.mode = 'play';
@@ -18,12 +18,13 @@ function startFloor() {
   TEST.on = false;
   buildArena(G.floor); initSight(ARENA); G.proj = []; G.drops = []; G.sched = []; for (const k in FX) FX[k].length = 0;
   const A = ARENA, sp = A.spawn;
-  G.heroes.forEach((h, i) => { h.x = sp.x + (i - (G.heroes.length - 1) / 2) * 16; h.y = sp.y; h.z = 0; h.vx = h.vy = h.kx = h.ky = 0; h.act = null; h.stun = 0; h.iframe = 0; h.dir = -Math.PI / 2; h.path = null; });
-  G.foes = []; for (const r of A.rooms) if (r.kind === 'room' || r.kind === 'end') G.foes.push(...populateRoom(A, r, G.floor));
+  G.heroes.forEach((h, i) => { h.x = sp.x + (i - (G.heroes.length - 1) / 2) * 16; h.y = sp.from; h.enter = { y1: sp.y + i * 4 }; h.z = 0; h.vx = h.vy = h.kx = h.ky = 0; h.act = null; h.stun = 0; h.iframe = 0; h.dir = -Math.PI / 2; h.path = null; });
+  A.army = pickArmy(G.floor); G.foes = []; for (const r of A.rooms) if (r.kind === 'room' || r.kind === 'end') G.foes.push(...populateRoom(A, r, G.floor));
+  G.foes.push(...chestGuards(A, G.floor));
   G.units = G.heroes.concat(G.foes);
   G.phase = 'play'; G.phaseT = 0; G.fade = 1;
-  CAM.x = sp.x; CAM.y = sp.y - 16; CAM.z = exploreZoom();
-  G.card = { t: 0, life: 2.8, a: 'FLOOR ' + G.floor, b: A.name, c: G.floor === 1 ? 'THE WAY DOWN LIES IN THE FARTHEST ROOM' : '' };
+  CAM.x = sp.x; CAM.y = sp.y; CAM.z = exploreZoom();
+  G.card = { t: 0, life: 3.2, a: 'FLOOR ' + G.floor, b: A.name, c: 'HELD BY ' + ARMIES[A.army].name, d: G.floor === 1 ? 'THE WAY DOWN LIES IN THE FARTHEST ROOM' : '' };
   SFX.boom(0.6, 0);
 }
 function updateRun(dt) {

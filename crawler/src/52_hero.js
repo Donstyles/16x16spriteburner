@@ -150,8 +150,11 @@ function placeDrop(p, u) {
   p.x = col + 0.25; p.y = u.y + 0.5; p.z = p.y - rowY - 0.25; // rounds to exactly that pixel
 }
 function canRoll(h) { const a = h.act; return h.stam > 0 && h.stun <= 0 && (!a || a.k === 'charge' || (a.k === 'atk' && a.phase === 'rec') || a.k === 'drink'); }
+// a new floor: the hero walks down out of the stairway into the room, then is yours
+function enterTick(h) { h.vx = 0; h.vy = 26; h.moving = true; h.dir = Math.PI / 2; if (h.y >= h.enter.y1) { h.enter = null; h.vy = 0; h.moving = false; } }
 function heroTick(h, dt) {
   const I = h.inp; if (h.dead) { h.deadT += dt; deathTick(h, dt); I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }
+  if (h.enter) { enterTick(h); I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }
   if (h.iframe > 0) h.iframe -= dt; if (h.riposteT > 0) h.riposteT -= dt; if (h.comboT > 0) h.comboT -= dt;
   if (h.poiseT > 0) h.poiseT -= dt; else h.poise = h.maxPoise; if (h.poiseGuard > 0) h.poiseGuard -= dt;
   if (h.dipT > 0) h.dipT -= dt; if (h.huff) pant(h, dt);

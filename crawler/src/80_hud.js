@@ -45,6 +45,6 @@ function drawHUD() {
   }
   drawControls(c);
   if (G.fade > 0.001) { c.fillStyle = `rgba(4,3,5,${G.fade})`; c.fillRect(0, 0, W, H); }
-  const cd = G.card; if (cd) { const u = cd.t / cd.life, a = u < 0.15 ? u / 0.15 : u > 0.75 ? (1 - u) / 0.25 : 1; c.globalAlpha = a; font(c, 900, clamp(Math.min(W, H) / 5, 34, 84), F_DISP); c.shadowColor = 'rgba(255,140,40,0.8)'; c.shadowBlur = 28; label(c, cd.a, W / 2, H * 0.42, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0; font(c, 500, clamp(Math.min(W, H) / 22, 14, 22), F_HUD); spaced(c, cd.b, W / 2, H * 0.42 + 34, 4, '#c8a870', 'center'); if (cd.c) spaced(c, cd.c, W / 2, H * 0.42 + 58, 3, 'rgba(240,224,192,0.6)', 'center'); c.globalAlpha = 1; }
+  const cd = G.card; if (cd) { const u = cd.t / cd.life, a = u < 0.15 ? u / 0.15 : u > 0.75 ? (1 - u) / 0.25 : 1; c.globalAlpha = a; font(c, 900, clamp(Math.min(W, H) / 5, 34, 84), F_DISP); c.shadowColor = 'rgba(255,140,40,0.8)'; c.shadowBlur = 28; label(c, cd.a, W / 2, H * 0.42, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0; font(c, 500, clamp(Math.min(W, H) / 22, 14, 22), F_HUD); spaced(c, cd.b, W / 2, H * 0.42 + 34, 4, '#c8a870', 'center'); if (cd.c) spaced(c, cd.c, W / 2, H * 0.42 + 58, 3, 'rgba(240,224,192,0.6)', 'center'); if (cd.d) spaced(c, cd.d, W / 2, H * 0.42 + 80, 3, 'rgba(240,224,192,0.45)', 'center'); c.globalAlpha = 1; }
   drawPause(c);
 }

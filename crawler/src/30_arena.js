@@ -110,7 +110,8 @@ function buildArena(floor) {
   // the stairway we came down, in the start room's north wall; the way down waits shut in the end room's
   { const r = A.start, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 12, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 13, (sx + i) * TS, (r.fy0 + 1) * TS); } }
   { const r = A.end, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 14, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 15, (sx + i) * TS, (r.fy0 + 1) * TS); } A.stairs = { x: (sx + 1.5) * TS, y: (r.fy0 + 2) * TS + 2, sx, sy: r.fy0, room: r.i }; }
-  A.spawn = { x: (A.start.ix0 + A.start.ix1 + 1) / 2 * TS, y: (A.start.iy1 - 1) * TS };
+  // the hero comes down the stairway in the start room's north wall and steps out of it into the room
+  A.spawn = { x: (A.start.stairX + 1.5) * TS, y: (A.start.fy0 + 2) * TS + 16, from: (A.start.fy0 + 2) * TS - 14 };
   Object.assign(A, { x0: TS, x1: (A.w - 1) * TS, y0: TS, y1: (A.h - 1) * TS });
   return A;
 }
