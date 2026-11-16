@@ -131,9 +131,8 @@ function furnish(A, r, g) {
   // between the banners, now and then a barred window or a vent in the brick (grey [16..20, 2..3], brown three rows down)
   const wy = th === THEMES.brown ? 3 : 0, WIN = [[16, 2], [16, 3], [17, 3], [18, 3], [19, 2], [19, 3], [20, 3]];
   for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || !chance(0.16)) continue; const [wx, wy0] = pick(WIN); tileAt(g, wx, wy0 + wy, x * TS, (r.fy0 + 1) * TS); used.add(x); }
-  // an inlaid mosaic in the floor of some rooms (grey [16..18, 9], brown [19..21, 9]); a rug at the foot of the stairs
+  // an inlaid mosaic in the floor of some rooms (grey [16..18, 9], brown [19..21, 9])
   if ((r.kind === 'room' || r.kind === 'end') && !r.pool && !r.shrine && chance(0.35)) { const mx = Math.round((r.ix0 + r.ix1) / 2) + randi(-2, 2), my = Math.round((r.iy0 + r.iy1) / 2) + randi(-1, 1); tileAt(g, (th === THEMES.brown ? 19 : 16) + randi(0, 2), 9, mx * TS, my * TS); }
-  if (r.kind === 'start' && r.stairX !== undefined) { const rx = r.stairX + 0.5, ry = r.iy0 + 1, rr = th === THEMES.brown ? 14 : 12; for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) tileAt(g, 22 + i, rr + j, (rx + i) * TS, (ry + j) * TS); }
   const prop = (kind, tx, ty, o = {}) => A.props.push(Object.assign({ kind, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o));
   const free = (x, y, d = 10) => !A.props.some(p => Math.abs(p.x - x) < d && Math.abs(p.y - y) < d);
   if (r.w * r.h >= 100) for (const [tx, ty] of [[r.ix0 + 1, r.iy1 - 1], [r.ix1 - 1, r.iy0 + 1]]) if (!nearDoor(tx, ty)) prop('brazier', tx, ty, { f: randi(0, 3) });
