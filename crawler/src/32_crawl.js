@@ -9,6 +9,7 @@ function clipToWalls(x0, y0, x1, y1, r) {
 }
 // breadth-first search over floor tiles; the path is a list of tile centres, start excluded
 function findPath(x0, y0, x1, y1) {
+  if (!Number.isFinite(x0 + y0 + x1 + y1)) return null; // no real place to go: no path (it would never end)
   const A = ARENA, W = A.w, s = Math.floor(y0 / TS) * W + Math.floor(x0 / TS), g = Math.floor(y1 / TS) * W + Math.floor(x1 / TS);
   if (s === g) return []; const from = new Int32Array(W * A.h).fill(-1); from[s] = s; const q = [s];
   const open = i => A.fl[i] === 1;
@@ -20,7 +21,7 @@ function findPath(x0, y0, x1, y1) {
       from[j] = i; q.push(j);
     }
   }
-  if (from[g] < 0) return null; const out = []; for (let i = g; i !== s; i = from[i]) out.push({ x: (i % W) * TS + 8, y: ((i / W) | 0) * TS + 9 }); return out.reverse();
+  if (!(from[g] >= 0)) return null; const out = []; for (let i = g, n = 0; i !== s && n < W * A.h; i = from[i], n++) out.push({ x: (i % W) * TS + 8, y: ((i / W) | 0) * TS + 9 }); return out.reverse();
 }
 // a straight line between two points crosses no wall (sight, shots, alarms)
 function lineOfSight(x0, y0, x1, y1) {

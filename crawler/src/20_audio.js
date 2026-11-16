@@ -159,6 +159,12 @@ const SFX = {
     for (let i = 0; i < 3; i++) { const f = pick(N); this.tone('sine', f, f, 0.35, 0.05, pan + rand(-0.2, 0.2), i * rand(0.03, 0.07), 0.003); }
     this.noise(this.white, 0.3, 'highpass', 6000, 9000, 0.7, 0.03, pan, 0, 0.02);
   },
+  // the scout's rifle: a bright electric crack sweeping down, with a buzz under it
+  laser(pan = 0) { if (!this.ok('laser', 0.05)) return; this.tone('square', 2400, 380, 0.14, 0.07, pan); this.tone('sawtooth', 1200, 220, 0.12, 0.05, pan, 0.005); this.noise(this.white, 0.05, 'highpass', 4000, 7000, 0.7, 0.12, pan); },
+  // a hex leaving the hand (or striking): a hollow whispering whoosh and a falling, wavering note; soul-fire lower
+  hex(pan = 0, low = false) { if (!this.ok('hex', 0.08)) return; const f = low ? 260 : 420; this.tone('triangle', f, f * 0.55, 0.35, 0.08, pan, 0, 0.03); this.tone('sine', f * 1.5, f * 0.7, 0.3, 0.04, pan, 0.02, 0.03); this.noise(this.white, 0.3, 'bandpass', 900, 2400, 3, 0.07, pan, 0, 0.08); },
+  // digging: a muffled crunch of earth
+  dig(pan = 0) { if (!this.ok('dig', 0.12)) return; this.noise(this.brown, rand(0.08, 0.14), 'lowpass', 700, 180, 0.8, 0.22, pan, 0, 0.01); },
   // a big creature's dying groan: a low rough voice falling away, breath through it
   groan(pan = 0) { if (!this.ok('groan', 0.6)) return; this.tone('sawtooth', 92, 62, 0.75, 0.11, pan, 0, 0.08); this.tone('sawtooth', 138, 92, 0.65, 0.045, pan, 0.02, 0.08); this.noise(this.brown, 0.7, 'bandpass', 420, 240, 2.5, 0.28, pan, 0, 0.06); },
   chest(pan = 0) { if (!this.ok('chest', 0.2)) return; this.noise(this.brown, 0.35, 'bandpass', 380, 220, 4, 0.35, pan, 0, 0.03); this.tone('sawtooth', 140, 90, 0.3, 0.05, pan, 0, 0.05); this.tone('triangle', 1568, 1568, 0.08, 0.1, pan, 0.25); this.tone('triangle', 2349, 2349, 0.16, 0.09, pan, 0.31); },

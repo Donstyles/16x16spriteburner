@@ -155,10 +155,10 @@ function enterTick(h) { h.vx = 0; h.vy = 26; h.moving = true; h.dir = Math.PI / 
 function heroTick(h, dt) {
   const I = h.inp; if (h.dead) { h.deadT += dt; deathTick(h, dt); I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }
   if (h.enter) { enterTick(h); I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }
-  if (h.iframe > 0) h.iframe -= dt; if (h.riposteT > 0) h.riposteT -= dt; if (h.comboT > 0) h.comboT -= dt;
+  if (h.iframe > 0) h.iframe -= dt; if (h.riposteT > 0) h.riposteT -= dt; curseTick(h, dt); if (h.comboT > 0) h.comboT -= dt;
   if (h.poiseT > 0) h.poiseT -= dt; else h.poise = h.maxPoise; if (h.poiseGuard > 0) h.poiseGuard -= dt;
   if (h.dipT > 0) h.dipT -= dt; if (h.huff) pant(h, dt);
-  if (h.stamT > 0) h.stamT -= dt; else if (!(h.act && h.act.k !== 'charge')) h.stam = Math.min(h.maxStam, h.stam + (h.blocking ? 16 : 58) * dt);
+  if (h.stamT > 0) h.stamT -= dt; else if (!(h.act && h.act.k !== 'charge')) h.stam = Math.min(h.maxStam, h.stam + (h.blocking ? 16 : 58) * (h.curseT > 0 ? 0.33 : 1) * dt);
   const want = I.mx || I.my ? Math.atan2(I.my, I.mx) : null;
   h.noise = h.sprint ? 2 : !h.act ? (Math.hypot(I.mx, I.my) > CREEP + 0.05 ? 1 : 0) : h.act.k === 'roll' || h.act.k === 'atk' ? 2 : h.act.k === 'drink' ? 0 : 1;
   h.hush = damp(h.hush || 1, h.noise === 0 && (I.mx || I.my) ? 0.8 : 1, 6, dt); // creeping, the hero shades the lamp
@@ -264,7 +264,8 @@ function breakProp(p) {
   if (p.dead || p.hp > 1e8) return; if (p.kind === 'tchest') { openChest(p); return; } if (p.kind === 'ore') { hitOre(p); return; } p.dead = true; p.solid = false;
   debris(p.x, p.cy, 18, ['#6a4a2a', '#8a6638', '#4a3018', '#a07848'], 140, 180, 2.2); smoke(p.x, p.cy, 4, 'dust', 9, 30, 1.2); SFX.crack(panOf(p.x));
   if (chance(p.kind === 'chest' ? 1 : 0.25)) dropGold(p.x, p.cy, p.kind === 'chest' ? randi(6, 14) : randi(1, 4));
-  const chest = p.kind === 'chest'; if (chance(chest ? 0.25 : 0.1)) dropItem('fish', p.x, p.cy); if (chance(chest ? 0.2 : 0.05)) dropItem('flask', p.x, p.cy);
+  // a fish or a flask in a pot, barrel or crate is a rare find (a little less rare in a small chest); the treasure chests hold them
+  const chest = p.kind === 'chest'; if (chance(chest ? 0.04 : 0.015)) dropItem('fish', p.x, p.cy); else if (chance(chest ? 0.03 : 0.008)) dropItem('flask', p.x, p.cy);
 }
 // An ore rock takes three blows: each one flashes it white (fading back, as a foe does), knocks a chip or two of its own
 // stone off, glints where it has silver or gold, and knocks; the third bursts it into chunks of itself that tumble

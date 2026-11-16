@@ -23,6 +23,8 @@ const PARRY_WINDOW = 0.2;
 // o: { poise, kx, ky, ranged, unblockable, sneak, back, crit }
 function hurt(u, dmg, src, o = {}) {
   if (!u || u.dead) return 0;
+  if (u.team === 'foe' && u.ward && dmg > 0 && wardBreaks(u)) return 0; // an enchanter's ward takes the blow
+  if (u.under) emerge(u, false); // a blow on the mole's mound knocks it up out of the floor
   if (u.iframe > 0) { if (u.team === 'hero' && chance(0.35)) textPop(u.x, u.y, headZ(u) + 1, 'DODGED', 'white', false); return 0; }
   if (u.team === 'hero' && u.blocking && src && !o.unblockable) {
     const a = angTo(u.x, u.y, src.x, src.y);
@@ -52,6 +54,7 @@ function hurt(u, dmg, src, o = {}) {
     if (src && src.team === 'hero' && !o.ranged) { src.gore = Math.min(3, (src.gore || 0) + (u.hp <= 0 ? 1 : 0.3)); src.goreKind = u.def.blood || 'red'; }
   }
   else { debris(u.x, u.y, 4, DUST, 70, 90, 1.4); SFX.hit(panOf(u.x)); } // the gore is off
+  if (u.hp <= 0 && u.team === 'hero' && TEST.on && TEST.god) u.hp = 1; // the creature test room: he cannot die
   if (u.hp <= 0) {
     u.lastBlow = o;
     // overkill: a killing blow that alone does more than half the foe's full health blows one of the bigger foes (never
@@ -102,7 +105,8 @@ function moveActor(u, dt) {
   if (!Number.isFinite(u.vx + u.vy + u.kx + u.ky)) { u.vx = u.vy = u.kx = u.ky = 0; }
   if (Number.isFinite(u.x + u.y)) { u.gx = u.x; u.gy = u.y; } else if (u.gx !== undefined) { u.x = u.gx; u.y = u.gy; }
   if (u.enter) { u.y += u.vy * dt; return; } // stepping out of the stairway, through the wall's face
-  u.x += (u.vx + u.kx) * dt; u.y += (u.vy + u.ky) * dt; const f = Math.exp(-7 * dt); u.kx *= f; u.ky *= f;
+  const gk = u.gaitK === undefined ? 1 : u.gaitK; // a gait's pace (56_gaits): the stumbler's lurch, the crawler's bursts
+  u.x += (u.vx * gk + u.kx) * dt; u.y += (u.vy * gk + u.ky) * dt; const f = Math.exp(-7 * dt); u.kx *= f; u.ky *= f;
   if (!u.fly && (u.z > 0 || u.vz > 0)) { u.vz -= 560 * dt; u.z += u.vz * dt; if (u.z <= 0) { u.z = 0; u.vz = 0; } }
   for (const p of ARENA.props) { if (!p.solid || p.dead) continue; const dx = u.x - p.x, dy = u.y - p.cy, d = Math.hypot(dx, dy), m = u.r + p.r; if (d < m) { const nx = d > 0.01 ? dx / d : 1, ny = d > 0.01 ? dy / d : 0; u.x = p.x + nx * m; u.y = p.cy + ny * m; } }
   tileCollide(u);

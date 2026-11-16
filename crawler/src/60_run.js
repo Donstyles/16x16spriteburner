@@ -16,7 +16,7 @@ function startRun(kit) {
 }
 function startFloor() {
   TEST.on = false;
-  buildArena(G.floor); initSight(ARENA); G.proj = []; G.drops = []; G.sched = []; for (const k in FX) FX[k].length = 0;
+  buildArena(G.floor); initSight(ARENA); G.proj = []; G.hz = []; G.drops = []; G.sched = []; for (const k in FX) FX[k].length = 0;
   const A = ARENA, sp = A.spawn;
   G.heroes.forEach((h, i) => { h.x = sp.x + (i - (G.heroes.length - 1) / 2) * 16; h.y = sp.from; h.enter = { y1: sp.y + i * 4 }; h.z = 0; h.vx = h.vy = h.kx = h.ky = 0; h.act = null; h.stun = 0; h.iframe = 0; h.dir = -Math.PI / 2; h.path = null; });
   A.army = pickArmy(G.floor); G.foes = []; for (const r of A.rooms) if (r.kind === 'room' || r.kind === 'end') G.foes.push(...populateRoom(A, r, G.floor));
@@ -33,12 +33,13 @@ function updateRun(dt) {
   // a unit in hit-stop holds still (its moves pause, a knock-back waits) while everything else carries on
   for (const u of G.units) { if (u.flash > 0) u.flash -= dt; u.held = u.freeze > 0; if (u.held) u.freeze -= dt; else u.anim += dt; }
   for (const h of G.heroes) if (!h.held) heroTick(h, dt);
-  aiPrep(dt); for (const f of G.foes) if (!f.held) foeTick(f, dt);
+  aiPrep(dt); for (const f of G.foes) if (!f.held) { foeTick(f, dt); if (f.gait || GAIT[f.spr]) gaitTick(f, dt); }
   for (const u of G.units) if (!u.dead && !u.held) moveActor(u, dt);
   for (const u of G.units) if (!u.dead) bloodTick(u, dt);
   for (const u of G.units) if (u.fly && !u.dead && !u.held) flyTick(u, dt);
   separate(G.units);
-  updateProj(dt); updateDrops(dt); updateSight(dt);
+  if (TEST.on && TEST.mode === 'creatures') creatureTick(dt);
+  updateProj(dt); updateHazards(dt); updateDrops(dt); updateSight(dt);
   removeIf(G.foes, f => f.dead); removeIf(G.units, u => u.dead && u.team === 'foe');
   if (G.hurtFlash > 0) G.hurtFlash -= dt; if (G.tiredT > 0) G.tiredT -= dt;
   if (G.phase === 'play') {

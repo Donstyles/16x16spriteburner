@@ -154,14 +154,23 @@ function aiPrep(dt) {
 }
 // where a squad member stands: on the squad's bearing at its distance from the hero, the archers spread across it
 function squadSpot(t, bear, R, lat, from) { const ux = Math.cos(bear), uy = Math.sin(bear); let x = t.x + ux * R - uy * lat, y = t.y + uy * R * 0.85 + ux * lat; if (solidAt(x, y) || !boxFree(x, y, 5)) [x, y] = clipToWalls(from.x, from.y, x, y, 5); return [x, y]; }
-function foeTick(f, dt) {
-  if (f.dead) return; if (f.dying) { throesTick(f, dt); return; } if (f.poiseT > 0) f.poiseT -= dt; else f.poise = f.maxPoise; if (f.poiseGuard > 0) f.poiseGuard -= dt;
+// the hero has fallen: those near him lower their weapons, back away a few steps still facing him, and stand watching
+// him die; those further off just stop and look
+function watchDeath(f, h, dt) {
+  const d = dist(f.x, f.y, h.x, h.y); if (f.watchR === undefined) f.watchR = rand(30, 46) * (f.scale || 1);
+  f.act = null; faceTo(f, angTo(f.x, f.y, h.x, h.y));
+  if (d < f.watchR) { const a = angTo(h.x, h.y, f.x, f.y), v = f.def.spd * 0.4; f.vx = damp(f.vx, Math.cos(a) * v, 6, dt); f.vy = damp(f.vy, Math.sin(a) * v * 0.85, 6, dt); f.moving = true; }
+  else { f.vx = damp(f.vx, 0, 6, dt); f.vy = damp(f.vy, 0, 6, dt); f.moving = false; }
+}
+function foeTick(f, dt) { // (a raised skeleton below the floor climbs out of it: z rises to 0)
+  if (f.dead) return; if (f.dying) { throesTick(f, dt); return; } if (f.z < 0 && !f.fly) f.z = Math.min(0, f.z + 22 * dt); if (f.poiseT > 0) f.poiseT -= dt; else f.poise = f.maxPoise; if (f.poiseGuard > 0) f.poiseGuard -= dt;
   if (f.stun > 0) { f.stun -= dt; f.vx = damp(f.vx, 0, 8, dt); f.vy = damp(f.vy, 0, 8, dt); f.moving = false; return; }
   if (f.dummy) { dummyTick(f, dt); return; } // the test room's foes only stand there
   if (!f.aware) { senses(f, dt); if (f.aware) return; idleFoe(f, dt); return; }
   if (f.cdT > 0) f.cdT -= dt;
   if (!f.tgt || f.tgt.dead || (chance(dt * 0.5))) { const n = nearest(f, G.heroes.filter(alive)); if (n) f.tgt = n; }
-  const t = f.tgt; if (!t || t.dead) { f.vx = damp(f.vx, 0, 6, dt); f.vy = damp(f.vy, 0, 6, dt); f.moving = false; return; }
+  const t = f.tgt; if (t && t.dead && t.team === 'hero') { watchDeath(f, t, dt); return; }
+  if (!t || t.dead) { f.vx = damp(f.vx, 0, 6, dt); f.vy = damp(f.vy, 0, 6, dt); f.moving = false; return; }
   if (f.act) { foeAct(f, t, dt); return; }
   const d = dist(f.x, f.y, t.x, t.y), sees = lineOfSight(f.x, f.y - 4, t.x, t.y - 4);
   if (sees) { f.lastX = t.x; f.lastY = t.y; f.lostT = 0; } else f.lostT += dt;
@@ -170,7 +179,7 @@ function foeTick(f, dt) {
   if (role === 'archer') archerMind(f, t, dt, d, sees); else if (role === 'tank') tankMind(f, t, dt, d, sees); else if (role === 'flank') flankMind(f, t, dt, d, sees); else rushMind(f, t, dt, d, sees);
 }
 // after the hero: straight at him while he is seen (or close enough to be heard), else to where he was last seen
-function chase(f, t, spd, dt, stopAt) { if (f.lostT < 0.6 || dist(f.x, f.y, t.x, t.y) < 90) return pathTo(f, t.x, t.y, spd, dt, stopAt); return pathTo(f, f.lastX, f.lastY, spd * 0.8, dt, 4); }
+function chase(f, t, spd, dt, stopAt) { if (f.lostT < 0.6 || dist(f.x, f.y, t.x, t.y) < 90) return pathTo(f, t.x, t.y, spd, dt, stopAt); return pathTo(f, f.lastX === undefined ? t.x : f.lastX, f.lastY === undefined ? t.y : f.lastY, spd * 0.8, dt, 4); }
 function startFoeAtk(f, mv, t) { f.act = { k: 'atk', mv, t: 0, phase: 'wind', dir: angTo(f.x, f.y, t.x, t.y), hit: new Set() }; f.vx = f.vy = 0; f.moving = false; if (mv.wind >= 0.8) SFX.charge && SFX.charge(); }
 function holdStill(f, dt) { f.vx = damp(f.vx, 0, 10, dt); f.vy = damp(f.vy, 0, 10, dt); f.moving = false; }
 function rushMind(f, t, dt, d, sees) {
@@ -199,6 +208,7 @@ function archerMind(f, t, dt, d, sees) {
   const T = f.def, spd = T.spd, q = f.sq, me = angTo(t.x, t.y, f.x, f.y); let gx = null, gy = null, round = 0;
   if (q) { const lat = (q.i - (q.n - 1) / 2) * SQUAD.gap + f.jit2 * 6 + Math.sin(G.time * 0.6 + f.id) * 3 + (f.shift || 0); [gx, gy] = squadSpot(t, q.bear, SQUAD.archer + f.jit * 8, lat, q.tank); const off = angDiff(me, q.bear); if (Math.abs(off) > 0.7) round = Math.sign(off); }
   faceTo(f, angTo(f.x, f.y, t.x, t.y));
+  if (castOf(f) && castMind(f, t, dt, d, sees)) return; // raising the dead, tending her own
   const turn = !q || G.time >= (q.tank.volleyT || 0);
   if (f.cdT <= 0 && sees && d >= T.keep[0] * 0.8 && d < T.keep[1] + 40 && turn) {
     if (clearShot(f, t)) { f.act = { k: 'aim', t: 0, dur: T.shot.aim, dir: angTo(f.x, f.y, t.x, t.y) }; if (q) q.tank.volleyT = G.time + SQUAD.volley + T.shot.aim * 0.5; holdStill(f, dt); return; }
@@ -234,6 +244,7 @@ function idleFoe(f, dt) {
 }
 function foeAct(f, t, dt) {
   const a = f.act; a.t += dt;
+  if (a.k === 'cast') { castTick(f, a, dt); return; }
   if (a.k === 'aim') {
     f.vx = damp(f.vx, 0, 12, dt); f.vy = damp(f.vy, 0, 12, dt); f.moving = false;
     // aiming a little ahead of a moving hero
@@ -282,23 +293,26 @@ function clearShot(f, t) {
   for (let s = 0; s < L; s += 3) if (pillarAt(sx + Math.cos(a) * s, sy + Math.sin(a) * s * 0.85, 7)) return false; return true;
 }
 function shoot(f, dir) {
+  if (castShot(f, dir)) return; // a caster's spell, or the scout's rifle (55_spells)
   const S = f.def.shot, stone = STONE_SHOT[f.spr]; SFX.whoosh(panOf(f.x));
   G.proj.push({ k: stone ? 'stone' : 'arrow', x: f.x + Math.cos(dir) * 6, y: f.y - 2 + Math.sin(dir) * 4, z: 7, vx: Math.cos(dir) * S.spd, vy: Math.sin(dir) * S.spd * 0.85, team: 'foe', dmg: f.def.dmg * f.dmgMul, src: f, life: 1.6, r: 2 });
 }
 function updateProj(dt) {
   for (const p of G.proj) {
+    if ((p.spell || p.k === 'flask') && spellStep(p, dt)) continue;
     p.life -= dt; const ox = p.x, oy = p.y; p.x += p.vx * dt; p.y += p.vy * dt;
-    const pl = pillarAt(p.x, p.y, p.z); if (solidAt(p.x, p.y) || p.life <= 0 || pl) { p.dead = true; sparks(ox, oy, p.z, 3, 'white', 60, 40); if (pl) SFX.clang(panOf(p.x)); continue; }
+    const pl = pillarAt(p.x, p.y, p.z); if (solidAt(p.x, p.y) || p.life <= 0 || pl) { p.dead = true; if (p.spell) { p.x = ox; p.y = oy; spellEnd(p); } else sparks(ox, oy, p.z, 3, 'white', 60, 40); if (pl) SFX.clang(panOf(p.x)); continue; }
     const foes = p.team === 'foe' ? G.heroes : G.foes;
     for (const u of foes) {
       if (u.dead || dist(u.x, u.y, p.x, p.y) > u.r + p.r + 2) continue;
       if (u.iframe > 0) continue;
-      if (u.team === 'hero' && u.blocking && u.blockT < PARRY_WINDOW && Math.abs(angDiff(u.dir, Math.atan2(-p.vy, -p.vx))) < 1.25) { // a parried arrow flies back where it came from
+      if (p.k === 'wave') { if (p.hit.has(u)) continue; p.hit.add(u); hurt(u, p.dmg, u.team === 'hero' ? { x: p.x - p.vx * 0.2, y: p.y - p.vy * 0.2, team: p.team, def: {} } : p.src, { ranged: true, poise: 30, ang: Math.atan2(p.vy, p.vx), style: 'jet' }); spellHit(p, u); continue; } // a wave rolls on through
+      if (u.team === 'hero' && u.blocking && u.blockT < PARRY_WINDOW && !p.nopar && Math.abs(angDiff(u.dir, Math.atan2(-p.vy, -p.vx))) < 1.25) { // a parried arrow flies back where it came from
         const s = p.src && !p.src.dead ? angTo(p.x, p.y, p.src.x, p.src.y) : Math.atan2(-p.vy, -p.vx), v = Math.hypot(p.vx, p.vy) * 1.2; p.vx = Math.cos(s) * v; p.vy = Math.sin(s) * v * 0.85; p.team = 'hero'; p.dmg *= 2.5; p.life = 1.2; p.src = u;
         sparks(p.x, p.y, 7, 12, 'gold', 160, 80); SFX.clang(panOf(p.x)); textPop(u.x, u.y, headZ(u) + 3, 'DEFLECTED', 'gold', false); freeze(u, 0.06); break;
       }
       const from = { x: p.x - p.vx * 0.2, y: p.y - p.vy * 0.2, team: p.team, def: {} };
-      hurt(u, p.dmg, u.team === 'hero' ? from : p.src, { ranged: true, poise: 12, kx: p.vx * 0.3, ky: p.vy * 0.3, ang: Math.atan2(p.vy, p.vx), style: 'jet' }); p.dead = true; break;
+      hurt(u, p.dmg, u.team === 'hero' ? from : p.src, { ranged: true, poise: 12, kx: p.vx * 0.3, ky: p.vy * 0.3, ang: Math.atan2(p.vy, p.vx), style: 'jet' }); if (p.spell) spellHit(p, u); p.dead = true; break;
     }
   }
   removeIf(G.proj, p => p.dead);

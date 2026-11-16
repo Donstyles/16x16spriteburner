@@ -9,6 +9,45 @@ function bar(c, x, y, w, h, f, trailKey, col, back = 'rgba(0,0,0,0.6)') {
   const T = UI[trailKey] = UI[trailKey] === undefined ? f : (UI[trailKey] > f ? Math.max(f, UI[trailKey] - 0.5 / 60) : f);
   c.fillStyle = back; c.fillRect(x - 1, y - 1, w + 2, h + 2); c.fillStyle = 'rgba(255,255,255,0.75)'; c.fillRect(x, y, w * T, h); c.fillStyle = col; c.fillRect(x, y, w * f, h);
 }
+// The hero's panel (top left): his portrait in a little lamp-lit frame, alive and breathing (his own sprite, moving in
+// its idle frames), his name beside it in the display face, and under that his health and stamina as bevelled bars
+// with notches (every 25 health), the part just lost lingering pale before it drains, and his flasks as the flask from
+// the item sheet, full or empty. Low on health the frame and the bar beat red with his heart; cursed, the stamina bar
+// turns violet; out of breath, it flashes.
+function drawHeroPanel(c, h, L, T, W) {
+  const bw = Math.round(clamp(W * 0.24, 130, 220)), P = 40, x0 = L + P + 7, low = h.hp < h.maxHp * 0.3 && !h.dead, beat = low ? 0.5 + 0.5 * Math.sin(G.time * 7.5) : 0;
+  // the portrait
+  c.fillStyle = 'rgba(10,8,12,0.78)'; c.fillRect(L, T, P, P);
+  const g = c.createRadialGradient(L + P / 2, T + P * 0.62, 2, L + P / 2, T + P * 0.62, P * 0.6); g.addColorStop(0, h.dead ? 'rgba(120,20,20,0.5)' : 'rgba(255,170,80,0.38)'); g.addColorStop(1, 'rgba(255,170,80,0)'); c.fillStyle = g; c.fillRect(L, T, P, P);
+  const m = MOBS[h.spr]; if (m) { const fr = h.dead ? 0 : ((G.time * 4) | 0) % 4, fw = m[1], fh = m[2], sc = 2; c.imageSmoothingEnabled = false; c.globalAlpha = h.dead ? 0.45 : 1; c.drawImage(IMG.mobs, fr * fw, m[0], fw, fh, Math.round(L + P / 2 - fw * sc / 2), Math.round(T + P - 4 - fh * sc), fw * sc, fh * sc); c.globalAlpha = 1; }
+  c.strokeStyle = low ? `rgba(255,${Math.round(70 + 80 * (1 - beat))},60,${0.7 + 0.3 * beat})` : '#7a6040'; c.lineWidth = 1; c.strokeRect(L + 0.5, T + 0.5, P - 1, P - 1);
+  c.strokeStyle = 'rgba(0,0,0,0.7)'; c.strokeRect(L + 1.5, T + 1.5, P - 3, P - 3);
+  c.fillStyle = '#c8a060'; for (const [cx, cy] of [[L, T], [L + P - 2, T], [L, T + P - 2], [L + P - 2, T + P - 2]]) c.fillRect(cx, cy, 2, 2); // the frame's corner studs
+  // the name
+  font(c, 900, 18, F_DISP); label(c, KITS[h.kit].name, x0, T + 13, '#f8ecd6', { stroke: 3 });
+  // health
+  hudBar(c, x0, T + 18, bw, 10, h.hp / h.maxHp, 'hpT', low ? [`rgb(255,${Math.round(110 + 60 * beat)},90)`, '#d0302a', '#6a0e10'] : ['#ff6a50', '#c8302a', '#6e1214'], Math.max(1, Math.floor(h.maxHp / 25)));
+  font(c, 600, 12, F_HUD); label(c, Math.max(0, Math.ceil(h.hp)) + ' / ' + h.maxHp, x0 + bw - 3, T + 26.5, 'rgba(255,244,228,0.92)', { align: 'right', stroke: 3 });
+  // stamina
+  const tired = G.tiredT > 0 || h.huff, cursed = h.curseT > 0, flick = tired && ((G.time * 8) | 0) % 2;
+  hudBar(c, x0, T + 31, Math.round(bw * 0.85), 5, h.stam / h.maxStam, 'stT', cursed ? ['#e0b0ff', '#a050e0', '#4a1a70'] : flick ? ['#ffb070', '#e06030', '#6a2010'] : ['#e8f080', '#9ad85a', '#3e6a20'], 0);
+  if (tired) { font(c, 600, 12, F_HUD); label(c, h.huff ? 'WINDED' : 'OUT OF STAMINA', x0 + Math.round(bw * 0.85) + 6, T + 37, '#f0e0c0', { stroke: 3 }); }
+  else if (cursed) { font(c, 600, 12, F_HUD); label(c, 'CURSED', x0 + Math.round(bw * 0.85) + 6, T + 37, '#e0b0ff', { stroke: 3 }); }
+  // flasks
+  c.imageSmoothingEnabled = false;
+  for (let i = 0; i < h.maxFlasks; i++) { const fx = x0 + i * 15, fy = T + 41, full = i < h.flasks; c.globalAlpha = full ? 1 : 0.22; c.drawImage(IMG.items, 21, 3, 6, 9, fx, fy, 12, 18); } // the flask from the item sheet, at twice its size
+  c.globalAlpha = 1;
+}
+// a bevelled bar: a dark frame, the fill shaded top to bottom with a gloss along its top, the part just lost lingering pale
+// before it drains, notches (n of them) across it
+function hudBar(c, x, y, w, h, f, trailKey, cols, n) {
+  f = clamp(f, 0, 1); const T = UI[trailKey] = UI[trailKey] === undefined ? f : (UI[trailKey] > f ? Math.max(f, UI[trailKey] - 0.45 / 60) : f);
+  c.fillStyle = 'rgba(0,0,0,0.75)'; c.fillRect(x - 2, y - 2, w + 4, h + 4); c.fillStyle = '#5a4630'; c.fillRect(x - 1, y - 1, w + 2, 1); c.fillRect(x - 1, y + h, w + 2, 1); c.fillRect(x - 1, y, 1, h); c.fillRect(x + w, y, 1, h);
+  c.fillStyle = '#1a1214'; c.fillRect(x, y, w, h);
+  c.fillStyle = 'rgba(255,236,210,0.85)'; c.fillRect(x, y, Math.round(w * T), h);
+  const fw = Math.round(w * f); if (fw > 0) { const gr = c.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, cols[0]); gr.addColorStop(0.45, cols[1]); gr.addColorStop(1, cols[2]); c.fillStyle = gr; c.fillRect(x, y, fw, h); c.fillStyle = 'rgba(255,255,255,0.28)'; c.fillRect(x, y, fw, Math.max(1, Math.round(h * 0.22))); c.fillStyle = 'rgba(255,255,255,0.55)'; c.fillRect(x + fw - 1, y, 1, h); }
+  c.fillStyle = 'rgba(0,0,0,0.45)'; for (let i = 1; i < n; i++) c.fillRect(Math.round(x + w * i / n), y, 1, h);
+}
 function drawHUD() {
   const c = ctx, d = VIEW.dpr, W = VIEW.w, H = VIEW.h, S = VIEW.safe, L = Math.max(12, S.l + 10), R = W - Math.max(12, S.r + 10), T = Math.max(10, S.t + 8);
   c.setTransform(d, 0, 0, d, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
@@ -21,15 +60,7 @@ function drawHUD() {
   // a hit lands: the edges flush red
   if (G.hurtFlash > 0) { const g = c.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.66); g.addColorStop(0, 'rgba(150,0,0,0)'); g.addColorStop(1, `rgba(180,10,10,${G.hurtFlash})`); c.fillStyle = g; c.fillRect(0, 0, W, H); }
   const h = G.me;
-  if (h) {
-    const bw = clamp(W * 0.26, 140, 240);
-    font(c, 900, 18, F_DISP); label(c, KITS[h.kit].name, L, T + 14, '#f8ecd6', { stroke: 3 });
-    bar(c, L, T + 22, bw, 7, clamp(h.hp / h.maxHp, 0, 1), 'hpT', h.hp < h.maxHp * 0.3 ? '#ff4a3a' : '#d8443a');
-    bar(c, L, T + 33, bw * 0.8, 4, clamp(h.stam / h.maxStam, 0, 1), 'stT', '#9ad85a');
-    font(c, 500, 13, F_HUD); label(c, Math.ceil(h.hp) + ' / ' + h.maxHp, L + bw + 6, T + 29, 'rgba(240,224,192,0.8)', { stroke: 3 });
-    for (let i = 0; i < h.maxFlasks; i++) { const x = L + i * 11, y = T + 43, full = i < h.flasks; c.fillStyle = 'rgba(0,0,0,0.55)'; c.fillRect(x - 1, y - 1, 9, 12); c.fillStyle = full ? '#3fbf6a' : '#2a2420'; c.fillRect(x + 1, y + 3, 5, 7); c.fillStyle = full ? '#bfffd0' : '#3a3430'; c.fillRect(x + 2, y, 3, 3); }
-    if (G.tiredT > 0 || h.huff) { font(c, 600, 13, F_HUD); label(c, h.huff ? 'WINDED' : 'OUT OF STAMINA', L + bw * 0.8 + 6, T + 38, '#f0e0c0', { stroke: 3 }); }
-  }
+  if (h) drawHeroPanel(c, h, L, T, W);
   // gold, the floor, the map (top right, under the menu button)
   const mb = btnLayout().menu, my = mb.y + mb.r + 10;
   font(c, 600, 15, F_HUD); label(c, G.gold + ' GOLD', mb.x - mb.r - 10, T + 14, '#ffd860', { align: 'right', stroke: 3 });
