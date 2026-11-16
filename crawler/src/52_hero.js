@@ -3,6 +3,7 @@
 // phone drives a hero exactly like the local one does. Every move costs stamina. An attack winds up, strikes, then
 // recovers; pressing again during it chains the next blow of the weapon's combo, and only the recovery can be cut short
 // by a roll. Holding attack charges the weapon's heavy blow. A roll is quick and untouchable for most of its length.
+// A roll pressed mid-swing is kept and goes as the swing's recovery begins; holding block cuts the recovery short.
 // Block soaks blows at the price of stamina; raised just as a blow lands it parries, leaving the attacker open.
 const KITS = {
   sellsword: { name: 'SELLSWORD', spr: 'VeteranSwordsman', hp: 100, spd: 62, weapon: 'sword', off: 'shield', blurb: 'SWORD AND SHIELD · STEADY COMBOS, A SOLID GUARD' },
@@ -169,7 +170,9 @@ function heroTick(h, dt) {
   h.hush = damp(h.hush || 1, h.noise === 0 && (I.mx || I.my) ? 0.8 : 1, 6, dt); // creeping, the hero shades the lamp
   if (h.stun > 0) { h.stun -= dt; h.vx = damp(h.vx, 0, 8, dt); h.vy = damp(h.vy, 0, 8, dt); h.moving = false; h.pressT = -1; h.chainHold = false; I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }
   const a = h.act;
-  if (I.dodgeP) { I.dodgeP = false; if (canRoll(h)) { startRoll(h, want); I.atkP = I.atkR = false; h.pressT = -1; h.chainHold = false; return; } else if (h.stam <= 0) G.tiredT = 0.6; }
+  // a roll pressed in the middle of a swing is kept a moment, and goes the instant the swing's recovery lets it
+  if (h.rollBufT > 0) { h.rollBufT -= dt; if (canRoll(h)) { h.rollBufT = 0; startRoll(h, want); I.atkP = I.atkR = false; h.pressT = -1; h.chainHold = false; return; } }
+  if (I.dodgeP) { I.dodgeP = false; if (canRoll(h)) { startRoll(h, want); I.atkP = I.atkR = false; h.pressT = -1; h.chainHold = false; return; } else if (h.stam <= 0) G.tiredT = 0.6; else if (h.act && h.act.k === 'atk') h.rollBufT = 0.4; }
   if (a) { if (a.k === 'atk' && I.atkP) a.buf = true; I.atkP = false; actTick(h, a, dt, I, want); I.itemP = false; return; }
   // free: walk, raise the shield, start an attack, drink
   if (I.itemP) { I.itemP = false; if (h.flasks > 0) { h.act = { k: 'drink', t: 0, dur: 0.85, done: false }; h.blocking = false; return; } else textPop(h.x, h.y, headZ(h) + 2, 'NO FLASKS', 'red', false); }
@@ -241,6 +244,7 @@ function actTick(h, a, dt, I, want) {
   if (a.phase === 'rec') {
     h.vx = damp(h.vx, 0, 14, dt); h.vy = damp(h.vy, 0, 14, dt); h.moving = false;
     const heavy = mv === weaponOf(h).heavy;
+    if (I.block && h.stam > 0 && a.t >= s + Math.min(0.06, mv.rec * 0.3)) { h.act = null; return; } // holding block cuts the recovery short, into the guard
     if (a.buf && !heavy && a.t >= s + Math.min(0.08, mv.rec * 0.4)) { h.act = null; if (I.atk) { I.atkR = false; h.pressT = 0; h.chainHold = true; return; } lightAttack(h, want, true); return; } // (still held: it may be a charge, not the next blow)
     if (a.t >= e) { h.act = null; if (heavy) { h.combo = 0; h.comboT = 0; } else h.comboT = 0.35; }
   }
