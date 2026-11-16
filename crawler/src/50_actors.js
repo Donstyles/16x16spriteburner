@@ -53,7 +53,7 @@ function hurt(u, dmg, src, o = {}) {
   }
   else { debris(u.x, u.y, 4, DRY.has(u.def.blood) ? bl : DUST, 70, 90, 1.4); SFX.hit(panOf(u.x)); }
   if (u.hp <= 0) {
-    u.lastBlow = o; u.overkill = d - before;
+    u.lastBlow = o;
     // overkill: a killing blow that alone does more than half the foe's full health blows one of the bigger foes (never
     // the trash) apart, whatever it had left (a 51 blow on a foe at 1 of 100 does it)
     if (GORE.level === 2 && u.team === 'foe' && u.def.role !== 'rush' && bleeds(u) && d > 0.5 * u.maxHp) { u.gib = true; if (src) { freeze(src, GIB_HOLD); if (src.gore !== undefined) src.gore = Math.min(3, src.gore + 0.5); } }

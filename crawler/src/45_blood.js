@@ -187,12 +187,13 @@ function gibBurst(u) {
 // --- the hero's death. The killing blow throws a heavy spray; he reels, his weapon flies out of his hand and clatters
 // across the floor, he drops to his knees (the upper body a pixel, then two, lower) and falls flat on his back away
 // from whoever killed him. Then he bleeds out: a jet of blood with each heartbeat, weaker each time, the beat slowing,
-// the pool under him spreading. A killing blow far past what he had left (with gore at FULL) bursts him apart instead.
+// the pool under him spreading. Killed by a heavy, long-telegraphed blow (a brute's slam; any attack that is a slam or
+// winds up 0.8 s or more), with gore at FULL, he is blown apart instead.
 function heroFalls(h) {
   const o = h.lastBlow || {}; if (o.ang !== undefined) h.face = Math.cos(o.ang) < 0 ? 1 : -1; // facing his killer, he falls back away
   h.deadT = 0; h.gone = false; h.dropped = false;
   if (bleeds(h)) { spray(h, 60, { ...o, more: 2.2, spd: 1.2 }); SFX.squelch(panOf(h.x), true); }
-  if (GORE.level === 2 && (h.overkill || 0) >= 0.18 * h.maxHp) heroBurst(h, o);
+  if (GORE.level === 2 && o.big) heroBurst(h, o); // killed by a heavy, long-telegraphed blow (a brute's slam): blown apart
 }
 function deathPose(u) {
   if (u.gone) return { gone: true }; const t = u.deadT || 0;
