@@ -1,6 +1,6 @@
 // ===================== FX engine: particles, lightning, shockwaves, cracks, light, shake =====================
 const Q = { pmax: 2600, bloom: 1, res: 1 };
-const FX = { emit: [], wet: [], P: [], bolts: [], rings: [], arcs: [], cracks: [], beams: [], lights: [], flights: [], nums: [], tele: [], columns: [], circles: [], ghosts: [], hz: [], rocks: [] };
+const FX = { emit: [], wet: [], P: [], bolts: [], rings: [], arcs: [], cracks: [], beams: [], lights: [], flights: [], nums: [], tele: [], columns: [], circles: [], ghosts: [], hz: [], rocks: [], wake: [] };
 function part(o) {
   if (FX.P.length >= Q.pmax) return null;
   const p = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, g: 0, drag: 0, t: 0, life: 1, s0: 2, s1: 0, a0: 1, a1: 0, col: 'white', k: 'glow', bounce: 0, rot: 0, vr: 0 };
@@ -122,7 +122,7 @@ function updateFx(dt) {
     if (ARENA) for (const s of c.segs) if (!s.p && c.t >= s.t0) { s.p = true; groundPaint(Math.min(s.x0, s.x1) - 3, Math.min(s.y0, s.y1) - 3, Math.max(s.x0, s.x1) + 3, Math.max(s.y0, s.y1) + 3, g => { g.strokeStyle = 'rgba(6,4,4,0.9)'; g.lineWidth = s.w + 0.6; g.lineCap = 'round'; g.beginPath(); g.moveTo(s.x0, s.y0); g.lineTo(s.x1, s.y1); g.stroke(); g.strokeStyle = 'rgba(255,230,190,0.18)'; g.lineWidth = 0.6; g.beginPath(); g.moveTo(s.x0 + 0.8, s.y0 + 0.8); g.lineTo(s.x1 + 0.8, s.y1 + 0.8); g.stroke(); }); if (chance(0.08)) { smoke(s.x1, s.y1, 1, 'dust', 8, 6, 1, 8); } }
   }
   removeIf(FX.cracks, c => c.t >= c.life);
-  updateRocks(dt); updateBlood();
+  updateRocks(dt); updateBlood(); updateWake(dt);
 }
 // --- chunks: a sprite broken into pieces made of its own pixels, flung out, tumbling a quarter turn at a time (so the
 // pixels stay whole), bouncing off the floor and the walls. Stone is left on the floor as rubble; flesh bleeds as it

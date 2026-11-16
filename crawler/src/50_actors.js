@@ -24,7 +24,7 @@ const PARRY_WINDOW = 0.2;
 function hurt(u, dmg, src, o = {}) {
   if (!u || u.dead) return 0;
   if (u.team === 'foe' && u.ward && dmg > 0 && wardBreaks(u)) return 0; // an enchanter's ward takes the blow
-  if (u.under) emerge(u, false); // a blow on the mole's mound knocks it up out of the floor
+  if (u.under) return 0; // a mole under the floor is out of reach
   if (u.iframe > 0) { if (u.team === 'hero' && chance(0.35)) textPop(u.x, u.y, headZ(u) + 1, 'DODGED', 'white', false); return 0; }
   if (u.team === 'hero' && u.blocking && src && !o.unblockable) {
     const a = angTo(u.x, u.y, src.x, src.y);
@@ -81,7 +81,7 @@ function stagger(u, t) {
 }
 function kill(u, src) {
   u.dead = true; u.hp = 0; u.act = null; u.stun = 0;
-  if (u.team === 'foe') { G.kills++; deathFx(u); dropLoot(u); if (u.dummy) dummyDied(u); if (src && src.team === 'hero') src.killsT = (src.killsT || 0) + 1; }
+  if (u.team === 'foe') { if (!u.raisedBy) G.kills++; deathFx(u); if (!u.raisedBy) dropLoot(u); if (u.dummy) dummyDied(u); if (src && src.team === 'hero' && !u.raisedBy) src.killsT = (src.killsT || 0) + 1; } // the necromancer's raised dead are worth nothing
   else { heroFalls(u); smoke(u.x, u.y, 6, 'dark', 10, 20, 1.4); flashLight(u.x, u.y, 60, 'red', 1, 0.6); textPop(u.x, u.y, headZ(u) + 3, (u.pname || u.def.name) + ' FALLS', 'red'); SFX.boom(0.5, panOf(u.x)); shake(0.4); slowmo(0.3, 1.4); }
 }
 const BLOOD = { red: ['#7a0c14', '#a01420', '#5a0810'], bone: ['#cfc6b0', '#a49a84', '#7a705e'], stone: ['#9b9c9b', '#6e6e6e', '#625353'], water: ['#8cc8f0', '#5a9ad0', '#bfe4ff'], wood: ['#7a5230', '#5a3a1e', '#b08a58'], dust: ['#ffd6f5', '#c8f0ff', '#fff4b0'], slime: ['#3a8a30', '#60c040', '#2a5a20'], straw: ['#c8a040', '#e0c060', '#8a6a20'], bug: ['#7c8c1c', '#a6b630', '#4c5810'], sludge: ['#2a2219', '#40352a', '#120e0b'] }; // bug: green-yellow ichor; sludge: what the crypt dead have left

@@ -249,7 +249,7 @@ function strikeStart(h, a) {
 function strikeHits(h, a) {
   const mv = a.mv, W = weaponOf(h), ox = mv.k === 'circle' && mv.at ? Math.cos(a.dir) * mv.at : 0, oy = mv.k === 'circle' && mv.at ? Math.sin(a.dir) * mv.at * 0.85 : 0, src = { x: h.x + ox, y: h.y + oy };
   for (const f of G.foes) {
-    if (f.dead || a.hit.has(f) || !hitsShape(src, f, mv, a.dir)) continue; if (!lineOfSight(h.x, h.y - 4, f.x, f.y - 4)) continue;
+    if (f.dead || f.under || a.hit.has(f) || !hitsShape(src, f, mv, a.dir)) continue; if (!lineOfSight(h.x, h.y - 4, f.x, f.y - 4)) continue;
     a.hit.add(f); let crit = 1, o = {};
     if (!f.aware) { crit = 2.5 * (W.back || 1); o.sneak = true; }
     else if (Math.abs(angDiff(f.dir, angTo(f.x, f.y, h.x, h.y))) > 2.1) { crit = 1.5 * (W.back || 1); o.back = true; }

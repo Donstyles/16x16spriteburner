@@ -67,7 +67,7 @@ function drawDust(c, p) { // in the glow layer: a bright point that twinkles, no
   const left = p.life - p.t, tw = 0.5 + 0.5 * Math.sin(p.t * 18 + p.ph), a = Math.min(1, left / 0.8) * (0.35 + 0.65 * tw), x = Math.round(p.x), y = Math.round(p.y - p.z);
   c.globalAlpha = a; c.fillStyle = p.col; c.fillRect(x, y, 1, 1); if (tw > 0.92 && left > 0.5) { c.globalAlpha = a * 0.6; c.fillRect(x - 1, y, 1, 1); c.fillRect(x + 1, y, 1, 1); c.fillRect(x, y - 1, 1, 1); c.fillRect(x, y + 1, 1, 1); }
 }
-function dustTrail(u, dt) { if ((u.dustT = (u.dustT || 0) - dt) > 0) return; u.dustT = rand(0.06, 0.16); pixieDust(u.x + rand(-3, 3), u.y + rand(-1, 1), (u.z || 0) + rand(4, 9), rand(-6, 6), rand(-4, 4), rand(-4, 4)); }
+function dustTrail(u, dt) { if ((u.dustT = (u.dustT || 0) - dt) > 0) return; u.dustT = rand(0.09, 0.22); pixieDust(u.x + rand(-3, 3), u.y + rand(-1, 1), (u.z || 0) + rand(4, 9), rand(-6, 6), rand(-4, 4), rand(-4, 4)); }
 
 // --- the blows, the deaths, the throes of these three (called from 46_bits)
 function shedElement(u, d, o, k, a0, way, z0, pan) {
@@ -78,9 +78,9 @@ function shedElement(u, d, o, k, a0, way, z0, pan) {
   } else if (kind === 'wood') {
     const cols = WOOD; for (let i = 0, n = Math.min(40, Math.round(7 * k)); i < n; i++) { const a = way(), v = rand(S.v[0], S.v[1]); chip(u.x + rand(-2, 2), u.y + rand(-1, 1), z0 + rand(-3, 4), Math.cos(a) * v, Math.sin(a) * v * 0.8, rand(S.up[0], S.up[1]) + 20, pick(cols), o.slow); }
     for (let i = 0, n = Math.min(40, Math.round(6 * k)); i < n; i++) { const a = way(), v = rand(S.v[0], S.v[1]) * 0.7; hay(u.x + rand(-4, 4), u.y + rand(-1, 1), z0 + 8 * sc + rand(-3, 4), Math.cos(a) * v, Math.sin(a) * v * 0.8, rand(40, 120), o.slow, LEAF, 2); }
-    if (!o.quiet) { if (d >= 18 && chance(0.5)) twig(u, a0, { slow: o.slow }); SFX.wood(pan, d >= 30); }
+    if (!o.quiet) { if (chance(d >= 18 ? 0.85 : 0.55)) twig(u, a0, { slow: o.slow }); if (d >= 30 && chance(0.5)) twig(u, a0, { slow: o.slow }); SFX.wood(pan, d >= 30); }
   } else { // pixie dust
-    for (let i = 0, n = Math.min(60, Math.round(16 * k)); i < n; i++) { const a = way(), v = rand(20, 70); pixieDust(u.x + rand(-2, 2), u.y + rand(-1, 1), z0 + rand(-2, 3), Math.cos(a) * v, Math.sin(a) * v * 0.8, rand(10, 50)); }
+    for (let i = 0, n = Math.min(45, Math.round(11 * k)); i < n; i++) { const a = way(), v = rand(20, 70); pixieDust(u.x + rand(-2, 2), u.y + rand(-1, 1), z0 + rand(-2, 3), Math.cos(a) * v, Math.sin(a) * v * 0.8, rand(10, 50)); }
     if (!o.quiet) SFX.chime(pan);
   }
 }
@@ -88,7 +88,7 @@ function remainsElement(u, o, pan) {
   const kind = u.def.blood, sc = u.scale || 1;
   if (kind === 'water') { splash(u.x, u.y, 8 * sc, 70, { spd: 1.2, mist: 4 }); puddle(u.x, u.y, 13 * sc, 22); smoke(u.x, u.y, 5, 'breath', 12, 26, 1.2, 14); SFX.splash(pan, true); }
   else if (kind === 'wood') { shedElement(u, 50, { ...o, more: 2, quiet: true }, 4, o.ang, () => rand(TAU), 8 * sc, pan); for (let i = 0; i < 3; i++) tossBit('log', u.x, u.y, { v: rand(20, 60), up: rand(40, 90), z: rand(6, 16) * sc, flat: true, tick: true }); twig(u, null); SFX.wood(pan, true); }
-  else { for (let i = 0; i < 70; i++) { const a = rand(TAU), v = rand(10, 80); pixieDust(u.x, u.y, (u.z || 0) + 6, Math.cos(a) * v, Math.sin(a) * v * 0.8, rand(-10, 60)); } flashLight(u.x, u.y, 30, 'arcane', 0.6, 0.3); SFX.chime(pan); SFX.chime(pan); }
+  else { for (let i = 0; i < 50; i++) { const a = rand(TAU), v = rand(10, 80); pixieDust(u.x, u.y, (u.z || 0) + 6, Math.cos(a) * v, Math.sin(a) * v * 0.8, rand(-10, 60)); } flashLight(u.x, u.y, 30, 'arcane', 0.6, 0.3); SFX.chime(pan); SFX.chime(pan); }
 }
 function throesElement(f, k) {
   const kind = f.def.blood, sc = f.scale || 1;

@@ -194,8 +194,15 @@ function tankMind(f, t, dt, d, sees) {
   faceTo(f, angTo(f.x, f.y, t.x, t.y));
   if (sees && d < reach * 0.9 && f.cdT <= 0) { f.blows = (f.blows || 0) + 1; startFoeAtk(f, mv, t); return; }
   if (f.sq && f.sq.archers.length) {
-    const [gx, gy] = squadSpot(t, f.sq.bear, SQUAD.tank, 0, t);
-    if (dist(f.x, f.y, gx, gy) > 4) pathTo(f, gx, gy, T.spd * 1.3, dt, 2); else holdStill(f, dt);
+    // it stands its ground: it takes its place between the hero and its archers, but gives no ground to him as he comes on
+    // (it only steps across to stay in his way, and forward); close, it plants itself in his path to them and shoves
+    let [gx, gy] = squadSpot(t, f.sq.bear, SQUAD.tank, 0, t);
+    const ar = f.sq.archers.filter(u => !u.dead); if (ar.length && d < SQUAD.tank + 22) {
+      const ax = ar.reduce((s, u) => s + u.x, 0) / ar.length, ay = ar.reduce((s, u) => s + u.y, 0) / ar.length, L = Math.hypot(ax - t.x, ay - t.y) || 1, r = clamp(d, 14, 26);
+      gx = t.x + (ax - t.x) / L * r; gy = t.y + (ay - t.y) / L * r * 0.85; // on his line to the archers, as close as it is now
+    }
+    if (dist(gx, gy, t.x, t.y) > d + 2) { const a = angTo(t.x, t.y, gx, gy); gx = t.x + Math.cos(a) * d; gy = t.y + Math.sin(a) * d * 0.85; } // never back away from him
+    if (dist(f.x, f.y, gx, gy) > 4) pathTo(f, gx, gy, T.spd * 1.15, dt, 2); else holdStill(f, dt);
     return;
   }
   if (d > reach * 0.9 || !sees) chase(f, t, T.spd, dt, reach * 0.6); else strafe(f, t, T.spd * 0.5, dt);
