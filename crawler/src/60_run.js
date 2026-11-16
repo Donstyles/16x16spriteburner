@@ -19,8 +19,10 @@ function startFloor() {
   buildArena(G.floor); initSight(ARENA); G.proj = []; G.hz = []; G.drops = []; G.sched = []; for (const k in FX) FX[k].length = 0;
   const A = ARENA, sp = A.spawn;
   G.heroes.forEach((h, i) => { h.x = sp.x + (i - (G.heroes.length - 1) / 2) * 16; h.y = sp.from; h.enter = { y1: sp.y + i * 4 }; h.z = 0; h.vx = h.vy = h.kx = h.ky = 0; h.act = null; h.stun = 0; h.iframe = 0; h.dir = -Math.PI / 2; h.path = null; h.inBasin = undefined; });
-  A.army = pickArmy(G.floor); G.foes = []; for (const r of A.rooms) if (r.kind === 'room' || r.kind === 'end') G.foes.push(...populateRoom(A, r, G.floor));
+  A.army = pickArmy(G.floor); G.foes = []; for (const r of A.rooms) if ((r.kind === 'room' || r.kind === 'end') && r.set !== 'flood') G.foes.push(...populateRoom(A, r, G.floor));
   G.foes.push(...chestGuards(A, G.floor));
+  for (const r of A.rooms) if (r.islands) removeIf(G.foes, u => r.islands.some(([x, y]) => u.x >= x * TS - 8 && u.x <= (x + 2) * TS + 8 && u.y >= y * TS - 8 && u.y <= (y + 2) * TS + 8)); // (nobody stranded on an island but its archer)
+  G.foes.push(...levelFoes(A, G.floor)); G.cine = null; G.eyes = null;
   G.units = G.heroes.concat(G.foes);
   G.phase = 'play'; G.phaseT = 0; G.fade = 1;
   CAM.x = sp.x; CAM.y = sp.y; CAM.z = exploreZoom();
@@ -28,6 +30,7 @@ function startFloor() {
   SFX.boom(0.6, 0);
 }
 function updateRun(dt) {
+  if (G.cine) { cineTick(dt); return; } // the view gone to a sluice's water: everything else holds still (37_levels)
   G.phaseT += dt;
   for (let i = 0; i < G.sched.length; i++) { const s = G.sched[i]; if ((s.t -= dt) <= 0) { G.sched.splice(i--, 1); s.fn(); } }
   // a unit in hit-stop holds still (its moves pause, a knock-back waits) while everything else carries on
@@ -40,7 +43,7 @@ function updateRun(dt) {
   separate(G.units);
   if (TEST.on && TEST.mode === 'creatures') creatureTick(dt);
   if (TEST.on && TEST.mode === 'water') waterTick(dt);
-  updateProj(dt); updateHazards(dt); worksTick(dt); updateDrops(dt); updateSight(dt);
+  updateProj(dt); updateHazards(dt); worksTick(dt); levelTick(dt); updateDrops(dt); updateSight(dt);
   removeIf(G.foes, f => f.dead); removeIf(G.units, u => u.dead && u.team === 'foe');
   if (G.hurtFlash > 0) G.hurtFlash -= dt; if (G.tiredT > 0) G.tiredT -= dt;
   if (G.phase === 'play') {

@@ -106,9 +106,10 @@ function buildArena(floor) {
   const wallSpot = r => { const nd = r.doors.filter(d => d.side === 'N').flatMap(d => d.cells.map(c => c[0])); let best = r.cx - 1, bd = 1e9; for (let x = r.ix0 + 1; x + 2 <= r.ix1 - 1; x++) { if (nd.some(c => c >= x - 1 && c <= x + 3)) continue; const d = Math.abs(x + 1 - (r.ix0 + r.ix1) / 2); if (d < bd) { bd = d; best = x; } } return best; };
   A.start.stairX = wallSpot(A.start); A.end.stairX = wallSpot(A.end);
   if (!rooms.some(q => q.kind === 'treasure')) { const q = pick(rooms.filter(q => q.kind === 'room')); if (q) q.chest = true; } // no dead end: a guarded room keeps the chest
+  levelPlan(A, g); // the floor's set pieces: a flooded way, a gauntlet, a sentinel (37_levels)
   for (const r of rooms) worksBefore(A, r, g); // a cistern, a rune shrine (36_works)
   for (const r of rooms) furnish(A, r, g);
-  for (const r of rooms) worksAfter(A, r); spikeHalls(A);
+  for (const r of rooms) worksAfter(A, r); for (const r of rooms) levelAfter(A, r); spikeHalls(A); wayArrows(A, g);
   // the stairway we came down, in the start room's north wall; the way down waits shut in the end room's
   { const r = A.start, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 12, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 13, (sx + i) * TS, (r.fy0 + 1) * TS); } }
   { const r = A.end, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 14, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 15, (sx + i) * TS, (r.fy0 + 1) * TS); } A.stairs = { x: (sx + 1.5) * TS, y: (r.fy0 + 2) * TS + 2, sx, sy: r.fy0, room: r.i }; }
@@ -126,20 +127,19 @@ function furnish(A, r, g) {
   const th = A.th, nearDoor = (tx, ty, m = 2) => r.doors.some(d => d.cells.some(([x, y]) => Math.abs(x - tx) <= m && Math.abs(y - ty) <= m)), used = new Set();
   for (const d of r.doors) if (d.side === 'N') for (const [x] of d.cells) for (let k = -2; k <= 2; k++) used.add(x + k);
   if (r.stairX !== undefined) for (let k = -1; k <= 3; k++) used.add(r.stairX + k);
+  if (r.sluiceX !== undefined) for (let k = -1; k <= 1; k++) used.add(r.sluiceX + k); // (a sluice's outlet goes there: 37_levels)
   for (let x = r.ix0 + 1; x < r.ix1; x += 4) { const tx = x + (used.has(x) ? 3 : 0); if (tx >= r.ix1 || used.has(tx)) continue; used.add(tx); A.torches.push({ x: tx * TS + 8, y: (r.fy0 + 1) * TS + 9, tx, f: randi(0, 3) }); }
   for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || used.has(x - 1) || used.has(x + 1) || !chance(0.3)) continue; const b = randi(20, 31); tileAt(g, b, 0, x * TS, r.fy0 * TS); tileAt(g, b, 1, x * TS, (r.fy0 + 1) * TS); used.add(x); }
   // between the banners, now and then a barred window or a vent in the brick (grey [16..20, 2..3], brown three rows down);
   // the tall arched windows and the tall vent ([17..18, 2..3], [20, 2..3]) are two tiles high, their tops in the brick above
   const wy = th === THEMES.brown ? 3 : 0, WIN = [[16, 2, 1], [16, 3, 1], [17, 3, 2], [18, 3, 2], [19, 2, 1], [19, 3, 1], [20, 3, 2]];
   for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || !chance(0.16)) continue; const [wx, wy0, wh] = pick(WIN); for (let j = 0; j < wh; j++) tileAt(g, wx, wy0 + wy - j, x * TS, (r.fy0 + 1 - j) * TS); used.add(x); }
-  // an inlaid mosaic in the floor of some rooms (grey [16..18, 9], brown [19..21, 9])
-  if ((r.kind === 'room' || r.kind === 'end') && !r.pool && !r.shrine && chance(0.35)) { const mx = Math.round((r.ix0 + r.ix1) / 2) + randi(-2, 2), my = Math.round((r.iy0 + r.iy1) / 2) + randi(-1, 1); tileAt(g, (th === THEMES.brown ? 19 : 16) + randi(0, 2), 9, mx * TS, my * TS); }
-  const prop = (kind, tx, ty, o = {}) => A.props.push(Object.assign({ kind, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o));
+  const prop = (kind, tx, ty, o = {}) => { if (!FLOOR(A.fl[Math.floor(ty) * A.w + Math.floor(tx)]) || !FLOOR(A.fl[Math.floor(ty) * A.w + Math.ceil(tx)])) return; A.props.push(Object.assign({ kind, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o)); }; // (never in water)
   const free = (x, y, d = 10) => !A.props.some(p => Math.abs(p.x - x) < d && Math.abs(p.y - y) < d);
   if (r.w * r.h >= 100) for (const [tx, ty] of [[r.ix0 + 1, r.iy1 - 1], [r.ix1 - 1, r.iy0 + 1]]) if (!nearDoor(tx, ty)) prop('brazier', tx, ty, { f: randi(0, 3) });
   const corner = (cx, cy) => { for (let i = 0; i < randi(1, 3); i++) { const tx = clamp(cx + randi(-1, 1), r.ix0, r.ix1), ty = clamp(cy + randi(-1, 1), r.iy0, r.iy1); if (nearDoor(tx, ty) || !free(tx * TS + 8, ty * TS + 14)) continue; const t = pick(CLUTTER); prop(t[2] || (t[0] >= 28 && t[1] === 8 ? 'chest' : 'barrel'), tx, ty, { tile: [t[0], t[1]], th: t[3] || 1, hp: 40 }); } };
   corner(r.ix0, r.iy0); corner(r.ix1, r.iy0); corner(r.ix0, r.iy1); corner(r.ix1, r.iy1);
-  if (r.kind === 'room' && !r.pool && !r.shrine && chance(0.3)) for (let x = r.ix0 + 1; x < r.ix1; x++) { // a storeroom: stock along its north wall
+  if (r.kind === 'room' && !r.pool && !r.shrine && !r.set && chance(0.3)) for (let x = r.ix0 + 1; x < r.ix1; x++) { // a storeroom: stock along its north wall
     if (!chance(0.45) || nearDoor(x, r.iy0, 2) || (r.stairX !== undefined && x >= r.stairX - 1 && x <= r.stairX + 3) || !free(x * TS + 8, r.iy0 * TS + 14, 14)) continue;
     // a two-wide heap takes this tile and the next whole (set between them), so it never laps over a neighbour
     let t = pick(STOCK); const two = (t[4] || 1) > 1;
@@ -149,7 +149,7 @@ function furnish(A, r, g) {
   if (r.kind === 'treasure' || r.chest) { const cx = Math.round((r.ix0 + r.ix1) / 2), spots = [0, 1, -1, 2, -2, 3, -3].map(k => [cx + k, r.iy0 + 1]).concat([[cx, Math.round((r.iy0 + r.iy1) / 2)]]), at = spots.find(([x, y]) => !nearDoor(x, y)) || spots[spots.length - 1]; prop('tchest', at[0], at[1], { tier: chestTier(A.floor), hp: 1, r: 6, open: false }); } // its treasure chest, against the north wall if a spot there is clear of the doors
   if ((r.kind === 'room' || r.kind === 'end') && chance(0.35)) for (let i = randi(1, 2); i > 0; i--) { // an ore rock or two against a wall
     const west = chance(0.5), tx = west ? r.ix0 : r.ix1, ty = randi(r.iy0 + 1, r.iy1 - 1); if (!nearDoor(tx, ty, 2) && free(tx * TS + 8, ty * TS + 14)) prop('ore', tx, ty, { shape: randi(0, 6), ore: pick([0, 0, 1, 2, 3]), hp: 3, r: 6 }); }
-  if ((r.kind === 'room' || r.kind === 'end') && !r.pool && !r.shrine) {
+  if ((r.kind === 'room' || r.kind === 'end') && !r.pool && !r.shrine && !r.set) {
     if (r.w >= 15 && r.h >= 9 && chance(0.7)) { const P = th.pillar[randi(0, 1)]; for (const [fx, fy] of chance(0.5) ? [[0.27, 0.4], [0.73, 0.4], [0.27, 0.78], [0.73, 0.78]] : [[0.3, 0.55], [0.7, 0.55]]) { const tx = Math.round(r.ix0 + fx * (r.w - 1)), ty = Math.max(r.iy0 + 3, Math.round(r.iy0 + fy * (r.h - 1))); if (!nearDoor(tx, ty, 2)) prop('pillar', tx, ty, { tile: P, r: 6 }); } }
   }
 }

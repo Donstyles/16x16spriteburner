@@ -23,6 +23,7 @@ function updateCam(dt) {
   if (!ARENA) return; const me = G.me && !G.me.dead ? G.me : G.heroes.find(alive);
   let fx, fy;
   if (G.mode !== 'play') { const t = G.time * 0.12, r = ARENA.start; fx = (r.ix0 + r.ix1 + 1) / 2 * TS + Math.cos(t) * 30; fy = (r.iy0 + r.iy1 + 1) / 2 * TS + Math.sin(t * 0.7) * 16; }
+  else if (G.cine) { fx = G.cine.x; fy = G.cine.y; } // (a sluice's water draining: 37_levels)
   else if (me) { fx = me.x + Math.cos(me.dir) * 14 + me.vx * 0.15; fy = me.y - 8 + Math.sin(me.dir) * 10 + me.vy * 0.12; }
   else { fx = CAM.x; fy = CAM.y; }
   if (!Number.isFinite(fx + fy)) { fx = Number.isFinite(CAM.x) ? CAM.x : ARENA.spawn.x; fy = Number.isFinite(CAM.y) ? CAM.y : ARENA.spawn.y; }
@@ -170,6 +171,7 @@ function renderLight() {
   lctx.globalCompositeOperation = 'lighter'; lctx.imageSmoothingEnabled = false; lctx.setTransform(1, 0, 0, 1, -PXO.x, -PXO.y);
   const L = (x, y, r, k, a) => { if (a <= 0.01) return; const t = lightTex(k); for (let i = 0; i < 2 && a > 0.01; i++, a -= 1) { lctx.globalAlpha = Math.min(1, a); lctx.drawImage(t, x - r, y - r * 0.8, r * 2, r * 1.6); } };
   for (const h of G.heroes) { const hs = (h.hush || 1) * (h.dead ? Math.max(0.4, 1 - (h.deadT || 0) * 0.08) : 1); L(h.x, h.y - 6, h.lightR * 1.35 * hs, 'hot', 1.15 * hs); L(h.x, h.y - 6, h.lightR * 0.7 * hs, 'torch', 0.35); } // a fallen hero's lamp burns on, dimming
+  for (const e of G.eyes || []) L(e.x, e.y - 6, e.lightR * 1.3, 'hot', 1.05); // (the sluice's view lights the water it drains)
   for (const t of ARENA.torches) L(t.x, t.y + 6, 62 + 6 * noise1(G.time * 7 + t.tx), 'torch', 0.85);
   for (const p of ARENA.props) if (p.kind === 'brazier' && !p.dead) L(p.x, p.y - 4, 90 + 8 * noise1(G.time * 6 + p.x), 'torch', 0.95);
   const A = FX.lights; for (let i = 0; i < A.length; i += 5) L(A[i], A[i + 1], A[i + 2], A[i + 3], A[i + 4]); A.length = 0;
@@ -199,9 +201,9 @@ function render() {
   drawGround(c, ox, oy, bw, bh);
   const tb = ARENA.th === THEMES.brown ? 5 : 0; for (const t of ARENA.torches) { const f = ((G.time * 9 + t.f) | 0) % 4; c.drawImage(IMG.cellar, (tb + f) * TS, 26 * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); } // (the brown floors' own, iron on stone)
   drawWorks(c); drawWet(c); drawHazards(c); drawWake(c); drawRuns(c); drawDoors(c); drawTele(c); drawTelegraphs(c);
-  for (const u of G.units) { if (u.dead && u.team === 'foe') continue; if (u.team === 'foe' && !foeShown(u)) continue; if (u.under) continue; pxShadow(c, u.x, u.y, u.r * 1.3 * (1 - Math.min(0.6, u.z / 160))); }
+  for (const u of G.units) { if (u.dead && u.team === 'foe') continue; if (u.team === 'foe' && !foeShown(u)) continue; if (u.under || u.z < -1) continue; pxShadow(c, u.x, u.y, u.r * 1.3 * (1 - Math.min(0.6, u.z / 160))); }
   // everything standing, lying or flying, drawn back to front by where it meets the floor
-  const list = []; for (const u of G.units) list.push([u.y, 0, u]); for (const p of ARENA.props) if (!p.dead && !p.flat) list.push([p.y, 1, p]);
+  const list = []; for (const u of G.units) list.push([u.y, 0, u]); for (const p of ARENA.props) if (!p.dead && !p.flat) { const F = propFoot(p); list.push([F ? F.y1 : p.y, 1, p]); }
   for (const d of G.drops) list.push([d.y, 2, d]); for (const p of G.proj) list.push([p.y, 3, p]); for (const r of FX.rocks) list.push([r.y, 4, r]); list.sort((a, b) => a[0] - b[0]);
   for (const [, k, o] of list) if (k === 0) drawUnit(c, o); else if (k === 1) drawProp(c, o); else if (k === 2) drawDrop(c, o); else if (k === 3) drawProj(c, o); else drawRock(c, o);
   drawWorldParts(c); drawCeil(c, ox, oy, bw, bh); // the tops of the walls, at the ceiling, over everything in the room

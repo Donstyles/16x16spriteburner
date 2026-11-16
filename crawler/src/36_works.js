@@ -69,13 +69,13 @@ function waterBody(A, cells, set, W, dual) {
 
 // ---- building (called from buildArena): before the room is furnished, and after
 function worksBefore(A, r, g) {
-  if (r.kind !== 'room' || r.chest) return;
+  if (r.kind !== 'room' || r.chest || r.set || r.sluice) return; // (a set piece's room, or the room with its sluice: 37_levels)
   if (!A.cistern && r.w >= 12 && r.h >= 8 && chance(0.6)) cistern(A, r, g);
   else if (!A.shrine && r.w >= 12 && r.h >= 8 && chance(0.55)) { A.shrine = r; r.shrine = true; }
   else if (chance(0.3)) ponds(A, r, g);
 }
 function worksAfter(A, r) {
-  if (r.pool) cisternAfter(A, r);
+  if (r.pool && !r.set) cisternAfter(A, r);
   if (r.shrine) shrine(A, r);
 }
 // a pond or two in an ordinary room: rounded water in the room's corners, clear of the walls and of the cross the
@@ -99,7 +99,7 @@ function cistern(A, r, g) {
   if (x1 - x0 < 3 || y1 - y0 < 2) return;
   const cells = new Set(); for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) cells.add(ty * A.w + tx);
   const p = waterBody(A, cells, W.square, W, false); p.room = r.i;
-  A.cistern = r; r.pool = p; (A.pools = A.pools || []).push(p);
+  A.cistern = r; r.pool = p; (A.pools = A.pools || []).push(p); remoteSluice(A, r, p); // (its sluice in another room: 37_levels)
   // the bridge: across the way the room's doors face, two tiles wide, over the middle
   const ew = r.doors.some(d => d.side === 'E' || d.side === 'W'), ns = r.doors.some(d => d.side === 'N' || d.side === 'S');
   const horiz = (ew && !ns) || (ew === ns && chance(0.5)) ? p.y1 - p.y0 >= 3 : p.x1 - p.x0 < 4;
@@ -168,7 +168,7 @@ function cisternAfter(A, r) {
   for (let y = p.y0; y <= p.y1; y++) ring.push([p.x0 - 1, y], [p.x1 + 1, y]);
   const ok = ([x, y]) => !nearDoor(x, y, 2) && !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 14 && Math.abs(q.cy - (y * TS + 10)) < 12) && FLOOR(A.fl[y * A.w + x]);
   const at = pick(ring.filter(ok)) || ring.find(([x, y]) => FLOOR(A.fl[y * A.w + x]));
-  if (at) { A.plates = A.plates || []; A.plates.push({ x: at[0] * TS + 8, y: at[1] * TS + 8, tx: at[0], ty: at[1], tile: W.plate, f: 0, down: false, pool: p, room: r.i }); }
+  p.localAt = at; if (at && !p.host) { A.plates = A.plates || []; A.plates.push({ x: at[0] * TS + 8, y: at[1] * TS + 8, tx: at[0], ty: at[1], tile: W.plate, f: 0, down: false, pool: p, room: r.i }); } // (on the walk only when no other room took its sluice)
 }
 function shrine(A, r) {
   const W = wkOf(A), vx = Math.round((r.ix0 + r.ix1) / 2), vy = Math.round((r.iy0 + r.iy1) / 2) + 1;
@@ -210,10 +210,10 @@ function worksTick(dt) {
   const A = ARENA; if (!A) return; const heroes = G.heroes.filter(h => !h.dead && !h.enter);
   for (const pl of A.plates || []) {
     if (!pl.down && heroes.some(h => Math.abs(h.x - pl.x) < 8 && Math.abs(h.y - pl.y) < 7)) { pl.down = true; pl.t = 0; SFX.stone(panOf(pl.x), true); shake(0.05); }
-    if (pl.down) { pl.t += dt; pl.f = Math.min(3, Math.floor(pl.t / 0.06)); if (pl.pool && !pl.pool.drain && pl.t > 0.35) startDrain(pl.pool); }
+    if (pl.down) { pl.t += dt; pl.f = Math.min(3, Math.floor(pl.t / 0.06)); if (pl.pool && !pl.pool.drain && pl.t > 0.35) { if (pl.remote) startCine(pl); else startDrain(pl.pool); } }
   }
   for (const p of A.pools || []) if (p.drain === 1) {
-    p.level = Math.max(0, p.level - dt / 3.4); const [dx, dy] = p.drainAt, cx = dx * TS + 8, cy = dy * TS + 8;
+    p.level = Math.max(0, p.level - dt / (p.rate || 3.4)); const [dx, dy] = p.drainAt, cx = dx * TS + 8, cy = dy * TS + 8;
     if (chance(dt * 10)) { const a = rand(TAU), d = rand(6, 20) * p.level + 3; water(cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.6, 1, -Math.cos(a) * 18, -Math.sin(a) * 12, rand(10, 30)); }
     if (p.level < 0.3 && !p.dried) dryOut(p); // the water falls below what stands in it
     if (p.level <= 0) endDrain(p);
@@ -256,6 +256,7 @@ function endDrain(p) {
   const A = ARENA; p.drain = 2; p.level = 0;
   A.basin = A.basin || new Uint8Array(A.w * A.h); // the dry basin: floor now, but a step below the walk and the bridge
   for (const i of p.cells) if (A.fl[i] === 2) { A.fl[i] = 1; A.basin[i] = 1; }
+  if (p.flooded && !p.drownedDone) { p.drownedDone = true; drownedRise(A, p); } // (the flooded way's dead: 37_levels)
   A.flv = (A.flv || 0) + 1;
   // what lay at the bottom: a scatter of coins (no treasure chest: the sheet has no chest standing in water, so none was there)
   const s = p.spots.filter(([x, y]) => !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 14 && Math.abs(q.cy - (y * TS + 10)) < 12));

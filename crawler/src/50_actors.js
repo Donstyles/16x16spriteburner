@@ -101,6 +101,13 @@ function deathFx(u) {
   else debris(u.x, u.y, 8, DUST, 120, 140, 1.6 * sc);
   SFX.pop(panOf(u.x));
 }
+// where a column's plinth meets the floor (the three-tile column's plinth stands at the top of its tile, the flooded
+// column's at the bottom): the box nobody walks into, and the line it is drawn in front of or behind by
+function propFoot(p) {
+  if (p.kind === 'pillar') return { x0: p.x - 6, x1: p.x + 6, y0: p.y - 14, y1: p.y - 7 };
+  if (p.kind === 'wetpillar') return { x0: p.x - 6, x1: p.x + 6, y0: p.y - 7, y1: p.y };
+  return null;
+}
 // physics: own velocity plus knockback, then walls, props and each other
 function moveActor(u, dt) {
   if (!Number.isFinite(u.vx + u.vy + u.kx + u.ky)) { u.vx = u.vy = u.kx = u.ky = 0; }
@@ -109,7 +116,15 @@ function moveActor(u, dt) {
   const gk = u.gaitK === undefined ? 1 : u.gaitK; // a gait's pace (56_gaits): the stumbler's lurch, the crawler's bursts
   const bk = basinBrake(u, dt); tileCollide(u); slideMove(u, (u.vx * gk + u.kx) * dt * bk, (u.vy * gk + u.ky) * dt * bk); const f = Math.exp(-7 * dt); u.kx *= f; u.ky *= f; // (any small push since last frame settled first)
   if (!u.fly && (u.z > 0 || u.vz > 0)) { u.vz -= 560 * dt; u.z += u.vz * dt; if (u.z <= 0) { u.z = 0; u.vz = 0; } }
-  for (const p of ARENA.props) { if (!p.solid || p.dead) continue; const dx = u.x - p.x, dy = u.y - p.cy, d = Math.hypot(dx, dy), m = u.r + p.r; if (d < m) { const nx = d > 0.01 ? dx / d : 1, ny = d > 0.01 ? dy / d : 0; u.x = p.x + nx * m; u.y = p.cy + ny * m; } }
+  for (const p of ARENA.props) {
+    if (!p.solid || p.dead) continue; const F = propFoot(p);
+    if (F) { // a column's plinth: a box where it meets the floor, so nobody stands half inside it from the side
+      const hw = Math.max(3, u.r * 0.8), hh = Math.max(2, u.r * 0.45), ox = Math.min(u.x + hw - F.x0, F.x1 - (u.x - hw)), oy = Math.min(u.y + hh - F.y0, F.y1 - (u.y - hh));
+      if (ox > 0 && oy > 0) { if (ox < oy) u.x += u.x < (F.x0 + F.x1) / 2 ? -ox : ox; else u.y += u.y < (F.y0 + F.y1) / 2 ? -oy : oy; }
+      continue;
+    }
+    const dx = u.x - p.x, dy = u.y - p.cy, d = Math.hypot(dx, dy), m = u.r + p.r; if (d < m) { const nx = d > 0.01 ? dx / d : 1, ny = d > 0.01 ? dy / d : 0; u.x = p.x + nx * m; u.y = p.cy + ny * m; }
+  }
   tileCollide(u); basinHop(u); // (36_works: the step down into a drained cistern)
   if (u.squash > 0) u.squash = Math.max(0, u.squash - dt * 2.5);
 }

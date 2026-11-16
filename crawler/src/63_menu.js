@@ -52,6 +52,7 @@ function drawMenu(c) {
     });
     const bw = Math.min(240, W * 0.36), bh = 42; btn(c, W / 2 - bw / 2, Math.min(H - bh - 12, y0 + ch + 14), bw, bh, 'BEGIN AS ' + KITS[KIT_ORDER[MENU.sel]].name, () => beginRun(KIT_ORDER[MENU.sel]));
     btn(c, 14 + VIEW.safe.l, 14 + VIEW.safe.t, 70, 32, 'BACK', () => { MENU.screen = 'title'; }, { size: 16 });
+    btn(c, 14 + VIEW.safe.l, 52 + VIEW.safe.t, 150, 32, 'PUZZLE FLOOR', () => beginPuzzleFloor(KIT_ORDER[MENU.sel]), { size: 15, col: '#e8c87a' });
     btn(c, W - 14 - VIEW.safe.r - 170, 14 + VIEW.safe.t, 170, 32, 'BLOOD TEST ROOM', () => beginTest(KIT_ORDER[MENU.sel]), { size: 15, col: '#e8907a' });
     btn(c, W - 14 - VIEW.safe.r - 170, 52 + VIEW.safe.t, 170, 32, 'CREATURE TEST ROOM', () => beginCreatureTest(KIT_ORDER[MENU.sel]), { size: 15, col: '#9ad0e8' });
     btn(c, W - 14 - VIEW.safe.r - 170, 90 + VIEW.safe.t, 170, 32, 'WATER TEST ROOM', () => beginWaterTest(KIT_ORDER[MENU.sel]), { size: 15, col: '#7ab8f0' });

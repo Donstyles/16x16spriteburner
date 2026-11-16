@@ -185,7 +185,7 @@ function watchDeath(f, h, dt) {
   else { f.vx = damp(f.vx, 0, 6, dt); f.vy = damp(f.vy, 0, 6, dt); f.moving = false; }
 }
 function foeTick(f, dt) { // (a raised skeleton below the floor climbs out of it: z rises to 0)
-  if (f.dead) return; if (f.dying) { throesTick(f, dt); return; } if (f.z < 0 && !f.fly) f.z = Math.min(0, f.z + 22 * dt); if (f.poiseT > 0) f.poiseT -= dt; else f.poise = f.maxPoise; if (f.poiseGuard > 0) f.poiseGuard -= dt;
+  if (f.dead) return; if (f.dying) { throesTick(f, dt); return; } if (f.dormant) { dormantTick(f, dt); return; } if (f.z < 0 && !f.fly) f.z = Math.min(0, f.z + 22 * dt); if (f.poiseT > 0) f.poiseT -= dt; else f.poise = f.maxPoise; if (f.poiseGuard > 0) f.poiseGuard -= dt;
   if (f.stun > 0) { f.stun -= dt; f.vx = damp(f.vx, 0, 8, dt); f.vy = damp(f.vy, 0, 8, dt); f.moving = false; return; }
   if (f.dummy) { dummyTick(f, dt); return; } // the test room's foes only stand there
   if (!f.aware) { senses(f, dt); if (f.aware) return; idleFoe(f, dt); return; }
@@ -235,6 +235,7 @@ function tankMind(f, t, dt, d, sees) {
 // whenever it has a clear line and it is its squad's turn (one archer of a squad aims at a time, so the arrows come in a
 // stream), the others keep moving to their places meanwhile.
 function archerMind(f, t, dt, d, sees) {
+  if (f.turret && f.turret.drain !== 2) { turretMind(f, t, dt, d, sees); return; } // on an island (37_levels)
   const T = f.def, spd = T.spd, q = f.sq, me = angTo(t.x, t.y, f.x, f.y); let gx = null, gy = null, round = 0;
   if (q) { const lat = (q.i - (q.n - 1) / 2) * SQUAD.gap + f.jit2 * 6 + Math.sin(G.time * 0.6 + f.id) * 3 + (f.shift || 0); [gx, gy] = squadSpot(t, q.bear, SQUAD.archer + f.jit * 8, lat, q.tank); const off = angDiff(me, q.bear); if (Math.abs(off) > 0.7) round = Math.sign(off); }
   else if (f.duo) { [gx, gy] = squadSpot(t, f.duo.bear, (T.keep[0] + T.keep[1]) / 2 + f.jit * 8, Math.sin(G.time * 0.6 + f.id) * 3 + (f.shift || 0), t); const off = angDiff(me, f.duo.bear); if (Math.abs(off) > 0.7) round = Math.sign(off); } // its quarter of the pair

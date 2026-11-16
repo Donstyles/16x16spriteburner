@@ -162,17 +162,17 @@ function heroTick(h, dt) {
   const want = I.mx || I.my ? Math.atan2(I.my, I.mx) : null;
   h.noise = h.sprint ? 2 : !h.act ? (Math.hypot(I.mx, I.my) > CREEP + 0.05 ? 1 : 0) : h.act.k === 'roll' || h.act.k === 'atk' ? 2 : h.act.k === 'drink' ? 0 : 1;
   h.hush = damp(h.hush || 1, h.noise === 0 && (I.mx || I.my) ? 0.8 : 1, 6, dt); // creeping, the hero shades the lamp
-  if (h.stun > 0) { h.stun -= dt; h.vx = damp(h.vx, 0, 8, dt); h.vy = damp(h.vy, 0, 8, dt); h.moving = false; h.pressT = -1; I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }
+  if (h.stun > 0) { h.stun -= dt; h.vx = damp(h.vx, 0, 8, dt); h.vy = damp(h.vy, 0, 8, dt); h.moving = false; h.pressT = -1; h.chainHold = false; I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }
   const a = h.act;
-  if (I.dodgeP) { I.dodgeP = false; if (canRoll(h)) { startRoll(h, want); I.atkP = I.atkR = false; h.pressT = -1; return; } else if (h.stam <= 0) G.tiredT = 0.6; }
+  if (I.dodgeP) { I.dodgeP = false; if (canRoll(h)) { startRoll(h, want); I.atkP = I.atkR = false; h.pressT = -1; h.chainHold = false; return; } else if (h.stam <= 0) G.tiredT = 0.6; }
   if (a) { if (a.k === 'atk' && I.atkP) a.buf = true; I.atkP = false; actTick(h, a, dt, I, want); I.itemP = false; return; }
   // free: walk, raise the shield, start an attack, drink
   if (I.itemP) { I.itemP = false; if (h.flasks > 0) { h.act = { k: 'drink', t: 0, dur: 0.85, done: false }; h.blocking = false; return; } else textPop(h.x, h.y, headZ(h) + 2, 'NO FLASKS', 'red', false); }
-  if (I.atkP) { I.atkP = false; h.pressT = 0; }
+  if (I.atkP) { I.atkP = false; I.atkR = false; h.pressT = 0; } // (a release from before this press is stale: a tap released mid-swing)
   if (h.pressT >= 0) {
     h.pressT += dt;
-    if (I.atkR || !I.atk) { I.atkR = false; h.pressT = -1; lightAttack(h, want); return; }
-    if (h.pressT > 0.2) { h.pressT = -1; h.act = { k: 'charge', t: 0 }; h.blocking = false; return; }
+    if (I.atkR || !I.atk) { I.atkR = false; h.pressT = -1; lightAttack(h, want, h.chainHold); h.chainHold = false; return; }
+    if (h.pressT > 0.2) { h.pressT = -1; h.chainHold = false; h.act = { k: 'charge', t: 0 }; h.blocking = false; return; }
   }
   I.atkR = false;
   const blocking = I.block && h.stam > 0; if (blocking && !h.blocking) h.blockT = 0; h.blocking = blocking; if (blocking) h.blockT += dt;
@@ -236,7 +236,7 @@ function actTick(h, a, dt, I, want) {
   if (a.phase === 'rec') {
     h.vx = damp(h.vx, 0, 14, dt); h.vy = damp(h.vy, 0, 14, dt); h.moving = false;
     const heavy = mv === weaponOf(h).heavy;
-    if (a.buf && !heavy && a.t >= s + Math.min(0.08, mv.rec * 0.4)) { h.act = null; lightAttack(h, want, true); return; }
+    if (a.buf && !heavy && a.t >= s + Math.min(0.08, mv.rec * 0.4)) { h.act = null; if (I.atk) { I.atkR = false; h.pressT = 0; h.chainHold = true; return; } lightAttack(h, want, true); return; } // (still held: it may be a charge, not the next blow)
     if (a.t >= e) { h.act = null; if (heavy) { h.combo = 0; h.comboT = 0; } else h.comboT = 0.35; }
   }
 }
