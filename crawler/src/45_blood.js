@@ -71,7 +71,7 @@ function goreLand(x, y, p) {
 }
 // Blood on the walls, in the floor's soft blotchy style. A drop that strikes a wall leaves a soft splash, a little taller
 // than wide as if already sagging; about half of them (nearly every clot) start a run, and one that lands beside a run
-// already going feeds it instead of starting another. A run creeps down over 8-12 s, quicker at first and slowing as it
+// already going feeds it instead of starting another. A run creeps down over 5-7 s, quicker at first and slowing as it
 // thins, painted as soft overlapping smudges with a bead of blood at its front; where it reaches the floor it collects
 // in a small blotch.
 const BTR = []; // the runs going now
@@ -92,7 +92,7 @@ function goreWall(p, ny) {
   const x0 = p.x + p.vx * 0.016, side = solidAt(x0, p.y) && !solidAt(p.x, p.y);
   if (p.vy < 0 && solidAt(p.x, ny) && !solidAt(p.x, p.y) && !side && p.z > 1 && p.z < 22) {
     const yb = Math.floor(p.y / TS) * TS, x = Math.round(p.x), y = Math.round(yb - p.z);
-    wallSplash(x, y, p); bloodRun(x, y + 1, yb - 1, p, null, rand(8, 12)); return;
+    wallSplash(x, y, p); bloodRun(x, y + 1, yb - 1, p, null, rand(5, 7)); return;
   }
   if (side && p.z > 1 && p.z < 30) { // the rim of a side wall (the tileset draws its dark edge 4 px past where the stone stops you)
     const east = p.vx > 0, rim = east ? Math.floor(x0 / TS) * TS + 4 : Math.floor(p.x / TS) * TS - 5, x = rim + (east ? -randi(0, 2) : randi(0, 2)), gy = Math.round(p.y);
@@ -100,7 +100,7 @@ function goreWall(p, ny) {
     // (a wall's end is drawn a few px inside its tile)
     const on = yy => solidAt(x0, yy - 4) && solidAt(x0, yy) && !solidAt(p.x, yy); let y = Math.round(p.y - p.z); while (y < gy && !on(y)) y++;
     if (!on(y)) { goreLand(p.x, p.y, p); return; }
-    wallSplash(x, y, p); bloodRun(x, y + 1, gy, p, on, rand(6, 9)); bloodMark(x, gy, 2, p.kind); return;
+    wallSplash(x, y, p); bloodRun(x, y + 1, gy, p, on, rand(3.5, 5)); bloodMark(x, gy, 2, p.kind); return;
   }
   if (p.vy > 0 && solidAt(p.x, ny) && !solidAt(p.x, p.y)) { // the south wall's edge: a splash against it
     const yb = Math.floor(ny / TS) * TS - 1; goreLand(p.x, yb, { ...p, s0: 2 }); return;
