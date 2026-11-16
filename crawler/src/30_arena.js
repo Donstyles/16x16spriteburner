@@ -128,9 +128,10 @@ function furnish(A, r, g) {
   if (r.stairX !== undefined) for (let k = -1; k <= 3; k++) used.add(r.stairX + k);
   for (let x = r.ix0 + 1; x < r.ix1; x += 4) { const tx = x + (used.has(x) ? 3 : 0); if (tx >= r.ix1 || used.has(tx)) continue; used.add(tx); A.torches.push({ x: tx * TS + 8, y: (r.fy0 + 1) * TS + 9, tx, f: randi(0, 3) }); }
   for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || used.has(x - 1) || used.has(x + 1) || !chance(0.3)) continue; const b = randi(20, 31); tileAt(g, b, 0, x * TS, r.fy0 * TS); tileAt(g, b, 1, x * TS, (r.fy0 + 1) * TS); used.add(x); }
-  // between the banners, now and then a barred window or a vent in the brick (grey [16..20, 2..3], brown three rows down)
-  const wy = th === THEMES.brown ? 3 : 0, WIN = [[16, 2], [16, 3], [17, 3], [18, 3], [19, 2], [19, 3], [20, 3]];
-  for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || !chance(0.16)) continue; const [wx, wy0] = pick(WIN); tileAt(g, wx, wy0 + wy, x * TS, (r.fy0 + 1) * TS); used.add(x); }
+  // between the banners, now and then a barred window or a vent in the brick (grey [16..20, 2..3], brown three rows down);
+  // the tall arched windows and the tall vent ([17..18, 2..3], [20, 2..3]) are two tiles high, their tops in the brick above
+  const wy = th === THEMES.brown ? 3 : 0, WIN = [[16, 2, 1], [16, 3, 1], [17, 3, 2], [18, 3, 2], [19, 2, 1], [19, 3, 1], [20, 3, 2]];
+  for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || !chance(0.16)) continue; const [wx, wy0, wh] = pick(WIN); for (let j = 0; j < wh; j++) tileAt(g, wx, wy0 + wy - j, x * TS, (r.fy0 + 1 - j) * TS); used.add(x); }
   // an inlaid mosaic in the floor of some rooms (grey [16..18, 9], brown [19..21, 9])
   if ((r.kind === 'room' || r.kind === 'end') && !r.pool && !r.shrine && chance(0.35)) { const mx = Math.round((r.ix0 + r.ix1) / 2) + randi(-2, 2), my = Math.round((r.iy0 + r.iy1) / 2) + randi(-1, 1); tileAt(g, (th === THEMES.brown ? 19 : 16) + randi(0, 2), 9, mx * TS, my * TS); }
   const prop = (kind, tx, ty, o = {}) => A.props.push(Object.assign({ kind, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o));

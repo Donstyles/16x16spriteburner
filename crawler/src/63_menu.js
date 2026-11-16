@@ -54,6 +54,7 @@ function drawMenu(c) {
     btn(c, 14 + VIEW.safe.l, 14 + VIEW.safe.t, 70, 32, 'BACK', () => { MENU.screen = 'title'; }, { size: 16 });
     btn(c, W - 14 - VIEW.safe.r - 170, 14 + VIEW.safe.t, 170, 32, 'BLOOD TEST ROOM', () => beginTest(KIT_ORDER[MENU.sel]), { size: 15, col: '#e8907a' });
     btn(c, W - 14 - VIEW.safe.r - 170, 52 + VIEW.safe.t, 170, 32, 'CREATURE TEST ROOM', () => beginCreatureTest(KIT_ORDER[MENU.sel]), { size: 15, col: '#9ad0e8' });
+    btn(c, W - 14 - VIEW.safe.r - 170, 90 + VIEW.safe.t, 170, 32, 'WATER TEST ROOM', () => beginWaterTest(KIT_ORDER[MENU.sel]), { size: 15, col: '#7ab8f0' });
   } else if (MENU.screen === 'summary') {
     const s = G.summary || {}; font(c, 900, clamp(big / 6, 34, 72), F_DISP); c.shadowColor = 'rgba(255,40,30,0.7)'; c.shadowBlur = 24; label(c, 'You have fallen', W / 2, H * 0.3, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0;
     font(c, 500, clamp(big / 20, 15, 22), F_HUD);

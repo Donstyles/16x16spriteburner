@@ -9,22 +9,22 @@
 //   [16..18, 19..21], island [16..18, 16..18]; brown [16..18, 26..28] / [16..18, 23..25]) and deep rimless water
 //   ([24..26, 19..21] / [24..26, 16..18]; [24..26, 26..28] / [24..26, 23..25]) lie about the rooms as ponds. The
 //   dark band under a north rim is the water's sunken wall. Feet cannot go in; sight, arrows and spells pass over it.
-//   Under a cistern's water lies its basin (the same water turned to wet stone) with a round drain grate ([17, 4] /
-//   [17, 7]) in the middle
+//   Under a cistern's water lies its basin (the same water turned to wet stone) with a small drain grate ([18, 4] /
+//   [18, 7], darkened wet) in the middle
 // - a bridge across a cistern: the stone slats ([17, 29] grey, [21, 29] brown) laid two wide along a north-south bridge,
 //   and the upright slats ([16, 30] / [20, 30]) along an east-west one
 // - pillars standing in the water: the sheet's flooded column, its foot in the water ([1, 16..17] / [1, 19..20])
 // - the drain: a pressure plate on the cistern's walk ([10..13, 26] / [10..13, 27], four frames sinking under a foot).
 //   Stepped on, it sinks with a clunk, the water gurgles away down the grate over a few seconds and the basin can be
-//   walked; what lay at the bottom (a sunken chest, coins) is there for the taking
+//   walked; what stood in the water can be broken, and coins lie at the bottom
 // - a rune shrine: three rune plates in the floor (unlit [27..29, 3] / [27..29, 6], lit [27..29, 4] / [27..29, 7]) and in
 //   the middle of the room a chest walled in by eight stone blocks ([10..13, 28] / [10..13, 29], four frames sinking into
 //   the floor). Each plate wakes as you step on it and keeps glowing gold; when all three are lit the blocks sink away
 // - spike traps: a row of spikes across a corridor ([0..3, 28] / [5..8, 28]: the hole, then the spike rising), on a beat:
 //   they hurt anyone standing over them as they shoot up, foe or hero alike
 const WK = {
-  grey: { square: [[20, 19], [20, 16]], round: [[16, 19], [16, 16]], deep: [[24, 19], [24, 16]], slatV: [17, 29], slatH: [16, 30], plate: [10, 26], rune: [27, 3], runeOn: [27, 4], block: [10, 28], spike: [0, 28], drain: [17, 4], wetPillar: [1, 16], basin: [54, 56, 62] },
-  brown: { square: [[20, 26], [20, 23]], round: [[16, 26], [16, 23]], deep: [[24, 26], [24, 23]], slatV: [21, 29], slatH: [20, 30], plate: [10, 27], rune: [27, 6], runeOn: [27, 7], block: [10, 29], spike: [5, 28], drain: [17, 7], wetPillar: [1, 19], basin: [64, 54, 44] },
+  grey: { square: [[20, 19], [20, 16]], round: [[16, 19], [16, 16]], deep: [[24, 19], [24, 16]], slatV: [17, 29], slatH: [16, 30], plate: [10, 26], rune: [27, 3], runeOn: [27, 4], block: [10, 28], spike: [0, 28], drain: [18, 4], wetPillar: [1, 16], dryPillar: [24, 2], basin: [54, 56, 62] },
+  brown: { square: [[20, 26], [20, 23]], round: [[16, 26], [16, 23]], deep: [[24, 26], [24, 23]], slatV: [21, 29], slatH: [20, 30], plate: [10, 27], rune: [27, 6], runeOn: [27, 7], block: [10, 29], spike: [5, 28], drain: [18, 7], wetPillar: [1, 19], dryPillar: [24, 5], basin: [64, 54, 44] },
 };
 const wkOf = A => WK[A.th === THEMES.grey ? 'grey' : 'brown'];
 const sheetTile = (g, [tx, ty], x, y, dx = 0, dy = 0) => g.drawImage(IMG.cellar, (tx + dx) * TS, (ty + dy) * TS, TS, TS, x, y, TS, TS);
@@ -112,16 +112,21 @@ function cistern(A, r, g) {
   const bc = p.bridge.cells, free = (x, y) => !bc.some(([a, b]) => a === x && b === y);
   const cands = []; for (let ty = p.y0 + 1; ty < p.y1; ty++) for (let tx = p.x0 + 1; tx < p.x1; tx++) if (free(tx, ty)) cands.push([tx, ty]);
   const cx = (p.x0 + p.x1) / 2, cy = (p.y0 + p.y1) / 2; cands.sort((a, b) => Math.hypot(a[0] - cx, a[1] - cy) - Math.hypot(b[0] - cx, b[1] - cy));
-  p.drainAt = cands[0] || [p.x0 + 1, p.y0 + 1]; sheetTile(g, W.drain, p.drainAt[0] * TS, p.drainAt[1] * TS);
+  p.drainAt = cands[0] || [p.x0 + 1, p.y0 + 1];
+  { // the grate (the sheet's small square one), wet and dark like the stone round it
+    const t = mkCanvas(TS, TS), tg = t.getContext('2d'), [br, bgc, bb] = W.basin; sheetTile(tg, W.drain, 0, 0);
+    tg.globalCompositeOperation = 'source-atop'; tg.fillStyle = `rgba(${br},${bgc},${bb},0.45)`; tg.fillRect(0, 0, TS, TS); g.drawImage(t, p.drainAt[0] * TS, p.drainAt[1] * TS);
+  }
   p.spots = cands.slice(1); // where the sunken things lie
 }
 // Things standing in a cistern's water. The sheet has its pots, chests, crates, carts and heaps a second time standing
 // in water ([5..14, 16..23]: the same pixels, the foot under the waterline tinted the water's blue); each is set here with
 // its dry twin ([22..31, 8..15]), which it turns into as the water drains below it, and then it breaks like any other.
+// (Not the chests: a chest that low would be under water but for its lid, and the sheet has nothing for that.)
 // [wet tile, dry tile, kind, tiles wide, tiles tall]
 const SUNK = [
   [[7, 16], [24, 8], 'barrel'], [[8, 16], [25, 8], 'barrel'], [[9, 16], [26, 8], 'barrel'], [[10, 16], [27, 8], 'barrel'],
-  [[11, 16], [28, 8], 'chest'], [[13, 16], [30, 8], 'chest'], [[8, 20], [25, 12], 'crate'], [[9, 20], [26, 12], 'crate'],
+  [[8, 20], [25, 12], 'crate'], [[9, 20], [26, 12], 'crate'],
   [[13, 20], [30, 12], 'cart'], [[14, 20], [31, 12], 'cart'], [[13, 22], [30, 14], 'cart'], [[14, 22], [31, 14], 'cart'],
   [[5, 22], [22, 8], 'sacks', 2], [[11, 23], [28, 15], 'crate', 2], [[7, 22], [24, 14], 'crate', 2, 2], [[9, 22], [26, 14], 'crate', 2, 2],
 ];
@@ -130,14 +135,16 @@ function sinkThings(A, p, n, kinds) {
   const bc = p.bridge ? p.bridge.cells : [], taken = new Set();
   const open = (x, y) => { const i = y * A.w + x; return p.cells.has(i) && A.fl[i] === 2 && !taken.has(i) && !bc.some(([a, b]) => Math.abs(a - x) <= 1 && Math.abs(b - y) <= 1) && !(x === p.drainAt[0] && y === p.drainAt[1]) &&
     !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 16 && Math.abs(q.cy - (y * TS + 10)) < 20); };
-  const list = kinds || SUNK; let made = 0;
-  for (let k = 0; k < n * 6 && made < n; k++) {
-    const s = kinds ? list[made % list.length] : pick(list), [wt, dt, kind, w = 1, h = 1] = s, x = randi(p.x0, p.x1 - w + 1), y = randi(p.y0 + h - 1, p.y1);
+  const list = kinds || Array.from({ length: n }, () => pick(SUNK)); let made = 0;
+  for (const s of list) for (let k = 0; k < 10 && made < n; k++) { // each a few tries for a spot it fits
+    // (on open water, never on the stone rim: the foot off the edge rows and columns; a tall heap's top may stand in front of the north rim)
+    const [wt, dt, kind, w = 1, h = 1] = s, xa = p.x0 + 1, xb = p.x1 - w, ya = Math.max(p.y0 + 1, p.y0 + h - 1), yb = p.y1 - 1; if (xb < xa || yb < ya) break;
+    const x = randi(xa, xb), y = randi(ya, yb);
     const cells = []; for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) cells.push([x + i, y - j]);
     if (!cells.every(([a, b]) => open(a, b))) continue;
     for (const [a, b] of cells) taken.add(b * A.w + a);
     A.props.push({ kind: kind === 'cart' ? 'crate' : kind, tile: wt, wetTile: wt, dry: dt, tw: w, th: h, x: (x + (w - 1) / 2) * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: w > 1 ? 9 : 5, solid: true, hp: 1e9, sunk: p, room: p.room });
-    made++;
+    made++; break;
   }
   return made;
 }
@@ -146,7 +153,7 @@ function cisternAfter(A, r) {
   // a pillar or two standing in the water, clear of the bridge (props sort with everyone, so they stand up out of it)
   const bc = p.bridge.cells, nearBridge = (x, y) => bc.some(([a, b]) => Math.abs(a - x) <= 1 && Math.abs(b - y) <= 1);
   const spots = [[p.x0 + 1, p.y0 + 1], [p.x1 - 1, p.y0 + 1], [p.x0 + 1, p.y1], [p.x1 - 1, p.y1]].filter(([x, y]) => y > p.y0 && !nearBridge(x, y) && !(x === p.drainAt[0] && y === p.drainAt[1]));
-  for (const [x, y] of spots.slice(0, randi(1, 2))) A.props.push({ kind: 'wetpillar', tile: W.wetPillar, th: 2, x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 6, solid: true, hp: 1e9, room: r.i });
+  for (const [x, y] of spots.slice(0, randi(1, 2))) A.props.push({ kind: 'wetpillar', tile: W.wetPillar, wetTile: W.wetPillar, dry: W.dryPillar, sunk: p, th: 2, x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 6, solid: true, hp: 1e9, room: r.i });
   sinkThings(A, p, randi(2, 4)); // crates, pots, a cart or a chest standing in the water, to be had once it drains
   // the drain plate: on the walk round the cistern, clear of the doors and of anything standing there
   const ring = [];
@@ -244,17 +251,14 @@ function endDrain(p) {
   A.basin = A.basin || new Uint8Array(A.w * A.h); // the dry basin: floor now, but a step below the walk and the bridge
   for (const i of p.cells) if (A.fl[i] === 2) { A.fl[i] = 1; A.basin[i] = 1; }
   A.flv = (A.flv || 0) + 1;
-  // what lay at the bottom: a chest the water hid, and a scatter of coins
+  // what lay at the bottom: a scatter of coins (no treasure chest: the sheet has no chest standing in water, so none was there)
   const s = p.spots.filter(([x, y]) => !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 14 && Math.abs(q.cy - (y * TS + 10)) < 12));
-  const at = s[Math.floor(s.length / 3)] || p.drainAt;
-  A.props.push({ kind: 'tchest', x: at[0] * TS + 8, y: at[1] * TS + 14, cy: at[1] * TS + 10, r: 6, solid: true, hp: 1, room: p.room, tier: chestTier(A.floor + 4), open: false, drained: p });
-  smoke(at[0] * TS + 8, at[1] * TS + 10, 3, 'dust', 6, 10, 0.8);
-  for (let i = 0; i < 3; i++) { const q = pick(s) || at; G.drops.push({ k: 'gold', v: randi(1, 3), x: q[0] * TS + 8, y: q[1] * TS + 8, z: 1, vx: 0, vy: 0, vz: 30, t: 0, hold: 2.5 }); }
+  for (let i = 0; i < 5; i++) { const q = pick(s) || p.drainAt; G.drops.push({ k: 'gold', v: randi(1, 4), x: q[0] * TS + 8, y: q[1] * TS + 8, z: 1, vx: 0, vy: 0, vz: 30, t: 0, hold: 2.5 }); }
 }
 // what stood in the water is dry now: each turns into its dry twin, water running off it, and can be broken
 function dryOut(p) {
   p.dried = true;
-  for (const q of ARENA.props) if (q.sunk === p && !q.dead) { q.tile = q.dry; q.hp = 40; q.wet = q.sunk; q.sunk = null; water(q.x, q.y - 4, 4, 0, 0, rand(8, 18)); }
+  for (const q of ARENA.props) if (q.sunk === p && !q.dead) { q.tile = q.dry; q.hp = q.kind === 'wetpillar' ? 1e9 : 40; q.wet = q.sunk; q.sunk = null; water(q.x, q.y - 4, 4, 0, 0, rand(8, 18)); }
 }
 // the test room's refill: the water comes back in from the grate over a couple of seconds, everything that stood in it
 // stands there again (wet), whatever the drain left at the bottom goes, and the plate rises for another go
@@ -267,7 +271,7 @@ function refillPool(p) {
     if (best) { u.x = best[0] * TS + 8; u.y = best[1] * TS + 10; u.vx = u.vy = u.kx = u.ky = 0; smoke(u.x, u.y, 3, 'dust', 6, 12, 0.6); }
   }
   for (const q of A.props) if (q.wet === p || q.sunk === p) Object.assign(q, { dead: false, solid: true, tile: q.wetTile, sunk: p, wet: null, hp: 1e9 });
-  removeIf(A.props, q => q.drained === p); G.drops = G.drops.filter(d => !p.cells.has(Math.floor(d.y / TS) * A.w + Math.floor(d.x / TS)));
+  G.drops = G.drops.filter(d => !p.cells.has(Math.floor(d.y / TS) * A.w + Math.floor(d.x / TS)));
   for (const pl of A.plates || []) if (pl.pool === p) { pl.down = false; pl.t = 0; pl.f = 0; }
   const [dx, dy] = p.drainAt; SFX.drain(panOf(dx * TS)); textPop(dx * TS + 8, dy * TS + 8, 18, 'THE CISTERN FILLS', 'white', false);
 }
@@ -303,9 +307,12 @@ function drawWorks(c) {
         for (let k = 0; k < 14; k++) { const a = G.time * 7 + k * 0.55, rr = (2 + k * 1.1) * (0.4 + p.level * 0.6); c.fillRect(Math.round(cx + Math.cos(a) * rr), Math.round(cy + Math.sin(a) * rr * 0.6), 1, 1); }
       }
     }
-    // the bridge over it (with its shadow on the water, never on the walk past its end)
+    // the bridge over it
     if (!p.bridge) continue; const W = wkOf(A), bc = p.bridge.cells;
-    if (p.level > 0) { c.fillStyle = `rgba(10,20,40,${0.45 * Math.min(1, p.level * 1.6)})`; for (const [x, y] of bc) if (!bc.some(([a, b]) => a === x && b === y + 1) && A.fl[(y + 1) * A.w + x] === 2) c.fillRect(x * TS, (y + 1) * TS, TS, 2); }
+    if (p.level > 0) { // its shadow lies on the water under all of it (dark between the slats) and runs a little out past its south edge
+      const k = Math.min(1, p.level * 1.6); c.fillStyle = `rgba(8,16,34,${0.55 * k})`;
+      for (const [x, y] of bc) { c.fillRect(x * TS, y * TS + 2, TS, TS - 2); if (!bc.some(([a, b]) => a === x && b === y + 1) && A.fl[(y + 1) * A.w + x] === 2) c.fillRect(x * TS, (y + 1) * TS, TS, 3); }
+    }
     for (const [x, y] of bc) sheetTile(c, p.bridge.horiz ? W.slatH : W.slatV, x * TS, y * TS);
   }
   for (const q of A.plips || []) { q.t += 1 / 60; const u = q.t / 0.5; if (u >= 1) continue; c.strokeStyle = `rgba(220,240,255,${0.7 * (1 - u)})`; c.lineWidth = 1; c.beginPath(); c.ellipse(q.x, q.y, 1 + u * 4, (1 + u * 4) * 0.6, 0, 0, TAU); c.stroke(); }

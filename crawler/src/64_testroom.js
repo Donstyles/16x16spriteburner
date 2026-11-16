@@ -91,3 +91,26 @@ function creatureTick(dt) {
   const h = G.me; if (h && !h.dead) h.hp = Math.min(h.maxHp, h.hp + 6 * dt);
   if (!TEST.waiting && G.foes.length && G.foes.every(f => f.dead || f.ctest !== TEST.gen)) { TEST.waiting = true; const gen = TEST.gen; G.sched.push({ t: 2, fn: () => { TEST.waiting = false; if (TEST.mode === 'creatures' && TEST.gen === gen) creatureSpawn(); } }); }
 }
+// ===================== the water test room =====================
+// From the kit screen: a floor with a cistern, its doors shut and nobody on the floor but the hero, standing by the drain
+// plate. The water holds as many of the things the sheet has standing in water as will fit. Step on the plate and it
+// drains; REFILL at the top brings the water back, and everything in it, for another go.
+function beginWaterTest(kit) {
+  beginRun(kit); for (let n = 0; n < 120 && !ARENA.cistern; n++) { G.floor = 1 + (n % 3); startFloor(); }
+  if (!ARENA.cistern) { beginTest(kit); return; }
+  const A = ARENA, r = A.cistern, p = r.pool, h = G.me, pl = (A.plates || []).find(q => q.pool === p);
+  TEST.on = true; Object.assign(TEST, { mode: 'water', god: true, label: 'STEP ON THE PLATE TO DRAIN IT' }); A.name = 'WATER TEST ROOM';
+  G.foes.length = 0; G.units = G.heroes.slice(); G.sched.length = 0; G.drops.length = 0;
+  removeIf(A.props, q => q.sunk === p && q.kind !== 'wetpillar'); sinkThings(A, p, SUNK.length, SUNK.slice().sort(() => Math.random() - 0.5)); // one of each, as many as fit
+  for (const d of A.doors) if (d.room === r.i) shutDoor(A, d);
+  const at = pl ? [pl.x + (pl.tx <= p.x0 ? -16 : pl.tx >= p.x1 ? 16 : 0), pl.y + (pl.ty <= p.y0 ? -16 : pl.ty >= p.y1 ? 16 : 0)] : [(p.x0 - 1) * TS + 8, (p.y0 - 1) * TS + 8];
+  h.x = at[0]; h.y = at[1] + 2; h.enter = null; h.lightR = 220; CAM.x = h.x; CAM.y = h.y;
+  A.keepClean = true; if (A.chunks) keepClean(A);
+  G.card = { t: 0, life: 3.2, a: 'WATER TEST ROOM', b: 'STEP ON THE PLATE TO DRAIN THE CISTERN', c: 'REFILL AT THE TOP BRINGS THE WATER BACK' };
+}
+function waterTick(dt) { const h = G.me; if (h && !h.dead) h.hp = Math.min(h.maxHp, h.hp + 6 * dt); }
+// the second button at the top: the next creature, or the water back in
+function testNext() {
+  if (TEST.mode === 'creatures') nextCreature();
+  else if (TEST.mode === 'water' && ARENA.cistern) { refillPool(ARENA.cistern.pool); SFX.whoosh(0); }
+}
