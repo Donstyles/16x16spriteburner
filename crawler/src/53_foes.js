@@ -107,8 +107,9 @@ function aiPrep(dt) {
 // where a squad member stands: on the squad's bearing at its distance from the hero, the archers spread across it
 function squadSpot(t, bear, R, lat, from) { const ux = Math.cos(bear), uy = Math.sin(bear); let x = t.x + ux * R - uy * lat, y = t.y + uy * R * 0.85 + ux * lat; if (solidAt(x, y) || !boxFree(x, y, 5)) [x, y] = clipToWalls(from.x, from.y, x, y, 5); return [x, y]; }
 function foeTick(f, dt) {
-  if (f.dead) return; if (f.poiseT > 0) f.poiseT -= dt; else f.poise = f.maxPoise; if (f.poiseGuard > 0) f.poiseGuard -= dt;
+  if (f.dead) return; if (f.dying) { throesTick(f, dt); return; } if (f.poiseT > 0) f.poiseT -= dt; else f.poise = f.maxPoise; if (f.poiseGuard > 0) f.poiseGuard -= dt;
   if (f.stun > 0) { f.stun -= dt; f.vx = damp(f.vx, 0, 8, dt); f.vy = damp(f.vy, 0, 8, dt); f.moving = false; return; }
+  if (f.dummy) { dummyTick(f, dt); return; } // the test room's foes only stand there
   if (!f.aware) { senses(f, dt); if (f.aware) return; idleFoe(f, dt); return; }
   if (f.cdT > 0) f.cdT -= dt;
   if (!f.tgt || f.tgt.dead || (chance(dt * 0.5))) { const n = nearest(f, G.heroes.filter(alive)); if (n) f.tgt = n; }

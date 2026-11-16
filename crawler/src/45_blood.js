@@ -203,11 +203,11 @@ function deathTick(h, dt) {
   const t = h.deadT, p = t - dt, at = s => p < s && t >= s; if (h.gone) return;
   if (at(0.15)) dropWeapon(h, 1);
   if (at(0.55)) { SFX.boom(0.25, panOf(h.x)); shake(0.12); smoke(h.x, h.y, 3, 'dust', 8, 18, 0.8); }
-  [0.8, 1.4, 2.1, 2.9, 3.8].forEach((s, i) => {
-    if (!at(s)) return; const k = 1 - i * 0.17; SFX.heart(0.5 * k); if (!bleeds(h)) return;
+  [0.9, 1.7, 2.6, 3.6, 4.7, 5.9].forEach((s, i) => { // the heart slows
+    if (!at(s)) return; const k = 1 - i * 0.14; SFX.heart(0.5 * k); if (!bleeds(h)) return;
     const fs = h.face < 0 ? -1 : 1, x = h.x - fs * 3, y = h.y; // the wound, about his chest as he lies
     for (let j = 0, n = Math.round(12 * k); j < n; j++) part({ k: 'gore', x: x + rand(-1, 1), y: y + rand(-1, 1), z: 3, vx: rand(-22, 22) * k, vy: rand(-12, 12) * k, vz: rand(55, 115) * k, g: 420, life: 5, s0: chance(0.2) ? 2 : 1, col: pick(BLOOD.red), kind: 'red' });
-    pool(x, y + 1, 'red', 2.4 + i * 1.3); // the pool spreads out from under him with every beat
+    pool(x, y + 1, 'red', 2.4 + i * 1.1); // the pool spreads out from under him with every beat
   });
 }
 // a canvas cropped to its pixels (so a thrown weapon lies on the floor, not above it)
@@ -231,4 +231,24 @@ function heroBurst(h, o) {
   breakSprite(D, 0, Wc ? 0 : m[0], fw, fh, Math.round(h.x - fw / 2), Math.round(h.y - h.z - footOf(h.spr) - 1), h.y, randi(6, 8), { away: o.ang === undefined ? null : o.ang, spd: 1.4, flip: h.face < 0, edge: BLOOD.red, bleed: 'red', lie: 99, slow });
   spray(h, 60, { ...o, more: 1.6, slow, spd: 1.3 }); spray(h, 50, { style: 'slam', slow }); pool(h.x, h.y, 'red', 4);
   h.gone = true; SFX.gib(panOf(h.x)); shake(0.3);
+}
+
+// --- a brute's death throes: brought to 0 it does not drop at once. It stops, shaking and lurching, turning this way and
+// that; with every beat of its heart blood spurts from its chest, weaker each time, and the pool under it spreads; it
+// sinks to its knees and dies. Another blow finishes it at once. Those with no blood (golems, the scarecrow) shed dust.
+function throes(u, src) {
+  u.hp = 0; u.act = null; u.tgt = null; u.dying = { t: 0, dur: rand(2.4, 3.2), next: 0.12, lurch: 0.2, src };
+  SFX.groan(panOf(u.x)); if (bleeds(u)) spray(u, 40, { ...(u.lastBlow || {}), more: 1.2 });
+}
+function throesTick(f, dt) {
+  const D = f.dying; D.t += dt; f.vx = damp(f.vx, 0, 8, dt); f.vy = damp(f.vy, 0, 8, dt); f.moving = false; f.stun = 0.2; // (shaking)
+  if ((D.lurch -= dt) <= 0) { D.lurch = rand(0.25, 0.6); f.kx += rand(-45, 45); f.ky += rand(-25, 25); if (chance(0.45)) f.face = -f.face; }
+  if ((D.next -= dt) <= 0) {
+    const k = Math.max(0.25, 1 - D.t / D.dur), kind = f.def.blood || 'red', sc = f.scale || 1; D.next = lerp(0.3, 0.65, D.t / D.dur) * rand(0.85, 1.15);
+    if (bleeds(f)) {
+      for (let i = 0, n = Math.round((8 + 12 * k) * sc); i < n; i++) { const a = rand(TAU), v = rand(15, 55) * k; part({ k: 'gore', x: f.x + rand(-2, 2), y: f.y + rand(-1, 1), z: 11 * sc, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.8, vz: rand(70, 160) * k, g: 420, life: 5, s0: chance(GORE.big) ? 2 : 1, col: pick(BLOOD[kind]), kind }); }
+      pool(f.x + rand(-2, 2), f.y + 1, kind, 1.5 + D.t * 0.9); SFX.squelch(panOf(f.x), k > 0.6);
+    } else debris(f.x, f.y - 6, 5, DRY.has(kind) ? BLOOD[kind] : DUST, 50, 70, 1.4);
+  }
+  if (D.t >= D.dur) { f.stun = 0; const src = D.src; f.dying = null; kill(f, src); }
 }

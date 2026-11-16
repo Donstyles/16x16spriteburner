@@ -8,6 +8,16 @@ const THEMES = {
 const FLOOR_NAMES = ['THE ROOT CELLAR', 'THE SALT VAULT', 'THE DROWNED STORES', 'THE BONE PANTRY', 'THE ASHEN KILN', 'THE WINE CRYPT', 'THE GRAIN TOMB', 'THE IRON LARDER', 'THE HOLLOW CISTERN', 'THE ROTTED GRANARY', 'THE BLACK BREWERY', 'THE DEEP MILL', 'THE SCREAMING SILO', 'THE LAST LARDER'];
 let ARENA = null;
 const CW = 24, CH = 17; // one grid cell, in tiles
+// The tops of the walls are at the ceiling: the light trim along every wall, the square caps where it turns a corner,
+// and the dark rock behind it. Nothing in the room can pass over them, so each wall tile's top part is also painted into
+// a ceiling layer drawn over everything else (the brick faces stay below: people stand in front of them). Per tile of
+// the sheet (before mirroring): the rectangles [x, y, w, h] that are ceiling.
+const CEIL = {
+  '3,0': [[0, 0, 16, 10], [0, 10, 12, 6]], '3,2': [[0, 0, 16, 9], [7, 9, 9, 3]], // corners jutting into the floor
+  '5,0': [[0, 0, 16, 11], [0, 11, 11, 5]], '7,0': [[0, 0, 16, 11], [5, 11, 11, 5]], '5,3': [[0, 0, 16, 16]], '7,3': [[0, 0, 16, 16]], // a room's inside corners
+  '6,0': [[0, 0, 16, 9]], '6,3': [[0, 4, 16, 12]], // the trim over a north wall's face, and along a south wall
+  '5,1': [[0, 0, 12, 16]], '7,1': [[4, 0, 12, 16]], '5,2': [[0, 0, 12, 16]], '7,2': [[4, 0, 12, 16]], // side walls
+};
 function tileAt(g, tx, ty, dx, dy) { g.drawImage(IMG.cellar, tx * TS, ty * TS, TS, TS, dx, dy, TS, TS); }
 function buildArena(floor) {
   const th = floor % 2 ? THEMES.brown : THEMES.grey, GW = floor <= 2 ? 3 : 4, GH = 3;
@@ -54,6 +64,7 @@ function buildArena(floor) {
   // ---- paint, the way the tileset is built: dark is solid rock, the beige rim is the top edge of the rock, and a brick face
   // stands under every rim that faces south. Wall pieces are overlays: the floor runs on underneath them.
   const cv = mkCanvas(W * TS, H * TS), g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+  const cc = mkCanvas(W * TS, H * TS), cg = cc.getContext('2d'); cg.imageSmoothingEnabled = false; // the ceiling layer
   g.fillStyle = '#121418'; g.fillRect(0, 0, cv.width, cv.height);
   const isF = (x, y) => x >= 0 && y >= 0 && x < W && y < H && fl[y * W + x] === 1;
   const face = (x, y) => !isF(x, y) && isF(x, y + 1), O = (x, y) => isF(x, y) || face(x, y);
@@ -69,7 +80,11 @@ function buildArena(floor) {
       else tileAt(g, 15, floorRow, x * TS, y * TS);
     }
   }
-  const T = (tx, ty, x, y, flip) => { if (!flip) return tileAt(g, tx, ty + th.fy, x * TS, y * TS); g.save(); g.translate((x + 1) * TS, y * TS); g.scale(-1, 1); g.drawImage(IMG.cellar, tx * TS, (ty + th.fy) * TS, TS, TS, 0, 0, TS, TS); g.restore(); };
+  const put = (c, tx, ty, x, y, flip) => { c.save(); c.translate(flip ? (x + 1) * TS : x * TS, y * TS); if (flip) c.scale(-1, 1); c.drawImage(IMG.cellar, tx * TS, (ty + th.fy) * TS, TS, TS, 0, 0, TS, TS); c.restore(); };
+  const T = (tx, ty, x, y, flip) => {
+    put(g, tx, ty, x, y, flip); const m = CEIL[tx + ',' + ty]; if (!m) return;
+    cg.save(); cg.beginPath(); for (const [mx, my, mw, mh] of m) cg.rect(x * TS + (flip ? TS - mx - mw : mx), y * TS + my, mw, mh); cg.clip(); put(cg, tx, ty, x, y, flip); cg.restore();
+  };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (isF(x, y)) continue;
     if (face(x, y)) { // the brick face; where floor runs past its end, the block's end piece
@@ -83,7 +98,7 @@ function buildArena(floor) {
     else if (O(x + 1, y + 1)) T(5, 0, x, y); else if (O(x - 1, y + 1)) T(7, 0, x, y); // the inside corners of a room
     else if (O(x + 1, y - 1)) T(5, 3, x, y); else if (O(x - 1, y - 1)) T(7, 3, x, y);
   }
-  const A = ARENA = { w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, fl, rooms, halls, props: [], torches: [], name: floorName(floor), floor };
+  const A = ARENA = { w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, fl, rooms, halls, props: [], torches: [], name: floorName(floor), floor };
   A.doors = rooms.flatMap(r => r.doors.map(d => Object.assign(d, { room: r.i, k: 0 })));
   A.start = rooms.find(r => r.kind === 'start'); A.end = rooms.find(r => r.kind === 'end');
   // ---- furnishing (the stairways' places first, so no torch or banner hangs on them)
@@ -130,11 +145,16 @@ function groundChunks(A) {
     const w = Math.min(CHUNK, A.pw - x), h = Math.min(CHUNK, A.ph - y), cv = mkCanvas(w, h), g = cv.getContext('2d');
     g.imageSmoothingEnabled = false; g.drawImage(A.ground, x, y, w, h, 0, 0, w, h); g.setTransform(1, 0, 0, 1, -x, -y); A.chunks.push({ x, y, w, h, cv, g });
   }
-  A.ground = A.g = null; return A.chunks;
+  A.ground = A.g = null; if (A.keepClean) keepClean(A); return A.chunks;
 }
 // fn paints in map coordinates into every square the box touches
 function groundPaint(x0, y0, x1, y1, fn) { const A = ARENA; if (!A) return; for (const k of groundChunks(A)) if (x1 >= k.x && x0 < k.x + k.w && y1 >= k.y && y0 < k.y + k.h) fn(k.g); }
 // draws the floor inside a box of the map (c is already in map coordinates)
+// the ceiling layer over a box of the map (on the glow layer, 'destination-out' cuts the glow away under it)
+function drawCeil(c, sx, sy, sw, sh) {
+  const C = ARENA.ceil, x0 = Math.max(0, Math.floor(sx)), y0 = Math.max(0, Math.floor(sy)), x1 = Math.min(C.width, Math.ceil(sx + sw)), y1 = Math.min(C.height, Math.ceil(sy + sh));
+  if (x1 > x0 && y1 > y0) c.drawImage(C, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
+}
 function drawGround(c, sx, sy, sw, sh) {
   for (const k of groundChunks(ARENA)) { const x0 = Math.max(sx, k.x), y0 = Math.max(sy, k.y), x1 = Math.min(sx + sw, k.x + k.w), y1 = Math.min(sy + sh, k.y + k.h); if (x1 > x0 && y1 > y0) c.drawImage(k.cv, x0 - k.x, y0 - k.y, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0); }
 }

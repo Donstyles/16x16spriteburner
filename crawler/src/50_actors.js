@@ -57,7 +57,8 @@ function hurt(u, dmg, src, o = {}) {
     // overkill: a killing blow that alone does more than half the foe's full health blows one of the bigger foes (never
     // the trash) apart, whatever it had left (a 51 blow on a foe at 1 of 100 does it)
     if (GORE.level === 2 && u.team === 'foe' && u.def.role !== 'rush' && bleeds(u) && d > 0.5 * u.maxHp) { u.gib = true; if (src) { freeze(src, GIB_HOLD); if (src.gore !== undefined) src.gore = Math.min(3, src.gore + 0.5); } }
-    kill(u, src);
+    // a brute brought down goes into its death throes; a blow during them finishes it
+    if (!u.gib && !u.dying && u.team === 'foe' && u.def.role === 'tank') throes(u, src); else { u.dying = null; kill(u, src); }
   }
   else if (u.team === 'foe') alertFoe(u, src);
   return d;
@@ -77,8 +78,8 @@ function stagger(u, t) {
 }
 function kill(u, src) {
   u.dead = true; u.hp = 0; u.act = null; u.stun = 0;
-  if (u.team === 'foe') { G.kills++; deathFx(u); dropLoot(u); if (src && src.team === 'hero') src.killsT = (src.killsT || 0) + 1; }
-  else { heroFalls(u); smoke(u.x, u.y, 6, 'dark', 10, 20, 1.4); flashLight(u.x, u.y, 60, 'red', 1, 0.6); textPop(u.x, u.y, headZ(u) + 3, (u.pname || u.def.name) + ' FALLS', 'red'); SFX.boom(0.5, panOf(u.x)); shake(0.4); slowmo(0.3, 0.8); }
+  if (u.team === 'foe') { G.kills++; deathFx(u); dropLoot(u); if (u.dummy) dummyDied(u); if (src && src.team === 'hero') src.killsT = (src.killsT || 0) + 1; }
+  else { heroFalls(u); smoke(u.x, u.y, 6, 'dark', 10, 20, 1.4); flashLight(u.x, u.y, 60, 'red', 1, 0.6); textPop(u.x, u.y, headZ(u) + 3, (u.pname || u.def.name) + ' FALLS', 'red'); SFX.boom(0.5, panOf(u.x)); shake(0.4); slowmo(0.3, 1.4); }
 }
 const BLOOD = { red: ['#7a0c14', '#a01420', '#5a0810'], bone: ['#cfc6b0', '#a49a84', '#7a705e'], metal: ['#9aa4b0', '#c8d0d8', '#6a7480'], slime: ['#3a8a30', '#60c040', '#2a5a20'], straw: ['#c8a040', '#e0c060', '#8a6a20'], bug: ['#7c8c1c', '#a6b630', '#4c5810'], sludge: ['#2a2219', '#40352a', '#120e0b'] }; // bug: green-yellow ichor; sludge: what the crypt dead have left
 // the body shatters into its own pixels

@@ -15,6 +15,7 @@ function startRun(kit) {
   G.mode = 'play';
 }
 function startFloor() {
+  TEST.on = false;
   buildArena(G.floor); initSight(ARENA); G.proj = []; G.drops = []; G.sched = []; for (const k in FX) FX[k].length = 0;
   const A = ARENA, sp = A.spawn;
   G.heroes.forEach((h, i) => { h.x = sp.x + (i - (G.heroes.length - 1) / 2) * 16; h.y = sp.y; h.z = 0; h.vx = h.vy = h.kx = h.ky = 0; h.act = null; h.stun = 0; h.iframe = 0; h.dir = -Math.PI / 2; h.path = null; });
@@ -45,8 +46,8 @@ function updateRun(dt) {
     G.fade = Math.min(1, G.phaseT / 0.7);
     if (G.phaseT > 0.9) { G.floor++; G.best = Math.max(G.best, G.floor); saveBest(); for (const h of G.heroes) { if (h.dead) { h.dead = false; h.gone = h.dropped = false; h.hp = Math.round(h.maxHp * 0.3); } } startFloor(); }
   } else if (G.phase === 'dead') {
-    if (G.phaseT > 3.2) G.fade = Math.min(1, (G.phaseT - 3.2) / 0.8);
-    if (G.phaseT > 4.2) { G.mode = 'menu'; MENU.screen = 'summary'; G.fade = 0; }
+    if (G.phaseT > 7) G.fade = Math.min(1, (G.phaseT - 7) / 1.2); // the death plays out first
+    if (G.phaseT > 8.2) { G.mode = 'menu'; MENU.screen = 'summary'; G.fade = 0; }
   }
 }
 function saveBest() { try { localStorage.setItem('cor2-best', String(G.best)); } catch (e) { } }

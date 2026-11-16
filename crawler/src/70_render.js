@@ -77,7 +77,7 @@ function drawUnit(c, u) {
   const ra = u.team === 'hero' && u.act && u.act.k === 'roll' ? u.act : null;
   // A pixel sprite cannot be squeezed without dropping rows, so a crouch or a landing lowers the upper body by
   // whole pixels instead: the sprite is cut at the waist and the top part drawn lower, over the legs.
-  const dip = u.team === 'hero' && !ra ? (dp ? dp.dip : Math.min(2, (creep ? 1 : 0) + (u.dipT > 0 ? 1 : 0))) : sleep && FLAT_SLEEPERS.has(u.spr) && sc === 1 ? 1 : 0, cut = Math.max(4, foot - 5);
+  const dip = u.team === 'hero' && !ra ? (dp ? dp.dip : Math.min(2, (creep ? 1 : 0) + (u.dipT > 0 ? 1 : 0))) : u.dying ? (u.dying.t > u.dying.dur * 0.82 ? 2 : u.dying.t > u.dying.dur * 0.55 ? 1 : 0) : sleep && FLAT_SLEEPERS.has(u.spr) && sc === 1 ? 1 : 0, cut = Math.max(4, foot - 5);
   // the sellsword swinging: drawn without his sword, and the sword drawn on its own, behind him when it points behind him
   const Wc = u.team === 'hero' && !ra ? WEAPON[u.spr] : null, pose = Wc ? weaponPose(u) : null, back = pose && (pose.behind || (!pose.front && Math.cos(pose.th) * (u.face < 0 ? -1 : 1) < -0.15));
   if (back) drawWeapon(c, u, pose, Wc, fr, fw, foot, dip, cut);
@@ -90,7 +90,8 @@ function drawUnit(c, u) {
   }
   const B = sc !== 1 ? bigSprite(u.spr, sc) : null;
   c.scale((B ? 1 : sc) * (u.face < 0 ? -1 : 1), B ? 1 : sc);
-  const blitB = img => c.drawImage(img, fr * B.W, 0, B.W, B.H, -B.W / 2, -B.foot, B.W, B.H);
+  const blitB = img => { if (!dip) { c.drawImage(img, fr * B.W, 0, B.W, B.H, -B.W / 2, -B.foot, B.W, B.H); return; } const k = Math.round(cut * sc);
+    c.drawImage(img, fr * B.W, k, B.W, B.H - k, -B.W / 2, -B.foot + k, B.W, B.H - k); c.drawImage(img, fr * B.W, 0, B.W, k, -B.W / 2, -B.foot + dip, B.W, k); };
   const blit = (img, oy = sy) => { if (!dip) { c.drawImage(img, fr * fw, oy, fw, fh, -fw / 2, -foot - 1, fw, fh); return; }
     c.drawImage(img, fr * fw, oy + cut, fw, fh - cut, -fw / 2, -foot - 1 + cut, fw, fh - cut); c.drawImage(img, fr * fw, oy, fw, cut, -fw / 2, -foot - 1 + dip, fw, cut); };
   const bare = pose || (Wc && u.dropped); // swinging, or his weapon gone from his hand
@@ -100,7 +101,7 @@ function drawUnit(c, u) {
   if (u.flash > 0) { c.globalAlpha = Math.min(1, u.flash * 9); if (B) blitB(B.white); else if (bare) blit(Wc.cutW, 0); else blit(IMG.mobsW); }
   c.restore(); c.globalAlpha = 1;
   if (pose && !back) drawWeapon(c, u, pose, Wc, fr, fw, foot, dip, cut);
-  if (u.team === 'foe' && u.hp < u.maxHp && !u.dead) { const w = 10 * sc, x = u.x - w / 2, y = u.y - u.z + 3; c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(x - 0.5, y - 0.5, w + 1, 2.5); c.fillStyle = u.stun > 0 ? '#ffd24a' : '#e8443a'; c.fillRect(x, y, w * clamp(u.hp / u.maxHp, 0, 1), 1.5); }
+  if (u.team === 'foe' && u.hp < u.maxHp && !u.dead && !u.dying) { const w = 10 * sc, x = u.x - w / 2, y = u.y - u.z + 3; c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(x - 0.5, y - 0.5, w + 1, 2.5); c.fillStyle = u.stun > 0 ? '#ffd24a' : '#e8443a'; c.fillRect(x, y, w * clamp(u.hp / u.maxHp, 0, 1), 1.5); }
   if (u.team === 'hero' && u.blocking) { const a0 = u.dir; c.strokeStyle = u.blockT < PARRY_WINDOW ? '#ffd860' : '#d8d0c0'; c.lineWidth = 1.5; c.beginPath(); c.ellipse(u.x, u.y + GUARD.dy, GUARD.r, GUARD.r * GUARD.k, 0, a0 - GUARD.half, a0 + GUARD.half); c.stroke(); }
 }
 function drawProp(c, p) {
@@ -165,7 +166,7 @@ function renderLight() {
   if (menu) { lctx.fillStyle = 'rgb(70,62,74)'; lctx.fillRect(0, 0, bw, bh); } else maskToMemory(lctx, PXO.x, PXO.y, 'source-over');
   lctx.globalCompositeOperation = 'lighter'; lctx.imageSmoothingEnabled = false; lctx.setTransform(1, 0, 0, 1, -PXO.x, -PXO.y);
   const L = (x, y, r, k, a) => { if (a <= 0.01) return; const t = lightTex(k); for (let i = 0; i < 2 && a > 0.01; i++, a -= 1) { lctx.globalAlpha = Math.min(1, a); lctx.drawImage(t, x - r, y - r * 0.8, r * 2, r * 1.6); } };
-  for (const h of G.heroes) { const hs = (h.hush || 1) * (h.dead ? Math.max(0.45, 1 - (h.deadT || 0) * 0.14) : 1); L(h.x, h.y - 6, h.lightR * 1.35 * hs, 'hot', 1.15 * hs); L(h.x, h.y - 6, h.lightR * 0.7 * hs, 'torch', 0.35); } // a fallen hero's lamp burns on, dimming
+  for (const h of G.heroes) { const hs = (h.hush || 1) * (h.dead ? Math.max(0.4, 1 - (h.deadT || 0) * 0.08) : 1); L(h.x, h.y - 6, h.lightR * 1.35 * hs, 'hot', 1.15 * hs); L(h.x, h.y - 6, h.lightR * 0.7 * hs, 'torch', 0.35); } // a fallen hero's lamp burns on, dimming
   for (const t of ARENA.torches) L(t.x, t.y + 6, 62 + 6 * noise1(G.time * 7 + t.tx), 'torch', 0.85);
   for (const p of ARENA.props) if (p.kind === 'brazier') L(p.x, p.y - 4, 90 + 8 * noise1(G.time * 6 + p.x), 'torch', 0.95);
   const A = FX.lights; for (let i = 0; i < A.length; i += 5) L(A[i], A[i + 1], A[i + 2], A[i + 3], A[i + 4]); A.length = 0;
@@ -200,12 +201,13 @@ function render() {
   const list = []; for (const u of G.units) list.push([u.y, 0, u]); for (const p of ARENA.props) if (!p.dead) list.push([p.y, 1, p]);
   for (const d of G.drops) list.push([d.y, 2, d]); for (const p of G.proj) list.push([p.y, 3, p]); for (const r of FX.rocks) list.push([r.y, 4, r]); list.sort((a, b) => a[0] - b[0]);
   for (const [, k, o] of list) if (k === 0) drawUnit(c, o); else if (k === 1) drawProp(c, o); else if (k === 2) drawDrop(c, o); else if (k === 3) drawProj(c, o); else drawRock(c, o);
-  drawWorldParts(c);
+  drawWorldParts(c); drawCeil(c, ox, oy, bw, bh); // the tops of the walls, at the ceiling, over everything in the room
   renderLight();
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'multiply'; c.drawImage(lc, 0, 0);
   fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.globalCompositeOperation = 'source-over'; fctx.globalAlpha = 1; fctx.clearRect(0, 0, bw, bh); fctx.globalCompositeOperation = 'lighter'; fctx.imageSmoothingEnabled = false; X(fctx);
   drawAuras(fctx); drawGhosts(fctx); drawRings(fctx); drawFxParts(fctx); drawBolts(fctx); drawArrowGlints(fctx);
   if (G.mode === 'play') maskToMemory(fctx, ox, oy, 'destination-in'); // no glow, spark or flame shows where nobody has looked
+  fctx.globalCompositeOperation = 'destination-out'; drawCeil(fctx, ox, oy, bw, bh); fctx.globalCompositeOperation = 'lighter'; // nor over the tops of the walls
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'lighter'; c.drawImage(fxc, 0, 0);
   if (Q.bloom > 0) { b1c.imageSmoothingEnabled = b2c.imageSmoothingEnabled = c.imageSmoothingEnabled = true; b1c.clearRect(0, 0, b1.width, b1.height); b1c.drawImage(fxc, 0, 0, b1.width, b1.height); b2c.clearRect(0, 0, b2.width, b2.height); b2c.drawImage(b1, 0, 0, b2.width, b2.height); c.globalAlpha = 0.45 * Q.bloom; c.drawImage(b1, 0, 0, bw, bh); c.globalAlpha = 0.5 * Q.bloom; c.drawImage(b2, 0, 0, bw, bh); c.globalAlpha = 1; c.imageSmoothingEnabled = false; }
   c.globalCompositeOperation = 'source-over';

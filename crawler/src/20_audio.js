@@ -108,6 +108,8 @@ const SFX = {
   squelch(pan = 0, big = false) { if (!this.ok('squelch', 0.03)) return; this.noise(this.brown, big ? 0.24 : 0.13, 'lowpass', big ? 1300 : 1000, 160, 1.8, big ? 0.55 : 0.34, pan, 0, 0.003); this.noise(this.white, big ? 0.09 : 0.05, 'bandpass', 900, 280, 5, big ? 0.2 : 0.13, pan, 0.008, 0.002); },
   // a body blown apart: the wet burst, a crack of bone, then the pieces slapping down
   gib(pan = 0) { if (!this.ok('gib', 0.1)) return; this.squelch(pan, true); this.crack(pan); this.tone('sine', 110, 40, 0.3, 0.4, pan); for (let i = 0; i < 6; i++) this.noise(this.brown, 0.06, 'bandpass', rand(400, 900), 200, 4, rand(0.14, 0.26), pan + rand(-0.3, 0.3), rand(0.25, 0.9), 0.002); },
+  // a big creature's dying groan: a low rough voice falling away, breath through it
+  groan(pan = 0) { if (!this.ok('groan', 0.6)) return; this.tone('sawtooth', 92, 62, 0.75, 0.11, pan, 0, 0.08); this.tone('sawtooth', 138, 92, 0.65, 0.045, pan, 0.02, 0.08); this.noise(this.brown, 0.7, 'bandpass', 420, 240, 2.5, 0.28, pan, 0, 0.06); },
   chest(pan = 0) { if (!this.ok('chest', 0.2)) return; this.noise(this.brown, 0.35, 'bandpass', 380, 220, 4, 0.35, pan, 0, 0.03); this.tone('sawtooth', 140, 90, 0.3, 0.05, pan, 0, 0.05); this.tone('triangle', 1568, 1568, 0.08, 0.1, pan, 0.25); this.tone('triangle', 2349, 2349, 0.16, 0.09, pan, 0.31); },
   coin(pan = 0) { if (!this.ok('coin', 0.03)) return; const t = this.ctx.currentTime; this.coinN = t - (this.coinT || -9) < 0.45 ? Math.min(9, (this.coinN || 0) + 1) : 0; this.coinT = t;
     const k = Math.pow(2, this.coinN / 12); this.tone('triangle', 1568 * k, 1568 * k, 0.06, 0.12, pan); this.tone('triangle', 2093 * k, 2093 * k, 0.16, 0.11, pan, 0.055); this.tone('sine', 4186 * k, 4186 * k, 0.1, 0.03, pan, 0.055); },
