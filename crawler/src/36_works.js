@@ -142,7 +142,9 @@ const SUNK = [
 // n of them about the water, each on open water clear of the bridge, the drain, the pillars and each other
 function sinkThings(A, p, n, kinds) {
   const bc = p.bridge ? p.bridge.cells : [], taken = new Set();
-  const open = (x, y) => { const i = y * A.w + x; return p.cells.has(i) && A.fl[i] === 2 && !taken.has(i) && !bc.some(([a, b]) => Math.abs(a - x) <= 1 && Math.abs(b - y) <= 1) && !(x === p.drainAt[0] && y === p.drainAt[1]) &&
+  // (water all round it, the eight tiles about it: never against a rim, a landing, an island or a walkway)
+  const wet8 = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (A.fl[(y + j) * A.w + x + i] !== 2) return false; return true; };
+  const open = (x, y) => { const i = y * A.w + x; return p.cells.has(i) && A.fl[i] === 2 && wet8(x, y) && !taken.has(i) && !bc.some(([a, b]) => Math.abs(a - x) <= 1 && Math.abs(b - y) <= 1) && !(x === p.drainAt[0] && y === p.drainAt[1]) &&
     !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 16 && Math.abs(q.cy - (y * TS + 10)) < 20); };
   const list = kinds || Array.from({ length: n }, () => pick(SUNK)); let made = 0;
   for (const s of list) for (let k = 0; k < 10 && made < n; k++) { // each a few tries for a spot it fits

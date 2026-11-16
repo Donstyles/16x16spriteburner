@@ -173,10 +173,14 @@ function heroTick(h, dt) {
   // a roll pressed in the middle of a swing is kept a moment, and goes the instant the swing's recovery lets it
   if (h.rollBufT > 0) { h.rollBufT -= dt; if (canRoll(h)) { h.rollBufT = 0; startRoll(h, want); I.atkP = I.atkR = false; h.pressT = -1; h.chainHold = false; return; } }
   if (I.dodgeP) { I.dodgeP = false; if (canRoll(h)) { startRoll(h, want); I.atkP = I.atkR = false; h.pressT = -1; h.chainHold = false; return; } else if (h.stam <= 0) G.tiredT = 0.6; else if (h.act && h.act.k === 'atk') h.rollBufT = 0.4; }
-  if (a) { if (a.k === 'atk' && I.atkP) a.buf = true; I.atkP = false; actTick(h, a, dt, I, want); I.itemP = false; return; }
+  if (a) { if (a.k === 'atk' && I.atkP) a.buf = true; else if (I.atkP) h.atkBuf = true; I.atkP = false; actTick(h, a, dt, I, want); I.itemP = false; return; } // (pressed mid-roll or mid-drink: kept for when it ends)
   // free: walk, raise the shield, start an attack, drink
   if (I.itemP) { I.itemP = false; if (h.flasks > 0) { h.act = { k: 'drink', t: 0, dur: 0.85, done: false }; h.blocking = false; return; } else textPop(h.x, h.y, headZ(h) + 2, 'NO FLASKS', 'red', false); }
   if (I.atkP) { I.atkP = false; I.atkR = false; h.pressT = 0; } // (a release from before this press is stale: a tap released mid-swing)
+  // a press kept from a roll, or attack simply held with no press seen (it went down mid-roll): the hold is timed from now,
+  // so held on it charges, and let go it is the next blow
+  else if (h.pressT < 0 && (h.atkBuf || I.atk)) { h.pressT = 0; I.atkR = false; }
+  h.atkBuf = false;
   if (h.pressT >= 0) {
     h.pressT += dt;
     if (I.atkR || !I.atk) { I.atkR = false; h.pressT = -1; lightAttack(h, want, h.chainHold); h.chainHold = false; return; }
