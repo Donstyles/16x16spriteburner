@@ -251,7 +251,6 @@ function worksTick(dt) {
 }
 function startDrain(p) {
   p.drain = 1; const [dx, dy] = p.drainAt; SFX.drain(panOf(dx * TS)); SFX.quake(0.8);
-  textPop(dx * TS + 8, dy * TS + 8, 18, 'THE CISTERN DRAINS', 'white', false);
 }
 function endDrain(p) {
   const A = ARENA; p.drain = 2; p.level = 0;
@@ -281,7 +280,7 @@ function refillPool(p) {
   for (const q of A.props) if (q.wet === p || q.sunk === p) Object.assign(q, { dead: false, solid: true, tile: q.wetTile, sunk: p, wet: null, hp: 1e9 });
   G.drops = G.drops.filter(d => !p.cells.has(Math.floor(d.y / TS) * A.w + Math.floor(d.x / TS)));
   for (const pl of A.plates || []) if (pl.pool === p) { pl.down = false; pl.t = 0; pl.f = 0; }
-  const [dx, dy] = p.drainAt; SFX.drain(panOf(dx * TS)); textPop(dx * TS + 8, dy * TS + 8, 18, 'THE CISTERN FILLS', 'white', false);
+  const [dx, dy] = p.drainAt; SFX.drain(panOf(dx * TS));
 }
 // painting on the floor (groundPaint) paints the bridges too, clipped to their slats
 function bridgePaint(x0, y0, x1, y1, fn) {

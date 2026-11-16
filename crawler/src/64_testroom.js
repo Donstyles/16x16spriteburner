@@ -36,7 +36,19 @@ function dummyDied(u) { const A = ARENA; G.sched.push({ t: 1.5, fn: () => { if (
 function shutDoor(A, d) {
   const th = A.th; for (const [x, y] of d.cells) { A.fl[y * A.w + x] = 0; if (d.side === 'N') A.fl[(y - 1) * A.w + x] = 0; }
   if (d.side === 'E' || d.side === 'W') { d.k = 1; return; }
-  if (d.side === 'S') { const xs = d.cells.map(c => c[0]), y = d.cells[0][1]; groundPaint(Math.min(...xs) * TS - 4, y * TS, (Math.max(...xs) + 1) * TS + 4, (y + 1) * TS + 4, g => drawSDoor(g, d.cells, 1, th.door + 1)); return; }
+  // a south doorway has no door (the sheet's shutters are blast doors for north walls): it is walled up, the room's own
+  // south wall run on across it, and the first stretch of the corridor beyond it painted over as rock
+  if (d.side === 'S') {
+    const xs = d.cells.map(c => c[0]), y = d.cells[0][1], x0 = Math.min(...xs) - 1, x1 = Math.max(...xs) + 1, fr = th.floors[0][1];
+    groundPaint(x0 * TS, y * TS, (x1 + 1) * TS, (y + 4) * TS, g => {
+      g.fillStyle = '#121418'; g.fillRect(x0 * TS, (y + 1) * TS, (x1 - x0 + 1) * TS, 3 * TS);
+      for (let x = x0; x <= x1; x++) { tileAt(g, 10, fr, x * TS, y * TS); g.drawImage(IMG.cellar, 6 * TS, (3 + th.fy) * TS, TS, TS, x * TS, y * TS, TS, TS); }
+    });
+    // and over the ceiling layer: the corridor's posts and corners go, the south wall's trim runs on across
+    const cg = A.ceil.getContext('2d'); cg.clearRect(x0 * TS, y * TS, (x1 - x0 + 1) * TS, 4 * TS);
+    for (let x = x0; x <= x1; x++) cg.drawImage(IMG.cellar, 6 * TS, (3 + th.fy) * TS + 4, TS, 12, x * TS, y * TS + 4, TS, 12);
+    return;
+  }
   for (const [x, y] of d.cells) groundPaint(x * TS, (y - 1) * TS, x * TS + TS, (y + 1) * TS, g => { g.drawImage(IMG.doors, TS, th.door * TS, TS, TS, x * TS, (y - 1) * TS, TS, TS); g.drawImage(IMG.doors, TS, (th.door + 1) * TS, TS, TS, x * TS, y * TS, TS, TS); });
 }
 // the clean floor, kept when the room is made, to wipe back to

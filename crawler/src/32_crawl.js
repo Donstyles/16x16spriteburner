@@ -29,26 +29,15 @@ function lineOfSight(x0, y0, x1, y1) {
   for (let i = 1; i < n; i++) if (solidAt(lerp(x0, x1, i / n), lerp(y0, y1, i / n))) return false;
   return true;
 }
-// shutters in the north and south walls (frames from the door sheet, shut to open); a portcullis seen edge-on in the side walls
-// A south door, seen from inside the room: the north door's lower half (the sheet has none facing the other way), set 3 px
-// down into the doorway between its posts. The side walls' rims stop 4 px short of their tiles' edge, so the doorway is
-// its three tiles and 4 px either side: the panels are spread to fill it, the seams between them filled from a plain column.
-function drawSDoor(c, cells, col, row) {
-  const L = Math.min(...cells.map(q => q[0])), y = cells[0][1], n = cells.length, gap = n > 1 ? 8 / (n - 1) : 0, x0 = n > 1 ? L * TS - 4 : L * TS, sm = c.imageSmoothingEnabled; c.imageSmoothingEnabled = false;
-  for (let i = 0; i < n; i++) {
-    const px = x0 + i * (TS + gap); c.drawImage(IMG.doors, col * TS, row * TS, TS, TS, px, y * TS + 3, TS, TS);
-    if (i < n - 1) c.drawImage(IMG.doors, col * TS + 1, row * TS, 1, TS, px + TS, y * TS + 3, gap, TS);
-  }
-  c.imageSmoothingEnabled = sm;
-}
+// blast doors in the north walls (frames from the door sheet, shut to open); a portcullis seen edge-on in the side walls
 function drawDoors(c) {
   const A = ARENA; if (!A.doors) return; const th = A.th;
   for (const d of A.doors) {
     if (d.k <= 0.02) continue; const k = d.k;
     if (d.side === 'N' || d.side === 'S') {
       const col = 1 + Math.round((1 - k) * 3);
-      if (d.side === 'S') drawSDoor(c, d.cells, col, th.door + 1);
-      else for (const [x, y] of d.cells) { c.drawImage(IMG.doors, col * TS, th.door * TS, TS, TS, x * TS, (y - 1) * TS, TS, TS); c.drawImage(IMG.doors, col * TS, (th.door + 1) * TS, TS, TS, x * TS, y * TS, TS, TS); }
+      if (d.side === 'S') continue; // (the sheet's shutters are blast doors for north walls: a south doorway has none)
+      for (const [x, y] of d.cells) { c.drawImage(IMG.doors, col * TS, th.door * TS, TS, TS, x * TS, (y - 1) * TS, TS, TS); c.drawImage(IMG.doors, col * TS, (th.door + 1) * TS, TS, TS, x * TS, y * TS, TS, TS); }
     } else {
       // the portcullis stands in the wall line: up past the brick face to the corner post above the doorway, down to the corner
       // post below it. Both posts stand in front of it in the tileset's perspective, so they are drawn again over its two ends
