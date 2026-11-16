@@ -45,12 +45,12 @@ function tossBit(name, x, y, o = {}) {
   if (FX.rocks.length > 90) FX.rocks.splice(0, FX.rocks.length - 90);
 }
 const smallBone = (u, ang, o = {}) => tossBit(pick(['long', 'long', 'short', 'slant', 'rib']), u.x, u.y, { ang, tick: true, flat: true, z: rand(4, 9) * (u.scale || 1), ...o });
-// a skeleton has one skull and never more than five pieces in all, skull included (a bigger one proportionally more):
-// the bones knocked loose in the fight count towards them, and what is left falls when it dies (the skittering hand has
-// no skull, only a couple of finger bones)
+// a skeleton has one skull and four small bones (a bigger one proportionally more). A blow that takes a quarter to a half
+// of its full health knocks one loose half the time, a blow of half or more always does, a lighter one never; killed, it
+// spills all it has left, the skull last. The skittering hand has no skull, only two finger bones.
 const hasSkull = u => u.spr !== 'SkitteringHand';
 const boneCap = u => (hasSkull(u) ? Math.round(5 * Math.max(1, u.scale || 1)) : 2);
-function looseBone(u, ang, o = {}) { if ((u.bones || 0) >= boneCap(u) - (hasSkull(u) ? 1 : 0)) return; u.bones = (u.bones || 0) + 1; smallBone(u, ang, o); }
+function looseBone(u, ang, o = {}) { if ((u.bones || 0) >= boneCap(u) - (hasSkull(u) ? 1 : 0)) return false; u.bones = (u.bones || 0) + 1; smallBone(u, ang, o); return true; }
 function skull(u, o = {}) { if (!hasSkull(u) || u.skull) return; u.skull = true; tossBit('skull', u.x, u.y, { tick: true, upright: true, z: 10 * (u.scale || 1), ...o }); }
 const bundle = (u, ang, o = {}) => tossBit(pick(['sheaf', 'tuft', 'clump']), u.x, u.y, { ang, hay: true, z: rand(6, 11) * (u.scale || 1), ...o });
 
@@ -111,7 +111,8 @@ function shed(u, d, o = {}) {
     const cols = bitCols(u);
     for (let i = 0, n = Math.min(45, Math.round(9 * k)); i < n; i++) { const a = way(), v = rand(S.v[0], S.v[1]); chip(u.x + rand(-2, 2), u.y + rand(-1, 1), z0 + rand(-3, 3), Math.cos(a) * v, Math.sin(a) * v * 0.8, rand(S.up[0], S.up[1]) + 20, pick(cols), o.slow); }
     smoke(u.x, u.y, 1, 'dust', 5, 12, 0.6);
-    if (!o.quiet) { if (d >= 20 && chance(0.45)) looseBone(u, a0, { slow: o.slow }); SFX.bone(pan, d >= 30); }
+    const share = d / (u.maxHp || 1); // how much of its full health the blow took
+    if (!o.quiet) { if (share >= 0.5 || (share >= 0.25 && chance(0.5))) looseBone(u, a0, { slow: o.slow }); SFX.bone(pan, share >= 0.25); }
   } else { // stone and clay: sparks off it, grit, and now and then a piece of it
     const cols = bitCols(u); sparks(u.x, u.y, 8 * sc, 5, 'white', 110, 80);
     for (let i = 0, n = Math.min(30, Math.round(6 * k)); i < n; i++) { const a = way(), v = rand(S.v[0], S.v[1]) * 0.8; chip(u.x + rand(-2, 2), u.y + rand(-1, 1), z0 + rand(-3, 3), Math.cos(a) * v, Math.sin(a) * v * 0.8, rand(30, 90), pick(cols), o.slow); }
@@ -130,7 +131,7 @@ function shedTrail(u) {
 function remains(u) {
   const kind = u.def.blood, sc = u.scale || 1, o = u.lastBlow || {}, a = o.ang, pan = panOf(u.x);
   if (kind === 'bone') {
-    for (let i = 0, n = Math.round(randi(3, 4) * sc); i < n; i++) looseBone(u, null, { v: rand(15, 60), up: rand(40, 100) });
+    while (looseBone(u, null, { v: rand(15, 60), up: rand(40, 100) })); // all it has left
     skull(u, { ang: a, v: rand(35, 70), up: rand(50, 90) });
     shed(u, 30, { ...o, quiet: true }); SFX.clatter(pan);
   } else if (kind === 'straw') {
@@ -156,7 +157,7 @@ function throesShed(f, k) {
 // skeleton into its bones: what it has left of them, flung hard, and its skull)
 function burstBits(u, o, slow) {
   const kind = u.def.blood, pan = panOf(u.x); shed(u, 70, { ...o, more: 2.2, quiet: true, slow });
-  if (kind === 'bone') { for (let i = 0; i < 5; i++) looseBone(u, o.ang, { v: rand(60, 130), slow }); skull(u, { ang: o.ang, v: rand(80, 130), slow }); SFX.clatter(pan); SFX.bone(pan, true); }
+  if (kind === 'bone') { while (looseBone(u, o.ang, { v: rand(60, 130), slow })); skull(u, { ang: o.ang, v: rand(80, 130), slow }); SFX.clatter(pan); SFX.bone(pan, true); }
   else if (kind === 'straw') { for (let i = 0; i < 4; i++) bundle(u, o.ang, { v: rand(50, 120), slow }); shed(u, 60, { style: 'slam', quiet: true, slow }); smoke(u.x, u.y, 6, 'dust', 11, 30, 1.4); SFX.hay(pan, true); }
   else { for (let i = 0; i < 3; i++) ownChip(u, o.ang); smoke(u.x, u.y, 6, 'dust', 12, 30, 1.5); SFX.stone(pan, true); }
   shake(0.12); kick(0.03);
