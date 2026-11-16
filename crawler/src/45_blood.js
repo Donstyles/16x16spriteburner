@@ -7,7 +7,7 @@
 // far beyond what one of the bigger foes (not the trash) had left bursts it into chunks of itself, and the moment
 // is held: the hero freezes a little longer and the burst starts slowly, then flies.
 // GORE.level: 0 off, 1 blood, 2 full (the bursts too); kept on this device.
-const GORE = { level: 2 };
+const GORE = { level: 2, big: 0.5 }; // big: the least share of spray drops that fly as 2x2 (an axe throws more)
 try { const v = localStorage.getItem('cr2-gore'); if (v !== null && v !== '') GORE.level = clamp(Math.round(+v) || 0, 0, 2); } catch (e) { /* storage blocked: the default */ }
 function setGore(v) { GORE.level = v; try { localStorage.setItem('cr2-gore', String(v)); } catch (e) { /* not kept */ } }
 const GORE_NAMES = ['OFF', 'BLOOD', 'FULL'];
@@ -52,7 +52,7 @@ function spray(u, d, o = {}) {
   const a0 = o.ang === undefined ? rand(TAU) : o.ang, n = Math.min(44, Math.round(S.n * clamp(d / 12, 0.5, 3.5) * (o.more || 1)));
   for (let i = 0; i < n; i++) {
     const a = a0 + (o.sweep || 1) * S.bias + rand(-S.spread, S.spread), v = rand(S.v[0], S.v[1]) * (o.spd || 1);
-    part({ k: 'gore', x: u.x + rand(-2, 2), y: u.y + rand(-1, 1), z: 6 * sc + rand(-3, 3), vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.8, vz: rand(S.up[0], S.up[1]), g: 420, life: 5, s0: chance(S.clot) ? 2 : 1, col: pick(bl), kind, slow: o.slow || 0 });
+    part({ k: 'gore', x: u.x + rand(-2, 2), y: u.y + rand(-1, 1), z: 6 * sc + rand(-3, 3), vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.8, vz: rand(S.up[0], S.up[1]), g: 420, life: 5, s0: chance(Math.max(S.clot, GORE.big)) ? 2 : 1, col: pick(bl), kind, slow: o.slow || 0 });
   }
 }
 function drip(x, y, z, kind, vx = 0, vy = 0) { if (GORE.level) part({ k: 'gore', x, y, z, vx: vx + rand(-6, 6), vy: vy + rand(-4, 4), vz: rand(-5, 10), g: 420, life: 5, s0: 1, col: pick(BLOOD[kind]), kind }); }
@@ -69,27 +69,38 @@ function goreLand(x, y, p) {
   groundPaint(x - 3, y - 3, x + 3, y + 3, g => { g.globalAlpha = a; g.fillStyle = p.col; g.beginPath(); g.ellipse(x, y, r, r * 0.75, 0, 0, TAU); g.fill(); g.globalAlpha = 1; });
   bloodMark(x, y, p.s0 === 2 ? 5 : 2, p.kind);
 }
-const BTR = []; // blood running down walls, a pixel at a time
+// Blood on the walls, in the floor's soft blotchy style. A drop that strikes a wall leaves a soft splash, a little taller
+// than wide as if already sagging; about half of them (nearly every clot) start a run, and one that lands beside a run
+// already going feeds it instead of starting another. A run creeps down over 8-12 s, quicker at first and slowing as it
+// thins, painted as soft overlapping smudges with a bead of blood at its front; where it reaches the floor it collects
+// in a small blotch.
+const BTR = []; // the runs going now
+function wallSplash(x, y, p) {
+  const r = p.s0 === 2 ? rand(1.2, 1.9) : rand(0.7, 1.2), a = rand(0.5, 0.85), sat = chance(0.4) ? [x + rand(-2, 2), y + rand(-2, 1), r * 0.5] : null;
+  groundPaint(x - 4, y - 4, x + 4, y + 4, g => { g.fillStyle = p.col; g.globalAlpha = a; g.beginPath(); g.ellipse(x + 0.5, y + 0.5, r * 0.85, r * 1.15, 0, 0, TAU); g.fill(); if (sat) { g.globalAlpha = a * 0.7; g.beginPath(); g.ellipse(sat[0], sat[1], sat[2], sat[2] * 1.2, 0, 0, TAU); g.fill(); } g.globalAlpha = 1; });
+}
+function bloodRun(x, y, end, p, on, T) {
+  if (end - y < 2 || !chance(p.s0 === 2 ? 0.9 : 0.45)) return;
+  const near = BTR.find(t => Math.abs(t.x0 - x) <= 1.5 && t.y < end && Math.abs(t.y - y) < 8); if (near) { near.len = Math.min(near.len + 2, near.end - near.y0); return; } // it feeds that run
+  if (BTR.length >= 120) return; const len = Math.max(2, Math.round((end - y) * rand(0.55, 1)));
+  BTR.push({ x0: x, x, y0: y, y, end, len, k: 0, col: p.col, w: p.s0 === 2 ? 1 : 0.75, T: T * rand(0.85, 1.15), next: G.time + rand(0.2, 0.5), on });
+}
 // Where a drop meets a wall. The north walls show their face: it splashes where it struck and runs down to the floor.
 // The side walls show only a rim along the floor's edge: it splashes on the rim at the height it struck and runs down
-// along it to the floor. The south walls show only their top edge: it splashes against it.
+// along it. The south walls show only their top edge: it splashes against it.
 function goreWall(p, ny) {
   const x0 = p.x + p.vx * 0.016, side = solidAt(x0, p.y) && !solidAt(p.x, p.y);
   if (p.vy < 0 && solidAt(p.x, ny) && !solidAt(p.x, p.y) && !side && p.z > 1 && p.z < 22) {
     const yb = Math.floor(p.y / TS) * TS, x = Math.round(p.x), y = Math.round(yb - p.z);
-    groundPaint(x - 1, y - 1, x + 3, y + 3, g => { g.fillStyle = p.col; g.fillRect(x, y, p.s0, p.s0); });
-    if (BTR.length < 60) BTR.push({ x, y: y + p.s0 - 1, end: yb - 1, col: p.col, n: randi(3, 16), next: G.time + rand(0.15, 0.4) });
-    return;
+    wallSplash(x, y, p); bloodRun(x, y + 1, yb - 1, p, null, rand(8, 12)); return;
   }
   if (side && p.z > 1 && p.z < 30) { // the rim of a side wall (the tileset draws its dark edge 4 px past where the stone stops you)
-    const east = p.vx > 0, rim = east ? Math.floor(x0 / TS) * TS + 4 : Math.floor(p.x / TS) * TS - 5, x = rim + (east ? -randi(0, 2) : randi(0, 2)), gy = Math.round(p.y), r = p.s0 === 2 ? rand(1.1, 1.7) : rand(0.6, 1.1);
+    const east = p.vx > 0, rim = east ? Math.floor(x0 / TS) * TS + 4 : Math.floor(p.x / TS) * TS - 5, x = rim + (east ? -randi(0, 2) : randi(0, 2)), gy = Math.round(p.y);
     // only where the wall runs beside the floor: struck high near the wall's end, the splash moves down onto it
     // (a wall's end is drawn a few px inside its tile)
     const on = yy => solidAt(x0, yy - 4) && solidAt(x0, yy) && !solidAt(p.x, yy); let y = Math.round(p.y - p.z); while (y < gy && !on(y)) y++;
     if (!on(y)) { goreLand(p.x, p.y, p); return; }
-    groundPaint(x - 3, y - 3, x + 3, y + 3, g => { g.globalAlpha = rand(0.6, 0.9); g.fillStyle = p.col; g.beginPath(); g.ellipse(x + 0.5, y + 0.5, r * 0.8, r, 0, 0, TAU); g.fill(); g.globalAlpha = 1; });
-    if (BTR.length < 60 && chance(0.6)) BTR.push({ x, y: y + 1, end: gy, col: p.col, n: randi(2, 6), next: G.time + rand(0.15, 0.4), on });
-    bloodMark(x, gy, 2, p.kind); return;
+    wallSplash(x, y, p); bloodRun(x, y + 1, gy, p, on, rand(6, 9)); bloodMark(x, gy, 2, p.kind); return;
   }
   if (p.vy > 0 && solidAt(p.x, ny) && !solidAt(p.x, p.y)) { // the south wall's edge: a splash against it
     const yb = Math.floor(ny / TS) * TS - 1; goreLand(p.x, yb, { ...p, s0: 2 }); return;
@@ -99,11 +110,24 @@ function goreWall(p, ny) {
 function updateBlood() {
   if (!ARENA) return; bmap();
   for (const t of BTR) {
-    if (G.time < t.next) continue; t.y++; t.n--; if (t.on && !t.on(t.y)) { t.done = true; continue; } // a run stops where its wall does
-    const { x, y, col } = t; groundPaint(x - 1, y - 1, x + 2, y + 2, g => { g.globalAlpha = 0.85; g.fillStyle = col; g.fillRect(x, y, 1, 1); g.globalAlpha = 1; });
-    t.next = G.time + rand(0.06, 0.16) * (1 + (16 - t.n) * 0.1); if (t.y >= t.end || t.n <= 0) t.done = true;
+    if (G.time < t.next) continue;
+    t.y++; t.k++; if (t.on && !t.on(t.y)) { t.done = true; continue; } // a run stops where its wall does
+    if (chance(0.12)) t.x = t.x0 + (t.x === t.x0 ? (chance(0.5) ? 0.5 : -0.5) : 0); // it wanders a little
+    const thin = Math.max(0.35, 1 - t.k / (t.len + 4)) * t.w, { x, y, col } = t;
+    groundPaint(x - 2, y - 2, x + 3, y + 3, g => { g.globalAlpha = 0.3 + 0.3 * thin; g.fillStyle = col; g.beginPath(); g.ellipse(x + 0.5, y + 0.5, 0.45 + 0.5 * thin, 0.9, 0, 0, TAU); g.fill(); g.globalAlpha = 1; });
+    // quicker at first, slowing as it thins: the steps add up to its T seconds
+    t.next = G.time + t.T / t.len * (0.4 + 1.2 * t.k / t.len) * rand(0.7, 1.3);
+    if (t.k >= t.len || t.y >= t.end) { // done: what is left collects where it stopped
+      t.done = true; const fy = t.y >= t.end ? t.end + 2 : y + 1, r = 0.9 + 0.6 * t.w;
+      groundPaint(x - 3, fy - 3, x + 4, fy + 3, g => { g.globalAlpha = 0.55; g.fillStyle = col; g.beginPath(); g.ellipse(x + 0.5, fy, r * 1.2, r * 0.7, 0, 0, TAU); g.fill(); g.globalAlpha = 1; });
+    }
   }
   removeIf(BTR, t => t.done);
+}
+// the bead at the front of each run, drawn live so the run is seen to creep
+function drawRuns(c) {
+  for (const t of BTR) { c.globalAlpha = 0.9; c.fillStyle = t.col; c.beginPath(); c.ellipse(t.x + 0.5, t.y + 1.2, 0.6 + 0.3 * t.w, 0.9 + 0.2 * t.w, 0, 0, TAU); c.fill(); }
+  c.globalAlpha = 1;
 }
 
 // --- each frame, for every unit: the badly wounded drip as they go; a hero's blade dries, drips; his feet print
