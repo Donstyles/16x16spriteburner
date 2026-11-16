@@ -377,7 +377,8 @@ function drawWorks(c) {
   if (A.clouds) { for (const q of A.clouds) q.t += 1 / 60; removeIf(A.clouds, q => q.t >= q.life); }
   // a plate: its socket in the floor ([13, 26] / [13, 27]), the stone button standing raised in it, which a foot drives down
   // flush in four frames ([10..13, 28] / [10..13, 29]); the socket is never seen empty
-  { const Wk = wkOf(A); for (const pl of A.plates || []) { sheetTile(c, Wk.socket, pl.x - 8, pl.y - 8); sheetTile(c, Wk.block, pl.x - 8, pl.y - 8, pl.f, 0); } }
+  // (aligned by hand on the Plate Aligner: the socket a pixel up, the button four)
+  { const Wk = wkOf(A); for (const pl of A.plates || []) { sheetTile(c, Wk.socket, pl.x - 8, pl.y - 9); sheetTile(c, Wk.block, pl.x - 8, pl.y - 12, pl.f, 0); } }
   for (const rn of A.runes || []) {
     sheetTile(c, rn.on ? rn.lit : rn.tile, rn.x - 8, rn.y - 8);
     if (rn.on) light(rn.x, rn.y, 46 + 4 * Math.sin(G.time * 3 + rn.x), 'gold', 0.55);
