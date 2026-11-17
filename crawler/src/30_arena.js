@@ -192,8 +192,6 @@ function furnish(A, r, g) {
     const w = t[4] || 1; prop(t[2], x + (w - 1) / 2, r.iy0, { tile: [t[0], t[1]], th: t[3] || 1, tw: w, hp: 40, r: w > 1 ? 9 : 5 }); if (w > 1) x++;
   }
   if (r.kind === 'treasure' || r.chest) { const at = chestSpot(r); prop('tchest', at[0], at[1], { tier: chestTier(A.floor), hp: 1, r: 6, open: false }); } // its treasure chest
-  if ((r.kind === 'room' || r.kind === 'end') && chance(0.35)) for (let i = randi(1, 2); i > 0; i--) { // an ore rock or two against a wall
-    const west = chance(0.5), tx = west ? r.ix0 : r.ix1, ty = randi(r.iy0 + 1, r.iy1 - 1); if (!nearDoor(tx, ty, 2) && free(tx * TS + 8, ty * TS + 14)) prop('ore', tx, ty, { shape: randi(0, 6), ore: pick([0, 0, 1, 2, 3]), hp: 3, r: 6 }); }
   if ((r.kind === 'room' || r.kind === 'end') && !r.pool && !r.shrine && !r.set) {
     if (r.w >= 15 && r.h >= 9 && chance(0.7)) { const P = th.pillar[randi(0, 1)]; for (const [fx, fy] of chance(0.5) ? [[0.27, 0.4], [0.73, 0.4], [0.27, 0.78], [0.73, 0.78]] : [[0.3, 0.55], [0.7, 0.55]]) { const tx = Math.round(r.ix0 + fx * (r.w - 1)), ty = Math.max(r.iy0 + 3, Math.round(r.iy0 + fy * (r.h - 1))); if (!nearDoor(tx, ty, 2)) prop('pillar', tx, ty, { tile: P, r: 6 }); } }
   }
