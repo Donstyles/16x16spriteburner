@@ -6,7 +6,7 @@
 // wall under its trim, with a strip of floor beside the room. Per piece, in the sheet's own facing (a mirrored piece
 // mirrors them): [wall, trim], 16 rows of 4 hex digits each, the leftmost bit the left pixel.
 const PAINT = {
-  '3,0': ['0000000000000000000000000000000000000000000000000000000000000000', 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'],
+  '3,0': ['0000000000000000000000000000000000000000000000000000000000000000', '03ff03ff03ff03fffffffffffffffffffffffffffffefffcfff8fff0fff0fff0'],
   '3,2': ['fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0', 'fff0fff0fff0ffffffffffffffffffffffffffffffff03ff03ff03ff01fe00fc'],
   '3,3': ['fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0', '0000000000000000000000000000000000000000000000000000000000000000'],
   '5,0': ['ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', 'fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffefffc'],
