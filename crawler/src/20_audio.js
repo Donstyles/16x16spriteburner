@@ -131,6 +131,13 @@ const SFX = {
     for (let i = 0; i < 12; i++) { const t = 0.03 + Math.pow(i / 12, 1.4) * 0.75, f = rand(600, 1300); this.tone('triangle', f, f * 0.7, 0.035, 0.1 * (1 - i / 16), pan + rand(-0.3, 0.3), t); this.noise(this.white, 0.014, 'bandpass', rand(1800, 4200), 1500, 4, 0.09 * (1 - i / 16), pan + rand(-0.3, 0.3), t, 0.001); }
   },
   // straw struck: a soft dull whump, and the dry rustle and crackle of the stalks flying
+  // the chainmail struck: a bright chink, the rings rattling against each other, a few tiny tings as they part
+  chink(pan = 0, big = false) {
+    if (!this.ok('chink', 0.05)) return; this.tone('triangle', 2400, 2250, 0.09, 0.09, pan); this.noise(this.white, 0.06, 'bandpass', 5200, 4200, 3, big ? 0.16 : 0.11, pan, 0, 0.001);
+    for (let i = 0, n = big ? 9 : 5; i < n; i++) { const f = rand(2800, 5200); this.tone('triangle', f, f * 0.96, 0.04, rand(0.03, 0.06), pan + rand(-0.2, 0.2), 0.02 + i * rand(0.018, 0.035)); }
+  },
+  // the chainmail put on: it is shrugged into, a cascade of rings settling
+  mailOn(pan = 0) { if (!this.ok('mailOn', 0.3)) return; for (let i = 0; i < 14; i++) { const f = rand(2200, 4600); this.tone('triangle', f, f * 0.95, 0.05, rand(0.025, 0.05) * (1 - i / 18), pan + rand(-0.2, 0.2), i * 0.03 + rand(0, 0.02)); } this.noise(this.white, 0.35, 'bandpass', 4200, 3600, 1.5, 0.05, pan, 0, 0.02); },
   // linen tearing (the gambeson hacked): a run of tiny dry bursts, the threads parting one after another, rising a little
   // as it goes, over the dull thump of the padding taking the blow
   rip(pan = 0, big = false) {

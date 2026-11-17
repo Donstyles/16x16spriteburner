@@ -88,6 +88,10 @@ function clothPx(p, f) {
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) f(x0 + i, y0 + j, col);
   if (p.st && p.o === 0) f(x0 + w - 1, y0 + h - 1, LINEN.stitch); // (a stitch of the quilting on its face)
 }
+// a broken ring of mail (53_foes ringSpill): a pixel ring of steel, three pixels across with its middle open; it
+// bounces once with a clink, and lies where it stops
+function mailRing(x, y, z, vx, vy, vz, col, slow = 0) { part({ k: 'ring', x, y, z, vx, vy, vz, life: 6, s0: 1, col, slow }); }
+function ringPx(x, y, f) { f(x, y - 1); f(x - 1, y); f(x + 1, y); f(x, y + 1); } // (a ring seen at this size: four pixels round an open middle)
 // a chip: a pixel or two of bone or stone; it bounces once and stays where it stops
 function chip(x, y, z, vx, vy, vz, col, slow = 0) { part({ k: 'chip', x, y, z, vx, vy, vz, life: 6, s0: chance(0.45) ? 2 : 1, col, slow }); }
 function chipStep(p, dt) {
@@ -96,8 +100,8 @@ function chipStep(p, dt) {
   if (solidAt(nx, p.y)) p.vx = -p.vx * 0.4; else p.x = nx; if (solidAt(p.x, ny)) p.vy = -p.vy * 0.4; else p.y = ny;
   p.vz -= 420 * dt; p.z += p.vz * dt;
   if (p.z <= 0) {
-    if (p.vz < -45) { p.z = 0; p.vz = -p.vz * 0.35; p.vx *= 0.5; p.vy *= 0.5; return; }
-    if (ARENA) { const x = Math.round(p.x), y = Math.round(p.y); groundPaint(x - 2, y - 2, x + 3, y + 2, g => { g.globalAlpha = 0.8; g.fillStyle = p.col; g.fillRect(x, y, p.s0, 1); g.globalAlpha = 1; }); }
+    if (p.vz < -45) { p.z = 0; p.vz = -p.vz * 0.35; p.vx *= 0.5; p.vy *= 0.5; if (p.k === 'ring' && chance(0.35)) SFX.tick(panOf(p.x)); return; }
+    if (ARENA) { const x = Math.round(p.x), y = Math.round(p.y); groundPaint(x - 2, y - 2, x + 3, y + 2, g => { g.globalAlpha = 0.8; g.fillStyle = p.col; if (p.k === 'ring') ringPx(x, y, (a, b) => g.fillRect(a, b, 1, 1)); else g.fillRect(x, y, p.s0, 1); g.globalAlpha = 1; }); }
     p.t = p.life;
   }
 }

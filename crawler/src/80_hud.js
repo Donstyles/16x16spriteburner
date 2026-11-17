@@ -1,6 +1,6 @@
 // ===================== HUD: health, stamina, flasks, gold, the floor, banners =====================
 const F_DISP = '"Grenze Gotisch", "Palatino Linotype", Palatino, "Book Antiqua", serif', F_HUD = 'Teko, "Arial Narrow", "Avenir Next Condensed", sans-serif';
-const NUMCOL = { red: '#ff5a46', white: '#ffffff', gold: '#ffd860', heal: '#7cff9c', curse: '#d9a0ff', acid: '#e8f02c', cloth: '#ecdcae' }; // acid: a sour yellow, well clear of the mint of healing
+const NUMCOL = { red: '#ff5a46', white: '#ffffff', gold: '#ffd860', heal: '#7cff9c', curse: '#d9a0ff', acid: '#e8f02c', cloth: '#ecdcae', mail: '#d6dde4' }; // acid: a sour yellow, well clear of the mint of healing
 // The new lettering, on trial (TYPE.on; off unless switched on, on the title screen or in the pause menu; kept on this
 // device), round three: two faces and no more, and a third for the numbers. Grenze Gotisch keeps every heading (the menus' titles, the kit names, the
 // floor cards, the banners); every other word and number (the buttons, the HUD, the floating numbers, the hints, the kit
@@ -58,7 +58,7 @@ function bar(c, x, y, w, h, f, trailKey, col, back = 'rgba(0,0,0,0.6)') {
 // the item sheet, full or empty. Low on health the frame and the bar beat red with his heart; cursed, the stamina bar
 // turns violet; out of breath, it flashes.
 function drawHeroPanel(c, h, L, T, W) {
-  const gw = h.gamb > 0 || (h.gambLost && h.gambLost.length), bw = Math.round(clamp(W * 0.24, 130, 220)), P = 40, x0 = L + P + 7, low = h.hp < h.maxHp * 0.3 && !h.dead, beat = low ? 0.5 + 0.5 * Math.sin(G.time * 7.5) : 0;
+  const gw = h.gamb > 0 || (h.gambLost && h.gambLost.length) || h.mail > 0 || (h.mailLost && h.mailLost.length), bw = Math.round(clamp(W * 0.24, 130, 220)), P = 40, x0 = L + P + 7, low = h.hp < h.maxHp * 0.3 && !h.dead, beat = low ? 0.5 + 0.5 * Math.sin(G.time * 7.5) : 0;
   // the portrait
   c.fillStyle = 'rgba(10,8,12,0.78)'; c.fillRect(L, T, P, P);
   const g = c.createRadialGradient(L + P / 2, T + P * 0.62, 2, L + P / 2, T + P * 0.62, P * 0.6); g.addColorStop(0, h.dead ? 'rgba(120,20,20,0.5)' : 'rgba(255,170,80,0.38)'); g.addColorStop(1, 'rgba(255,170,80,0)'); c.fillStyle = g; c.fillRect(L, T, P, P);
@@ -69,12 +69,13 @@ function drawHeroPanel(c, h, L, T, W) {
   c.fillStyle = '#c8a060'; for (const [cx, cy] of [[L, T], [L + P - 2, T], [L, T + P - 2], [L + P - 2, T + P - 2]]) c.fillRect(cx, cy, 2, 2); // the frame's corner studs
   if (h.gamb > 0) { // worn, the gambeson pads his portrait's frame as well, stitched in with the band round his health
     drawQuiltFrame(c, L, T, P, h); }
+  if (h.mail > 0) drawMailFrame(c, L, T, P, h); // (the chainmail's over it)
   // the name
   font(c, 900, 18, F_DISP); label(c, KITS[h.kit].name, x0, T + 13, '#f8ecd6', { stroke: 3 });
   // health (worn in a gambeson, the bar sits in a band of quilted cloth: drawQuilt)
   const hy = gw ? 4 : 0, gq = gw ? 12 : 0;
   hudBar(c, x0, T + 18 + hy, bw, 10, h.hp / h.maxHp, 'hpT', low ? [`rgb(255,${Math.round(110 + 60 * beat)},90)`, '#d0302a', '#6a0e10'] : ['#ff6a50', '#c8302a', '#6e1214'], Math.max(1, Math.floor(h.maxHp / 25)));
-  if (gw) drawQuilt(c, x0 - 8, T + 14, bw + 16, 26, h, [x0 + 3, T + 20 + hy, bw - 6, 6]); // (thick, and wrapped over the bar's edges: while it holds, the bar inside it is out of reach)
+  if (gw) { drawQuilt(c, x0 - 8, T + 14, bw + 16, 26, h, [x0 + 3, T + 20 + hy, bw - 6, 6]); drawMail(c, x0 - 8, T + 14, bw + 16, 26, h, [x0 + 3, T + 20 + hy, bw - 6, 6]); } // (the mail over the quilting: where it is hacked away, the quilting shows) // (thick, and wrapped over the bar's edges: while it holds, the bar inside it is out of reach)
   if (h.acidT > 0) { const p = 0.55 + 0.45 * Math.sin(G.time * 14); c.strokeStyle = `rgba(214,255,60,${0.5 + 0.5 * p})`; c.lineWidth = 2; c.strokeRect(x0 - 3, T + 15 + hy, bw + 6, 16); c.lineWidth = 1; } // standing in acid: the bar's edge burns sour green
   font(c, 600, 12, F_NUM); label(c, Math.max(0, Math.ceil(h.hp)) + ' / ' + h.maxHp, x0 + bw - 3, T + 26.5 + hy, 'rgba(255,244,228,0.92)', { align: 'right', stroke: 3 });
   // stamina
@@ -136,31 +137,66 @@ function quiltTex(w, h, hole, seam = true) { // w, h, hole ([x, y, w, h]) in art
 function quiltRows(c, T, x, y, cut) {
   for (let j = 0; j < T.height; j++) { const n = Math.min(T.width, cut(j)); if (n > 0) c.drawImage(T, 0, j, n, 1, x, y + j * QP, n * QP, QP); }
 }
-function drawQuilt(c, x, y, w, h, hero, hole) { // (x, y, w, h, hole in screen pixels; snapped to the art pixels)
+// an armour's band round the health bar (x, y, w, h, hole in screen pixels; snapped to the art pixels): its texture
+// (tex), as much of it as is left (f) cut back from the right to a ragged edge, its rim drawn by rim; put on from the
+// left at t0, a glint at its leading edge; the pieces hacked off (hero[lost]) falling away and fading
+function drawBand(c, x, y, w, h, hero, hole, tex, f, t0, lost, rim, glint) {
   x = Math.round(x / QP) * QP; y = Math.round(y / QP) * QP; const W = Math.round(w / QP), H = Math.round(h / QP);
-  const T = quiltTex(W, H, hole ? [Math.round((hole[0] - x) / QP), Math.round((hole[1] - y) / QP), Math.round(hole[2] / QP), Math.round(hole[3] / QP)] : null);
-  const k = clamp((G.time - (hero.gambT0 || -9)) / 0.7, 0, 1), f = clamp((hero.gamb || 0) / GAMBESON.max, 0, 1), n = Math.round(W * Math.min(k, f)), torn = f < 1 && k >= f;
+  const T = tex(W, H, hole ? [Math.round((hole[0] - x) / QP), Math.round((hole[1] - y) / QP), Math.round(hole[2] / QP), Math.round(hole[3] / QP)] : null);
+  const k = clamp((G.time - (t0 || -9)) / 0.7, 0, 1), n = Math.round(W * Math.min(k, f)), torn = f < 1 && k >= f;
   c.save(); c.imageSmoothingEnabled = false;
   if (n > 0) {
     const rag = j => torn ? [0, 1, 2, 1, 0, 2, 1, 0, 1, 2, 0, 1, 2][j % 13] : 0; // (the hacked edge: ragged, row by row)
     quiltRows(c, T, x, y, j => n - rag(j));
-    if (torn) for (let j = 1; j < H - 1; j++) { // its frayed rim: the white wadding showing at the cut, a dark nick here and there, threads hanging loose
-      const e = n - rag(j); if (e <= 0 || e >= W) continue; c.fillStyle = j % 5 === 2 ? QCOL.seam : QCOL.wad; c.fillRect(x + (e - 1) * QP, y + j * QP, QP, QP);
-      if (j % 3 === 1) { c.fillStyle = QCOL.thread; c.fillRect(x + e * QP, y + j * QP, QP, QP); if (j % 6 === 1) c.fillRect(x + (e + 1) * QP, y + (j + 1) * QP, QP, QP); }
-    }
-    if (k < f) { c.fillStyle = '#fffbe8'; c.fillRect(x + n * QP - QP, y + QP, QP, QP); c.fillRect(x + n * QP - QP, y + (H - 2) * QP, QP, QP); }
+    if (torn) for (let j = 1; j < H - 1; j++) { const e = n - rag(j); if (e > 0 && e < W) rim(c, x, y, e, j); }
+    if (k < f) { c.fillStyle = glint; c.fillRect(x + n * QP - QP, y + QP, QP, QP); c.fillRect(x + n * QP - QP, y + (H - 2) * QP, QP, QP); }
   }
-  hero.gambLost = (hero.gambLost || []).filter(p => G.time - p.t0 < 0.6);
-  for (const p of hero.gambLost) { // the pieces hacked off, falling away
+  hero[lost] = (hero[lost] || []).filter(p => G.time - p.t0 < 0.6);
+  for (const p of hero[lost]) { // the pieces hacked off, falling away
     const u = (G.time - p.t0) / 0.6, a = Math.round(W * p.a), b = Math.round(W * p.b); if (b <= a) continue;
     c.globalAlpha = 1 - u; const dy = Math.round((26 * u * u + 2 * u) / QP) * QP;
     for (let j = 0; j < H; j++) c.drawImage(T, a, j, b - a, 1, x + a * QP, y + dy + j * QP, (b - a) * QP, QP); c.globalAlpha = 1;
   }
   c.restore();
 }
+const px2 = (c, col, x, y) => { c.fillStyle = col; c.fillRect(x, y, QP, QP); };
+function drawQuilt(c, x, y, w, h, hero, hole) { // its frayed rim: the white wadding showing at the cut, a dark nick here and there, threads hanging loose
+  drawBand(c, x, y, w, h, hero, hole, quiltTex, clamp((hero.gamb || 0) / GAMBESON.max, 0, 1), hero.gambT0, 'gambLost', (c, X, Y, e, j) => {
+    px2(c, j % 5 === 2 ? QCOL.seam : QCOL.wad, X + (e - 1) * QP, Y + j * QP);
+    if (j % 3 === 1) { px2(c, QCOL.thread, X + e * QP, Y + j * QP); if (j % 6 === 1) px2(c, QCOL.thread, X + (e + 1) * QP, Y + (j + 1) * QP); }
+  }, '#fffbe8');
+}
 // the portrait's frame of it (x, y, size: the portrait's box, in screen pixels), stitched in with the band
 function drawQuiltFrame(c, x, y, size, hero) { // (it meets the portrait's own edge with no gap: no seam, set to the portrait's pixel)
   const k = clamp((G.time - (hero.gambT0 || -9)) / 0.7, 0, 1), X = Math.round(x) - 8, Y = Math.round(y) - 8, W = Math.round(size / QP) + 8, T = quiltTex(W, W, [4, 4, W - 8, W - 8], false);
+  c.save(); c.imageSmoothingEnabled = false; quiltRows(c, T, X, Y, () => Math.round(W * k)); c.restore();
+}
+// The chainmail on the HUD (53_foes MAIL): a band of rings laid over the quilting (or round the bar alone), in the
+// chainmail's own steels: every pixel a ring, a light one and a dark one in turn, a row lit along the top and shaded
+// along the bottom; the items' edge round it, a dark seam where the bar goes in. Hacked back from the right, its edge
+// is broken links hanging loose, and where it is gone the quilting under it shows. A frame of it on the portrait.
+const MCOL = { o: '#2b2522', seam: '#2c3037', lit: ['#e6ebef', '#b5bec7'], mid: ['#c9d0d7', '#89929e'], low: ['#9aa2ad', '#6d7683'], link: '#7e8792', nick: '#41474f' };
+const MTEX = {};
+function mailTex(w, h, hole, seam = true) {
+  const key = w + 'x' + h + (hole ? ':' + hole.join(',') : '') + (seam ? '' : ':open'); if (MTEX[key]) return MTEX[key];
+  const cv = mkCanvas(w, h), g = cv.getContext('2d'), inH = (x, y) => hole && x >= hole[0] && x < hole[0] + hole[2] && y >= hole[1] && y < hole[1] + hole[3];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (inH(x, y)) continue; let col;
+    if (x === 0 || y === 0 || x === w - 1 || y === h - 1) col = MCOL.o;
+    else if (hole && seam && (inH(x - 1, y) || inH(x + 1, y) || inH(x, y - 1) || inH(x, y + 1) || inH(x - 1, y - 1) || inH(x + 1, y + 1) || inH(x - 1, y + 1) || inH(x + 1, y - 1))) col = MCOL.seam;
+    else { const pr = y === 1 || x === 1 ? MCOL.lit : y >= h - 3 || x >= w - 2 ? MCOL.low : MCOL.mid; col = pr[(x + y) % 2]; } // (rings: light and dark in turn)
+    g.fillStyle = col; g.fillRect(x, y, 1, 1);
+  }
+  return (MTEX[key] = cv);
+}
+function drawMail(c, x, y, w, h, hero, hole) { // its broken edge: a dark nick, and links hanging loose off it here and there
+  drawBand(c, x, y, w, h, hero, hole, mailTex, clamp((hero.mail || 0) / MAIL.max, 0, 1), hero.mailT0, 'mailLost', (c, X, Y, e, j) => {
+    px2(c, MCOL.nick, X + (e - 1) * QP, Y + j * QP);
+    if (j % 3 === 2) { px2(c, MCOL.link, X + e * QP, Y + j * QP); px2(c, MCOL.link, X + e * QP, Y + (j + 1) * QP); }
+  }, '#ffffff');
+}
+function drawMailFrame(c, x, y, size, hero) {
+  const k = clamp((G.time - (hero.mailT0 || -9)) / 0.7, 0, 1), X = Math.round(x) - 8, Y = Math.round(y) - 8, W = Math.round(size / QP) + 8, T = mailTex(W, W, [4, 4, W - 8, W - 8], false);
   c.save(); c.imageSmoothingEnabled = false; quiltRows(c, T, X, Y, () => Math.round(W * k)); c.restore();
 }
 function drawHUD() {

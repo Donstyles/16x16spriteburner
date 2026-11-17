@@ -356,7 +356,7 @@ function updateProj(dt) {
 function dropLoot(u) { const g = u.def.gold || [0, 1]; const n = randi(g[0], g[1]); if (n > 0) dropGold(u.x, u.y, n); }
 // Pickups from the item sheet: a fish heals on the spot, a flask gives back a flask charge. Either one waits on the floor
 // while the hero has no use for it (full health, every flask full).
-const ITEM = { fish: [0, 0, 12, 10], flask: [16, 0, 6, 11], map: [64, 0, 14, 15, 'scrolls'], gambeson: [0, 80, 12, 15] }; // where on the item sheet (or another), how long a shadow it casts, and the row it rests on (the fish's belly; its tail hangs a row lower)
+const ITEM = { fish: [0, 0, 12, 10], flask: [16, 0, 6, 11], map: [64, 0, 14, 15, 'scrolls'], gambeson: [0, 80, 12, 15], chainmail: [16, 80, 12, 15] }; // where on the item sheet (or another), how long a shadow it casts, and the row it rests on (the fish's belly; its tail hangs a row lower)
 // The gambeson (16x16 Assorted RPG Icons, armours [0, 5], on the item sheet's last row): quilted cloth armour, forty
 // points of it, that takes each blow before his health does and is hacked away doing it: scraps of quilted linen fly off
 // him, the number struck comes up in the cloth's colour, and on the HUD the band of quilting round his health bar is cut
@@ -387,11 +387,34 @@ function clothSpill(h, a, o) {
   for (let i = 0, n = Math.min(45, Math.round(10 * k)); i < n; i++) { const t = way() + rand(-0.5, 0.5), v = rand(S.v[0], S.v[1]) * 0.55; scrap(h.x + rand(-2, 2), h.y + rand(-1, 1), z0 + rand(-2, 5), Math.cos(t) * v, Math.sin(t) * v * 0.8, rand(30, 90), o.slow, true); }
   SFX.rip(panOf(h.x), a >= 25);
 }
+// The chainmail (armours, its icon the gambeson's own repainted in steel rings): rings of iron, worn over the gambeson
+// if he has one, as mail was. A blow meets the mail first, then the quilting, then him; sixty points of it, hacked
+// away as the gambeson is. A blow on it rings: sparks fly off it the way the blow went, and broken rings burst off and
+// bounce and clink across the floor (46_bits mailRing); when the last of it goes, a burst of them and MAIL BROKEN.
+const MAIL = { max: 60 }, STEEL = ['#e6ebef', '#c9d0d7', '#9aa2ad', '#7e8792', '#5a616c'];
+function putOnMail(h) {
+  h.mail = MAIL.max; h.mailT0 = G.time; h.mailLost = []; SFX.mailOn(panOf(h.x)); textPop(h.x, h.y, headZ(h) + 2, 'CHAINMAIL', 'mail', false);
+  pushBanner({ a: 'Chainmail', b: 'RINGS OF IRON · TAKES THE FIRST ' + MAIL.max + ' DAMAGE, OVER THE GAMBESON', col: 'gold', small: true, life: 2.6 });
+  for (let i = 0; i < 12; i++) part({ k: 'glow', x: h.x + rand(-7, 7), y: h.y + rand(-3, 3), z: rand(2, 14), vz: rand(20, 50), drag: 1, life: rand(0.5, 1), s0: rand(1.5, 3), s1: 0, col: 'white' });
+}
+function mailTakes(h, d, o = {}) { // (as gambesonTakes: it takes what it can and gives back what goes on)
+  const a = Math.min(h.mail, d), was = h.mail; h.mail -= a; (h.mailLost = h.mailLost || []).push({ a: h.mail / MAIL.max, b: was / MAIL.max, t0: G.time });
+  number(h.x, h.y, headZ(h) + 1, a, 'mail', false, h); ringSpill(h, a, o);
+  if (h.mail <= 0) { h.mail = 0; textPop(h.x, h.y, headZ(h) + 8, 'MAIL BROKEN', 'mail', false); ringSpill(h, 35, o); shake(0.1); }
+  return d - a;
+}
+function ringSpill(h, a, o) {
+  const S = SPRAY[o.style] || SPRAY.bite, k = clamp(a / 10, 0.7, 3.5), a0 = o.ang !== undefined ? o.ang : o.kx || o.ky ? Math.atan2(o.ky || 0, o.kx || 0) : rand(TAU), z0 = (h.z || 0) + 7;
+  sparks(h.x, h.y, z0, Math.min(18, Math.round(6 * k)), 'white', 150, 70, a0, 1.6); flashLight(h.x, h.y - 6, 22, 'white', 0.5, 0.08);
+  for (let i = 0, n = Math.min(26, Math.round(5 * k)); i < n; i++) { const t = a0 + (o.sweep || 1) * S.bias + rand(-S.spread, S.spread) * 1.3, v = rand(S.v[0], S.v[1]) * 0.9; mailRing(h.x + rand(-2, 2), h.y + rand(-1, 1), z0 + rand(-3, 3), Math.cos(t) * v, Math.sin(t) * v * 0.8, rand(S.up[0], S.up[1]) + 30, pick(STEEL), o.slow); }
+  SFX.chink(panOf(h.x), a >= 25);
+}
 function dropItem(k, x, y) { G.drops.push({ k, x, y, z: 4, vx: rand(-30, 30), vy: rand(-20, 20), vz: rand(70, 110), t: 0 }); }
 function takeItem(d, h) {
   if (d.k === 'fish') { if (h.hp >= h.maxHp) return false; const g = Math.min(h.maxHp - h.hp, Math.round(h.maxHp * 0.15)); h.hp += g; number(h.x, h.y, headZ(h) + 1, '+' + g, 'heal', true); healGlow(h.x, h.y); SFX.heal(); return true; }
   if (d.k === 'map') { revealFloor(ARENA); ARENA.mapRead = true; h.shown = { k: 'map', t0: G.time }; textPop(h.x, h.y, headZ(h) + 20, 'AHA!', 'gold', false); SFX.aha(panOf(h.x)); for (let i = 0; i < 10; i++) part({ k: 'glow', x: h.x + rand(-7, 7), y: h.y, z: headZ(h) + rand(6, 16), vz: rand(10, 30), drag: 2, life: rand(0.5, 0.9), s0: rand(1.2, 2), s1: 0, col: 'gold' }); return true; } // the floor's map (52_hero: in a small chest)
-  if (d.k === 'gambeson') { if (h.gamb >= GAMBESON.max) return false; putOnGambeson(h); return true; } // (a damaged or a torn one: a whole one on him again)
+  if (d.k === 'gambeson') { if (h.gamb >= GAMBESON.max) return false; putOnGambeson(h); return true; }
+  if (d.k === 'chainmail') { if (h.mail >= MAIL.max) return false; putOnMail(h); return true; } // (worn over the gambeson, if he has one) // (a damaged or a torn one: a whole one on him again)
   if (d.k === 'flask') { if (h.flasks >= h.maxFlasks) return false; h.flasks++; textPop(h.x, h.y, headZ(h) + 2, '+1 FLASK', 'heal', false); SFX.coin(panOf(d.x)); return true; }
   return false;
 }

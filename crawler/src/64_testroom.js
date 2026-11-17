@@ -144,10 +144,10 @@ const ARMOUR_TESTS = [
 ];
 function beginArmourTest(kit) {
   beginTest(kit); G.foes.length = 0; G.units = G.heroes.slice(); G.sched.length = 0;
-  Object.assign(TEST, { mode: 'armour', god: false, i: 0, list: ARMOUR_TESTS, gen: 0, rackT: 0, di: 0, forceDeath: null, calm: false }); const A = ARENA, h = G.me, r = roomAt(h.x, h.y) || A.start; A.name = 'ARMOUR & DEATH ROOM';
-  TEST.home = { x: h.x, y: h.y }; TEST.rack = { x: (r.ix0 + 1.5) * TS, y: h.y }; // (the spare gambeson lies by the west wall, level with him)
-  digTestPit(A, r); putOnGambeson(h); G.banner = null; G.bq.length = 0; rackGambeson(); TEST.label = ARMOUR_TESTS[0][0];
-  G.card = { t: 0, life: 3.4, a: 'ARMOUR & DEATH ROOM', b: 'YOU WEAR A GAMBESON · THEY FIGHT FOR REAL · YOU CAN DIE', c: 'YOUR DEATH PLAYS OUT, THEN YOU GET UP AGAIN', d: 'HIT LANDS A BLOW · FOES SENDS THEM AWAY OR BACK · NEXT BRINGS ON OTHER FOES · DIE DIES THE NEXT DEATH · A PIT BY THE EAST WALL' };
+  Object.assign(TEST, { mode: 'armour', god: false, i: 0, list: ARMOUR_TESTS, gen: 0, rackT: 0, rack2T: 0, di: 0, forceDeath: null, calm: false }); const A = ARENA, h = G.me, r = roomAt(h.x, h.y) || A.start; A.name = 'ARMOUR & DEATH ROOM';
+  TEST.home = { x: h.x, y: h.y }; TEST.rack = { x: (r.ix0 + 1.5) * TS, y: h.y }; TEST.rack2 = { x: (r.ix0 + 1.5) * TS, y: h.y + 22 }; // (the spare gambeson lies by the west wall, level with him, a chainmail just south of it)
+  digTestPit(A, r); putOnGambeson(h); G.banner = null; G.bq.length = 0; rackGambeson(); rackMail(); TEST.label = ARMOUR_TESTS[0][0];
+  G.card = { t: 0, life: 3.4, a: 'ARMOUR & DEATH ROOM', b: 'YOU WEAR A GAMBESON · A CHAINMAIL LIES BY THE WALL · THEY FIGHT FOR REAL · YOU CAN DIE', c: 'YOUR DEATH PLAYS OUT, THEN YOU GET UP AGAIN', d: 'HIT LANDS A BLOW · FOES SENDS THEM AWAY OR BACK · NEXT BRINGS ON OTHER FOES · DIE DIES THE NEXT DEATH · A PIT BY THE EAST WALL' };
   armourFoes(2.6); // (they come on once the card has gone)
 }
 // the foes go, and the current lot comes on fresh after a delay (unless NEXT has brought on another lot meanwhile)
@@ -167,7 +167,7 @@ function testFoes() {
 function testHit() {
   const h = G.me; if (!TEST.on || TEST.mode !== 'armour' || !h || h.dead || h.fall) return;
   const a = rand(TAU), d = randi(8, 16), src = { x: h.x - Math.cos(a) * 20, y: h.y - Math.sin(a) * 20, team: 'foe', def: {} };
-  h.iframe = 0; h.blocking = false; if (!(h.gamb > 0) && h.hp <= d * 1.2) h.hp = h.maxHp; // (no armour left and too little health: he is made whole first)
+  h.iframe = 0; h.blocking = false; if (!(h.gamb > 0) && !(h.mail > 0) && h.hp <= d * 1.2) h.hp = h.maxHp; // (no armour left and too little health: he is made whole first)
   hurt(h, d, src, { kx: Math.cos(a) * 110, ky: Math.sin(a) * 80, ang: a, style: pick(['arc', 'line', 'clot', 'bite']) }); shake(0.06);
 }
 // a pit two by two by the east wall, dug into the finished floor, to fall to his death in
@@ -184,7 +184,7 @@ const TEST_DEATHS = ['bleed', 'fall', 'burst', 'acid', 'vermin', 'vermin3', 'beh
 const testDeathName = k => k === 'vermin3' ? 'EATEN BY THREE RATS' : DEATH_NAMES[k]; // (vermin3: the fewest that can bury him)
 function testDie() {
   const h = G.me; if (!TEST.on || TEST.mode !== 'armour' || !h || h.dead || h.fall) return;
-  const kind = TEST_DEATHS[TEST.di % TEST_DEATHS.length]; TEST.di++; TEST.gen++; TEST.waiting = false; /* (gen: a lot of foes on its way is called off) */ h.gamb = 0; h.iframe = 0; h.blocking = false; h.act = null;
+  const kind = TEST_DEATHS[TEST.di % TEST_DEATHS.length]; TEST.di++; TEST.gen++; TEST.waiting = false; /* (gen: a lot of foes on its way is called off) */ h.gamb = 0; h.mail = 0; h.iframe = 0; h.blocking = false; h.act = null;
   if (kind === 'fall') { h.hp = 1; h.x = TEST.pit.x; h.y = TEST.pit.y; return; }
   const near = (spr, type, n, r0, r1) => { const out = []; for (let i = 0; i < n; i++) { const p = spotNear(h, r0, r1), v = mkFoe(type, 1, p.x, p.y, spr); Object.assign(v, { aware: true, state: 'fight', tgt: h, ctest: TEST.gen }); v.def.gold = [0, 0]; G.foes.push(v); G.units.push(v); smoke(p.x, p.y, 2, 'dust', 6, 12, 0.5); out.push(v); } return out; }; // (brought on for the death: 49_deaths2)
   let more = {};
@@ -196,9 +196,11 @@ function testDie() {
   if (kind === 'vermin') for (let i = 0; i < 7; i++) { const b = rand(TAU), x = h.x + Math.cos(b) * rand(26, 40), y = h.y + Math.sin(b) * rand(18, 28), v = mkFoe('skitter', 1, x, y, pick(['GiantRat', 'MonstrousRat', 'TaintedCockroach', 'DungBeetle', 'BloatedBedbug', 'FamishedTick', 'ForagingMaggot'])); Object.assign(v, { aware: true, state: 'fight', tgt: h, ctest: TEST.gen }); v.def.gold = [0, 0]; G.foes.push(v); G.units.push(v); smoke(x, y, 2, 'dust', 6, 12, 0.5); } // (a swarm brought on for it)
   TEST.forceDeath = kind === 'vermin3' ? 'vermin' : kind; hurt(h, Math.ceil((h.hp + 6) / 0.9), src, { kx: Math.cos(a) * 120, ky: Math.sin(a) * 90, ang: a, big: kind === 'burst', acid: kind === 'acid', ...more }); TEST.forceDeath = null;
 }
+function rackMail() { G.drops.push({ k: 'chainmail', x: TEST.rack2.x, y: TEST.rack2.y, z: 0, vx: 0, vy: 0, vz: 0, t: 1, hold: 0 }); smoke(TEST.rack2.x, TEST.rack2.y, 2, 'dust', 6, 12, 0.6); }
 function rackGambeson() { G.drops.push({ k: 'gambeson', x: TEST.rack.x, y: TEST.rack.y, z: 0, vx: 0, vy: 0, vz: 0, t: 1, hold: 0 }); smoke(TEST.rack.x, TEST.rack.y, 2, 'dust', 6, 12, 0.6); }
 function armourTick(dt) {
   if (!G.drops.some(d => d.k === 'gambeson')) { if (!TEST.rackT) TEST.rackT = G.time + 2; else if (G.time > TEST.rackT) { TEST.rackT = 0; rackGambeson(); } }
+  if (!G.drops.some(d => d.k === 'chainmail')) { if (!TEST.rack2T) TEST.rack2T = G.time + 2; else if (G.time > TEST.rack2T) { TEST.rack2T = 0; rackMail(); } } // (and the chainmail)
   if (G.phase === 'play' && !TEST.calm && !TEST.waiting && G.foes.length && G.foes.every(f => f.dead || f.ctest !== TEST.gen)) { TEST.waiting = true; const gen = TEST.gen; G.sched.push({ t: 2, fn: () => { TEST.waiting = false; if (TEST.mode === 'armour' && TEST.gen === gen && G.phase === 'play') creatureSpawn(); } }); }
 }
 // his death played out: he gets up again, whole, in a new gambeson, where he began; the foes come on fresh

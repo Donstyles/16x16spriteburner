@@ -41,7 +41,8 @@ function hurt(u, dmg, src, o = {}) {
   if (u.def.armor) d *= 1 - u.def.armor;
   if (u.team === 'foe' && u.stun > 0) d *= 1.3; // a staggered foe is open
   d = Math.max(1, Math.round(d));
-  // the hero's gambeson takes the blow first (53_foes); a blow it takes whole still knocks him back, but draws no blood
+  // the hero's chainmail takes the blow first, then his gambeson (53_foes); a blow they take whole still knocks him back, but draws no blood
+  if (u.mail > 0) { d = mailTakes(u, d, o); if (d <= 0) { const km = u.scale > 1.2 ? 0.45 : 1; u.kx += (o.kx || 0) * km; u.ky += (o.ky || 0) * km; shake(0.08); return 0; } }
   if (u.gamb > 0) { d = gambesonTakes(u, d, o); if (d <= 0) { const km = u.scale > 1.2 ? 0.45 : 1; u.kx += (o.kx || 0) * km; u.ky += (o.ky || 0) * km; shake(0.08); return 0; } }
   const before = u.hp; u.hp -= d; u.flash = 0.12;
   // a killing blow does not stagger: the foe simply dies
