@@ -338,6 +338,7 @@ function openChest(p) {
   if (p.open) return; p.open = true; const T = CHEST[p.tier]; SFX.chest(panOf(p.x)); shake(0.06);
   const loot = ['flask'], n = randi(T.gold[0], T.gold[1]), coins = Math.min(n, 6); // (a flask; the fish are in the water now)
   for (let i = 0; i < coins; i++) loot.splice(randi(0, loot.length), 0, Math.ceil(n / coins));
+  if (G.me && !(G.me.gamb >= GAMBESON.max) && !G.drops.some(d => d.k === 'gambeson') && chance(0.25)) loot.splice(randi(0, loot.length), 0, 'gambeson'); // (a quarter of them hold a gambeson, while his is not whole)
   loot.forEach((k, i) => spill(p, k, i, loot.length));
   for (let i = 0; i < 14; i++) part({ k: 'glow', x: p.x + rand(-6, 6), y: p.cy + rand(-2, 3), z: rand(4, 12), vz: rand(20, 60), life: rand(0.5, 1), s0: rand(1.5, 2.5), s1: 0, col: 'gold' }); flashLight(p.x, p.cy, 60, 'gold', 1, 0.5);
 }

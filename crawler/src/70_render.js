@@ -230,7 +230,9 @@ function render() {
   drawWorks(c); drawPits(c); drawWet(c); drawHazards(c); drawWake(c); drawRuns(c); drawDoors(c); drawTele(c); drawTelegraphs(c);
   // the shadows, on a layer of their own cut to the floor (noFloor), then laid down
   if (!shb) { shb = mkCanvas(1, 1); shbc = shb.getContext('2d'); } fitBuf(shb, bw, bh); const S = shbc; S.setTransform(1, 0, 0, 1, 0, 0); S.globalCompositeOperation = 'source-over'; S.clearRect(0, 0, bw, bh); X(S);
-  for (const u of G.units) { if (u.dead && u.team === 'foe') continue; if (u.team === 'foe' && !foeShown(u)) continue; if (u.under || u.z < -1 || u.fall) continue; pxShadow(S, u.x, u.y - (u.lift || 0), u.r * 1.3 * (1 - Math.min(0.6, u.z / 160))); }
+  for (const u of G.units) { if (u.dead && u.team === 'foe') continue; if (u.team === 'foe' && !foeShown(u)) continue; if (u.under || u.z < -1 || u.fall || u.gone) continue; // (blown apart: nothing left to cast one)
+    const dp = u.team === 'hero' && u.dead ? deathPose(u) : null; if (dp && dp.lie) { const L = lieOf(u.spr, u.scale || 1); pxEllipse(S, u.x, u.y + 1, L.half + 4, 3); continue; } // (lying dead: a long flat shadow, wider than he is)
+    pxShadow(S, u.x, u.y - (u.lift || 0), u.r * 1.3 * (1 - Math.min(0.6, u.z / 160))); }
   if (ARENA.shop) pxShadow(S, ARENA.shop.keeper.x, ARENA.shop.keeper.y, 6.5); // (the shopkeeper's: 39_shop)
   S.globalCompositeOperation = 'destination-out'; S.drawImage(noFloor(), 0, 0); S.globalCompositeOperation = 'source-over';
   c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(shb, 0, 0); c.restore();
@@ -278,7 +280,8 @@ function drawWeapon(c, u, p, Wc, fr, fw, foot, dip, cutRow) {
   u.swTh = p.th;
 }
 // a unit's shadow: a flat pixel ellipse, row by row, no soft edge
-function pxShadow(c, x, y, r) {
-  const rx = Math.max(2, Math.round(r)), ry = Math.max(1, Math.round(r * 0.42)), cx = Math.round(x), cy = Math.round(y); c.fillStyle = 'rgba(0,0,0,0.38)';
+function pxShadow(c, x, y, r) { pxEllipse(c, x, y, Math.max(2, Math.round(r)), Math.max(1, Math.round(r * 0.42))); }
+function pxEllipse(c, x, y, rx, ry) {
+  const cx = Math.round(x), cy = Math.round(y); c.fillStyle = 'rgba(0,0,0,0.38)';
   for (let dy = -ry; dy <= ry; dy++) { const w = Math.round(rx * Math.sqrt(1 - (dy / (ry + 0.5)) ** 2)); if (w > 0) c.fillRect(cx - w, cy + dy, w * 2, 1); }
 }

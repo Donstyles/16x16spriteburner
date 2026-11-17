@@ -1,6 +1,6 @@
 // ===================== HUD: health, stamina, flasks, gold, the floor, banners =====================
 const F_DISP = '"Grenze Gotisch", "Palatino Linotype", Palatino, "Book Antiqua", serif', F_HUD = 'Teko, "Arial Narrow", "Avenir Next Condensed", sans-serif';
-const NUMCOL = { red: '#ff5a46', white: '#ffffff', gold: '#ffd860', heal: '#7cff9c', curse: '#d9a0ff', acid: '#e8f02c' }; // acid: a sour yellow, well clear of the mint of healing
+const NUMCOL = { red: '#ff5a46', white: '#ffffff', gold: '#ffd860', heal: '#7cff9c', curse: '#d9a0ff', acid: '#e8f02c', cloth: '#ecdcae' }; // acid: a sour yellow, well clear of the mint of healing
 // The new lettering, on trial (TYPE.on; off unless switched on, on the title screen or in the pause menu; kept on this
 // device), round three: two faces and no more, and a third for the numbers. Grenze Gotisch keeps every heading (the menus' titles, the kit names, the
 // floor cards, the banners); every other word and number (the buttons, the HUD, the floating numbers, the hints, the kit
@@ -58,7 +58,7 @@ function bar(c, x, y, w, h, f, trailKey, col, back = 'rgba(0,0,0,0.6)') {
 // the item sheet, full or empty. Low on health the frame and the bar beat red with his heart; cursed, the stamina bar
 // turns violet; out of breath, it flashes.
 function drawHeroPanel(c, h, L, T, W) {
-  const bw = Math.round(clamp(W * 0.24, 130, 220)), P = 40, x0 = L + P + 7, low = h.hp < h.maxHp * 0.3 && !h.dead, beat = low ? 0.5 + 0.5 * Math.sin(G.time * 7.5) : 0;
+  const gw = h.gamb > 0 || (h.gambLost && h.gambLost.length), bw = Math.round(clamp(W * 0.24, 130, 220)), P = 40, x0 = L + P + 7, low = h.hp < h.maxHp * 0.3 && !h.dead, beat = low ? 0.5 + 0.5 * Math.sin(G.time * 7.5) : 0;
   // the portrait
   c.fillStyle = 'rgba(10,8,12,0.78)'; c.fillRect(L, T, P, P);
   const g = c.createRadialGradient(L + P / 2, T + P * 0.62, 2, L + P / 2, T + P * 0.62, P * 0.6); g.addColorStop(0, h.dead ? 'rgba(120,20,20,0.5)' : 'rgba(255,170,80,0.38)'); g.addColorStop(1, 'rgba(255,170,80,0)'); c.fillStyle = g; c.fillRect(L, T, P, P);
@@ -67,20 +67,23 @@ function drawHeroPanel(c, h, L, T, W) {
   c.strokeStyle = low ? `rgba(255,${Math.round(70 + 80 * (1 - beat))},60,${0.7 + 0.3 * beat})` : '#7a6040'; c.lineWidth = 1; c.strokeRect(L + 0.5, T + 0.5, P - 1, P - 1);
   c.strokeStyle = 'rgba(0,0,0,0.7)'; c.strokeRect(L + 1.5, T + 1.5, P - 3, P - 3);
   c.fillStyle = '#c8a060'; for (const [cx, cy] of [[L, T], [L + P - 2, T], [L, T + P - 2], [L + P - 2, T + P - 2]]) c.fillRect(cx, cy, 2, 2); // the frame's corner studs
+  if (h.gamb > 0) { // worn, the gambeson pads his portrait's frame as well, stitched in with the band round his health
+    const k = clamp((G.time - (h.gambT0 || -9)) / 0.7, 0, 1); c.save(); c.beginPath(); c.rect(L - 4, T - 4, Math.round((P + 8) * k), P + 8); c.rect(L, T, P, P); c.clip('evenodd'); quiltBand(c, L - 4, T - 4, P + 8, P + 8); c.restore(); }
   // the name
   font(c, 900, 18, F_DISP); label(c, KITS[h.kit].name, x0, T + 13, '#f8ecd6', { stroke: 3 });
-  // health
-  hudBar(c, x0, T + 18, bw, 10, h.hp / h.maxHp, 'hpT', low ? [`rgb(255,${Math.round(110 + 60 * beat)},90)`, '#d0302a', '#6a0e10'] : ['#ff6a50', '#c8302a', '#6e1214'], Math.max(1, Math.floor(h.maxHp / 25)));
-  if (h.acidT > 0) { const p = 0.55 + 0.45 * Math.sin(G.time * 14); c.strokeStyle = `rgba(214,255,60,${0.5 + 0.5 * p})`; c.lineWidth = 2; c.strokeRect(x0 - 3, T + 15, bw + 6, 16); c.lineWidth = 1; } // standing in acid: the bar's edge burns sour green
-  font(c, 600, 12, F_NUM); label(c, Math.max(0, Math.ceil(h.hp)) + ' / ' + h.maxHp, x0 + bw - 3, T + 26.5, 'rgba(255,244,228,0.92)', { align: 'right', stroke: 3 });
+  // health (worn in a gambeson, the bar sits in a band of quilted cloth: drawQuilt)
+  const hy = gw ? 4 : 0, gq = gw ? 12 : 0; if (gw) drawQuilt(c, x0 - 8, T + 14, bw + 16, 26, h); // (thick: while it is whole, the bar inside it is out of reach)
+  hudBar(c, x0, T + 18 + hy, bw, 10, h.hp / h.maxHp, 'hpT', low ? [`rgb(255,${Math.round(110 + 60 * beat)},90)`, '#d0302a', '#6a0e10'] : ['#ff6a50', '#c8302a', '#6e1214'], Math.max(1, Math.floor(h.maxHp / 25)));
+  if (h.acidT > 0) { const p = 0.55 + 0.45 * Math.sin(G.time * 14); c.strokeStyle = `rgba(214,255,60,${0.5 + 0.5 * p})`; c.lineWidth = 2; c.strokeRect(x0 - 3, T + 15 + hy, bw + 6, 16); c.lineWidth = 1; } // standing in acid: the bar's edge burns sour green
+  font(c, 600, 12, F_NUM); label(c, Math.max(0, Math.ceil(h.hp)) + ' / ' + h.maxHp, x0 + bw - 3, T + 26.5 + hy, 'rgba(255,244,228,0.92)', { align: 'right', stroke: 3 });
   // stamina
   const tired = G.tiredT > 0 || h.huff, cursed = h.curseT > 0, flick = tired && ((G.time * 8) | 0) % 2;
-  hudBar(c, x0, T + 31, Math.round(bw * 0.85), 5, h.stam / h.maxStam, 'stT', cursed ? ['#e0b0ff', '#a050e0', '#4a1a70'] : flick ? ['#ffb070', '#e06030', '#6a2010'] : ['#e8f080', '#9ad85a', '#3e6a20'], 0);
-  if (tired) { font(c, 600, 12, F_HUD); label(c, h.huff ? 'WINDED' : 'OUT OF STAMINA', x0 + Math.round(bw * 0.85) + 6, T + 37, '#f0e0c0', { stroke: 3 }); }
-  else if (cursed) { font(c, 600, 12, F_HUD); label(c, 'CURSED', x0 + Math.round(bw * 0.85) + 6, T + 37, '#e0b0ff', { stroke: 3 }); }
+  hudBar(c, x0, T + 31 + gq, Math.round(bw * 0.85), 5, h.stam / h.maxStam, 'stT', cursed ? ['#e0b0ff', '#a050e0', '#4a1a70'] : flick ? ['#ffb070', '#e06030', '#6a2010'] : ['#e8f080', '#9ad85a', '#3e6a20'], 0);
+  if (tired) { font(c, 600, 12, F_HUD); label(c, h.huff ? 'WINDED' : 'OUT OF STAMINA', x0 + Math.round(bw * 0.85) + 6, T + 37 + gq, '#f0e0c0', { stroke: 3 }); }
+  else if (cursed) { font(c, 600, 12, F_HUD); label(c, 'CURSED', x0 + Math.round(bw * 0.85) + 6, T + 37 + gq, '#e0b0ff', { stroke: 3 }); }
   // flasks
   c.imageSmoothingEnabled = false;
-  for (let i = 0; i < h.maxFlasks; i++) { const fx = x0 + i * 15, fy = T + 41, full = i < h.flasks; c.globalAlpha = full ? 1 : 0.22; c.drawImage(IMG.items, 21, 3, 6, 9, fx, fy, 12, 18); } // the flask from the item sheet, at twice its size
+  for (let i = 0; i < h.maxFlasks; i++) { const fx = x0 + i * 15, fy = T + 41 + gq, full = i < h.flasks; c.globalAlpha = full ? 1 : 0.22; c.drawImage(IMG.items, 21, 3, 6, 9, fx, fy, 12, 18); } // the flask from the item sheet, at twice its size
   c.globalAlpha = 1;
 }
 // where a hero's face is on his sprite: the top of the figure, and across, the middle of his body a little below it
@@ -102,6 +105,31 @@ function hudBar(c, x, y, w, h, f, trailKey, cols, n) {
   c.fillStyle = 'rgba(255,236,210,0.85)'; c.fillRect(x, y, Math.round(w * T), h);
   const fw = Math.round(w * f); if (fw > 0) { const gr = c.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, cols[0]); gr.addColorStop(0.45, cols[1]); gr.addColorStop(1, cols[2]); c.fillStyle = gr; c.fillRect(x, y, fw, h); c.fillStyle = 'rgba(255,255,255,0.28)'; c.fillRect(x, y, fw, Math.max(1, Math.round(h * 0.22))); c.fillStyle = 'rgba(255,255,255,0.55)'; c.fillRect(x + fw - 1, y, 1, h); }
   c.fillStyle = 'rgba(0,0,0,0.45)'; for (let i = 1; i < n; i++) c.fillRect(Math.round(x + w * i / n), y, 1, h);
+}
+// The gambeson on the HUD: the health bar in a padded band of quilted linen (x, y, w, h its outer box; the bar is drawn
+// over its middle), light along the top, the quilting's channels every six pixels each with its padding catching the
+// light, a running stitch along both edges. As much of it is left as he has armour left, hacked back from the right to a
+// ragged edge; each piece hacked off falls away and fades. Put on, it is stitched in from the left, a needle's glint at the seam.
+function quiltBand(c, x, y, w, h) {
+  const g = c.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, '#eadbb4'); g.addColorStop(0.5, '#cdb586'); g.addColorStop(1, '#a28a58'); c.fillStyle = g; c.fillRect(x, y, w, h);
+  c.fillStyle = 'rgba(96,70,36,0.6)'; for (let i = x + 4; i < x + w - 2; i += 6) c.fillRect(i, y, 1, h);
+  c.fillStyle = 'rgba(255,248,225,0.4)'; for (let i = x + 1; i < x + w - 2; i += 6) c.fillRect(i, y + 1, 2, 1);
+  c.fillStyle = '#6e5432'; for (let i = x + 2; i < x + w - 2; i += 4) { c.fillRect(i, y + 1, 2, 1); c.fillRect(i, y + h - 2, 2, 1); }
+  c.strokeStyle = '#2a1e10'; c.lineWidth = 1; c.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+}
+function drawQuilt(c, x, y, w, h, hero) {
+  const k = clamp((G.time - (hero.gambT0 || -9)) / 0.7, 0, 1), f = clamp((hero.gamb || 0) / GAMBESON.max, 0, 1), sw = Math.round(w * Math.min(k, f));
+  if (sw > 0) {
+    c.save(); c.beginPath(); c.moveTo(x, y); c.lineTo(x + sw, y);
+    if (f < 1 && k >= f) for (let j = 0; j <= h; j += 2) c.lineTo(x + sw - ((j * 7 + sw * 3) % 5) * 0.8, y + j); // (the hacked edge, ragged)
+    c.lineTo(x + sw, y + h); c.lineTo(x, y + h); c.closePath(); c.clip(); quiltBand(c, x, y, w, h); c.restore();
+    if (k < f) { c.fillStyle = '#fffbe8'; c.fillRect(x + sw - 1, y + 1, 2, 2); c.fillRect(x + sw - 1, y + h - 3, 2, 2); }
+  }
+  hero.gambLost = (hero.gambLost || []).filter(p => G.time - p.t0 < 0.6);
+  for (const p of hero.gambLost) { // the pieces hacked off, falling away
+    const u = (G.time - p.t0) / 0.6, xa = x + Math.round(w * p.a), xb = x + Math.round(w * p.b); if (xb <= xa) continue;
+    c.save(); c.globalAlpha = 1 - u; c.translate(0, 26 * u * u + 2 * u); c.beginPath(); c.rect(xa, y, xb - xa, h); c.clip(); quiltBand(c, x, y, w, h); c.restore();
+  }
 }
 function drawHUD() {
   const c = ctx, d = VIEW.dpr, W = VIEW.w, H = VIEW.h, S = VIEW.safe, L = Math.max(12, S.l + 10), R = W - Math.max(12, S.r + 10), T = Math.max(10, S.t + 8);

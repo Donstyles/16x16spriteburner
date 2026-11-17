@@ -7,12 +7,13 @@
 // door, and their arrows come no further than it.
 // A prototype of how a shop looks and feels: he sells what the cellar already has (flasks, fish, the floor's map) and a
 // belt with room for one more flask; gold is what the cellars give.
-const SHOP = { slow: 0.5, zoom: 1.3, keeper: 'OverworkedVillager' };
+const SHOP = { slow: 0.5, zoom: 1.3, keeper: 'OverworkedVillager', idle: 0.3 }; // idle: how fast the old man's idle frames turn over, against everyone else's
 const WARES = [
   { k: 'flask', name: 'FLASK', price: f => 12 + 3 * f, stock: 2 },
   { k: 'fish', name: 'FISH', price: f => 6 + 2 * f, stock: 2 },
   { k: 'map', name: 'FLOOR MAP', price: f => 18 + 4 * f, stock: 1 },
   { k: 'belt', name: 'FLASK BELT', sub: '+1 FLASK SLOT', icon: 'flask', price: f => 50 + 10 * f, stock: 1 },
+  { k: 'gambeson', name: 'GAMBESON', sub: '+40 ARMOUR', price: f => 40 + 8 * f, stock: 1 },
 ];
 const SHOP_HELLO = ['WELCOME, TRAVELLER. NO BLADES IN HERE.', 'AH, A CUSTOMER! MIND THE POTIONS.', 'COME IN, COME IN. LEAVE THE FIGHTING OUTSIDE.'];
 const SHOP_THANKS = ['A FINE CHOICE.', 'PLEASURE DOING BUSINESS.', 'MAY IT SERVE YOU WELL.', 'COME BACK ALIVE, NOW.'];
@@ -40,8 +41,8 @@ function shopFit(A, r, g) {
   // the customers' corners
   put('barrel', [27, 8], X, Y + 6); put('crate', [25, 12], X + 8, Y + 6);
   // the keeper, behind the counter (his legs hidden by it), and his wares on it (two either side of him)
-  const kp = { id: -1, team: 'npc', spr: SHOP.keeper, x: cx * TS + 8, y: (Y + 2) * TS + 3, z: 0, vx: 0, vy: 0, kx: 0, ky: 0, r: 5, scale: 1, face: 1, anim: rand(0, 4), act: null, state: 'idle', moving: false, dead: false, hp: 1, maxHp: 1 };
-  const wares = WARES.map((w, i) => Object.assign({}, w, { x: [X + 2, X + 3, X + 5, X + 6][i] * TS + 8, y: (Y + 2) * TS + 14, stock: w.stock }));
+  const kp = { id: -1, team: 'npc', spr: SHOP.keeper, animK: SHOP.idle, x: cx * TS + 8, y: (Y + 2) * TS + 3, z: 0, vx: 0, vy: 0, kx: 0, ky: 0, r: 5, scale: 1, face: 1, anim: rand(0, 4), act: null, state: 'idle', moving: false, dead: false, hp: 1, maxHp: 1 };
+  const wares = WARES.map((w, i) => Object.assign({}, w, { x: [X + 2, X + 3, X + 5, X + 6, X + 7][i] * TS + 8, y: (Y + 2) * TS + 14, stock: w.stock }));
   A.shop = { room: r, keeper: kp, wares, sel: null, say: null };
 }
 function inShop(A, x, y) { const S = A && A.shop; if (!S) return false; const r = S.room; return x >= r.ix0 * TS && x < (r.ix1 + 1) * TS && y >= r.iy0 * TS - 2 && y < (r.iy1 + 1) * TS + 4; }
@@ -73,6 +74,7 @@ function shopBuy(h) {
   const A = ARENA, S = A.shop, w = S && S.sel; if (!w) return; const price = w.price(A.floor), kp = S.keeper;
   if (w.k === 'flask' && h.flasks >= h.maxFlasks) { shopSay(S, 'YOUR FLASKS ARE ALL FULL.'); return; }
   if (w.k === 'fish' && h.hp >= h.maxHp) { shopSay(S, 'YOU LOOK HALE ENOUGH TO ME.'); return; }
+  if (w.k === 'gambeson' && h.gamb >= GAMBESON.max) { shopSay(S, 'YOURS IS STILL WHOLE, FRIEND.'); return; }
   if (G.gold < price) { w.noT = G.time; shopSay(S, 'NOT ENOUGH COIN, FRIEND.'); SFX.tick(panOf(w.x)); return; }
   G.gold -= price; w.stock--; number(h.x, h.y, headZ(h) + 1, '-' + price, 'gold', false);
   // the coins go over the counter to him, a clink apiece

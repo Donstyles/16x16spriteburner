@@ -356,11 +356,43 @@ function updateProj(dt) {
 function dropLoot(u) { const g = u.def.gold || [0, 1]; const n = randi(g[0], g[1]); if (n > 0) dropGold(u.x, u.y, n); }
 // Pickups from the item sheet: a fish heals on the spot, a flask gives back a flask charge. Either one waits on the floor
 // while the hero has no use for it (full health, every flask full).
-const ITEM = { fish: [0, 0, 12, 10], flask: [16, 0, 6, 11], map: [64, 0, 14, 15, 'scrolls'] }; // where on the item sheet (or another), how long a shadow it casts, and the row it rests on (the fish's belly; its tail hangs a row lower)
+const ITEM = { fish: [0, 0, 12, 10], flask: [16, 0, 6, 11], map: [64, 0, 14, 15, 'scrolls'], gambeson: [0, 80, 12, 15] }; // where on the item sheet (or another), how long a shadow it casts, and the row it rests on (the fish's belly; its tail hangs a row lower)
+// The gambeson (16x16 Assorted RPG Icons, armours [0, 5], on the item sheet's last row): quilted cloth armour, forty
+// points of it, that takes each blow before his health does and is hacked away doing it: scraps of quilted linen fly off
+// him, the number struck comes up in the cloth's colour, and on the HUD the band of quilting round his health bar is cut
+// back from the right, the piece hacked off falling away (80_hud). Whatever a blow has left once the cloth is gone goes
+// on to his health; the last of it hacked away, the gambeson is gone. Another one (from a chest or the shop) puts a
+// whole one on him again.
+const GAMBESON = { max: 40 }, CLOTH = ['#eadbb4', '#cdb586', '#a28a58', '#6e5432'];
+function putOnGambeson(h) {
+  h.gamb = GAMBESON.max; h.gambT0 = G.time; h.gambLost = []; SFX.chest(panOf(h.x)); textPop(h.x, h.y, headZ(h) + 2, 'GAMBESON', 'gold', false);
+  pushBanner({ a: 'Gambeson', b: 'QUILTED ARMOUR · TAKES THE FIRST ' + GAMBESON.max + ' DAMAGE', col: 'gold', small: true, life: 2.6 });
+  for (let i = 0; i < 12; i++) part({ k: 'glow', x: h.x + rand(-7, 7), y: h.y + rand(-3, 3), z: rand(2, 14), vz: rand(20, 50), drag: 1, life: rand(0.5, 1), s0: rand(1.5, 3), s1: 0, col: 'gold' });
+}
+// a blow on the gambeson: it takes what it can (all of d, or what is left of it) and gives back what goes on to his health
+function gambesonTakes(h, d, o = {}) {
+  const a = Math.min(h.gamb, d), was = h.gamb; h.gamb -= a; (h.gambLost = h.gambLost || []).push({ a: h.gamb / GAMBESON.max, b: was / GAMBESON.max, t0: G.time });
+  number(h.x, h.y, headZ(h) + 1, a, 'cloth', false, h);
+  clothSpill(h, a, o);
+  if (h.gamb <= 0) { h.gamb = 0; textPop(h.x, h.y, headZ(h) + 8, 'GAMBESON TORN', 'cloth', false); clothSpill(h, 30, o); SFX.wood(panOf(h.x)); }
+  return d - a;
+}
+// what a blow on the gambeson spills instead of blood, in about the scarecrow's measure, so it is plain what is
+// happening: its padding (tow and wadding) thrown out the way the blow went as the scarecrow's hay is, fluttering down
+// slowly and settling on the floor (46_bits hay), scraps of the quilted linen flung with it (chips), a puff of lint
+const QUILT = ['#fbf5e6', '#f1e6cc', '#e6d6b2', '#cdb586', '#b39a68'];
+function clothSpill(h, a, o) {
+  const S = SPRAY[o.style] || SPRAY.bite, k = clamp(a / 10, 0.7, 3.5), a0 = o.ang !== undefined ? o.ang : o.kx || o.ky ? Math.atan2(o.ky || 0, o.kx || 0) : rand(TAU);
+  const way = () => a0 + (o.sweep || 1) * S.bias + rand(-S.spread, S.spread) * 1.3, z0 = (h.z || 0) + 6;
+  for (let i = 0, n = Math.min(60, Math.round(12 * k)); i < n; i++) { const t = way(), v = rand(S.v[0], S.v[1]) * 0.9; hay(h.x + rand(-2, 2), h.y + rand(-1, 1), z0 + rand(-3, 4), Math.cos(t) * v, Math.sin(t) * v * 0.8, rand(40, 130), o.slow, QUILT); }
+  for (let i = 0, n = Math.min(30, Math.round(6 * k)); i < n; i++) { const t = way(), v = rand(S.v[0], S.v[1]); chip(h.x + rand(-2, 2), h.y + rand(-1, 1), z0 + rand(-3, 3), Math.cos(t) * v, Math.sin(t) * v * 0.8, rand(S.up[0], S.up[1]) + 20, pick(CLOTH), o.slow); }
+  smoke(h.x, h.y, a >= 25 ? 2 : 1, 'dust', 6, 14, 0.8); SFX.hay(panOf(h.x), a >= 25);
+}
 function dropItem(k, x, y) { G.drops.push({ k, x, y, z: 4, vx: rand(-30, 30), vy: rand(-20, 20), vz: rand(70, 110), t: 0 }); }
 function takeItem(d, h) {
   if (d.k === 'fish') { if (h.hp >= h.maxHp) return false; const g = Math.min(h.maxHp - h.hp, Math.round(h.maxHp * 0.15)); h.hp += g; number(h.x, h.y, headZ(h) + 1, '+' + g, 'heal', true); healGlow(h.x, h.y); SFX.heal(); return true; }
   if (d.k === 'map') { revealFloor(ARENA); ARENA.mapRead = true; h.shown = { k: 'map', t0: G.time }; textPop(h.x, h.y, headZ(h) + 20, 'AHA!', 'gold', false); SFX.aha(panOf(h.x)); for (let i = 0; i < 10; i++) part({ k: 'glow', x: h.x + rand(-7, 7), y: h.y, z: headZ(h) + rand(6, 16), vz: rand(10, 30), drag: 2, life: rand(0.5, 0.9), s0: rand(1.2, 2), s1: 0, col: 'gold' }); return true; } // the floor's map (52_hero: in a small chest)
+  if (d.k === 'gambeson') { if (h.gamb >= GAMBESON.max) return false; putOnGambeson(h); return true; } // (a damaged or a torn one: a whole one on him again)
   if (d.k === 'flask') { if (h.flasks >= h.maxFlasks) return false; h.flasks++; textPop(h.x, h.y, headZ(h) + 2, '+1 FLASK', 'heal', false); SFX.coin(panOf(d.x)); return true; }
   return false;
 }

@@ -40,7 +40,10 @@ function hurt(u, dmg, src, o = {}) {
   let d = dmg * rand(0.92, 1.08) * (o.crit || 1);
   if (u.def.armor) d *= 1 - u.def.armor;
   if (u.team === 'foe' && u.stun > 0) d *= 1.3; // a staggered foe is open
-  d = Math.max(1, Math.round(d)); const before = u.hp; u.hp -= d; u.flash = 0.12;
+  d = Math.max(1, Math.round(d));
+  // the hero's gambeson takes the blow first (53_foes); a blow it takes whole still knocks him back, but draws no blood
+  if (u.gamb > 0) { d = gambesonTakes(u, d, o); if (d <= 0) { const km = u.scale > 1.2 ? 0.45 : 1; u.kx += (o.kx || 0) * km; u.ky += (o.ky || 0) * km; shake(0.08); return 0; } }
+  const before = u.hp; u.hp -= d; u.flash = 0.12;
   // a killing blow does not stagger: the foe simply dies
   if (o.poise && u.hp > 0 && !(u.act && u.act.armored) && !(u.poiseGuard > 0)) { u.poise -= o.poise; u.poiseT = 2; if (u.poise <= 0) { u.poise = u.maxPoise; stagger(u, u.team === 'hero' ? 0.45 : 1.1); } }
   const km = u.scale > 1.2 ? 0.45 : 1; u.kx += (o.kx || 0) * km; u.ky += (o.ky || 0) * km;
