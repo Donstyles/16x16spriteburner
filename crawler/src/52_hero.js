@@ -278,22 +278,24 @@ function strikeHits(h, a) {
 function breakProp(p) {
   // (a shrine's chest opens only once its vault does)
   if (p.dead || p.hp > 1e8) return; if (p.kind === 'tchest') { if (p.sealed && !p.sealed.open) { SFX.clang(panOf(p.x)); return; } openChest(p); return; } if (p.kind === 'ore') { hitOre(p); return; }
-  if ((p.th || 1) >= 2 && !p.wetTile) { knockTop(p); return; } // a stack two high: the first blow knocks its top crate off
+  if ((p.th || 1) >= 2 && !p.wetTile && !p.struck) { strikeTall(p); return; } // a tall crate: one piece, two blows
   p.dead = true; p.solid = false;
   // clay or wood: a pot (or a heap of them) bursts into terracotta shards; a crate, a cart or a chest splinters with a knock
   if (isPot(p)) { debris(p.x, p.cy, 22, POT_SHARDS, 120, 150, 1.4); smoke(p.x, p.cy, 3, 'dust', 7, 22, 1); SFX.crack(panOf(p.x)); }
-  else { debris(p.x, p.cy, 18, ['#6a4a2a', '#8a6638', '#4a3018', '#a07848'], 140, 180, 2.2); smoke(p.x, p.cy, 4, 'dust', 9, 30, 1.2); SFX.wood(panOf(p.x), (p.th || 1) >= 2 || p.tw >= 2); SFX.crack(panOf(p.x)); }
+  else { const n = p.th || 1; for (let i = 0; i < n; i++) debris(p.x, p.cy - i * 14, 18, ['#6a4a2a', '#8a6638', '#4a3018', '#a07848'], 140, 180, 2.2); smoke(p.x, p.cy - (n - 1) * 7, 4 * n, 'dust', 9, 30, 1.2); SFX.wood(panOf(p.x), (p.th || 1) >= 2 || p.tw >= 2); SFX.crack(panOf(p.x)); }
   if (chance(p.kind === 'chest' ? 1 : 0.25)) dropGold(p.x, p.cy, p.kind === 'chest' ? randi(6, 14) : randi(1, 4));
   // a fish or a flask in a pot, barrel or crate is a rare find (a little less rare in a small chest); the treasure chests hold them
   const chest = p.kind === 'chest'; if (!chest && chance(0.015)) dropItem('fish', p.x, p.cy); else if (chance(chest ? 0.03 : 0.008)) dropItem('flask', p.x, p.cy); // (no fish in a chest)
 }
-// a stack two crates high (or a heap of them) takes two blows: the first knocks its top off in splinters, and what is
-// left is the bottom crate (the lower row of its tiles), which the next blow breaks
+// a tall crate (the sheet's crates two tiles high) is one thing and takes two blows: the first flashes it white (fading
+// back, as a foe does) and knocks a splinter or two of its own wood off, the whole of it still standing; the second breaks
+// all of it at once
 const POT_SHARDS = ['#a85a32', '#c87848', '#7a3e20', '#e09a68'];
 const isPot = p => p.kind === 'sacks' || (p.kind === 'barrel' && p.tile && p.tile[1] === 8); // (the sheet's pots, and its heap of them)
-function knockTop(p) {
-  p.th = 1; p.tile = [p.tile[0], p.tile[1] + 1]; p.flashUntil = G.time + 0.08;
-  debris(p.x, p.cy - 14, 12, isPot(p) ? POT_SHARDS : ['#6a4a2a', '#8a6638', '#4a3018', '#a07848'], 110, 150, 1.8); smoke(p.x, p.cy - 12, 2, 'dust', 7, 20, 1); if (!isPot(p)) SFX.wood(panOf(p.x)); SFX.crack(panOf(p.x)); shake(0.04);
+function strikeTall(p) {
+  p.struck = true; p.flashUntil = G.time + 0.12; const h = G.me, away = h ? angTo(h.x, h.y, p.x, p.cy) : null, w = (p.tw || 1) * TS, n = p.th || 1;
+  for (let i = 0; i < 2; i++) chipSprite(PIX.cellar, p.tile[0] * TS, p.tile[1] * TS, w, n * TS, p.x - w / 2, p.y - 14 - (n - 1) * TS, p.y, away);
+  debris(p.x, p.cy - 8, 5, ['#6a4a2a', '#8a6638', '#4a3018', '#a07848'], 90, 120, 1.6); smoke(p.x, p.cy - 6, 1, 'dust', 6, 18, 0.8); SFX.wood(panOf(p.x)); SFX.crack(panOf(p.x)); shake(0.04);
 }
 // An ore rock takes three blows: each one flashes it white (fading back, as a foe does), knocks a chip or two of its own
 // stone off, glints where it has silver or gold, and knocks; the third bursts it into chunks of itself that tumble
