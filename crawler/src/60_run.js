@@ -44,6 +44,7 @@ function updateRun(dt) {
   separate(G.units);
   if (TEST.on && TEST.mode === 'creatures') creatureTick(dt);
   if (TEST.on && TEST.mode === 'water') waterTick(dt);
+  if (TEST.on && TEST.mode === 'armour') armourTick(dt);
   updateProj(dt); updateHazards(dt); worksTick(dt); levelTick(dt); updateDrops(dt); updateSight(dt);
   removeIf(G.foes, f => f.dead); removeIf(G.units, u => u.dead && u.team === 'foe');
   if (G.hurtFlash > 0) G.hurtFlash -= dt; if (G.tiredT > 0) G.tiredT -= dt;
@@ -55,6 +56,7 @@ function updateRun(dt) {
     if (G.phaseT > 0.9) { G.floor++; G.best = Math.max(G.best, G.floor); saveBest(); for (const h of G.heroes) { if (h.dead) { h.dead = false; h.gone = h.dropped = false; h.hp = Math.round(h.maxHp * 0.3); } } startFloor(); }
   } else if (G.phase === 'dead') {
     if (G.phaseT > 7) G.fade = Math.min(1, (G.phaseT - 7) / 1.2); // the death plays out first
+    if (TEST.on && TEST.mode === 'armour') { if (G.phaseT > 7.6) armourRevive(); return; } // (the armour and death room: up again, 64_testroom)
     if (G.phaseT > 8.2) { G.mode = 'menu'; MENU.screen = 'summary'; G.fade = 0; }
   }
 }

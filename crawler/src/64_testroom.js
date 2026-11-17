@@ -103,7 +103,7 @@ function creatureSpawn() {
     G.foes.push(f); G.units.push(f); smoke(x, y, 3, 'dust', 8, 16, 0.6);
   }
 }
-function nextCreature() { if (TEST.mode !== 'creatures') return; TEST.i = (TEST.i + 1) % TEST.list.length; creatureSpawn(); SFX.whoosh(0); }
+function nextCreature() { if (TEST.mode !== 'creatures' && TEST.mode !== 'armour') return; TEST.i = (TEST.i + 1) % TEST.list.length; creatureSpawn(); SFX.whoosh(0); }
 function creatureTick(dt) {
   const h = G.me; if (h && !h.dead) h.hp = Math.min(h.maxHp, h.hp + 6 * dt);
   if (!TEST.waiting && G.foes.length && G.foes.every(f => f.dead || f.ctest !== TEST.gen)) { TEST.waiting = true; const gen = TEST.gen; G.sched.push({ t: 2, fn: () => { TEST.waiting = false; if (TEST.mode === 'creatures' && TEST.gen === gen) creatureSpawn(); } }); }
@@ -129,6 +129,41 @@ function beginWaterTest(kit) {
 function waterTick(dt) { const h = G.me; if (h && !h.dead) h.hp = Math.min(h.maxHp, h.hp + 6 * dt); }
 // the second button at the top: the next creature, or the water back in
 function testNext() {
-  if (TEST.mode === 'creatures') nextCreature();
+  if (TEST.mode === 'creatures' || TEST.mode === 'armour') nextCreature();
   else if (TEST.mode === 'water' && ARENA.cistern) { refillPool(ARENA.cistern.pool); SFX.whoosh(0); }
+}
+// ===================== the armour and death room =====================
+// From the kit screen: the blood test room's room, its doors shut, the hero in a gambeson and a fresh one lying by the
+// wall (back two seconds after it is taken). The foes fight for real, one lot at a time (NEXT brings on the next; a lot
+// that falls comes back after two seconds), and nothing heals him: the gambeson is hacked away, then he is, and he
+// dies. His death plays out in full, then he gets up again in the middle, whole, in a new gambeson, the foes fresh.
+const ARMOUR_TESTS = [
+  ['GRUNTS · BLOWS ON THE GAMBESON, THEN ON YOU', [['grunt', null, 3]]], ['A BRUTE · ITS SLAM BLOWS YOU APART', [['brute', null, 1]]],
+  ['ARCHERS · ARROWS', [['archer', null, 2]]], ['SKITTERERS · A SWARM', [['skitter', null, 6]]], ['FLANKERS · FROM BEHIND', [['flanker', null, 2]]],
+  ['ACID ANTS · GREEN SPIT', [['archer', 'AcidAnt', 2]]], ['ALL OF THEM AT ONCE', [['brute', null, 1], ['grunt', null, 2], ['archer', null, 1], ['skitter', null, 3]]],
+];
+function beginArmourTest(kit) {
+  beginTest(kit); G.foes.length = 0; G.units = G.heroes.slice(); G.sched.length = 0;
+  Object.assign(TEST, { mode: 'armour', god: false, i: 0, list: ARMOUR_TESTS, gen: 0, rackT: 0 }); const A = ARENA, h = G.me, r = roomAt(h.x, h.y) || A.start; A.name = 'ARMOUR & DEATH ROOM';
+  TEST.home = { x: h.x, y: h.y }; TEST.rack = { x: (r.ix0 + 1.5) * TS, y: h.y }; // (the spare gambeson lies by the west wall, level with him)
+  putOnGambeson(h); G.banner = null; G.bq.length = 0; rackGambeson(); TEST.label = ARMOUR_TESTS[0][0];
+  G.card = { t: 0, life: 3.4, a: 'ARMOUR & DEATH ROOM', b: 'YOU WEAR A GAMBESON · THEY FIGHT FOR REAL · YOU CAN DIE', c: 'YOUR DEATH PLAYS OUT, THEN YOU GET UP AGAIN', d: 'NEXT AT THE TOP BRINGS ON OTHER FOES · A SPARE GAMBESON LIES BY THE WALL' };
+  armourFoes(2.6); // (they come on once the card has gone)
+}
+// the foes go, and the current lot comes on fresh after a delay (unless NEXT has brought on another lot meanwhile)
+function armourFoes(delay) {
+  const gen = ++TEST.gen; for (const f of G.foes) if (!f.dead) { smoke(f.x, f.y, 3, 'dust', 8, 16, 0.6); f.dead = true; }
+  G.sched.push({ t: delay, fn: () => { if (TEST.on && TEST.mode === 'armour' && TEST.gen === gen) creatureSpawn(); } });
+}
+function rackGambeson() { G.drops.push({ k: 'gambeson', x: TEST.rack.x, y: TEST.rack.y, z: 0, vx: 0, vy: 0, vz: 0, t: 1, hold: 0 }); smoke(TEST.rack.x, TEST.rack.y, 2, 'dust', 6, 12, 0.6); }
+function armourTick(dt) {
+  if (!G.drops.some(d => d.k === 'gambeson')) { if (!TEST.rackT) TEST.rackT = G.time + 2; else if (G.time > TEST.rackT) { TEST.rackT = 0; rackGambeson(); } }
+  if (G.phase === 'play' && !TEST.waiting && G.foes.length && G.foes.every(f => f.dead || f.ctest !== TEST.gen)) { TEST.waiting = true; const gen = TEST.gen; G.sched.push({ t: 2, fn: () => { TEST.waiting = false; if (TEST.mode === 'armour' && TEST.gen === gen) creatureSpawn(); } }); }
+}
+// his death played out: he gets up again, whole, in a new gambeson, where he began; the foes come on fresh
+function armourRevive() {
+  const h = G.me; if (!h) return;
+  Object.assign(h, { dead: false, gone: false, dropped: false, deadT: 0, hp: h.maxHp, stam: h.maxStam, flasks: h.maxFlasks, x: TEST.home.x, y: TEST.home.y, vx: 0, vy: 0, kx: 0, ky: 0, z: 0, act: null, blocking: false, iframe: 1.2, curseT: 0, acidT: 0, gore: 0 });
+  G.phase = 'play'; G.phaseT = 0; G.fade = 0; G.banner = null; G.bq.length = 0; G.summary = null; G.hurtFlash = 0;
+  putOnGambeson(h); G.banner = null; G.bq.length = 0; textPop(h.x, h.y, headZ(h) + 6, 'AGAIN', 'white', true); SFX.whoosh(0); armourFoes(1.2);
 }
