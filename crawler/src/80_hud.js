@@ -125,7 +125,7 @@ function notchedEdge(x, y, w, h, notch) {
   if (outer(x, y)) return clear(x, y) ? 'out' : 'edge';
   return (y === 1 && clear(x, 0)) || (y === h - 2 && clear(x, h - 1)) || (x === 1 && clear(0, y)) || (x === w - 2 && clear(w - 1, y)) ? 'edge' : null;
 }
-const quiltNotch = (x, y) => (x + y) % 6 === 0 || ((x - y) % 6 + 6) % 6 === 0, mailNotch = (x, y) => (x + y) % 2 === 1;
+const quiltNotch = (x, y) => (x + y) % 6 === 0 || ((x - y) % 6 + 6) % 6 === 0, mailNotch = (x, y) => ((x + y) >> 1) % 2 === 1; // (the mail's in twos: two pixels of ring, two cut)
 function quiltTex(w, h, hole, seam = true) { // w, h, hole ([x, y, w, h]) in art pixels; the hole see-through; seam: a dark seam round the hole
   const key = w + 'x' + h + (hole ? ':' + hole.join(',') : '') + (seam ? '' : ':open'); if (QTEX[key]) return QTEX[key];
   const cv = mkCanvas(w, h), g = cv.getContext('2d'), inH = (x, y) => hole && x >= hole[0] && x < hole[0] + hole[2] && y >= hole[1] && y < hole[1] + hole[3];
