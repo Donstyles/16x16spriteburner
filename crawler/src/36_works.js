@@ -256,7 +256,7 @@ function lightRoom(A, ri) { // round the room, one after another
 function spikeHalls(A) {
   if (A.floor < 2) return; const W = wkOf(A); A.spikes = A.spikes || [];
   for (const hl of A.halls) {
-    const H = hl.dir === 'h', len = H ? hl.x1 - hl.x0 : hl.y1 - hl.y0; if (len < 7 || !chance(0.35)) continue;
+    const H = hl.dir === 'h', len = H ? hl.x1 - hl.x0 : hl.y1 - hl.y0; if (len < 7 || hl.A.kind === 'shop' || hl.B.kind === 'shop' || !chance(0.35)) continue;
     const D = Math.min(randi(4, 6), len - 3), ph = rand(0, SPIKE_T), m0 = Math.round(((H ? hl.x0 + hl.x1 : hl.y0 + hl.y1) - D + 1) / 2), fc = (m0 + D / 2) * TS;
     for (let j = 0; j < D; j++) for (let k = 0; k < 3; k++) { const tx = H ? m0 + j : hl.x0 + k, ty = H ? hl.y0 + k : m0 + j; A.spikes.push({ tx, ty, x: tx * TS + 8, y: ty * TS + 8, tile: spikeLook(W), ph, hit: new Set(), was: 0, ax: H ? 'x' : 'y', fc }); }
   }
@@ -285,7 +285,7 @@ const spikeLook = W => [W.spike[0], W.spike[1] + pick([0, 0, 0, 1, 2])];
 const SPIKE_T = 2.6; // its beat: down 1.55 s, rising, up, sinking back
 function spikeFrame(s) { const t = (G.time + s.ph) % SPIKE_T; return t < 1.55 ? 0 : t < 1.62 ? 3 : t < 1.69 ? 2 : t < 2.3 ? 1 : t < 2.4 ? 2 : t < 2.48 ? 3 : 0; } // 0 hole, 3 tip, 2 half, 1 up
 function worksTick(dt) {
-  const A = ARENA; if (!A) return; const heroes = G.heroes.filter(h => !h.dead && !h.enter); exitTorches(A);
+  const A = ARENA; if (!A) return; const heroes = G.heroes.filter(h => !h.dead && !h.enter); exitTorches(A); shopTick(A, dt);
   for (const pl of A.plates || []) {
     // The socket is a slab standing proud of the floor (its front face three pixels high), the button raised in it two more
     // until a foot drives it flush. Whoever stands on it stands that much higher (lift: drawn up, the shadow on the slab

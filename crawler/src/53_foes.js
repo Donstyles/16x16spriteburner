@@ -335,6 +335,7 @@ function updateProj(dt) {
   for (const p of G.proj) {
     if ((p.spell || p.k === 'flask') && spellStep(p, dt)) continue;
     p.life -= dt; const ox = p.x, oy = p.y; p.x += p.vx * dt; p.y += p.vy * dt;
+    if (p.team === 'foe' && ARENA.shop && inShop(ARENA, p.x, p.y)) { p.dead = true; sparks(ox, oy, p.z || 6, 4, 'gold', 50, 40); continue; } // (an arrow comes no further than the shop's door: 39_shop)
     const pl = pillarAt(p.x, p.y, p.z); if (solidAt(p.x, p.y) || p.life <= 0 || pl) { p.dead = true; if (p.spell) { p.x = ox; p.y = oy; spellEnd(p); } else sparks(ox, oy, p.z, 3, 'white', 60, 40); if (pl) SFX.clang(panOf(p.x)); continue; }
     const foes = p.team === 'foe' ? G.heroes : G.foes;
     for (const u of foes) {
@@ -370,6 +371,7 @@ function updateDrops(dt) {
     d.t += dt; d.vz -= 400 * dt; d.z += d.vz * dt; if (d.z < 0) { d.z = 0; d.vz = -d.vz * 0.35; d.vx *= 0.6; d.vy *= 0.6; }
     const f = Math.exp(-3 * dt); d.vx *= f; d.vy *= f; const nx = d.x + d.vx * dt, ny = d.y + d.vy * dt; if (!blockAt(nx, ny) && !trimAt(nx, ny) && (!propFootAt(nx, ny) || propFootAt(d.x, d.y))) { d.x = nx; d.y = ny; } // (nor slides in under the ceiling, out of sight, nor into a column's plinth or a chest: one tossed out of a chest gets out of it)
     if (d.t < (d.hold || 0.4)) continue;
+    if (d.seek) { const h = d.seek, dd = dist(d.x, d.y, h.x, h.y); if (dd < 6) { d.dead = true; takeItem(d, h); } else { d.x += (h.x - d.x) / dd * 110 * dt; d.y += (h.y - d.y) / dd * 110 * dt; } continue; } // (a ware bought: over the counter to him, 39_shop)
     if (d.k !== 'gold') { const h = nearest(d, G.heroes.filter(alive), 8); if (h && d.z < 2 && takeItem(d, h)) d.dead = true; continue; } // stepped on, and of use
     const h = nearest(d, G.heroes.filter(alive), 26); if (!h) continue;
     const dd = dist(d.x, d.y, h.x, h.y); if (dd < 6) { d.dead = true; G.gold += d.v; SFX.coin(panOf(d.x)); part({ k: 'glow', x: d.x, y: d.y, z: 6, vz: 30, life: 0.3, s0: 2, s1: 0, col: 'gold' }); }

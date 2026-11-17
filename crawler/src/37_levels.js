@@ -89,7 +89,7 @@ function drawbridge(A, r, g, near, adj) {
 // Every body of water that drains has its sluice in another room, and the order is in the layout: the sluice is in a room
 // that can only be reached through the water's own room (across the causeway, past the sentinel, round the cistern, or
 // along the flooded way's ledge), so whoever finds it has met the water first. A piece only goes where such a room is.
-const hostOK = A => h => h !== A.start && h.kind !== 'treasure' && !h.chest && !h.set && !h.sluice && !h.pool && !h.shrine && h.w >= 6;
+const hostOK = A => h => h !== A.start && h.kind !== 'treasure' && h.kind !== 'shop' && !h.chest && !h.set && !h.sluice && !h.pool && !h.shrine && h.w >= 6;
 function beyondHost(A, r) {
   const adj = q => A.halls.filter(h => h.A === q || h.B === q).map(h => (h.A === q ? h.B : h.A));
   if (r === A.start) return null; const near = new Set([A.start]), q = [A.start]; while (q.length) { const a = q.shift(); for (const n of adj(a)) if (n !== r && !near.has(n)) { near.add(n); q.push(n); } }
@@ -215,7 +215,7 @@ function wayArrows(A, g) {
   const d = new Map([[A.end, 0]]), q = [A.end]; while (q.length) { const a = q.shift(); for (const n of adj(a)) if (!d.has(n)) { d.set(n, d.get(a) + 1); q.push(n); } }
   const row = A.th.floors[0][1] - 1, COL = { S: 10, W: 11, E: 12, N: 13 };
   for (const r of A.rooms) {
-    if (r === A.end || !d.has(r)) continue; const next = adj(r).find(n => d.get(n) === d.get(r) - 1); if (!next) continue;
+    if (r === A.end || r.kind === 'shop' || !d.has(r)) continue; const next = adj(r).find(n => d.get(n) === d.get(r) - 1); if (!next) continue;
     const door = r.doors.find(dd => dd.hall && (dd.hall.A === next || dd.hall.B === next)); if (!door) continue;
     const cx = (r.ix0 + r.ix1) / 2, cy = (r.iy0 + r.iy1) / 2, cands = [];
     for (let y = r.iy0 + 1; y <= r.iy1 - 1; y++) for (let x = r.ix0 + 1; x <= r.ix1 - 1; x++) cands.push([x, y, Math.hypot(x - cx, (y - cy) * 1.3)]);
@@ -242,6 +242,7 @@ function corridorWood(A, g) {
   const junkAt = (x, y) => { if (spiky(x, y) || A.props.some(q => !q.dead && Math.abs(q.x - (x * TS + 8)) < 14 && Math.abs(q.cy - (y * TS + 10)) < 14)) return; put('crate', pick(FURN.junk), x, y); };
   for (const hl of A.halls) {
     // its own floor: across the door cells' rows (or columns), from a tile past the one wall to a tile short of the other
+    if (hl.A.kind === 'shop' || hl.B.kind === 'shop') continue; // (the way to the shop is kept clear)
     const h = hl.dir === 'h', a0 = h ? hl.x0 + 1 : hl.y0 + 1, a1 = h ? hl.x1 - 1 : hl.B.fy0 - 1, len = a1 - a0 + 1; if (len < 3) continue;
     const at = (k, lane) => (h ? [k, hl.y0 + lane] : [hl.x0 + lane, k]);
     const roll = Math.random();

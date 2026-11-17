@@ -240,8 +240,16 @@ const SFX = {
     const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5, t + 0.08); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.6); f.connect(g); g.connect(this.crunch);
     for (const fr of [55, 55.6, 82.4, 110.3]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr; o.connect(f); o.start(t); o.stop(t + 2.7); }
   },
+  // the shop's quiet (39_shop): the dungeon's drone sinks away while the hero is inside and comes back as he leaves
+  calm(on) { if (!this.droneG || !this.ctx) return; const t = this.ctx.currentTime, g = this.droneG.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(on ? 0.012 : 0.05, t + (on ? 1.2 : 0.8)); },
+  // a torch or a brazier crackling: a dry pop or two of resin, now and then; v: how near
+  crackle(pan = 0, v = 1) { if (!this.ok('crackle', 0.02)) return; const n = Math.random() < 0.3 ? 2 : 1; for (let i = 0; i < n; i++) this.noise(this.white, rand(0.006, 0.02), 'bandpass', rand(1800, 4200), rand(1200, 2600), rand(1.2, 3), rand(0.05, 0.11) * v, pan, i * rand(0.015, 0.05), 0.001); },
+  // the soft breath of a flame, low and slow
+  flame(pan = 0, v = 1) { if (!this.ok('flame', 0.4)) return; this.noise(this.brown, rand(0.6, 1.0), 'lowpass', rand(240, 380), 140, 0.7, 0.12 * v, pan, 0, 0.18); },
+  // a slow step on stone, heel then sole, softer than a stride
+  step(pan = 0, n = 0) { if (!this.ok('step', 0.15)) return; const k = n % 2 ? 0.9 : 1; this.noise(this.brown, 0.07, 'lowpass', 420 * k, 120, 0.9, 0.22, pan, 0, 0.003); this.tone('sine', 80 * k, 50, 0.06, 0.08, pan, 0, 0.003); this.noise(this.white, 0.03, 'bandpass', rand(2000, 2800), 1500, 2.5, 0.025, pan, 0.03, 0.002); },
   drone() {
-    const c = this.ctx, f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 130; const g = c.createGain(); g.gain.value = 0.05; f.connect(g); g.connect(this.master);
+    const c = this.ctx, f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 130; const g = c.createGain(); g.gain.value = 0.05; f.connect(g); g.connect(this.master); this.droneG = g;
     for (const fr of [41.2, 41.5, 61.7]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr; o.connect(f); o.start(); }
     const lfo = c.createOscillator(); lfo.frequency.value = 0.07; const lg = c.createGain(); lg.gain.value = 60; lfo.connect(lg); lg.connect(f.frequency); lfo.start();
   },

@@ -58,7 +58,7 @@ function drawMenu(c) {
     // (the test rooms and set-piece floors: off the kit screen, played as the kit chosen there)
     const k = KIT_ORDER[MENU.sel]; font(c, 900, clamp(big / 9, 26, 46), F_DISP); label(c, 'Test rooms', W / 2, H * 0.15, '#f8ecd6', { align: 'center' });
     font(c, 500, 13, F_HUD); spaced(c, 'AS ' + KITS[k].name, W / 2, H * 0.15 + 24, 2, 'rgba(240,224,192,0.6)', 'center');
-    const T = [['PUZZLE FLOOR', () => beginPuzzleFloor(k), '#e8c87a'], ['PIT FLOOR', () => beginPitFloor(k), '#c8a0e8'], ['BLOOD TEST ROOM', () => beginTest(k), '#e8907a'], ['CREATURE TEST ROOM', () => beginCreatureTest(k), '#9ad0e8'], ['WATER TEST ROOM', () => beginWaterTest(k), '#7ab8f0']];
+    const T = [['SHOP', () => beginShopTest(k), '#ffd860'], ['PUZZLE FLOOR', () => beginPuzzleFloor(k), '#e8c87a'], ['PIT FLOOR', () => beginPitFloor(k), '#c8a0e8'], ['BLOOD TEST ROOM', () => beginTest(k), '#e8907a'], ['CREATURE TEST ROOM', () => beginCreatureTest(k), '#9ad0e8'], ['WATER TEST ROOM', () => beginWaterTest(k), '#7ab8f0']];
     const bw = Math.min(260, W * 0.42), y0 = H * 0.15 + 42, bh = clamp((H - y0 - 14 - VIEW.safe.b) / T.length - 8, 30, 40);
     T.forEach(([txt, fn, col], i) => btn(c, W / 2 - bw / 2, y0 + i * (bh + 8), bw, bh, txt, fn, { size: 15, col }));
     btn(c, 14 + VIEW.safe.l, 14 + VIEW.safe.t, 70, 32, 'BACK', () => { MENU.screen = 'kits'; }, { size: 16 });

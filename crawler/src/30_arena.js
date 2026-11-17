@@ -8,6 +8,7 @@ const THEMES = {
 const FLOOR_NAMES = ['THE ROOT CELLAR', 'THE SALT VAULT', 'THE DROWNED STORES', 'THE BONE PANTRY', 'THE ASHEN KILN', 'THE WINE CRYPT', 'THE GRAIN TOMB', 'THE IRON LARDER', 'THE HOLLOW CISTERN', 'THE ROTTED GRANARY', 'THE BLACK BREWERY', 'THE DEEP MILL', 'THE SCREAMING SILO', 'THE LAST LARDER'];
 let ARENA = null;
 const CW = 24, CH = 17; // one grid cell, in tiles
+const FORCE_SHOP = { on: false }; // (the shop test: 39_shop)
 // The tops of the south, east and west walls are at the ceiling: nothing in the room passes over them, so their painted
 // trim is drawn into a ceiling layer over everything else (31_walls).
 // A north wall is behind whoever stands at its foot: its brick face and the trim along its top (the light top, its south
@@ -42,14 +43,18 @@ function buildArena1(floor) {
   const adj = k => edges.filter(e => e[0] === k || e[1] === k).map(e => e[0] === k ? e[1] : e[0]);
   const far = new Map([[key(...s0), 0]]), q = [key(...s0)]; while (q.length) { const k = q.shift(); for (const n of adj(k)) if (!far.has(n)) { far.set(n, far.get(k) + 1); q.push(n); } }
   const endK = [...far.entries()].sort((a, b) => b[1] - a[1])[0][0], leaves = [...cells.keys()].filter(k => k !== endK && k !== key(...s0) && adj(k).length === 1);
-  const treasK = leaves.length ? pick(leaves) : -1; // a dead end off the way, when there is one, holds the treasure
+  // from the second floor a dead end may be the shop (39_shop): one of two or more, or now and then the only one (the
+  // treasure then goes to a guarded room)
+  const lv = leaves.slice(), north = k => { const n = adj(k)[0]; return cells.get(n)[1] < cells.get(k)[1]; }, shopC = lv.filter(k => !north(k)); // (its door not in the north wall: the keeper stands with his back to it)
+  const shopK = (floor >= 2 || FORCE_SHOP.on) && shopC.length && (lv.length >= 2 || FORCE_SHOP.on || chance(0.4)) ? pick(shopC) : -1; if (shopK >= 0) lv.splice(lv.indexOf(shopK), 1);
+  const treasK = lv.length ? pick(lv) : -1; // a dead end off the way, when there is one, holds the treasure
   // ---- rooms inside their cells; every room covers its cell's centre so the corridors can run straight
   const W = GW * CW, H = GH * CH, fl = new Uint8Array(W * H), rooms = [], byKey = new Map();
   for (const [k, [gx, gy]] of cells) {
-    const kind = k === key(...s0) ? 'start' : k === endK ? 'end' : k === treasK ? 'treasure' : 'room';
-    const big = kind === 'end', w = big ? randi(18, 20) : kind === 'start' ? randi(13, 14) : kind === 'treasure' ? randi(10, 12) : randi(12, 18), h = big ? randi(10, 12) : kind === 'start' || kind === 'treasure' ? randi(7, 8) : randi(7, 11);
+    const kind = k === key(...s0) ? 'start' : k === endK ? 'end' : k === treasK ? 'treasure' : k === shopK ? 'shop' : 'room';
+    const big = kind === 'end', w = big ? randi(18, 20) : kind === 'start' ? randi(13, 14) : kind === 'treasure' ? randi(10, 12) : kind === 'shop' ? 9 : randi(12, 18), h = big ? randi(10, 12) : kind === 'start' || kind === 'treasure' ? randi(7, 8) : kind === 'shop' ? 7 : randi(7, 11);
     const X0 = gx * CW, Y0 = gy * CH, cx = X0 + CW / 2, cy = Y0 + 9;
-    const ix0 = randi(Math.max(X0 + 2, cx + 3 - w), Math.min(cx - 2, X0 + CW - 2 - w)), iy0 = randi(Math.max(Y0 + 3, cy + 3 - h), Math.min(cy - 2, Y0 + CH - 2 - h));
+    const ix0 = randi(Math.max(X0 + 2, cx + 3 - w), Math.min(cx - 2, X0 + CW - 2 - w)), iy0 = kind === 'shop' ? cy - 4 : randi(Math.max(Y0 + 3, cy + 3 - h), Math.min(cy - 2, Y0 + CH - 2 - h)); // (a shop: its side doors come in below its counter)
     const r = { i: rooms.length, k, gx, gy, kind, cx, cy, ix0, iy0, ix1: ix0 + w - 1, iy1: iy0 + h - 1, fx0: ix0 - 1, fx1: ix0 + w, fy0: iy0 - 2, fy1: iy0 + h, w, h, doors: [] };
     r.px0 = r.fx0 * TS; r.py0 = r.fy0 * TS; r.px1 = (r.fx1 + 1) * TS; r.py1 = (r.fy1 + 1) * TS;
     r.b = { x0: ix0 * TS + 5, x1: (r.ix1 + 1) * TS - 5, y0: iy0 * TS + 4, y1: (r.iy1 + 1) * TS - 3 };
@@ -157,6 +162,7 @@ function chestSpot(r) {
 }
 // torches, banners, braziers, clutter and pillars for one room
 function furnish(A, r, g) {
+  if (r.kind === 'shop') { shopFit(A, r, g); return; } // (a scene of its own: 39_shop)
   const th = A.th, nearDoor = (tx, ty, m = 2) => r.doors.some(d => d.cells.some(([x, y]) => Math.abs(x - tx) <= m && Math.abs(y - ty) <= m)), used = new Set();
   for (const d of r.doors) if (d.side === 'N') for (const [x] of d.cells) for (let k = -2; k <= 2; k++) used.add(x + k);
   if (r.stairX !== undefined) for (let k = -1; k <= 3; k++) used.add(r.stairX + k);

@@ -85,6 +85,7 @@ function guardM(spr, d) { // per weapon, a table over 64 directions (each the le
 }
 function weaponPose(h) {
   const Wc = WEAPON[h.spr], a = h.act; if (!Wc || h.dead) return null;
+  if (h.sheathK > 0 && !(a && (a.k === 'atk' || a.k === 'charge'))) return slungPose(h, Wc); // put away, in the shop (39_shop)
   const R = Wc.rest, fs = h.face < 0 ? -1 : 1, UP = -Math.PI / 2;
   if (h.blocking && !a) { // the guard: the weapon laid along the block arc, its middle on the arc's middle, eased in from the hand
     const d = h.dir, m = guardM(h.spr, d), mx = h.x + Math.cos(d) * m, my = h.y + GUARD.dy + Math.sin(d) * m * GUARD.k;
@@ -171,6 +172,7 @@ function heroTick(h, dt) {
   if (h.stun > 0) { h.stun -= dt; h.vx = damp(h.vx, 0, 8, dt); h.vy = damp(h.vy, 0, 8, dt); h.moving = false; h.pressT = -1; h.chainHold = false; I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }
   const a = h.act;
   // a roll pressed in the middle of a swing is kept a moment, and goes the instant the swing's recovery lets it
+  if (h.inShop) { if (I.atkP && !h.act) shopBuy(h); I.atkP = I.atkR = I.dodgeP = false; I.atk = I.block = I.dodge = false; h.pressT = -1; h.chainHold = false; h.atkBuf = false; h.rollBufT = 0; h.sprint = false; } // in the shop nobody fights: attack buys (39_shop)
   if (h.rollBufT > 0) { h.rollBufT -= dt; if (canRoll(h)) { h.rollBufT = 0; startRoll(h, want); I.atkP = I.atkR = false; h.pressT = -1; h.chainHold = false; return; } }
   if (I.dodgeP) { I.dodgeP = false; if (canRoll(h)) { startRoll(h, want); I.atkP = I.atkR = false; h.pressT = -1; h.chainHold = false; return; } else if (h.stam <= 0) G.tiredT = 0.6; else if (h.act && h.act.k === 'atk') h.rollBufT = 0.4; }
   if (a) { if (a.k === 'atk' && I.atkP) a.buf = true; else if (I.atkP) h.atkBuf = true; I.atkP = false; actTick(h, a, dt, I, want); I.itemP = false; return; } // (pressed mid-roll or mid-drink: kept for when it ends)
@@ -195,7 +197,7 @@ function heroTick(h, dt) {
   if (h.sprint && h.z <= 0.5 && (h.strideT = (h.strideT || 0) - dt) <= 0) { h.strideT = 1 / 7; h.strideN = (h.strideN || 0) + 1; SFX.stride(panOf(h.x), h.strideN, !!basinAt(h.x, h.y)); } // his feet, seven a second
   else if (!h.sprint) h.strideT = 0;
   const tired = !h.huff ? 1 : h.stamT > 0 ? WINDED_PACE : lerp(WINDED_PACE, 1, clamp(h.stam / (h.maxStam / 3), 0, 1)); // winded: a trudge, picking up as the stamina returns
-  const spd = h.def.spd * (blocking ? 0.45 : h.sprint ? SPRINT.speed : 1) * tired;
+  const spd = h.def.spd * (blocking ? 0.45 : h.sprint ? SPRINT.speed : 1) * tired * (h.inShop ? SHOP.slow : 1); // (a small room full of things: slowly)
   h.vx = damp(h.vx, I.mx * spd, 14, dt); h.vy = damp(h.vy, I.my * spd, 14, dt); h.moving = !!(I.mx || I.my);
   if (I.aim !== null && I.aim !== undefined) faceTo(h, I.aim); else if (want !== null) faceTo(h, want);
 }

@@ -28,7 +28,7 @@ function updateCam(dt) {
   else if (me) { fx = me.x + Math.cos(me.dir) * 14 + me.vx * 0.15; fy = me.y - 8 + Math.sin(me.dir) * 10 + me.vy * 0.12; }
   else { fx = CAM.x; fy = CAM.y; }
   if (!Number.isFinite(fx + fy)) { fx = Number.isFinite(CAM.x) ? CAM.x : ARENA.spawn.x; fy = Number.isFinite(CAM.y) ? CAM.y : ARENA.spawn.y; }
-  CAM.z = damp(CAM.z, exploreZoom(), 2, dt);
+  CAM.z = damp(CAM.z, exploreZoom() * (G.me && G.me.inShop ? SHOP.zoom : 1), 2, dt); // (a little closer in the shop)
   const hw = VIEW.w / (2 * CAM.z), hh = VIEW.h / (2 * CAM.z);
   fx = clamp(fx, hw - 10, ARENA.pw - hw + 10); fy = clamp(fy, hh - 10, ARENA.ph - hh + 10);
   CAM.x = damp(CAM.x, fx, 6, dt); CAM.y = damp(CAM.y, fy, 6, dt); CAM.kick = damp(CAM.kick, 0, 5, dt);
@@ -231,19 +231,20 @@ function render() {
   // the shadows, on a layer of their own cut to the floor (noFloor), then laid down
   if (!shb) { shb = mkCanvas(1, 1); shbc = shb.getContext('2d'); } fitBuf(shb, bw, bh); const S = shbc; S.setTransform(1, 0, 0, 1, 0, 0); S.globalCompositeOperation = 'source-over'; S.clearRect(0, 0, bw, bh); X(S);
   for (const u of G.units) { if (u.dead && u.team === 'foe') continue; if (u.team === 'foe' && !foeShown(u)) continue; if (u.under || u.z < -1 || u.fall) continue; pxShadow(S, u.x, u.y - (u.lift || 0), u.r * 1.3 * (1 - Math.min(0.6, u.z / 160))); }
+  if (ARENA.shop) pxShadow(S, ARENA.shop.keeper.x, ARENA.shop.keeper.y, 6.5); // (the shopkeeper's: 39_shop)
   S.globalCompositeOperation = 'destination-out'; S.drawImage(noFloor(), 0, 0); S.globalCompositeOperation = 'source-over';
   c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(shb, 0, 0); c.restore();
   // everything standing, lying or flying, drawn back to front by where it meets the floor
   for (const p of ARENA.props) if (!p.dead && !p.flat && propSplit(p)) drawPropPart(c, p, true); // (the columns' plinths, under everyone)
-  const list = []; for (const u of G.units) list.push([u.y, 0, u]); for (const p of ARENA.props) if (!p.dead && !p.flat) { const S = propSplit(p); list.push([S ? S.mid : p.y, 1, p]); }
+  const list = []; for (const u of G.units) list.push([u.y, 0, u]); if (ARENA.shop) { list.push([ARENA.shop.keeper.y, 0, ARENA.shop.keeper]); for (const w of ARENA.shop.wares) list.push([w.y + 0.5, 5, w]); } for (const p of ARENA.props) if (!p.dead && !p.flat) { const S = propSplit(p); list.push([S ? S.mid : p.y, 1, p]); } // (the shopkeeper, his wares on the counter: 39_shop)
   for (const d of G.drops) list.push([d.y, 2, d]); for (const p of G.proj) list.push([p.y, 3, p]); for (const r of FX.rocks) list.push([r.y, 4, r]); list.sort((a, b) => a[0] - b[0]);
-  for (const [, k, o] of list) if (k === 0) { if (o.fall) drawFalling(c, o); else if (!(o.rise > 0 && ((G.time * 18) | 0) % 2)) drawUnit(c, o); } else if (k === 1) { if (propSplit(o)) drawPropPart(c, o, false); else drawProp(c, o); } else if (k === 2) drawDrop(c, o); else if (k === 3) drawProj(c, o); else drawRock(c, o);
+  for (const [, k, o] of list) if (k === 0) { if (o.fall) drawFalling(c, o); else if (!(o.rise > 0 && ((G.time * 18) | 0) % 2)) drawUnit(c, o); } else if (k === 1) { if (propSplit(o)) drawPropPart(c, o, false); else drawProp(c, o); } else if (k === 5) drawWare(c, o); else if (k === 2) drawDrop(c, o); else if (k === 3) drawProj(c, o); else drawRock(c, o);
   for (const h of G.heroes) if (h.shown) drawShown(c, h);
   drawWorldParts(c); drawCeil(c, ox, oy, bw, bh); // the tops of the south, east and west walls, at the ceiling, over everything in the room
   renderLight();
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'multiply'; c.drawImage(lc, 0, 0);
   fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.globalCompositeOperation = 'source-over'; fctx.globalAlpha = 1; fctx.clearRect(0, 0, bw, bh); fctx.globalCompositeOperation = 'lighter'; fctx.imageSmoothingEnabled = false; X(fctx);
-  drawAuras(fctx); drawGhosts(fctx); drawRings(fctx); drawFxParts(fctx); drawBolts(fctx); drawArrowGlints(fctx); drawSpellGlows(fctx); drawWorksGlow(fctx); drawCharges(fctx);
+  drawAuras(fctx); drawGhosts(fctx); drawRings(fctx); drawFxParts(fctx); drawBolts(fctx); drawArrowGlints(fctx); drawSpellGlows(fctx); drawWorksGlow(fctx); drawWareGlow(fctx); drawCharges(fctx);
   if (G.mode === 'play') maskToMemory(fctx, ox, oy, 'destination-in'); // no glow, spark or flame shows where nobody has looked
   fctx.globalCompositeOperation = 'destination-out'; drawCeil(fctx, ox, oy, bw, bh); drawCeil(fctx, ox, oy, bw, bh, ARENA.ceilN); fctx.globalCompositeOperation = 'lighter'; // nor over the tops of the walls
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'lighter'; c.drawImage(fxc, 0, 0);

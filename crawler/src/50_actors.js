@@ -108,6 +108,7 @@ function deathFx(u) {
 function propFoot(p) {
   if (p.kind === 'pillar') return { x0: p.x - 6, x1: p.x + 6, y0: p.y - 17, y1: p.y - 7 };
   if (p.kind === 'wetpillar') return { x0: p.x - 6, x1: p.x + 6, y0: p.y - 10, y1: p.y };
+  if (p.kind === 'counter') { const w = (p.tw || 1) * 8; return { x0: p.x - w, x1: p.x + w, y0: p.y - 12, y1: p.y + 1 }; } // (the shop's counter: solid end to end, 39_shop)
   if (p.kind === 'tchest') return { x0: p.x - 7, x1: p.x + 7, y0: p.y - 6, y1: p.y + 1 }; // (a treasure chest, its lid's edge 11 above its foot line: from the north, feet go a pixel or two in behind it)
   return null;
 }
@@ -130,6 +131,7 @@ function moveActor(u, dt) {
   if (u.fall) return; // (going down a pit: 38_pits)
   // (a hard knock carries over a pit's edge: while it lasts, a pit does not push back, and once the middle is over it, down it goes)
   const bk = basinBrake(u, dt); PITPASS = pitKnock(u); tileCollide(u); slideMove(u, (u.vx * gk + u.kx) * dt * bk, (u.vy * gk + u.ky) * dt * bk); const f = Math.exp(-7 * dt); u.kx *= f; u.ky *= f; // (any small push since last frame settled first)
+  if (u.team === 'foe' && ARENA.shop && inShop(ARENA, u.x, u.y) && !inShop(ARENA, u.gx, u.gy)) { u.x = u.gx; u.y = u.gy; } // (no foe comes into the shop: 39_shop)
   if (!u.fly && !u.under && (u.z || 0) <= 2 && pitAt(u.x, u.y)) { PITPASS = false; startFall(u); return; }
   if (!u.fly && (u.z > 0 || u.vz > 0)) { u.vz -= 560 * dt; u.z += u.vz * dt; if (u.z <= 0) { u.z = 0; u.vz = 0; } }
   for (const p of ARENA.props) {
