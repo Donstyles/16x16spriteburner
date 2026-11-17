@@ -140,15 +140,15 @@ function quiltRows(c, T, x, y, cut) {
 // an armour's band round the health bar (x, y, w, h, hole in screen pixels; snapped to the art pixels): its texture
 // (tex), as much of it as is left (f) cut back from the right to a ragged edge, its rim drawn by rim; put on from the
 // left at t0, a glint at its leading edge; the pieces hacked off (hero[lost]) falling away and fading
-function drawBand(c, x, y, w, h, hero, hole, tex, f, t0, lost, rim, glint) {
+function drawBand(c, x, y, w, h, hero, hole, tex, f, t0, lost, rim, glint, ragged = false) { // (ragged: its end a broken edge even when whole)
   x = Math.round(x / QP) * QP; y = Math.round(y / QP) * QP; const W = Math.round(w / QP), H = Math.round(h / QP);
   const T = tex(W, H, hole ? [Math.round((hole[0] - x) / QP), Math.round((hole[1] - y) / QP), Math.round(hole[2] / QP), Math.round(hole[3] / QP)] : null);
-  const k = clamp((G.time - (t0 || -9)) / 0.7, 0, 1), n = Math.round(W * Math.min(k, f)), torn = f < 1 && k >= f;
+  const k = clamp((G.time - (t0 || -9)) / 0.7, 0, 1), n = Math.round(W * Math.min(k, f)), torn = (f < 1 || ragged) && k >= f;
   c.save(); c.imageSmoothingEnabled = false;
   if (n > 0) {
     const rag = j => torn ? [0, 1, 2, 1, 0, 2, 1, 0, 1, 2, 0, 1, 2][j % 13] : 0; // (the hacked edge: ragged, row by row)
     quiltRows(c, T, x, y, j => n - rag(j));
-    if (torn) for (let j = 1; j < H - 1; j++) { const e = n - rag(j); if (e > 0 && e < W) rim(c, x, y, e, j); }
+    if (torn) for (let j = 1; j < H - 1; j++) { const e = n - rag(j); if (e > 0 && (e < W || ragged)) rim(c, x, y, e, j); }
     if (k < f) { c.fillStyle = glint; c.fillRect(x + n * QP - QP, y + QP, QP, QP); c.fillRect(x + n * QP - QP, y + (H - 2) * QP, QP, QP); }
   }
   hero[lost] = (hero[lost] || []).filter(p => G.time - p.t0 < 0.6);
@@ -190,18 +190,17 @@ function mailTex(w, h, hole, seam = true) {
   return (MTEX[key] = cv);
 }
 // worn over the gambeson, the mail stops a little short of the band's right end so the quilting under it peeks out
-// there, and wherever it meets the quilting its edge is hard and dark (the items' edge) with a pixel of shadow cast on
-// the quilting (its end, or the edge it is hacked back to); worn alone it wraps the bar end to end
+// there, and its end is a broken edge from the start: ragged, hard and dark (the items' edge), a pixel of shadow cast
+// on the quilting, links hanging loose; hacked back, that edge moves along it. Worn alone it wraps the bar end to end
 const MAIL_PEEK = 3; // (art pixels of quilting showing at the right)
 const quiltUnder = hero => hero.gamb > 0 || !!(hero.gambLost && hero.gambLost.length);
 function drawMail(c, x, y, w, h, hero, hole) { // its broken edge: hard and dark, its shadow on the quilting, links hanging loose off it here and there
-  const under = quiltUnder(hero), inset = under ? MAIL_PEEK * QP : 0, xs = Math.round(x / QP) * QP, ys = Math.round(y / QP) * QP, hy0 = Math.round((hole[1] - ys) / QP), hy1 = hy0 + Math.round(hole[3] / QP);
+  const under = quiltUnder(hero), inset = under ? MAIL_PEEK * QP : 0, ys = Math.round(y / QP) * QP, hy0 = Math.round((hole[1] - ys) / QP), hy1 = hy0 + Math.round(hole[3] / QP);
   const f = clamp((hero.mail || 0) / MAIL.max, 0, 1), shade = (X, Y, e, j) => { if (under && (j < hy0 - 1 || j > hy1)) px2(c, QCOL.line, X + e * QP, Y + j * QP); }; // (its shadow on the quilting, clear of the bar)
   drawBand(c, x, y, w - inset, h, hero, hole, mailTex, f, hero.mailT0, 'mailLost', (c, X, Y, e, j) => {
     px2(c, MCOL.o, X + (e - 1) * QP, Y + j * QP); shade(X, Y, e, j);
     if (j % 3 === 2) { px2(c, MCOL.link, X + e * QP, Y + j * QP); px2(c, MCOL.link, X + e * QP, Y + (j + 1) * QP); }
-  }, '#ffffff');
-  if (under && f >= 1 && G.time - (hero.mailT0 || -9) >= 0.7) { const Wm = Math.round((w - inset) / QP), H = Math.round(h / QP); for (let j = 1; j < H - 1; j++) shade(xs, ys, Wm, j); } // (whole, its end's shadow)
+  }, '#ffffff', under); // (over the gambeson, its end is a broken edge from the start)
 }
 function drawMailFrame(c, x, y, size, hero) { // (over the quilted frame, the quilting peeking out down its right side as on the band)
   const k = clamp((G.time - (hero.mailT0 || -9)) / 0.7, 0, 1), inset = quiltUnder(hero) ? MAIL_PEEK : 0, X = Math.round(x) - 8, Y = Math.round(y) - 8, W = Math.round(size / QP) + 8;
