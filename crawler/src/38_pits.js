@@ -17,7 +17,10 @@
 // wall, crossed by a stone bridge two tiles wide with a brute standing guard on it; BROKEN FLOOR, holes here and there,
 // with some cracked slabs round them that give way a moment after anyone steps on them (they shake, grind and drop);
 // THE LEDGES, a room all pit but a platform in its middle, a brute on it, and the ways out to it from every door;
-// THE CRUMBLING FLOOR, a room with no hole in it as you come in, nearly every slab of it cracked (pitCrumble).
+// THE CRUMBLING FLOOR, a room with no hole in it as you come in, nearly every slab of it cracked (pitCrumble); and two
+// that only give a fight an edge: PIT CORNERS, a hole two or three tiles square in two to four of a room's corners, and
+// THE PIT RIM, a pit a tile wide along every wall but where the doors come in (pitEdges). A treasure room may be laid
+// any of the last three ways.
 // Every door of such a room stays joined to every other, and no floor is left cut off. Its cracked slabs lie still until
 // a hero first sets foot in the room (nobody breaks them before he gets there).
 const PIT = 4, PIT_DMG = 0.2, FALL_T = 0.95, CRUMBLE_T = 0.55, PIT_KNOCK = 110;
@@ -147,13 +150,38 @@ function pitCrumble(A, r) {
   for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) { const i = y * W + x; if (FLOOR(A.fl[i]) && !R.seen.has(i)) crack.add(i); } // (no sound slab left an island)
   return { cells: new Set(), crack: [...crack], tell: 0.15 };
 }
+// what of a room stays floor whatever pit it gets: every door's landing, and a treasure room's chest with a little floor
+// in front of it for its guardian
+function pitKeep(A, r) {
+  const keep = doorLanding(A, r, 2); if (r.kind === 'treasure' || r.chest) { const [cx, cy] = chestSpot(r); for (let y = cy; y <= cy + 2; y++) for (let x = cx - 1; x <= cx + 1; x++) keep.add(y * A.w + x); }
+  return keep;
+}
+// PIT CORNERS (rim false): holes two or three tiles square in two to four corners, never on a door's landing; THE PIT RIM
+// (rim true): a pit a tile wide along every wall but where the doors come in. Either way the doors stay joined and no
+// floor is cut off.
+function pitEdges(A, r, rim) {
+  const W = A.w, keep = pitKeep(A, r), gone = new Set(), ok = () => { // (the doors joined, and every floor tile left reached from them)
+    const R = pitReach(A, r, gone); if (!R || !R.linked) return false; for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) { const i = y * W + x; if (FLOOR(A.fl[i]) && !gone.has(i) && !R.seen.has(i)) return false; } return true;
+  };
+  if (rim) { for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) { const i = y * W + x; if ((x === r.ix0 || x === r.ix1 || y === r.iy0 || y === r.iy1) && !keep.has(i) && FLOOR(A.fl[i])) gone.add(i); } return ok() ? { cells: gone } : null; }
+  let made = 0; const want = randi(2, 4);
+  for (const [x0, y0, sx, sy] of pitShuffle([[r.ix0, r.iy0, 1, 1], [r.ix1, r.iy0, -1, 1], [r.ix0, r.iy1, 1, -1], [r.ix1, r.iy1, -1, -1]])) {
+    if (made >= want) break; const n = r.w >= 10 && r.h >= 8 && chance(0.5) ? 3 : 2, cells = [];
+    for (let j = 0; j < n; j++) for (let k = 0; k < n; k++) cells.push((y0 + sy * j) * W + x0 + sx * k);
+    if (cells.some(i => keep.has(i) || !FLOOR(A.fl[i]))) continue; cells.forEach(i => gone.add(i)); if (ok()) made++; else cells.forEach(i => gone.delete(i));
+  }
+  return made >= 2 ? { cells: gone } : null;
+}
 function pitPlan(A, g) {
   A.pitSets = []; A.crumbles = []; A.crumbleSet = new Set(); A.live = new Set(); A.pitN = 0; A.peb = []; A.fallers = [];
-  const kinds = FORCE_PITS.on ? ['ledges', 'chasm', 'crumble', 'holes'] : A.floor < 2 ? [chance(0.35) && 'holes', chance(0.25) && 'crumble'].filter(Boolean) : [chance(0.5) && pick(['chasm', 'ledges']), chance(0.4) && 'holes', chance(0.3) && 'crumble'].filter(Boolean);
-  if (FORCE_PITS.on || chance(A.floor < 2 ? 0.2 : 0.3)) kinds.push('loot'); // (a treasure room of cracked slabs)
-  for (const kind of kinds) for (const r of pitShuffle(A.rooms.filter(r => kind === 'loot' ? (r.kind === 'treasure' || r.chest) && !r.set && !r.sluice && !r.pool && !r.shrine : pitRoomOK(A, r)))) {
-    if (kind === 'ledges' && (r.w < 11 || r.h < 8) || kind === 'chasm' && (r.w < 9 || r.h < 8) || (kind === 'crumble' || kind === 'loot') && (r.w < 8 || r.h < 6) || r.w * r.h < 48) continue;
-    const res = kind === 'chasm' ? pitChasm(A, r) : kind === 'ledges' ? pitLedges(A, r) : kind === 'crumble' || kind === 'loot' ? pitCrumble(A, r) : pitHoles(A, r); if (!res) continue;
+  const kinds = FORCE_PITS.on ? ['ledges', 'chasm', 'crumble', 'rim', 'corners', 'holes'] : A.floor < 2 ? [chance(0.35) && 'holes', chance(0.25) && 'crumble', chance(0.25) && 'corners'].filter(Boolean)
+    : [chance(0.5) && pick(['chasm', 'ledges']), chance(0.4) && 'holes', chance(0.3) && 'crumble', chance(0.35) && pick(['rim', 'corners'])].filter(Boolean);
+  // the treasure room's: cracked slabs ('loot'), pit corners or the pit rim ('t' + kind)
+  const tk = FORCE_PITS.on ? 'loot' : chance(A.floor < 2 ? 0.3 : 0.45) ? pick(['loot', 'loot', 'trim', 'tcorners']) : null; if (tk) kinds.push(tk);
+  for (const kind of kinds) for (const r of pitShuffle(A.rooms.filter(r => kind === 'loot' || kind[0] === 't' ? (r.kind === 'treasure' || r.chest) && !r.set && !r.sluice && !r.pool && !r.shrine : pitRoomOK(A, r)))) {
+    const k = kind[0] === 't' ? kind.slice(1) : kind; // (rim, corners)
+    if (k === 'ledges' && (r.w < 11 || r.h < 8) || k === 'chasm' && (r.w < 9 || r.h < 8) || (k === 'crumble' || k === 'loot') && (r.w < 8 || r.h < 6) || k === 'rim' && (r.w < 7 || r.h < 6) || k === 'corners' && (r.w < 8 || r.h < 7) || r.w * r.h < 48) continue;
+    const res = k === 'chasm' ? pitChasm(A, r) : k === 'ledges' ? pitLedges(A, r) : k === 'crumble' || k === 'loot' ? pitCrumble(A, r) : k === 'rim' || k === 'corners' ? pitEdges(A, r, k === 'rim') : pitHoles(A, r); if (!res) continue;
     for (const i of res.cells) A.fl[i] = PIT; for (const i of res.cells) pitPaint(A, g, i); A.pitN += res.cells.size;
     r.set = kind; r.pitGuard = res.guard || null; A.pitSets.push(kind);
     for (const i of res.crack || []) { const x = i % A.w, y = (i / A.w) | 0, cv = mkCanvas(TS, TS); cv.getContext('2d').drawImage(g.canvas, x * TS, y * TS, TS, TS, 0, 0, TS, TS); A.crumbles.push({ i, x, y, cv, st: 0, t: 0, ph: rand(TAU), room: r.i, tell: res.tell || 0.5 }); A.crumbleSet.add(i); }
@@ -242,6 +270,6 @@ function drawFalling(c, u) {
 // ---- the pit floor (kit screen): a run whose first floor has every kind of pit room that will fit
 function beginPitFloor(kit) {
   beginRun(kit); FORCE_PITS.on = true;
-  for (let n = 0; n < 160; n++) { startFloor(); if (ARENA.pitSets.length >= (n < 80 ? 5 : n < 130 ? 4 : 3)) break; }
-  FORCE_PITS.on = false; G.card = { t: 0, life: 3.2, a: 'PIT FLOOR', b: ARENA.pitSets.map(s => ({ chasm: 'THE CHASM', holes: 'BROKEN FLOOR', ledges: 'THE LEDGES', crumble: 'CRUMBLING FLOOR', loot: 'LOOSE TREASURE' })[s]).join('  ·  '), c: 'MIND THE EDGE' };
+  for (let n = 0; n < 160; n++) { startFloor(); if (ARENA.pitSets.length >= (n < 60 ? 6 : n < 120 ? 5 : 4)) break; }
+  FORCE_PITS.on = false; G.card = { t: 0, life: 3.2, a: 'PIT FLOOR', b: ARENA.pitSets.map(s => ({ chasm: 'THE CHASM', holes: 'BROKEN FLOOR', ledges: 'THE LEDGES', crumble: 'CRUMBLING FLOOR', loot: 'LOOSE TREASURE', rim: 'THE PIT RIM', corners: 'PIT CORNERS', trim: 'TREASURE ON THE RIM', tcorners: 'TREASURE WITH PIT CORNERS' })[s]).join('  ·  '), c: 'MIND THE EDGE' };
 }
