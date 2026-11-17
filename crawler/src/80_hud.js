@@ -117,12 +117,21 @@ function hudBar(c, x, y, w, h, f, trailKey, cols, n) {
 // piece hacked off falls away and fades. Put on, it is stitched in from the left, a needle's glint at the seam.
 const QP = 2, QCOL = { lit: '#2b2522', o: '#2b2522', base: '#e8d4b2', hi: '#fff9e4', line: '#a28a58', low: '#ddbe88', dip: '#cca96d', seam: '#452e25', wad: '#fbf5e6', thread: '#cdb586' };
 const QTEX = {};
+// an armour's outer edge, notched: an edge pixel where notch(x, y) is left clear and the pixel inside it takes the
+// edge instead (the quilting dips in where its stitching meets the edge, the mail steps in ring by ring); the corners
+// rounded off a pixel. 'out' (clear), 'edge' (the outline) or null (inside)
+function notchedEdge(x, y, w, h, notch) {
+  const outer = (a, b) => a === 0 || b === 0 || a === w - 1 || b === h - 1, clear = (a, b) => outer(a, b) && (((a === 0 || a === w - 1) && (b === 0 || b === h - 1)) || notch(a, b));
+  if (outer(x, y)) return clear(x, y) ? 'out' : 'edge';
+  return (y === 1 && clear(x, 0)) || (y === h - 2 && clear(x, h - 1)) || (x === 1 && clear(0, y)) || (x === w - 2 && clear(w - 1, y)) ? 'edge' : null;
+}
+const quiltNotch = (x, y) => (x + y) % 6 === 0 || ((x - y) % 6 + 6) % 6 === 0, mailNotch = (x, y) => (x + y) % 2 === 1;
 function quiltTex(w, h, hole, seam = true) { // w, h, hole ([x, y, w, h]) in art pixels; the hole see-through; seam: a dark seam round the hole
   const key = w + 'x' + h + (hole ? ':' + hole.join(',') : '') + (seam ? '' : ':open'); if (QTEX[key]) return QTEX[key];
   const cv = mkCanvas(w, h), g = cv.getContext('2d'), inH = (x, y) => hole && x >= hole[0] && x < hole[0] + hole[2] && y >= hole[1] && y < hole[1] + hole[3];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    if (inH(x, y)) continue; let col;
-    if (x === 0 || y === 0) col = QCOL.lit; else if (x === w - 1 || y === h - 1) col = QCOL.o;
+    if (inH(x, y)) continue; let col; const E = notchedEdge(x, y, w, h, quiltNotch);
+    if (E === 'out') continue; if (E === 'edge') col = QCOL.o;
     else if (hole && seam && (inH(x - 1, y) || inH(x + 1, y) || inH(x, y - 1) || inH(x, y + 1) || inH(x - 1, y - 1) || inH(x + 1, y + 1) || inH(x - 1, y + 1) || inH(x + 1, y - 1))) col = QCOL.seam;
     else { // diamonds: stitched on both diagonals every six pixels, each diamond padded out between them and lit from the top
       // left: its upper left face brightest, its upper right a little less, its lower left darker, its lower right darkest
@@ -181,8 +190,8 @@ function mailTex(w, h, hole, seam = true) {
   const key = w + 'x' + h + (hole ? ':' + hole.join(',') : '') + (seam ? '' : ':open'); if (MTEX[key]) return MTEX[key];
   const cv = mkCanvas(w, h), g = cv.getContext('2d'), inH = (x, y) => hole && x >= hole[0] && x < hole[0] + hole[2] && y >= hole[1] && y < hole[1] + hole[3];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    if (inH(x, y)) continue; let col;
-    if (x === 0 || y === 0 || x === w - 1 || y === h - 1) col = MCOL.o;
+    if (inH(x, y)) continue; let col; const E = notchedEdge(x, y, w, h, mailNotch);
+    if (E === 'out') continue; if (E === 'edge') col = MCOL.o;
     else if (hole && seam && (inH(x - 1, y) || inH(x + 1, y) || inH(x, y - 1) || inH(x, y + 1) || inH(x - 1, y - 1) || inH(x + 1, y + 1) || inH(x - 1, y + 1) || inH(x + 1, y - 1))) col = MCOL.seam;
     else { const pr = y === 1 || x === 1 ? MCOL.lit : y >= h - 3 || x >= w - 2 ? MCOL.low : MCOL.mid; col = pr[(x + y) % 2]; } // (rings: light and dark in turn)
     g.fillStyle = col; g.fillRect(x, y, 1, 1);
