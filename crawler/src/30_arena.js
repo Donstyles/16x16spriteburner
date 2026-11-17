@@ -8,16 +8,23 @@ const THEMES = {
 const FLOOR_NAMES = ['THE ROOT CELLAR', 'THE SALT VAULT', 'THE DROWNED STORES', 'THE BONE PANTRY', 'THE ASHEN KILN', 'THE WINE CRYPT', 'THE GRAIN TOMB', 'THE IRON LARDER', 'THE HOLLOW CISTERN', 'THE ROTTED GRANARY', 'THE BLACK BREWERY', 'THE DEEP MILL', 'THE SCREAMING SILO', 'THE LAST LARDER'];
 let ARENA = null;
 const CW = 24, CH = 17; // one grid cell, in tiles
-// The tops of the walls are at the ceiling: the light trim along every wall, the square caps where it turns a corner,
-// and the dark rock behind it. Nothing in the room can pass over them, so each wall tile's top part is also painted into
-// a ceiling layer drawn over everything else (the brick faces stay below: people stand in front of them). Per tile of
-// the sheet (before mirroring): the rectangles [x, y, w, h] that are ceiling.
+// The tops of the south, east and west walls are at the ceiling: the light trim along them, the square caps where it turns
+// a corner (with the south faces under their light tops), and the dark rock behind. Nothing in the room passes over
+// them, so each such wall tile's top part is also painted into a ceiling layer drawn over everything else, whoever
+// stands beside or below it (the brick faces stay below: people stand in front of them). Per tile of the sheet (before
+// mirroring): the rectangles [x, y, w, h] that are ceiling.
 const CEIL = {
-  '3,0': [[0, 0, 16, 10], [0, 10, 12, 6]], '3,2': [[0, 0, 16, 9], [7, 9, 9, 3]], // corners jutting into the floor
-  '5,0': [[0, 0, 16, 11], [0, 11, 11, 5]], '7,0': [[0, 0, 16, 11], [5, 11, 11, 5]], '5,3': [[0, 0, 16, 16]], '7,3': [[0, 0, 16, 16]], // a room's inside corners
-  '6,0': [[0, 0, 16, 9]], '6,3': [[0, 4, 16, 12]], // the trim over a north wall's face, and along a south wall
+  // corners jutting into the floor: the whole piece but the bricks below the cap (its south face, under the light top, is ceiling too)
+  '3,0': [[0, 0, 16, 16]], '3,2': [[0, 0, 16, 11], [6, 11, 10, 3], [7, 14, 8, 1], [8, 15, 6, 1]],
+  // a room's inside corners: the square cap and its south face, down to the bricks
+  '5,0': [[0, 0, 16, 14], [0, 14, 15, 1], [0, 15, 14, 1]], '7,0': [[0, 0, 16, 14], [1, 14, 15, 1], [2, 15, 14, 1]], '5,3': [[0, 0, 16, 16]], '7,3': [[0, 0, 16, 16]],
+  '6,3': [[0, 4, 16, 12]], // along a south wall
   '5,1': [[0, 0, 12, 16]], '7,1': [[4, 0, 12, 16]], '5,2': [[0, 0, 12, 16]], '7,2': [[4, 0, 12, 16]], // side walls
 };
+// A north wall is behind whoever stands at its foot: its brick face and the trim along its top (the light top, its south
+// face and the dark line under it) stay under the units. That trim goes on a layer of its own, which only keeps the glows
+// off the top of the wall, as the ceiling does.
+const CEIL_N = { '6,0': [[0, 0, 16, 11]] };
 // how much floor a wall piece leaves showing along its top, left and right (its rows or columns with nothing drawn, at most
 // four): the south wall's top four rows, the side walls' four columns beside the floor. Feet may step onto it (wallBox).
 const OPEN = {};
@@ -73,6 +80,7 @@ function buildArena(floor) {
   // stands under every rim that faces south. Wall pieces are overlays: the floor runs on underneath them.
   const cv = mkCanvas(W * TS, H * TS), g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
   const cc = mkCanvas(W * TS, H * TS), cg = cc.getContext('2d'); cg.imageSmoothingEnabled = false; // the ceiling layer
+  const cn = mkCanvas(W * TS, H * TS), cng = cn.getContext('2d'); cng.imageSmoothingEnabled = false; // the north walls' trim (CEIL_N)
   g.fillStyle = '#121418'; g.fillRect(0, 0, cv.width, cv.height);
   const isF = (x, y) => x >= 0 && y >= 0 && x < W && y < H && fl[y * W + x] === 1;
   const face = (x, y) => !isF(x, y) && isF(x, y + 1), O = (x, y) => isF(x, y) || face(x, y);
@@ -91,11 +99,10 @@ function buildArena(floor) {
   const put = (c, tx, ty, x, y, flip) => { c.save(); c.translate(flip ? (x + 1) * TS : x * TS, y * TS); if (flip) c.scale(-1, 1); c.drawImage(IMG.cellar, tx * TS, (ty + th.fy) * TS, TS, TS, 0, 0, TS, TS); c.restore(); };
   const wt = new Uint16Array(W * H); // which wall piece went where (tx * 64 + ty + 1), for what is built against the walls later
   const mg = { t: new Uint8Array(W * H), l: new Uint8Array(W * H), r: new Uint8Array(W * H) }; // the floor a wall piece leaves showing (see wallBox)
-  const cr = new Array(W * H); // each tile's ceiling rectangles, in world pixels (see overCeil)
   const T = (tx, ty, x, y, flip) => {
-    put(g, tx, ty, x, y, flip); wt[y * W + x] = tx * 64 + ty + 1; const o = openEdges(tx, ty + th.fy, flip); mg.t[y * W + x] = o[0]; mg.l[y * W + x] = o[1]; mg.r[y * W + x] = o[2]; const m = CEIL[tx + ',' + ty]; if (!m) return;
-    const R = m.map(([mx, my, mw, mh]) => [x * TS + (flip ? TS - mx - mw : mx), y * TS + my, mw, mh]); cr[y * W + x] = R;
-    cg.save(); cg.beginPath(); for (const [rx, ry, rw, rh] of R) cg.rect(rx, ry, rw, rh); cg.clip(); put(cg, tx, ty, x, y, flip); cg.restore();
+    put(g, tx, ty, x, y, flip); wt[y * W + x] = tx * 64 + ty + 1; const o = openEdges(tx, ty + th.fy, flip); mg.t[y * W + x] = o[0]; mg.l[y * W + x] = o[1]; mg.r[y * W + x] = o[2]; const k = tx + ',' + ty, m = CEIL[k] || CEIL_N[k], to = CEIL[k] ? cg : cng; if (!m) return;
+    const R = m.map(([mx, my, mw, mh]) => [x * TS + (flip ? TS - mx - mw : mx), y * TS + my, mw, mh]);
+    to.save(); to.beginPath(); for (const [rx, ry, rw, rh] of R) to.rect(rx, ry, rw, rh); to.clip(); put(to, tx, ty, x, y, flip); to.restore();
   };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (isF(x, y)) continue;
@@ -110,7 +117,7 @@ function buildArena(floor) {
     else if (O(x + 1, y + 1)) T(5, 0, x, y); else if (O(x - 1, y + 1)) T(7, 0, x, y); // the inside corners of a room
     else if (O(x + 1, y - 1)) T(5, 3, x, y); else if (O(x - 1, y - 1)) T(7, 3, x, y);
   }
-  const A = ARENA = { w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilR: cr, fl, wt, mg, rooms, halls, props: [], torches: [], name: floorName(floor), floor };
+  const A = ARENA = { w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilN: cn, fl, wt, mg, rooms, halls, props: [], torches: [], name: floorName(floor), floor };
   A.doors = rooms.flatMap(r => r.doors.map(d => Object.assign(d, { room: r.i, k: 0 })));
   A.start = rooms.find(r => r.kind === 'start'); A.end = rooms.find(r => r.kind === 'end');
   // ---- furnishing (the stairways' places first, so no torch or banner hangs on them)
@@ -184,18 +191,9 @@ function groundChunks(A) {
 function groundPaint(x0, y0, x1, y1, fn) { const A = ARENA; if (!A) return; for (const k of groundChunks(A)) if (x1 >= k.x && x0 < k.x + k.w && y1 >= k.y && y0 < k.y + k.h) { fn(k.g); pitMend(A, k.g, x0, y0, x1, y1); } bridgePaint(x0, y0, x1, y1, fn); } // (no mark stays on a pit: 38_pits) // (and on a bridge's slats: 36_works)
 // draws the floor inside a box of the map (c is already in map coordinates)
 // the ceiling layer over a box of the map (on the glow layer, 'destination-out' cuts the glow away under it)
-function drawCeil(c, sx, sy, sw, sh) {
-  const C = ARENA.ceil, x0 = Math.max(0, Math.floor(sx)), y0 = Math.max(0, Math.floor(sy)), x1 = Math.min(C.width, Math.ceil(sx + sw)), y1 = Math.min(C.height, Math.ceil(sy + sh));
+function drawCeil(c, sx, sy, sw, sh, C = ARENA.ceil) {
+  const x0 = Math.max(0, Math.floor(sx)), y0 = Math.max(0, Math.floor(sy)), x1 = Math.min(C.width, Math.ceil(sx + sw)), y1 = Math.min(C.height, Math.ceil(sy + sh));
   if (x1 > x0 && y1 > y0) c.drawImage(C, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
-}
-// The wall tops cover what stands behind them, never what stands beside or in front: a unit is drawn again over the trim
-// of the tiles round it in its own row and the rows north of it (rock that is level with it or behind it), and stays
-// under the trim of any row south of its feet (a spear thrust or a blow swung down over a wall in front of it).
-function overCeil(c, u, draw) {
-  const A = ARENA; if (!A || !A.ceilR) return; const fr = Math.floor(footTile(u.x, u.y) / A.w), R = [];
-  const tx0 = Math.floor((u.x - 22) / TS), tx1 = Math.floor((u.x + 22) / TS), ty0 = Math.floor((u.y - (u.z || 0) - 48) / TS);
-  for (let ty = Math.max(0, ty0); ty <= Math.min(fr, A.h - 1); ty++) for (let tx = Math.max(0, tx0); tx <= Math.min(tx1, A.w - 1); tx++) { const r = A.ceilR[ty * A.w + tx]; if (r) for (const q of r) R.push(q); }
-  if (!R.length) return; c.save(); c.beginPath(); for (const [x, y, w, h] of R) c.rect(x, y, w, h); c.clip(); draw(c, u); c.restore();
 }
 function drawGround(c, sx, sy, sw, sh) {
   for (const k of groundChunks(ARENA)) { const x0 = Math.max(sx, k.x), y0 = Math.max(sy, k.y), x1 = Math.min(sx + sw, k.x + k.w), y1 = Math.min(sy + sh, k.y + k.h); if (x1 > x0 && y1 > y0) c.drawImage(k.cv, x0 - k.x, y0 - k.y, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0); }

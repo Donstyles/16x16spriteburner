@@ -45,7 +45,7 @@ function shutDoor(A, d) {
       for (let x = x0; x <= x1; x++) { tileAt(g, 10, fr, x * TS, y * TS); g.drawImage(IMG.cellar, 6 * TS, (3 + th.fy) * TS, TS, TS, x * TS, y * TS, TS, TS); }
     });
     // and over the ceiling layer: the corridor's posts and corners go, the south wall's trim runs on across
-    const cg = A.ceil.getContext('2d'); cg.clearRect(x0 * TS, y * TS, (x1 - x0 + 1) * TS, 4 * TS);
+    const cg = A.ceil.getContext('2d'); cg.clearRect(x0 * TS, y * TS, (x1 - x0 + 1) * TS, 4 * TS); A.ceilN.getContext('2d').clearRect(x0 * TS, y * TS, (x1 - x0 + 1) * TS, 4 * TS);
     for (let x = x0; x <= x1; x++) cg.drawImage(IMG.cellar, 6 * TS, (3 + th.fy) * TS + 4, TS, 12, x * TS, y * TS + 4, TS, 12);
     return;
   }

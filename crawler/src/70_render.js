@@ -211,14 +211,13 @@ function render() {
   const list = []; for (const u of G.units) list.push([u.y, 0, u]); for (const p of ARENA.props) if (!p.dead && !p.flat) { const F = propFoot(p); list.push([F ? F.y1 : p.y, 1, p]); }
   for (const d of G.drops) list.push([d.y, 2, d]); for (const p of G.proj) list.push([p.y, 3, p]); for (const r of FX.rocks) list.push([r.y, 4, r]); list.sort((a, b) => a[0] - b[0]);
   for (const [, k, o] of list) if (k === 0) { if (o.fall) drawFalling(c, o); else if (!(o.rise > 0 && ((G.time * 18) | 0) % 2)) drawUnit(c, o); } else if (k === 1) drawProp(c, o); else if (k === 2) drawDrop(c, o); else if (k === 3) drawProj(c, o); else drawRock(c, o);
-  drawWorldParts(c); drawCeil(c, ox, oy, bw, bh); // the tops of the walls, at the ceiling, over everything in the room
-  for (const [, k, o] of list) if (k === 0 && !o.fall) overCeil(c, o, drawUnit); // (but not over whoever stands beside or in front of them)
+  drawWorldParts(c); drawCeil(c, ox, oy, bw, bh); // the tops of the south, east and west walls, at the ceiling, over everything in the room
   renderLight();
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'multiply'; c.drawImage(lc, 0, 0);
   fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.globalCompositeOperation = 'source-over'; fctx.globalAlpha = 1; fctx.clearRect(0, 0, bw, bh); fctx.globalCompositeOperation = 'lighter'; fctx.imageSmoothingEnabled = false; X(fctx);
   drawAuras(fctx); drawGhosts(fctx); drawRings(fctx); drawFxParts(fctx); drawBolts(fctx); drawArrowGlints(fctx); drawSpellGlows(fctx); drawWorksGlow(fctx); drawCharges(fctx);
   if (G.mode === 'play') maskToMemory(fctx, ox, oy, 'destination-in'); // no glow, spark or flame shows where nobody has looked
-  fctx.globalCompositeOperation = 'destination-out'; drawCeil(fctx, ox, oy, bw, bh); fctx.globalCompositeOperation = 'lighter'; // nor over the tops of the walls
+  fctx.globalCompositeOperation = 'destination-out'; drawCeil(fctx, ox, oy, bw, bh); drawCeil(fctx, ox, oy, bw, bh, ARENA.ceilN); fctx.globalCompositeOperation = 'lighter'; // nor over the tops of the walls
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'lighter'; c.drawImage(fxc, 0, 0);
   if (Q.bloom > 0) { b1c.imageSmoothingEnabled = b2c.imageSmoothingEnabled = c.imageSmoothingEnabled = true; b1c.clearRect(0, 0, b1.width, b1.height); b1c.drawImage(fxc, 0, 0, b1.width, b1.height); b2c.clearRect(0, 0, b2.width, b2.height); b2c.drawImage(b1, 0, 0, b2.width, b2.height); c.globalAlpha = 0.45 * Q.bloom; c.drawImage(b1, 0, 0, bw, bh); c.globalAlpha = 0.5 * Q.bloom; c.drawImage(b2, 0, 0, bw, bh); c.globalAlpha = 1; c.imageSmoothingEnabled = false; }
   c.globalCompositeOperation = 'source-over';
