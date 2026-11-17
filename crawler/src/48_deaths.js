@@ -216,12 +216,19 @@ function autoHead(d, W, ox, fw, fh, spr) {
   if (xs.length) { const cx = xs[xs.length >> 1]; for (const x of [cx - 1, cx, cx + 1]) { if (!xs.includes(x)) continue; const i = (cut * fw + x) * 4, raw = x === cx; paint[i] = raw ? 0xb8 : 0x6e; paint[i + 1] = raw ? 0x24 : 0x14; paint[i + 2] = raw ? 0x24 : 0x16; paint[i + 3] = 255; } }
   return { mask, paint };
 }
+// the head's own cut, drawn by the game whether the body's stump is hand-painted or not: every pixel of the head with the
+// body right under it, where the blade went through, turns raw red, the two ends of the cut darker
+function rawNeck(o, mask, d0, W, fw, fh) {
+  const cut = []; for (let y = 0; y < fh - 1; y++) for (let x = 0; x < fw; x++) { const j = y * fw + x; if (mask[j] && !mask[j + fw] && d0[((y + 1) * W + x) * 4 + 3] > 0) cut.push([x, y]); }
+  if (!cut.length) return; const xs = cut.map(c => c[0]), lo = Math.min(...xs), hi = Math.max(...xs);
+  for (const [x, y] of cut) { const i = (y * fw + x) * 4, rim = x === lo || x === hi; o[i] = rim ? 0x6e : 0xb8; o[i + 1] = rim ? 0x14 : 0x24; o[i + 2] = rim ? 0x16 : 0x24; o[i + 3] = 255; }
+}
 // his body without its head (his weapon already cut away) and his head on its own in its four quarter turns
 function headless(spr) {
   if (HEADLESS[spr] !== undefined) return HEADLESS[spr];
   const Wc = WEAPON[spr], m = MOBS[spr]; if (!Wc || !Wc.cut || !m) return (HEADLESS[spr] = null);
   const fw = m[1], fh = m[2], W = Wc.cut.width, body = mkCanvas(W, Wc.cut.height), g = body.getContext('2d'); g.drawImage(Wc.cut, 0, 0);
-  const D = g.getImageData(0, 0, W, body.height), d = D.data, H = HEAD_CUTS[spr] || [], head = mkCanvas(fw, fh), hg = head.getContext('2d'), HD = hg.createImageData(fw, fh); let neck = 0;
+  const D = g.getImageData(0, 0, W, body.height), d = D.data, d0 = d.slice(), H = HEAD_CUTS[spr] || [], head = mkCanvas(fw, fh), hg = head.getContext('2d'), HD = hg.createImageData(fw, fh); let neck = 0;
   for (let f = 0; f < 4; f++) {
     const C = H[f] || autoHead(d, W, f * fw, fw, fh, spr);
     for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) {
@@ -230,6 +237,7 @@ function headless(spr) {
       const pa = C.paint ? C.paint[j * 4 + 3] : 0; if (pa === 1) d[i + 3] = 0; else if (pa > 1) { d[i] = C.paint[j * 4]; d[i + 1] = C.paint[j * 4 + 1]; d[i + 2] = C.paint[j * 4 + 2]; d[i + 3] = 255; }
     }
   }
+  rawNeck(HD.data, (H[0] || autoHead(d0, W, 0, fw, fh, spr)).mask, d0, W, fw, fh);
   g.putImageData(D, 0, 0); hg.putImageData(HD, 0, 0);
   const t = tight(head), r1 = rot90(t), r2 = rot90(r1);
   return (HEADLESS[spr] = { body, rot: [t, r1, r2, rot90(r2)], neckZ: Math.max(4, footOf(spr) - neck + 1) });
@@ -250,6 +258,20 @@ function neckJet(h, k, lying) {
   for (let j = 0; j < (lying ? 1 : 3); j++) pool(h.x + rand(-14, 14), h.y + rand(-6, 8), 'red', rand(1.2, 2.6) * k);
   pool(lying ? x : h.x, h.y + 1, 'red', 1.8 + (1 - k) * 4); SFX.squelch(panOf(h.x), k > 0.8);
 }
+// The head bleeds too, from its cut: in the air it pours out of the neck as it spins; rolling, it smears a trail; at
+// rest it goes on pouring out of the neck into a pool that spreads under it, less and less, for a good while
+const NECK_DIR = [[0, 1], [-1, 0], [0, -1], [1, 0]]; // (which way the cut faces in each quarter turn, 48_deaths rot90)
+function headBleed(r, t, dt) {
+  if (r.done || r.sink || r.wait > 0) return; const cv = r.rot[r.r], [nx, ny] = NECK_DIR[r.r], flow = Math.max(0, 1 - t / 9), moving = Math.hypot(r.vx, r.vy) > 3 || r.z > 0.5;
+  const x = r.x + nx * cv.width / 2, z = Math.max(0, r.z + cv.height / 2 - ny * cv.height / 2), y = r.y + (nx ? 0 : ny > 0 ? 1 : 0);
+  if ((r.pourT = (r.pourT || 0) - dt) <= 0 && flow > 0) { // pouring from the neck
+    r.pourT = moving ? 0.02 : rand(0.08, 0.2) / (0.4 + flow);
+    const n = moving ? 2 : chance(flow) ? 2 : 1, sp = moving ? 18 : 10 + 30 * flow;
+    for (let j = 0; j < n; j++) part({ k: 'gore', x: x + rand(-1, 1), y: y + rand(-1, 1), z, vx: nx * rand(0.3, 1) * sp + r.vx * 0.3 + rand(-5, 5), vy: ny * rand(0.2, 0.6) * sp + r.vy * 0.3 + rand(-4, 4), vz: rand(-5, 25) * (0.4 + flow), g: 420, life: 5, s0: 1, col: pick(BLOOD.red), kind: 'red' });
+  }
+  if (r.z <= 0.5 && moving && (r.smearT = (r.smearT || 0) - dt) <= 0) { r.smearT = 0.03; bloodMark(r.x, r.y, 3, 'red'); } // a smear where it rolls
+  if (!moving && (r.poolT = (r.poolT || 0) - dt) <= 0 && t < 14) { r.poolT = rand(0.3, 0.5); pool(x + nx * 2 + rand(-1, 1), r.y + ny + rand(-1, 1), 'red', 0.5 + 1.6 * flow); } // the pool under it, spreading
+}
 function beheadTick(h, dt) {
   const t = h.deadT, p = t - dt, at = s => p < s && t >= s, B = BEHEAD, D = h.death;
   if (t < B.knees) { // the stumble: a few tiny steps, the legs not knowing yet
@@ -257,6 +279,7 @@ function beheadTick(h, dt) {
     if (D.step && D.step.left > 0) { D.step.left -= dt; slideMove(h, Math.cos(D.step.a) * 16 * dt, Math.sin(D.step.a) * 11 * dt); h.moving = true; if (Math.cos(D.step.a) !== 0) h.face = Math.cos(D.step.a) < 0 ? -1 : 1; } else h.moving = false;
   } else h.moving = false;
   B.beats.forEach(s => { if (!at(s)) return; const k = s < B.fall ? 1 - s / 7 : Math.max(0.22, 0.7 - (s - B.fall) / 6); SFX.heart(0.6 * k); neckJet(h, k, t > B.fall); });
+  if (D.head && bleeds(h)) headBleed(D.head, t, dt);
   if (at(B.knees)) { SFX.boom(0.12, panOf(h.x)); smoke(h.x, h.y, 2, 'dust', 6, 12, 0.6); }
   if (at(B.fall)) { SFX.boom(0.3, panOf(h.x)); shake(0.14); smoke(h.x, h.y, 3, 'dust', 8, 18, 0.8); }
 }
