@@ -20,7 +20,7 @@
 // Every door of such a room stays joined to every other, and no floor is left cut off.
 const PIT = 4, PIT_DMG = 0.2, FALL_T = 0.95, CRUMBLE_T = 0.55, PIT_KNOCK = 110;
 const FORCE_PITS = { on: false }; // the pit floor (kit screen): every kind of pit room that fits
-let PITPASS = false; // (while a knocked unit moves, a pit does not stop it: 30_arena's wallBox)
+let PITPASS = false; // (while a knocked unit moves, a pit does not stop it: 31_walls' wallBoxes)
 const pitFace = A => A.th === THEMES.grey ? [10, 12] : [10, 4];
 let PIT_BLACK = null;
 function pitBlack() { if (PIT_BLACK) return PIT_BLACK; const P = PIX.cellar, i = ((4 * TS + 15) * P.w + 10 * TS + 8) * 4; return (PIT_BLACK = `rgb(${P.d[i]},${P.d[i + 1]},${P.d[i + 2]})`); }

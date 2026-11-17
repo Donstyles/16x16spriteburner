@@ -44,9 +44,13 @@ function shutDoor(A, d) {
       g.fillStyle = '#121418'; g.fillRect(x0 * TS, (y + 1) * TS, (x1 - x0 + 1) * TS, 3 * TS);
       for (let x = x0; x <= x1; x++) { tileAt(g, 10, fr, x * TS, y * TS); g.drawImage(IMG.cellar, 6 * TS, (3 + th.fy) * TS, TS, TS, x * TS, y * TS, TS, TS); }
     });
-    // and over the ceiling layer: the corridor's posts and corners go, the south wall's trim runs on across
+    // the corridor's first stretch is rock now, and the wall across the doorway south wall pieces (31_walls: their row is
+    // floor behind the wall, as along the rest of it); over the ceiling layer the corridor's posts and corners go, and the
+    // south wall's painted trim runs on across
+    for (let yy = y + 1; yy <= y + 3; yy++) for (let x = x0; x <= x1; x++) { const i = yy * A.w + x; A.fl[i] = 0; A.wt[i] = 0; }
+    for (let x = x0; x <= x1; x++) { A.wt[y * A.w + x] = 6 * 64 + 3 + 1; A.wf[y * A.w + x] = 0; } A.flv = (A.flv || 0) + 1;
     const cg = A.ceil.getContext('2d'); cg.clearRect(x0 * TS, y * TS, (x1 - x0 + 1) * TS, 4 * TS); A.ceilN.getContext('2d').clearRect(x0 * TS, y * TS, (x1 - x0 + 1) * TS, 4 * TS);
-    for (let x = x0; x <= x1; x++) cg.drawImage(IMG.cellar, 6 * TS, (3 + th.fy) * TS + 4, TS, 12, x * TS, y * TS + 4, TS, 12);
+    for (let x = x0; x <= x1; x++) { const c = mkCanvas(TS, TS), q = c.getContext('2d'); tileAt(q, 10, fr, 0, 0); q.drawImage(IMG.cellar, 6 * TS, (3 + th.fy) * TS, TS, TS, 0, 0, TS, TS); for (const [rx, ry, rw, rh] of paintOf(6, 3, 0).tr) cg.drawImage(c, rx, ry, rw, rh, x * TS + rx, y * TS + ry, rw, rh); }
     return;
   }
   for (const [x, y] of d.cells) groundPaint(x * TS, (y - 1) * TS, x * TS + TS, (y + 1) * TS, g => { g.drawImage(IMG.doors, TS, th.door * TS, TS, TS, x * TS, (y - 1) * TS, TS, TS); g.drawImage(IMG.doors, TS, (th.door + 1) * TS, TS, TS, x * TS, y * TS, TS, TS); });

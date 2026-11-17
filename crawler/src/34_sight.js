@@ -35,7 +35,7 @@ function updateSight(dt) {
       let x = hx, y = hy;
       for (let s = 0; s < R / 0.35; s++) {
         x += dx; y += dy; const tx = Math.floor(x), ty = Math.floor(y); if (tx < 0 || ty < 0 || tx >= W || ty >= H) break;
-        const i = ty * W + tx, solid = A.fl[i] === 0;
+        const i = ty * W + tx, solid = A.fl[i] === 0 && !openAt(x * TS, y * TS); // (a wall piece's floor lets sight on: 31_walls)
         if (litTile(A, tx, ty, lamps) || solid && litTile(A, tx, ty + 1, lamps)) { see(i); if (solid && ty > 0 && A.fl[i - W] === 0) see(i - W); } // a north wall's face hides its rim: both are seen
         if (solid) break;
       }

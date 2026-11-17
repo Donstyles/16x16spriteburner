@@ -200,8 +200,7 @@ function noFloor() {
   const A = ARENA; if (A.nfC && A.nfV === (A.flv || 0)) return A.nfC; const c = A.nfC || (A.nfC = mkCanvas(A.pw, A.ph)), g = c.getContext('2d');
   g.clearRect(0, 0, A.pw, A.ph); g.fillStyle = '#000';
   for (let ty = 0; ty < A.h; ty++) for (let tx = 0; tx < A.w; tx++) {
-    const i = ty * A.w + tx, v = A.fl[i]; if (v === 1 || v === 3) continue;
-    const t = v === 0 && A.mg && ty > 0 && FLOOR(A.fl[i - A.w]) ? A.mg.t[i] : 0; g.fillRect(tx * TS, ty * TS + t, TS, TS - t);
+    const B = FLOOR(A.fl[ty * A.w + tx]) ? null : wallBoxes(tx, ty); if (B) for (const b of B) g.fillRect(b[0], b[1], b[2] - b[0], b[3] - b[1]); // (all but the floor of the wall pieces: 31_walls)
   }
   A.nfV = A.flv || 0; return c;
 }
