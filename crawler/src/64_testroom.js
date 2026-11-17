@@ -165,7 +165,7 @@ function digTestPit(A, r) {
   TEST.pit = { x: (tx + 1) * TS, y: (ty + 1) * TS };
 }
 // DIE: he dies the next death on the list, at once (the fall: he is walked into the pit with nothing left to pay for it)
-const TEST_DEATHS = ['bleed', 'fall', 'burst', 'acid', 'vermin'];
+const TEST_DEATHS = ['bleed', 'fall', 'burst', 'acid', 'vermin', 'behead'];
 function testDie() {
   const h = G.me; if (!TEST.on || TEST.mode !== 'armour' || !h || h.dead || h.fall) return;
   const kind = TEST_DEATHS[TEST.di % TEST_DEATHS.length]; TEST.di++; TEST.gen++; TEST.waiting = false; /* (gen: a lot of foes on its way is called off) */ h.gamb = 0; h.iframe = 0; h.blocking = false; h.act = null;
@@ -183,7 +183,7 @@ function armourTick(dt) {
 function armourRevive() {
   const h = G.me; if (!h) return;
   if (h.sprWas) { h.spr = h.sprWas; h.sprWas = null; } removeIf(G.hz, z => z.deathPool); // (the skeleton and the acid that took him go)
-  Object.assign(h, { dead: false, gone: false, dropped: false, deadT: 0, death: null, sway: 0, fall: null, hidden: false, hp: h.maxHp, stam: h.maxStam, flasks: h.maxFlasks, x: TEST.home.x, y: TEST.home.y, vx: 0, vy: 0, kx: 0, ky: 0, z: 0, act: null, blocking: false, iframe: 1.2, curseT: 0, acidT: 0, gore: 0 });
+  Object.assign(h, { dead: false, gone: false, dropped: false, deadT: 0, death: null, sway: 0, fall: null, hidden: false, headless: false, hp: h.maxHp, stam: h.maxStam, flasks: h.maxFlasks, x: TEST.home.x, y: TEST.home.y, vx: 0, vy: 0, kx: 0, ky: 0, z: 0, act: null, blocking: false, iframe: 1.2, curseT: 0, acidT: 0, gore: 0 });
   G.phase = 'play'; G.phaseT = 0; G.fade = 0; G.banner = null; G.bq.length = 0; G.summary = null; G.hurtFlash = 0;
   putOnGambeson(h); G.banner = null; G.bq.length = 0; textPop(h.x, h.y, headZ(h) + 6, 'AGAIN', 'white', true); SFX.whoosh(0); armourFoes(1.2);
 }

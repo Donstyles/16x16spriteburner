@@ -80,7 +80,7 @@ function drawUnit(c, u) {
   const m = MOBS[u.spr]; if (!m || u.hidden) return; if (u.team === 'foe' && !foeShown(u)) return; /* (hidden: under the vermin's heap, 48_deaths) */ if (u.under) { drawMound(c, u); return; }
   const sy = m[0], fw = m[1], fh = m[2], foot = footOf(u.spr), sleep = u.state === 'sleep' && !u.aware, dp = u.team === 'hero' && u.dead ? deathPose(u) : null; if (dp && dp.gone) return;
   const creep = u.team === 'hero' && u.moving && u.noise === 0 && !u.act;
-  const fr = sleep || dp || (u.act && u.act.k === 'roll') ? 0 : ((u.anim * (u.fly && !sleep ? 10 : u.moving ? (creep ? 5 : u.sprint ? 14 : 9) : 5) * (u.animK || 1)) | 0) % 4, sc = u.scale, jit = u.freeze > 0 && u.team === 'foe' ? (((G.time * 60) | 0) % 2 ? 1 : -1) : u.stun > 0 ? Math.sin(u.anim * 50) * 0.6 : 0;
+  const fr = sleep || (dp && !dp.walk) || (u.act && u.act.k === 'roll') ? 0 : ((u.anim * (u.fly && !sleep ? 10 : u.moving ? (creep ? 5 : u.sprint ? 14 : 9) : 5) * (u.animK || 1)) | 0) % 4, sc = u.scale, jit = u.freeze > 0 && u.team === 'foe' ? (((G.time * 60) | 0) % 2 ? 1 : -1) : u.stun > 0 ? Math.sin(u.anim * 50) * 0.6 : 0;
   const ra = u.team === 'hero' && u.act && u.act.k === 'roll' ? u.act : null;
   // A pixel sprite cannot be squeezed without dropping rows, so a crouch or a landing lowers the upper body by
   // whole pixels instead: the sprite is cut at the waist and the top part drawn lower, over the legs.
@@ -104,7 +104,7 @@ function drawUnit(c, u) {
   const blit = (img, oy = sy) => { if (!dip) { c.drawImage(img, fr * fw, oy, fw, fh, -fw / 2, -foot - 1, fw, fh); return; }
     c.drawImage(img, fr * fw, oy + cut, fw, fh - cut, -fw / 2, -foot - 1 + cut, fw, fh - cut); c.drawImage(img, fr * fw, oy, fw, cut, -fw / 2, -foot - 1 + dip, fw, cut); };
   const bare = pose || (Wc && u.dropped); // swinging, or his weapon gone from his hand
-  if (B) blitB(B.cv); else if (bare) blit(Wc.cut, 0); else blit(IMG.mobs);
+  if (B) blitB(B.cv); else if (bare) blit(u.headless && HEADLESS[u.spr] ? HEADLESS[u.spr].body : Wc.cut, 0); else blit(IMG.mobs); // (beheaded: 48_deaths)
   const a = u.act, warn = u.team === 'foe' && a && ((a.k === 'atk' && a.phase === 'wind') || (a.k === 'aim' && a.t > a.dur - 0.25));
   if (warn) { c.globalAlpha = 0.35 + 0.35 * Math.sin(G.time * 40); if (B) blitB(B.red); else blit(mobsRed()); }
   if (u.flash > 0) { c.globalAlpha = Math.min(1, u.flash * 9); if (B) blitB(B.white); else if (bare) blit(Wc.cutW, 0); else blit(IMG.mobsW); }

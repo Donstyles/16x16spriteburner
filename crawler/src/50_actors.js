@@ -61,7 +61,7 @@ function hurt(u, dmg, src, o = {}) {
   else { debris(u.x, u.y, 4, DUST, 70, 90, 1.4); SFX.hit(panOf(u.x)); } // the gore is off
   if (u.hp <= 0 && u.team === 'hero' && TEST.on && TEST.god) u.hp = 1; // the creature test room: he cannot die
   if (u.hp <= 0) {
-    u.lastBlow = o;
+    u.lastBlow = o; u.lastD = d; u.lastSrc = src; // (what killed him, and how hard: 48_deaths)
     // overkill: a killing blow that alone does more than half the foe's full health blows one of the bigger foes (never
     // the trash) apart, whatever it had left (a 51 blow on a foe at 1 of 100 does it)
     if (GORE.level === 2 && u.team === 'foe' && u.def.role !== 'rush' && (bleeds(u) || DRY.has(u.def.blood)) && d > 0.5 * u.maxHp) { u.gib = true; if (src) { freeze(src, GIB_HOLD); if (src.gore !== undefined && bleeds(u)) src.gore = Math.min(3, src.gore + 0.5); } }

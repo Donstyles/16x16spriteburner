@@ -1,17 +1,18 @@
 // ===================== the hero's deaths =====================
 // How he dies is chosen when he falls (heroFalls, 45_blood: deathKind) by what killed him and what stood round him:
-// blown apart by a heavy slam (gore FULL), dissolved in acid, eaten by the vermin round him, down a pit (38_pits), or
-// the bleeding out, the plain one. Each kind of death plays for its own length
+// blown apart by a heavy slam (gore FULL), dissolved in acid, eaten by the vermin round him, beheaded by a heavy blade
+// (gore FULL), down a pit (38_pits), or the bleeding out, the plain one. Each kind of death plays for its own length
 // before the screen fades (deathLen: 60_run) and has its own camera (deathCam: 70_render's updateCam), and its own
 // pose (deathPose) and its own beats (deathTick), both in 45_blood.
-const DEATH_LEN = { bleed: 10, burst: 6.5, fall: 5, acid: 8, vermin: 9.5 };
-const DEATH_NAMES = { bleed: 'BLED OUT', burst: 'BLOWN APART', fall: 'THE LONG FALL', acid: 'DISSOLVED IN ACID', vermin: 'EATEN BY VERMIN' };
+const DEATH_LEN = { bleed: 10, burst: 6.5, fall: 5, acid: 8, vermin: 9.5, behead: 10 };
+const DEATH_NAMES = { bleed: 'BLED OUT', burst: 'BLOWN APART', fall: 'THE LONG FALL', acid: 'DISSOLVED IN ACID', vermin: 'EATEN BY VERMIN', behead: 'BEHEADED' };
 function deathLen() { let L = 0; for (const h of G.heroes) if (h.dead) L = Math.max(L, DEATH_LEN[(h.death && h.death.kind) || 'bleed'] || 8); return L || 7; }
 function deathKind(h, o) {
   if (TEST.on && TEST.forceDeath) return TEST.forceDeath; // (the armour and death room's DIE: 64_testroom)
   if (GORE.level === 2 && o.big) return 'burst';
   if (o.acid) return 'acid';
   if (verminAround(h).length >= 3) return 'vermin';
+  const s = h.lastSrc; if (GORE.level === 2 && s && s.team === 'foe' && s.def && s.def.role !== 'archer' && !o.ranged && headless(h.spr) && ((h.lastD || 0) >= 18 || chance(0.25))) return 'behead'; // (a heavy blow, or a quarter of the rest, from a blade at close quarters)
   return 'bleed';
 }
 const ease = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
@@ -20,6 +21,7 @@ function deathCam(h) {
   const D = h.death || { kind: 'bleed' }, t = h.deadT || 0;
   if (D.kind === 'fall') return { x: D.x, y: D.y - 2, z: 1 + 0.5 * ease(t / 3.5), r: 1.6 }; // held at the rim, leaning in over the dark
   if (D.kind === 'burst') return { x: h.x, y: h.y - 4, z: 1.2, r: 3 };
+  if (D.kind === 'behead') { const H = D.head; if (H && t < 1) return { x: H.x, y: H.y - H.z * 0.5 - 4, z: 1.9, r: 4 }; return { x: h.x, y: h.y - (t > BEHEAD.fall ? 3 : 9), z: 1.6 + 0.25 * ease((t - 1) / 6), r: 2 }; } // after the head as it flies, then back to the body
   if (D.kind === 'acid') return { x: h.x, y: h.y - 7, z: 1.2 + 0.55 * ease(t / 5), r: 1.6 }; // in close on him as he goes down
   if (D.kind === 'vermin') return { x: h.x, y: h.y - 3, z: 1.35 + 0.4 * ease(t / 3), r: 1.8 }; // on the pile
   const lying = t > BLEED.fall; return { x: h.x, y: h.y - (lying ? 3 : 9), z: 1.05 + 0.6 * ease(t / 7), r: 1.4 }; // a slow push in on him: standing, kneeling, then on the floor
@@ -100,4 +102,68 @@ function verminTick(h, dt) {
     if (chance(dt * 3)) shake(0.03);
   }
   if (at(VERM.back)) { h.hidden = false; h.sprWas = h.spr; h.spr = 'DecrepitBones'; debris(h.x, h.y - 2, 6, [BONE.L, BONE.M, BONE.D], 30, 40, 1.5); SFX.bone(panOf(h.x), true); pool(h.x, h.y + 1, 'red', 6); } // what they leave
+}
+
+// ---- beheaded. A heavy blow takes his head off at the neck: the head flies, tumbling and bleeding, bounces and rolls to
+// a stop; the camera follows it, then swings back to the body, which stands on, headless, and stumbles a few tiny steps
+// as the neck pumps blood high into the air with every beat of the heart, a brutal amount of it, all over the floor
+// round him, the beats slowing; then the legs give, he drops to his knees and falls, and the neck pumps on, weaker,
+// across the floor. The head is the hand-cut one (the Head Cut Painter: 12_heads), or the game's own cut (autoHead).
+const BEHEAD = { knees: 2.8, fall: 3.3, beats: [0.32, 0.66, 1.02, 1.42, 1.86, 2.34, 2.86, 3.5, 4.3, 5.2, 6.3, 7.5] };
+const HEADLESS = {};
+function rot90(cv) { const o = mkCanvas(cv.height, cv.width), g = o.getContext('2d'); g.imageSmoothingEnabled = false; g.translate(cv.height, 0); g.rotate(Math.PI / 2); g.drawImage(cv, 0, 0); return o; }
+// the game's own cut, for a frame not cut by hand: the head is the top six rows of him over his face's width; under it,
+// where the neck was, a small raw stump (dark at its edges)
+function autoHead(d, W, ox, fw, fh, spr) {
+  const fc = faceOf(spr) || { x: (fw >> 1) - 4 }, a = (x, y) => d[(y * W + ox + x) * 4 + 3] > 0, mask = new Uint8Array(fw * fh), paint = new Uint8Array(fw * fh * 4);
+  let y0 = 0; while (y0 < fh - 1 && ![...Array(fw).keys()].some(x => a(x, y0))) y0++;
+  const x0 = Math.max(0, fc.x), x1 = Math.min(fw, fc.x + 9), cut = y0 + 6;
+  for (let y = y0; y < cut && y < fh; y++) for (let x = x0; x < x1; x++) if (a(x, y)) mask[y * fw + x] = 1;
+  const xs = []; for (let x = x0; x < x1; x++) if (cut < fh && a(x, cut) && mask[(cut - 1) * fw + x]) xs.push(x);
+  if (xs.length) { const cx = xs[xs.length >> 1]; for (const x of [cx - 1, cx, cx + 1]) { if (!xs.includes(x)) continue; const i = (cut * fw + x) * 4, raw = x === cx; paint[i] = raw ? 0xb8 : 0x6e; paint[i + 1] = raw ? 0x24 : 0x14; paint[i + 2] = raw ? 0x24 : 0x16; paint[i + 3] = 255; } }
+  return { mask, paint };
+}
+// his body without its head (his weapon already cut away) and his head on its own in its four quarter turns
+function headless(spr) {
+  if (HEADLESS[spr] !== undefined) return HEADLESS[spr];
+  const Wc = WEAPON[spr], m = MOBS[spr]; if (!Wc || !Wc.cut || !m) return (HEADLESS[spr] = null);
+  const fw = m[1], fh = m[2], W = Wc.cut.width, body = mkCanvas(W, Wc.cut.height), g = body.getContext('2d'); g.drawImage(Wc.cut, 0, 0);
+  const D = g.getImageData(0, 0, W, body.height), d = D.data, H = HEAD_CUTS[spr] || [], head = mkCanvas(fw, fh), hg = head.getContext('2d'), HD = hg.createImageData(fw, fh); let neck = 0;
+  for (let f = 0; f < 4; f++) {
+    const C = H[f] || autoHead(d, W, f * fw, fw, fh, spr);
+    for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) {
+      const i = (y * W + f * fw + x) * 4, j = y * fw + x;
+      if (C.mask[j]) { if (f === 0) { for (let k = 0; k < 4; k++) HD.data[j * 4 + k] = d[i + k]; neck = Math.max(neck, y + 1); } d[i + 3] = 0; }
+      const pa = C.paint ? C.paint[j * 4 + 3] : 0; if (pa === 1) d[i + 3] = 0; else if (pa > 1) { d[i] = C.paint[j * 4]; d[i + 1] = C.paint[j * 4 + 1]; d[i + 2] = C.paint[j * 4 + 2]; d[i + 3] = 255; }
+    }
+  }
+  g.putImageData(D, 0, 0); hg.putImageData(HD, 0, 0);
+  const t = tight(head), r1 = rot90(t), r2 = rot90(r1);
+  return (HEADLESS[spr] = { body, rot: [t, r1, r2, rot90(r2)], neckZ: Math.max(4, footOf(spr) - neck + 1) });
+}
+function beheadPose(t) { return { lie: t > BEHEAD.fall, dip: t < BEHEAD.knees ? 0 : t < BEHEAD.knees + 0.15 ? 1 : t < BEHEAD.fall ? 2 : 0, jit: 0, walk: t < BEHEAD.knees }; }
+function beheadStart(h, o) {
+  const B = headless(h.spr); if (!B) { h.death.kind = 'bleed'; return; }
+  h.headless = true; h.flash = 0; dropWeapon(h, 1.3); slowmo(0.35, 1.3);
+  const a = (o.ang === undefined ? rand(TAU) : o.ang) + rand(-0.4, 0.4), v = rand(55, 85);
+  const r = { rot: B.rot, r: 0, x: h.x, y: h.y + 1, z: B.neckZ + 3, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.7, vz: rand(95, 135), spin: 0.06, t: 0, wait: 0, fade: 0, lie: 99, bleed: 'red' };
+  FX.rocks.push(r); h.death.head = r; SFX.gib(panOf(h.x)); SFX.squelch(panOf(h.x), true); neckJet(h, 1.4, false);
+}
+// one beat out of the neck: up, high, a lot of it, spattering the floor round him; out along the floor as he lies
+function neckJet(h, k, lying) {
+  if (!bleeds(h)) return; const B = HEADLESS[h.spr], fs = h.face < 0 ? -1 : 1, L = lying ? lieOf(h.spr, h.scale || 1) : null;
+  const x = lying ? h.x - fs * (L.half - 3) : h.x, z = lying ? 2 : B.neckZ;
+  for (let j = 0, n = Math.round((lying ? 18 : 28) * k); j < n; j++) part({ k: 'gore', x: x + rand(-1, 1), y: h.y + rand(-1, 1), z, vx: lying ? -fs * rand(20, 75) * k : rand(-28, 28) * k, vy: rand(-16, 16) * k, vz: lying ? rand(30, 80) * k : rand(90, 170) * k, g: 420, life: 5, s0: chance(0.25) ? 2 : 1, col: pick(BLOOD.red), kind: 'red' });
+  for (let j = 0; j < (lying ? 1 : 3); j++) pool(h.x + rand(-14, 14), h.y + rand(-6, 8), 'red', rand(1.2, 2.6) * k);
+  pool(lying ? x : h.x, h.y + 1, 'red', 1.8 + (1 - k) * 4); SFX.squelch(panOf(h.x), k > 0.8);
+}
+function beheadTick(h, dt) {
+  const t = h.deadT, p = t - dt, at = s => p < s && t >= s, B = BEHEAD, D = h.death;
+  if (t < B.knees) { // the stumble: a few tiny steps, the legs not knowing yet
+    if ((D.stepT = (D.stepT || 0) - dt) <= 0) { D.stepT = rand(0.38, 0.62); D.step = { a: rand(TAU), left: rand(0.14, 0.22) }; }
+    if (D.step && D.step.left > 0) { D.step.left -= dt; slideMove(h, Math.cos(D.step.a) * 16 * dt, Math.sin(D.step.a) * 11 * dt); h.moving = true; if (Math.cos(D.step.a) !== 0) h.face = Math.cos(D.step.a) < 0 ? -1 : 1; } else h.moving = false;
+  } else h.moving = false;
+  B.beats.forEach(s => { if (!at(s)) return; const k = s < B.fall ? 1 - s / 7 : Math.max(0.22, 0.7 - (s - B.fall) / 6); SFX.heart(0.6 * k); neckJet(h, k, t > B.fall); });
+  if (at(B.knees)) { SFX.boom(0.12, panOf(h.x)); smoke(h.x, h.y, 2, 'dust', 6, 12, 0.6); }
+  if (at(B.fall)) { SFX.boom(0.3, panOf(h.x)); shake(0.14); smoke(h.x, h.y, 3, 'dust', 8, 18, 0.8); }
 }
