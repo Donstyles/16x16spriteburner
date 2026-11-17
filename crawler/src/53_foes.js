@@ -378,13 +378,14 @@ function gambesonTakes(h, d, o = {}) {
   return d - a;
 }
 // what a blow on the gambeson spills instead of blood, in about the scarecrow's measure, so it is plain what is
-// happening, but cloth, not straw: scraps of its quilted linen flung the way the blow went, turning over and over as
-// they flutter down (46_bits scrap), and tufts of its white wadding drifting after them; the sound of linen tearing
+// happening, but cloth, not straw: strips of its linen, heavy, flung out the way the blow went, tumbling end over end
+// and dropping to lie on the floor (46_bits strip), and feathers from its padding, light, drifting down after them
+// (46_bits feather); the thwack of the blow into the padding and the linen tearing
 function clothSpill(h, a, o) {
   const S = SPRAY[o.style] || SPRAY.bite, k = clamp(a / 10, 0.7, 3.5), a0 = o.ang !== undefined ? o.ang : o.kx || o.ky ? Math.atan2(o.ky || 0, o.kx || 0) : rand(TAU);
   const way = () => a0 + (o.sweep || 1) * S.bias + rand(-S.spread, S.spread) * 1.3, z0 = (h.z || 0) + 6;
-  for (let i = 0, n = Math.min(40, Math.round(9 * k)); i < n; i++) { const t = way(), v = rand(S.v[0], S.v[1]) * 0.85; scrap(h.x + rand(-2, 2), h.y + rand(-1, 1), z0 + rand(-3, 4), Math.cos(t) * v, Math.sin(t) * v * 0.8, rand(40, 130), o.slow, false); }
-  for (let i = 0, n = Math.min(45, Math.round(10 * k)); i < n; i++) { const t = way() + rand(-0.5, 0.5), v = rand(S.v[0], S.v[1]) * 0.55; scrap(h.x + rand(-2, 2), h.y + rand(-1, 1), z0 + rand(-2, 5), Math.cos(t) * v, Math.sin(t) * v * 0.8, rand(30, 90), o.slow, true); }
+  for (let i = 0, n = Math.min(36, Math.round(9 * k)); i < n; i++) { const t = way(), v = rand(S.v[0], S.v[1]) * 1.05; strip(h.x + rand(-2, 2), h.y + rand(-1, 1), z0 + rand(-3, 4), Math.cos(t) * v, Math.sin(t) * v * 0.8, rand(S.up[0], S.up[1]) + 25, o.slow); }
+  for (let i = 0, n = Math.min(20, Math.round(4 * k)); i < n; i++) { const t = way() + rand(-0.7, 0.7), v = rand(S.v[0], S.v[1]) * 0.45; feather(h.x + rand(-2, 2), h.y + rand(-1, 1), z0 + rand(0, 6), Math.cos(t) * v, Math.sin(t) * v * 0.8, rand(40, 90), o.slow); }
   SFX.rip(panOf(h.x), a >= 25);
 }
 // The chainmail (armours, its icon the gambeson's own repainted in steel rings): rings of iron, worn over the gambeson

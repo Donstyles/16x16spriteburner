@@ -102,8 +102,8 @@ function updateFx(dt) {
   for (let i = P.length - 1; i >= 0; i--) {
     const p = P[i]; p.t += dt; if (p.t >= p.life) { P[i] = P[P.length - 1]; P.pop(); continue; }
     if (p.k === 'gore') { goreStep(p, dt); continue; }
-    if (p.k === 'hay' || p.k === 'cloth') { hayStep(p, dt); continue; }
-    if (p.k === 'chip' || p.k === 'ring') { chipStep(p, dt); continue; }
+    if (p.k === 'hay' || p.k === 'feather') { hayStep(p, dt); continue; }
+    if (p.k === 'chip' || p.k === 'ring' || p.k === 'strip') { chipStep(p, dt); continue; }
     if (p.k === 'water') { waterStep(p, dt); continue; }
     if (p.k === 'pdust') { dustStep(p, dt); continue; }
     if (p.on) { const u = p.on; if (u.dead || (u.act && u.act.k === 'roll')) { p.on = null; p.g = 320; } else { p.row += p.rate * dt; placeDrop(p, u); if (p.row >= p.rowEnd) { p.on = null; p.g = 320; const out = p.side * (u.face < 0 ? -1 : 1); p.vx = (u.vx || 0) * 0.4 + out * rand(4, 10); p.vy = (u.vy || 0) * 0.4 + rand(2, 6); } continue; } } // a drop still running down the hero's head
@@ -216,7 +216,7 @@ function drawWorldParts(ctx) { // normal blending: smoke, rubble, pixel shards (
     else if (k === 'chip') { ctx.globalAlpha = 1; ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y - p.z), p.s0, 1); }
     else if (k === 'ring') { ctx.globalAlpha = 1; ctx.fillStyle = p.col; ringPx(Math.round(p.x), Math.round(p.y - p.z), (a, b) => ctx.fillRect(a, b, 1, 1)); } // (broken mail: 46_bits)
     else if (k === 'hay') { ctx.globalAlpha = 1; ctx.fillStyle = p.col; hayPx(p, (a, b) => ctx.fillRect(a, b, 1, 1)); }
-    else if (k === 'cloth') { ctx.globalAlpha = 1; clothPx(p, (a, b, col) => { ctx.fillStyle = col; ctx.fillRect(a, b, 1, 1); }); } // (the gambeson's scraps and wadding: 46_bits)
+    else if (k === 'strip' || k === 'feather') { ctx.globalAlpha = 1; (k === 'strip' ? stripPx : featherPx)(p, (a, b, col) => { ctx.fillStyle = col; ctx.fillRect(a, b, 1, 1); }); } // (the gambeson's strips and feathers: 46_bits)
     else if (k === 'drop') { const left = p.life - p.t; ctx.globalAlpha = left < 0.25 ? left / 0.25 : 1; ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y - p.z), 1, 1); } // one whole pixel, never smeared
     else if (k === 'debris' || k === 'pix') { const left = p.life - p.t; ctx.globalAlpha = left < 0.4 ? left / 0.4 : 1; ctx.fillStyle = p.col; const s = p.s0; ctx.fillRect(p.x - s / 2, p.y - p.z - s / 2, s, s * (k === 'debris' ? 0.75 : 1)); }
   }

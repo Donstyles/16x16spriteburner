@@ -131,19 +131,31 @@ const SFX = {
     for (let i = 0; i < 12; i++) { const t = 0.03 + Math.pow(i / 12, 1.4) * 0.75, f = rand(600, 1300); this.tone('triangle', f, f * 0.7, 0.035, 0.1 * (1 - i / 16), pan + rand(-0.3, 0.3), t); this.noise(this.white, 0.014, 'bandpass', rand(1800, 4200), 1500, 4, 0.09 * (1 - i / 16), pan + rand(-0.3, 0.3), t, 0.001); }
   },
   // straw struck: a soft dull whump, and the dry rustle and crackle of the stalks flying
-  // the chainmail struck: a bright chink, the rings rattling against each other, a few tiny tings as they part
+  // the chainmail struck: the blow's dull knock, then the rings jangling against each other, a fast scatter of tiny
+  // clinks (very short, sharply tuned bursts, high up), a few with a metal ring to them (a partial off the octave, as
+  // struck metal has, and gone at once): never a held tone
+  clink(f, g, pan, t0) { this.noise(this.white, rand(0.012, 0.026), 'bandpass', f, f * rand(0.98, 1.02), rand(9, 15), g, pan, t0, 0.0004); },
+  tink(f, g, pan, t0) { this.tone('sine', f, f * 0.995, rand(0.014, 0.028), g, pan, t0, 0.0005); this.tone('sine', f * 2.76, f * 2.74, 0.012, g * 0.45, pan, t0, 0.0005); },
   chink(pan = 0, big = false) {
-    if (!this.ok('chink', 0.05)) return; this.tone('triangle', 2400, 2250, 0.09, 0.09, pan); this.noise(this.white, 0.06, 'bandpass', 5200, 4200, 3, big ? 0.16 : 0.11, pan, 0, 0.001);
-    for (let i = 0, n = big ? 9 : 5; i < n; i++) { const f = rand(2800, 5200); this.tone('triangle', f, f * 0.96, 0.04, rand(0.03, 0.06), pan + rand(-0.2, 0.2), 0.02 + i * rand(0.018, 0.035)); }
+    if (!this.ok('chink', 0.05)) return; const n = big ? 24 : 15, span = big ? 0.24 : 0.15;
+    this.noise(this.white, big ? 0.05 : 0.04, 'bandpass', 820, 620, 1.2, big ? 0.2 : 0.15, pan, 0, 0.001);
+    for (let i = 0; i < n; i++) { const u = i / n, t0 = 0.008 + Math.pow(u, 1.4) * span + rand(0, 0.006); this.clink(rand(4200, 9000), rand(0.09, 0.17) * (1 - u * 0.6), pan + rand(-0.15, 0.15), t0); } // (loud enough: a narrow band lets little through)
+    for (let i = 0; i < (big ? 4 : 2); i++) this.tink(rand(3200, 5200), rand(0.012, 0.022), pan + rand(-0.1, 0.1), rand(0.004, 0.05));
   },
-  // the chainmail put on: it is shrugged into, a cascade of rings settling
-  mailOn(pan = 0) { if (!this.ok('mailOn', 0.3)) return; for (let i = 0; i < 14; i++) { const f = rand(2200, 4600); this.tone('triangle', f, f * 0.95, 0.05, rand(0.025, 0.05) * (1 - i / 18), pan + rand(-0.2, 0.2), i * 0.03 + rand(0, 0.02)); } this.noise(this.white, 0.35, 'bandpass', 4200, 3600, 1.5, 0.05, pan, 0, 0.02); },
-  // linen tearing (the gambeson hacked): a run of tiny dry bursts, the threads parting one after another, rising a little
-  // as it goes, over the dull thump of the padding taking the blow
+  // the chainmail put on: shrugged into, a long shiver of rings that swells and settles, and its weight coming down on
+  // his shoulders at the end
+  mailOn(pan = 0) {
+    if (!this.ok('mailOn', 0.3)) return; const n = 40, span = 0.55;
+    for (let i = 0; i < n; i++) { const u = i / n, g = 0.03 + 0.1 * Math.sin(Math.PI * Math.min(1, u * 1.15)); this.clink(rand(3600, 8800), g, pan + rand(-0.25, 0.25), u * span + rand(0, 0.02)); }
+    for (let i = 0; i < 3; i++) this.tink(rand(3000, 4800), 0.012, pan + rand(-0.2, 0.2), rand(0.1, 0.45));
+    this.noise(this.white, 0.07, 'bandpass', 640, 480, 1, 0.13, pan, span + 0.02, 0.003);
+  },
+  // the gambeson hacked: the blow's dull thwack into the padding (short, a firm middle, nothing low or sliding, which
+  // would read as something else), then the linen tearing, a quick crisp zip of high dry bursts, the threads parting
   rip(pan = 0, big = false) {
-    if (!this.ok('rip', 0.05)) return; const n = big ? 26 : 16, dur = big ? 0.3 : 0.18;
-    for (let i = 0; i < n; i++) { const f = rand(1500, 2500) + i * 40; this.noise(this.white, rand(0.006, 0.013), 'bandpass', f, f * 0.85, 2.4, rand(0.05, 0.1) * (1 - i / n * 0.5), pan + rand(-0.1, 0.1), i / n * dur + rand(0, 0.005), 0.001); }
-    this.noise(this.brown, big ? 0.16 : 0.1, 'lowpass', 650, 180, 0.8, big ? 0.32 : 0.22, pan, 0, 0.004);
+    if (!this.ok('rip', 0.05)) return; const n = big ? 20 : 12, dur = big ? 0.2 : 0.12;
+    this.noise(this.white, big ? 0.06 : 0.045, 'bandpass', 1150, 950, 1.3, big ? 0.24 : 0.18, pan, 0, 0.001);
+    for (let i = 0; i < n; i++) { const f = rand(3200, 5200); this.noise(this.white, rand(0.004, 0.008), 'highpass', f, f, 0.9, rand(0.045, 0.08) * (1 - i / n * 0.6), pan + rand(-0.1, 0.1), 0.025 + i / n * dur + rand(0, 0.004), 0.0008); }
   },
   hay(pan = 0, big = false) {
     if (!this.ok('hay', 0.05)) return;
