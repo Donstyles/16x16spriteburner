@@ -1,9 +1,46 @@
 // ===================== HUD: health, stamina, flasks, gold, the floor, banners =====================
 const F_DISP = '"Grenze Gotisch", "Palatino Linotype", Palatino, "Book Antiqua", serif', F_HUD = 'Teko, "Arial Narrow", "Avenir Next Condensed", sans-serif';
 const NUMCOL = { red: '#ff5a46', white: '#ffffff', gold: '#ffd860', heal: '#7cff9c', curse: '#d9a0ff', acid: '#e8f02c' }; // acid: a sour yellow, well clear of the mint of healing
-function font(c, w, size, fam) { c.font = `${w} ${size}px ${fam}`; }
-function label(c, s, x, y, col, o = {}) { c.textAlign = o.align || 'left'; c.textBaseline = o.base || 'alphabetic'; if (o.stroke) { c.lineWidth = o.stroke; c.strokeStyle = 'rgba(8,6,8,0.9)'; c.lineJoin = 'round'; c.strokeText(s, x, y); } c.fillStyle = col; c.fillText(s, x, y); }
-function spaced(c, s, x, y, sp, col, align = 'left') { let w = 0; for (const ch of s) w += c.measureText(ch).width + sp; w -= sp; let px = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x; c.textAlign = 'left'; c.textBaseline = 'alphabetic'; c.fillStyle = col; for (const ch of s) { c.fillText(ch, px, y); px += c.measureText(ch).width + sp; } }
+// The new lettering, on trial (TYPE.on; off unless switched on, on the title screen or in the pause menu; kept on this
+// device), round three: two faces and no more. Grenze Gotisch keeps every heading (the menus' titles, the kit names, the
+// floor cards, the banners); every other word and number (the buttons, the HUD, the floating numbers, the hints, the kit
+// cards, what the shopkeeper says) is set in Cinzel, carved Roman capitals, bold enough to read small (the HUD's, outlined,
+// in its heaviest weight). The one exception is the game's own name on the title screen, its logo, in Pirata One.
+// Off, every call draws exactly as before (Teko for all those words).
+const F_LOGO = '"Grenze Gotisch", Palatino, serif'; // the title screen's title (Grenze Gotisch; Pirata One on trial)
+const F_BTN = 'Teko, "Avenir Next Condensed", sans-serif'; // the buttons' words (Teko as the HUD)
+const F_TALK = 'Teko, "Arial Narrow", sans-serif'; // what the shopkeeper says (Teko as the HUD)
+const F_SUB = 'Teko, "Avenir Next Condensed", "Arial Narrow", sans-serif'; // the lines under a floor's card and a banner (Teko)
+const F_PIRATA = '"Pirata One", "Grenze Gotisch", serif', F_CINZEL = 'Cinzel, "Trajan Pro", "Times New Roman", serif';
+const TYPE = { on: false, shadow: false, menu: false, last: null }; // (menu: a menu or the pause screen is being drawn)
+try { TYPE.on = localStorage.getItem('cr2-type') === '1'; } catch (e) { /* storage blocked: off */ }
+const TYPE_FACES = ['400 30px "Pirata One"', '700 16px Cinzel', '800 16px Cinzel'];
+function loadTypeFaces() { if (document.fonts) return Promise.all(TYPE_FACES.map(f => document.fonts.load(f).catch(() => { }))); return Promise.resolve(); }
+function setType(on) { TYPE.on = on; try { localStorage.setItem('cr2-type', on ? '1' : '0'); } catch (e) { /* not kept */ } if (on) loadTypeFaces(); }
+function font(c, w, size, fam) {
+  TYPE.shadow = false; TYPE.last = [w, size, fam];
+  if (TYPE.on) {
+    if (fam === F_LOGO) { c.font = `400 ${size * 0.86}px ${F_PIRATA}`; return; }
+    if (fam === F_HUD || fam === F_BTN || fam === F_SUB || fam === F_TALK) { const play = fam === F_HUD && !TYPE.menu; c.font = `${play ? 800 : 700} ${size * 0.8}px ${F_CINZEL}`; TYPE.shadow = !play; return; } }
+  c.font = `${w} ${size}px ${fam}`;
+}
+// the hard shadow of the new lettering: one pixel down and right, in black (none under a glow)
+function typeShadow(c, s, x, y) { if (TYPE.shadow && !c.shadowBlur) { const f = c.fillStyle; c.fillStyle = 'rgba(0,0,0,0.92)'; c.fillText(s, x + 1, y + 1); c.fillStyle = f; } }
+function label(c, s, x, y, col, o = {}) {
+  let keep = null;
+  if (o.max && TYPE.on && TYPE.last) { const mw = c.measureText(s).width; if (mw > o.max) { keep = TYPE.last; font(c, keep[0], keep[1] * o.max / mw, keep[2]); } } // (too wide for its card: set smaller)
+  c.textAlign = o.align || 'left'; c.textBaseline = o.base || 'alphabetic'; if (o.stroke) { c.lineWidth = o.stroke; c.strokeStyle = 'rgba(8,6,8,0.9)'; c.lineJoin = 'round'; c.strokeText(s, x, y); } else typeShadow(c, s, x, y); c.fillStyle = col; c.fillText(s, x, y);
+  if (keep) font(c, keep[0], keep[1], keep[2]);
+}
+// a line too wide for w broken in two where the halves come out most even (the kit cards, in the new lettering)
+function wrapTo(c, s, w) { if (c.measureText(s).width <= w) return [s]; const ws = s.split(' '); let best = [s], bw = 1e9;
+  for (let i = 1; i < ws.length; i++) { const a = ws.slice(0, i).join(' '), b = ws.slice(i).join(' '), m = Math.max(c.measureText(a).width, c.measureText(b).width); if (m < bw) { bw = m; best = [a, b]; } } return best; }
+function spaced(c, s, x, y, sp, col, align = 'left') {
+  let w = 0; for (const ch of s) w += c.measureText(ch).width + sp; w -= sp;
+  // (the new lettering runs wider than Teko: a line too long for the screen is set smaller)
+  if (TYPE.on && TYPE.last && w > VIEW.w - 28) { const k = (VIEW.w - 28) / w, [fw, fs, ff] = TYPE.last; font(c, fw, fs * k, ff); sp *= k; w = 0; for (const ch of s) w += c.measureText(ch).width + sp; w -= sp; }
+  let px = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x; c.textAlign = 'left'; c.textBaseline = 'alphabetic'; c.fillStyle = col; for (const ch of s) { typeShadow(c, ch, px, y); c.fillText(ch, px, y); px += c.measureText(ch).width + sp; }
+}
 // a bar that shows recent loss as a pale trail
 function bar(c, x, y, w, h, f, trailKey, col, back = 'rgba(0,0,0,0.6)') {
   const T = UI[trailKey] = UI[trailKey] === undefined ? f : (UI[trailKey] > f ? Math.max(f, UI[trailKey] - 0.5 / 60) : f);
@@ -62,7 +99,7 @@ function hudBar(c, x, y, w, h, f, trailKey, cols, n) {
 }
 function drawHUD() {
   const c = ctx, d = VIEW.dpr, W = VIEW.w, H = VIEW.h, S = VIEW.safe, L = Math.max(12, S.l + 10), R = W - Math.max(12, S.r + 10), T = Math.max(10, S.t + 8);
-  c.setTransform(d, 0, 0, d, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+  c.setTransform(d, 0, 0, d, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; TYPE.menu = false;
   if (G.mode !== 'play') { drawMenu(c); return; }
   // floating numbers
   const zf = clamp(CAM.z / 2.4, 0.8, 1.5);
@@ -84,11 +121,11 @@ function drawHUD() {
   const bn = G.banner; if (bn) {
     const u = bn.t / bn.life, a = u > 0.8 ? (1 - u) / 0.2 : Math.min(1, bn.t * 6), sz = clamp(Math.min(W, H) / 8, 26, 60) * (bn.small ? 0.55 : 1), y = bn.small ? H * 0.2 : H * 0.3, cc = COL[bn.col] || COL.gold;
     c.globalAlpha = a; font(c, 900, sz, F_DISP); c.shadowColor = `rgba(${cc},0.9)`; c.shadowBlur = 20; label(c, bn.a, W / 2, y, '#fff6e0', { align: 'center' }); c.shadowBlur = 0;
-    if (bn.b) { font(c, 500, clamp(Math.min(W, H) / 26, 13, 20), F_HUD); spaced(c, bn.b, W / 2, y + sz * 0.5, 3, `rgb(${cc})`, 'center'); }
+    if (bn.b) { font(c, 500, clamp(Math.min(W, H) / 26, 13, 20), F_SUB); spaced(c, bn.b, W / 2, y + sz * 0.5, 3, `rgb(${cc})`, 'center'); }
     c.globalAlpha = 1;
   }
   drawControls(c);
   if (G.fade > 0.001) { c.fillStyle = `rgba(4,3,5,${G.fade})`; c.fillRect(0, 0, W, H); }
-  const cd = G.card; if (cd) { const u = cd.t / cd.life, a = u < 0.15 ? u / 0.15 : u > 0.75 ? (1 - u) / 0.25 : 1; c.globalAlpha = a; font(c, 900, clamp(Math.min(W, H) / 5, 34, 84), F_DISP); c.shadowColor = 'rgba(255,140,40,0.8)'; c.shadowBlur = 28; label(c, cd.a, W / 2, H * 0.42, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0; font(c, 500, clamp(Math.min(W, H) / 22, 14, 22), F_HUD); spaced(c, cd.b, W / 2, H * 0.42 + 34, 4, '#c8a870', 'center'); if (cd.c) spaced(c, cd.c, W / 2, H * 0.42 + 58, 3, 'rgba(240,224,192,0.6)', 'center'); if (cd.d) spaced(c, cd.d, W / 2, H * 0.42 + 80, 3, 'rgba(240,224,192,0.45)', 'center'); c.globalAlpha = 1; }
+  const cd = G.card; if (cd) { const u = cd.t / cd.life, a = u < 0.15 ? u / 0.15 : u > 0.75 ? (1 - u) / 0.25 : 1; c.globalAlpha = a; font(c, 900, clamp(Math.min(W, H) / 5, 34, 84), F_DISP); c.shadowColor = 'rgba(255,140,40,0.8)'; c.shadowBlur = 28; label(c, cd.a, W / 2, H * 0.42, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0; font(c, 500, clamp(Math.min(W, H) / 22, 14, 22), F_SUB); spaced(c, cd.b, W / 2, H * 0.42 + 34, 4, '#c8a870', 'center'); if (cd.c) spaced(c, cd.c, W / 2, H * 0.42 + 58, 3, 'rgba(240,224,192,0.6)', 'center'); if (cd.d) spaced(c, cd.d, W / 2, H * 0.42 + 80, 3, 'rgba(240,224,192,0.45)', 'center'); c.globalAlpha = 1; }
   drawPause(c);
 }

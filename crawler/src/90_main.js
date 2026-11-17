@@ -22,7 +22,7 @@ function frame(t) {
 function menuBackdrop() { buildArena(1); initSight(ARENA); G.heroes = []; G.foes = []; G.units = []; G.proj = []; G.drops = []; G.me = null; const r = ARENA.start; CAM.x = (r.ix0 + r.ix1 + 1) / 2 * TS; CAM.y = (r.iy0 + r.iy1 + 1) / 2 * TS; CAM.z = exploreZoom(); }
 async function boot() {
   cvs = document.getElementById('c'); ctx = cvs.getContext('2d', { alpha: false }); fxc = mkCanvas(1, 1); fctx = fxc.getContext('2d'); lc = mkCanvas(1, 1); lctx = lc.getContext('2d'); b1 = mkCanvas(1, 1); b1c = b1.getContext('2d'); b2 = mkCanvas(1, 1); b2c = b2.getContext('2d');
-  try { if (document.fonts) await Promise.race([Promise.all([document.fonts.load('900 40px "Grenze Gotisch"'), document.fonts.load('500 16px Teko'), document.fonts.load('600 16px Teko')]), new Promise(r => setTimeout(r, 2500))]); } catch (e) { }
+  try { if (document.fonts) await Promise.race([Promise.all([document.fonts.load('900 40px "Grenze Gotisch"'), document.fonts.load('500 16px Teko'), document.fonts.load('600 16px Teko'), TYPE.on ? loadTypeFaces() : null]), new Promise(r => setTimeout(r, 2500))]); } catch (e) { }
   await loadAssets(); resize(); addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
   setupInput(); menuBackdrop(); G.mode = 'menu'; MENU.screen = 'title';
   const ld = document.getElementById('loading'); if (ld) ld.hidden = true;

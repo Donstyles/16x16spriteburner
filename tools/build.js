@@ -16,7 +16,7 @@ const peerjs = rd('vendor', 'peerjs.min.js').replace(/<\/script/gi, '<\\/script'
 const ver = require('crypto').createHash('sha1').update(js).digest('hex').slice(0, 8); fs.writeFileSync(path.join(T.dir, 'version.txt'), ver + '\n'); // lets running games notice a newer build
 const extra = {}; for (const k in T.extra) extra[k] = b64f(T.extra[k]);
 const assets = `window.__BUILD='${ver}';` + 'window.__ASSETS=' + JSON.stringify({ cellar: b64('cellar.png'), mobs: b64('mobs.png'), mobsJson: JSON.parse(rd('assets', 'mobs.json')), ...extra }) + ';';
-const fonts = '<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@700;900&family=Teko:wght@500;600&display=swap">';
+const fonts = '<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@700;900&family=Teko:wght@500;600' + (T.pwa === 'crawler' ? '&family=Pirata+One&family=Cinzel:wght@700;800' : '') + '&display=swap">'; // (the crawler also loads the faces of its lettering trial: only fetched once used)
 const head = `<title>${T.title}</title>\n<meta name="claude:viewport-fit-sides" content="cover">\n${fonts}\n<style>\n${fs.readFileSync(path.join(srcDir, 'style.css'), 'utf8')}</style>`;
 const body = `<canvas id="c" aria-label="${T.aria}"></canvas>\n<div id="safe"></div>\n<div id="loading">${T.title}</div>`;
 fs.mkdirSync(path.join(T.dir, 'dist'), { recursive: true });

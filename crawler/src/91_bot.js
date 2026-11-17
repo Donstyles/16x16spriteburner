@@ -8,6 +8,9 @@ function botDrive(h, dt) {
   const B = h.bot = h.bot || { t: 0, goal: null };
   const foes = G.foes.filter(f => !f.dead && foeShown(f) && !(f.botNo > G.time)), f = nearest(h, foes);
   B.st = (B.st || 0) + dt; if (B.st > 0.8) { B.stuck = B.lx !== undefined && dist(h.x, h.y, B.lx, B.ly) < 6; B.lx = h.x; B.ly = h.y; B.st = 0; }
+  // at a rune under its crate (a dark storeroom's): it smashes the crate, then steps on the rune
+  const cv = B.goal && B.goal.q && B.goal.q.cover;
+  if (cv && !cv.dead && !h.act && !f && dist(h.x, h.y, cv.x, cv.cy) < 22) { const a = angTo(h.x, h.y, cv.x, cv.cy); I.mx = Math.cos(a) * 0.05; I.my = Math.sin(a) * 0.05; if (h.stam > 20 && chance(dt * 9)) I.atkP = true; return; }
   if (B.stuck && !h.act) { const p = A.props.filter(q => !q.dead && q.solid && q.hp < 1e8 && !(q.sealed && !q.sealed.open) && !(q.kind === 'tchest' && q.open) && !(q.botNo > G.time) && dist(h.x, h.y, q.x, q.cy) < 28).sort((a, b) => dist(h.x, h.y, a.x, a.cy) - dist(h.x, h.y, b.x, b.cy))[0];
     if (p) { if (B.hitQ !== p) { B.hitQ = p; B.hitT = G.time; } else if (G.time - B.hitT > 4) { p.botNo = G.time + 20; B.hitQ = null; } // (four seconds at it and still standing: something else)
       const a = angTo(h.x, h.y, p.x, p.cy); I.mx = Math.cos(a) * 0.05; I.my = Math.sin(a) * 0.05; if (h.stam > 20 && chance(dt * 9)) I.atkP = true; return; }
