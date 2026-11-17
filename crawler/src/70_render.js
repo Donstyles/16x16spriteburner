@@ -84,7 +84,7 @@ function drawUnit(c, u) {
   if (back) drawWeapon(c, u, pose, Wc, fr, fw, foot, dip, cut);
   c.save(); if (u.z < 0) { c.beginPath(); c.rect(u.x - 40, u.y - 90, 80, 91); c.clip(); } // rising out of the floor: nothing shows below it
   // on whole pixels: drawn at a fraction of one, a frame's edge columns read past it into the next frame on the sheet (a dark pixel by a head)
-  c.translate(Math.round(u.x + jit + (dp ? dp.jit : 0) + (u.sway || 0)), Math.round(u.y - u.z));
+  c.translate(Math.round(u.x + jit + (dp ? dp.jit : 0) + (u.sway || 0)), Math.round(u.y - u.z - (u.lift || 0))); // (lift: standing on something raised, a plate's slab)
   if ((sleep && !FLAT_SLEEPERS.has(u.spr)) || (dp && dp.lie)) { const L = lieOf(u.spr, sc), fs = u.face < 0 ? -1 : 1; c.translate(fs * L.half, L.dy); c.rotate(-fs * Math.PI / 2); } // asleep: lying on its back, its front turned up (a quarter turn, exact to the pixel)
   if (ra) { // a roll: one full turn the way the hero travels, in quarter turns so every pixel stays on the grid
     const p = Math.min(1, ra.t / ra.dur), turn = Math.min(4, Math.floor((p + 0.14) * 4.5)) / 4, cy = Math.round(-6 * sc);
@@ -206,7 +206,7 @@ function render() {
   drawGround(c, ox, oy, bw, bh);
   const tb = ARENA.th === THEMES.brown ? 5 : 0; for (const t of ARENA.torches) { const f = ((G.time * 9 + t.f) | 0) % 4; c.drawImage(IMG.cellar, (tb + f) * TS, 26 * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); } // (the brown floors' own, iron on stone)
   drawWorks(c); drawPits(c); drawWet(c); drawHazards(c); drawWake(c); drawRuns(c); drawDoors(c); drawTele(c); drawTelegraphs(c);
-  for (const u of G.units) { if (u.dead && u.team === 'foe') continue; if (u.team === 'foe' && !foeShown(u)) continue; if (u.under || u.z < -1 || u.fall) continue; pxShadow(c, u.x, u.y, u.r * 1.3 * (1 - Math.min(0.6, u.z / 160))); }
+  for (const u of G.units) { if (u.dead && u.team === 'foe') continue; if (u.team === 'foe' && !foeShown(u)) continue; if (u.under || u.z < -1 || u.fall) continue; pxShadow(c, u.x, u.y - (u.lift || 0), u.r * 1.3 * (1 - Math.min(0.6, u.z / 160))); }
   // everything standing, lying or flying, drawn back to front by where it meets the floor
   const list = []; for (const u of G.units) list.push([u.y, 0, u]); for (const p of ARENA.props) if (!p.dead && !p.flat) { const F = propFoot(p); list.push([F ? F.y1 : p.y, 1, p]); }
   for (const d of G.drops) list.push([d.y, 2, d]); for (const p of G.proj) list.push([p.y, 3, p]); for (const r of FX.rocks) list.push([r.y, 4, r]); list.sort((a, b) => a[0] - b[0]);

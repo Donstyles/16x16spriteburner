@@ -223,20 +223,31 @@ function spikeFrame(s) { const t = (G.time + s.ph) % SPIKE_T; return t < 1.55 ? 
 function worksTick(dt) {
   const A = ARENA; if (!A) return; const heroes = G.heroes.filter(h => !h.dead && !h.enter);
   for (const pl of A.plates || []) {
-    // the plate stands well proud of the floor: a hero coming at it stops short, crouches a beat and hops up onto it, and is
-    // drawn onto the middle of the raised button (drawn 4 px up from its tile) through the hop and a moment after landing
-    if (!pl.down) for (const h of heroes) {
-      const tx = pl.x, ty = pl.y - 4, dx = tx - h.x, dy = ty - h.y, d = Math.hypot(dx, dy); pl.on = pl.on || new Set();
-      if (!pl.on.has(h) && d < 22 && d > 7 && h.z <= 0.5 && !(h.brake > 0) && h.vx * dx + h.vy * dy > 0) { pl.on.add(h); Object.assign(h, { brake: 0.2, brakeK: 0.08, hopV: 98, plateTgt: { x: tx, y: ty, pl, t: 0 } }); }
-      else if (d > 26) { pl.on.delete(h); if (h.plateTgt && h.plateTgt.pl === pl) h.plateTgt = null; }
-    }
-    for (const h of heroes) { // the magnet: on its way up and just after, onto the button's middle
-      const T = h.plateTgt; if (!T || T.pl !== pl || h.brake > 0) continue; const d = Math.hypot(T.x - h.x, T.y - h.y);
-      if (h.z > 0.3 || d < 12) { h.x = damp(h.x, T.x, 34, dt); h.y = damp(h.y, T.y, 34, dt); h.vx *= 0.5; h.vy *= 0.5; if (h.z <= 0.3) T.t += dt; }
-      if (T.t > 0.35 || d > 26) h.plateTgt = null;
+    // The socket is a slab standing proud of the floor (its front face three pixels high), the button raised in it two more
+    // until a foot drives it flush. Whoever stands on it stands that much higher (lift: drawn up, the shadow on the slab
+    // with them). A hero coming at it stops short, crouches a beat and hops up, pressed or not; on the way up he is drawn
+    // gently toward its middle. Stepping off, he drops down with a little hop. Its footprint on the floor: the tile, from
+    // the slab's top (three pixels higher than the floor it stands on) to the foot of its face.
+    const lift = pl.down ? 5 - Math.min(2, (pl.t || 0) / 0.06 * 2 / 3) : 5, x0 = pl.x - 8, x1 = pl.x + 8, y0 = pl.y - 6, y1 = pl.y + 7;
+    for (const h of heroes) {
+      const inside = h.x >= x0 && h.x <= x1 && h.y >= y0 && h.y <= y1;
+      if (h.onPlat === pl) {
+        if (!inside) { h.onPlat = null; h.lift = 0; h.z = (h.z || 0) + lift; h.vz = Math.max(h.vz || 0, 30); h.hopT = G.time; smoke(h.x, h.y, 2, 'dust', 4, 8, 0.5); continue; } // off the edge: down with a little hop
+        h.lift = lift; continue;
+      }
+      if (h.platHop === pl && !(h.brake > 0) && h.hopT && G.time - h.hopT > 0.05) {
+        // coming down over the slab, he lands on it as he reaches its height; coming down short of it, on the floor
+        if (inside && (h.vz || 0) <= 0 && h.z <= lift) { h.platHop = null; h.onPlat = pl; h.lift = lift; h.z = 0; h.vz = 0; continue; }
+        if (h.z <= 0.3) h.platHop = null;
+        else { if ((h.vz || 0) > 0) { h.x = damp(h.x, pl.x, 6, dt); h.y = damp(h.y, (y0 + y1) / 2, 6, dt); } continue; } // the gentle pull, on the way up only
+      }
+      // coming at it: a few pixels short of its edge and heading in, the check and the hop
+      const ex = Math.max(x0 - h.x, 0, h.x - x1), ey = Math.max(y0 - h.y, 0, h.y - y1), dx = pl.x - h.x, dy = (y0 + y1) / 2 - h.y;
+      if (h.platHop !== pl && Math.hypot(ex, ey) < 5 && h.z <= 0.5 && !(h.brake > 0) && h.vx * dx + h.vy * dy > 0) Object.assign(h, { brake: pl.down ? 0.12 : 0.2, brakeK: 0.08, hopV: pl.down ? 78 : 98, platHop: pl });
+      else if (h.platHop === pl && h.brake <= 0 && h.z <= 0.5 && Math.hypot(ex, ey) > 12) h.platHop = null;
     }
     // (pressed once he has landed on it)
-    if (!pl.down && heroes.some(h => h.z <= 0.5 && Math.abs(h.x - pl.x) < 8 && Math.abs(h.y - pl.y) < 7)) { pl.down = true; pl.t = 0; SFX.stone(panOf(pl.x), true); shake(0.05); }
+    if (!pl.down && heroes.some(h => h.onPlat === pl && h.z <= 0.5)) { pl.down = true; pl.t = 0; SFX.stone(panOf(pl.x), true); shake(0.05); }
     if (pl.down) { pl.t += dt; pl.f = Math.min(3, Math.floor(pl.t / 0.06)); if (pl.pool && !pl.pool.drain && pl.t > 0.35) { if (pl.remote) startCine(pl); else startDrain(pl.pool); } }
   }
   for (const p of A.pools || []) if (p.drain === 1) {
@@ -266,9 +277,9 @@ function worksTick(dt) {
     v.t += dt; if (v.t > 0 && v.t - dt <= 0) { shake(0.3); flashLight(v.blocks[0].x, v.blocks[0].cy, 110, 'gold', 1.2, 0.6); }
     v.blocks.forEach((b, i) => { const u = v.t - i * 0.14; if (u <= 0 || b.f >= 3 && !b.solid) return; const f = Math.min(3, Math.floor(u / 0.12)); if (f > b.f) { b.f = f; debris(b.x, b.cy, 3, ['#5a5450', '#7a726a'], 40, 60, 1.1); if (f === 1) smoke(b.x, b.cy, 2, 'dust', 6, 12, 0.8); } if (f >= 3 && b.solid) { b.solid = false; b.flat = true; } });
   }
-  const stabbed = new Set(); let ring = false;
+  const stabbed = new Set(); let rising = false; // (not 'ring': that is the ring effect the runes send out, above)
   for (const s of A.spikes || []) { // up: whoever stands over it, or steps onto it while it is up, is stabbed (once a beat)
-    const f = spikeFrame(s); if (f === 1 && s.was !== 1) { s.hit.clear(); if (G.me && dist(G.me.x, G.me.y, s.x, s.y) < 200) ring = s; }
+    const f = spikeFrame(s); if (f === 1 && s.was !== 1) { s.hit.clear(); if (G.me && dist(G.me.x, G.me.y, s.x, s.y) < 200) rising = s; }
     if (f === 1) for (const u of G.units) if (!u.dead && !u.fly && !u.under && (u.z || 0) < 4 && Math.abs(u.x - s.x) < 8 && Math.abs(u.y - s.y) < 8 && !s.hit.has(u) && !stabbed.has(u)) {
       // thrown hard off the field along the corridor (harder than a brute's shove): out the nearer end, or back the way he came
       const X = s.ax === 'x', c = s.fc != null ? s.fc : X ? s.x : s.y, d = (X ? u.x : u.y) - c, v = X ? u.vx : u.vy, sg = Math.abs(d) > 3 ? Math.sign(d) : v ? -Math.sign(v) : 1, K = 480;
@@ -277,7 +288,7 @@ function worksTick(dt) {
     }
     s.was = f;
   }
-  if (ring) SFX.spike(panOf(ring.x));
+  if (rising) SFX.spike(panOf(rising.x));
 }
 function startDrain(p) {
   p.drain = 1; const [dx, dy] = p.drainAt; SFX.drain(panOf(dx * TS)); SFX.quake(0.8);
