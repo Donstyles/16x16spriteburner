@@ -211,8 +211,8 @@ function drawMail(c, x, y, w, h, hero, hole) { // its broken edge: hard and dark
     if (j % 3 === 2) { px2(c, MCOL.link, X + e * QP, Y + j * QP); px2(c, MCOL.link, X + e * QP, Y + (j + 1) * QP); }
   }, '#ffffff', under); // (over the gambeson, its end is a broken edge from the start)
 }
-// the portrait's frame of mail; worn over the gambeson the frame is split corner to corner, the mail its upper left
-// half and the quilting its lower right, the mail's edge hard and dark along the diagonal with a pixel of shadow on
+// the portrait's frame of mail; worn over the gambeson the frame is split corner to corner, the mail its lower left
+// half and the quilting its upper right, the mail's edge hard and dark along the diagonal with a pixel of shadow on
 // the quilting, so both are plain to see
 function drawMailFrame(c, x, y, size, hero) {
   const k = clamp((G.time - (hero.mailT0 || -9)) / 0.7, 0, 1), X = Math.round(x) - 8, Y = Math.round(y) - 8, W = Math.round(size / QP) + 8, T = mailTex(W, W, [4, 4, W - 8, W - 8], false);
@@ -220,10 +220,10 @@ function drawMailFrame(c, x, y, size, hero) {
   if (!quiltUnder(hero)) { quiltRows(c, T, X, Y, () => Math.round(W * k)); c.restore(); return; }
   const ring = (a, b) => !(a >= 4 && a < W - 4 && b >= 4 && b < W - 4) && notchedEdge(a, b, W, W, mailNotch) !== 'out', m = Math.round(W * k);
   for (let j = 0; j < W; j++) {
-    const n = Math.min(m, W - 1 - j); if (n > 0) c.drawImage(T, 0, j, n, 1, X, Y + j * QP, n * QP, QP);
-    if (k < 1) continue; const e = W - 1 - j; // (the diagonal: its edge, and its shadow on the quilting)
+    const n = Math.min(m, j); if (n > 0) c.drawImage(T, 0, j, n, 1, X, Y + j * QP, n * QP, QP);
+    if (k < 1) continue; const e = j; // (the diagonal, top left to bottom right: its edge, and its shadow on the quilting)
     if (ring(e, j)) px2(c, MCOL.o, X + e * QP, Y + j * QP);
-    if (e + 1 < W && ring(e + 1, j) && e + 1 !== W - 1 && j !== 0) px2(c, QCOL.line, X + (e + 1) * QP, Y + j * QP);
+    if (e + 1 < W - 1 && ring(e + 1, j) && j !== 0 && j !== W - 1) px2(c, QCOL.line, X + (e + 1) * QP, Y + j * QP);
   }
   c.restore();
 }
