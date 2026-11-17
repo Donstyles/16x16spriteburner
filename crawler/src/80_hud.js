@@ -68,7 +68,7 @@ function drawHeroPanel(c, h, L, T, W) {
   c.strokeStyle = 'rgba(0,0,0,0.7)'; c.strokeRect(L + 1.5, T + 1.5, P - 3, P - 3);
   c.fillStyle = '#c8a060'; for (const [cx, cy] of [[L, T], [L + P - 2, T], [L, T + P - 2], [L + P - 2, T + P - 2]]) c.fillRect(cx, cy, 2, 2); // the frame's corner studs
   if (h.gamb > 0) { // worn, the gambeson pads his portrait's frame as well, stitched in with the band round his health
-    const k = clamp((G.time - (h.gambT0 || -9)) / 0.7, 0, 1); c.save(); c.beginPath(); c.rect(L - 4, T - 4, Math.round((P + 8) * k), P + 8); c.rect(L, T, P, P); c.clip('evenodd'); quiltBand(c, L - 4, T - 4, P + 8, P + 8); c.restore(); }
+    drawQuiltFrame(c, L, T, P, h); }
   // the name
   font(c, 900, 18, F_DISP); label(c, KITS[h.kit].name, x0, T + 13, '#f8ecd6', { stroke: 3 });
   // health (worn in a gambeson, the bar sits in a band of quilted cloth: drawQuilt)
@@ -107,32 +107,53 @@ function hudBar(c, x, y, w, h, f, trailKey, cols, n) {
   const fw = Math.round(w * f); if (fw > 0) { const gr = c.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, cols[0]); gr.addColorStop(0.45, cols[1]); gr.addColorStop(1, cols[2]); c.fillStyle = gr; c.fillRect(x, y, fw, h); c.fillStyle = 'rgba(255,255,255,0.28)'; c.fillRect(x, y, fw, Math.max(1, Math.round(h * 0.22))); c.fillStyle = 'rgba(255,255,255,0.55)'; c.fillRect(x + fw - 1, y, 1, h); }
   c.fillStyle = 'rgba(0,0,0,0.45)'; for (let i = 1; i < n; i++) c.fillRect(Math.round(x + w * i / n), y, 1, h);
 }
-// The gambeson on the HUD: the health bar in a padded band of quilted linen (x, y, w, h its outer box; the bar is drawn
-// over its middle), light along the top, the quilting's channels every six pixels each with its padding catching the
-// light, a running stitch along both edges. As much of it is left as he has armour left, hacked back from the right to a
-// ragged edge; each piece hacked off falls away and fades. Put on, it is stitched in from the left, a needle's glint at the seam.
-function quiltHole(c, x, y, w, h, hole) { if (!hole) return; c.beginPath(); c.rect(x, y, w, h); c.rect(hole[0], hole[1], hole[2], hole[3]); c.clip('evenodd'); } // (the band, less the window onto the bar)
-function quiltBand(c, x, y, w, h) {
-  const g = c.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, '#eadbb4'); g.addColorStop(0.5, '#cdb586'); g.addColorStop(1, '#a28a58'); c.fillStyle = g; c.fillRect(x, y, w, h);
-  c.fillStyle = 'rgba(96,70,36,0.6)'; for (let i = x + 4; i < x + w - 2; i += 6) c.fillRect(i, y, 1, h);
-  c.fillStyle = 'rgba(255,248,225,0.4)'; for (let i = x + 1; i < x + w - 2; i += 6) c.fillRect(i, y + 1, 2, 1);
-  c.fillStyle = '#6e5432'; for (let i = x + 2; i < x + w - 2; i += 4) { c.fillRect(i, y + 1, 2, 1); c.fillRect(i, y + h - 2, 2, 1); }
-  c.strokeStyle = '#2a1e10'; c.lineWidth = 1; c.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+// The gambeson on the HUD, in pixel art as the game is: a band of quilted linen wrapped round the health bar (and a
+// frame of it round the portrait), drawn in art pixels two screen pixels square in the gambeson sprite's own colours
+// (armours [0, 5]): cream padding in channels stitched every four pixels, as a gambeson is quilted, lit from the left, a black
+// outline as the sprites have, a dark brown seam where the bar is tucked in. As much of it is left as he has armour
+// left, hacked back from the right to a ragged edge with loose threads; each piece hacked off falls away and fades.
+// Put on, it is stitched in from the left, a needle's glint at the seam.
+const QP = 2, QCOL = { o: '#070707', base: '#e8d4b2', hi: '#fff9e4', line: '#cca96d', low: '#ddbe88', seam: '#452e25' };
+const QTEX = {};
+function quiltTex(w, h, hole) { // w, h, hole ([x, y, w, h]) in art pixels; the hole see-through
+  const key = w + 'x' + h + (hole ? ':' + hole.join(',') : ''); if (QTEX[key]) return QTEX[key];
+  const cv = mkCanvas(w, h), g = cv.getContext('2d'), inH = (x, y) => hole && x >= hole[0] && x < hole[0] + hole[2] && y >= hole[1] && y < hole[1] + hole[3];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (inH(x, y)) continue; let col;
+    if (x === 0 || y === 0 || x === w - 1 || y === h - 1) col = QCOL.o;
+    else if (hole && (inH(x - 1, y) || inH(x + 1, y) || inH(x, y - 1) || inH(x, y + 1) || inH(x - 1, y - 1) || inH(x + 1, y + 1) || inH(x - 1, y + 1) || inH(x + 1, y - 1))) col = QCOL.seam;
+    else { const u = x % 4; col = u === 0 ? QCOL.line : u === 1 ? QCOL.hi : u === 3 ? QCOL.low : QCOL.base; if (u !== 0 && (y === 1 || (hole && inH(x, y + 2) && !inH(x, y + 1)))) col = col === QCOL.low ? QCOL.base : QCOL.hi; } // (padded channels, stitched every four pixels, lit along the top)
+    g.fillStyle = col; g.fillRect(x, y, 1, 1);
+  }
+  return (QTEX[key] = cv);
 }
-function drawQuilt(c, x, y, w, h, hero, hole) { // (hole: the part of the health bar left showing, [x, y, w, h])
-  const k = clamp((G.time - (hero.gambT0 || -9)) / 0.7, 0, 1), f = clamp((hero.gamb || 0) / GAMBESON.max, 0, 1), sw = Math.round(w * Math.min(k, f));
-  if (sw > 0) {
-    c.save(); c.beginPath(); c.moveTo(x, y); c.lineTo(x + sw, y);
-    if (f < 1 && k >= f) for (let j = 0; j <= h; j += 2) c.lineTo(x + sw - ((j * 7 + sw * 3) % 5) * 0.8, y + j); // (the hacked edge, ragged)
-    c.lineTo(x + sw, y + h); c.lineTo(x, y + h); c.closePath(); c.clip(); quiltHole(c, x, y, w, h, hole); quiltBand(c, x, y, w, h);
-    if (hole) { c.strokeStyle = 'rgba(42,30,16,0.85)'; c.lineWidth = 1; c.strokeRect(hole[0] - 0.5, hole[1] - 0.5, hole[2] + 1, hole[3] + 1); } c.restore(); // (the seam where the bar is tucked in)
-    if (k < f) { c.fillStyle = '#fffbe8'; c.fillRect(x + sw - 1, y + 1, 2, 2); c.fillRect(x + sw - 1, y + h - 3, 2, 2); }
+// the band (x, y: its top left on screen; w, h, hole in art pixels), rows cut to n art pixels each (the hacked edge)
+function quiltRows(c, T, x, y, cut) {
+  for (let j = 0; j < T.height; j++) { const n = Math.min(T.width, cut(j)); if (n > 0) c.drawImage(T, 0, j, n, 1, x, y + j * QP, n * QP, QP); }
+}
+function drawQuilt(c, x, y, w, h, hero, hole) { // (x, y, w, h, hole in screen pixels; snapped to the art pixels)
+  x = Math.round(x / QP) * QP; y = Math.round(y / QP) * QP; const W = Math.round(w / QP), H = Math.round(h / QP);
+  const T = quiltTex(W, H, hole ? [Math.round((hole[0] - x) / QP), Math.round((hole[1] - y) / QP), Math.round(hole[2] / QP), Math.round(hole[3] / QP)] : null);
+  const k = clamp((G.time - (hero.gambT0 || -9)) / 0.7, 0, 1), f = clamp((hero.gamb || 0) / GAMBESON.max, 0, 1), n = Math.round(W * Math.min(k, f)), torn = f < 1 && k >= f;
+  c.save(); c.imageSmoothingEnabled = false;
+  if (n > 0) {
+    const rag = j => torn ? [0, 1, 2, 1, 0, 2, 1, 0, 1, 2, 0, 1, 2][j % 13] : 0; // (the hacked edge: ragged, row by row)
+    quiltRows(c, T, x, y, j => n - rag(j));
+    if (torn) for (let j = 1; j < H - 1; j++) { const e = n - rag(j); if (e <= 0 || e >= W) continue; c.fillStyle = QCOL.seam; c.fillRect(x + e * QP, y + j * QP, QP, QP); if (j % 4 === 1) { c.fillStyle = QCOL.hi; c.fillRect(x + (e + 1) * QP, y + j * QP, QP, QP); } } // (its torn rim, a loose thread here and there)
+    if (k < f) { c.fillStyle = '#fffbe8'; c.fillRect(x + n * QP - QP, y + QP, QP, QP); c.fillRect(x + n * QP - QP, y + (H - 2) * QP, QP, QP); }
   }
   hero.gambLost = (hero.gambLost || []).filter(p => G.time - p.t0 < 0.6);
   for (const p of hero.gambLost) { // the pieces hacked off, falling away
-    const u = (G.time - p.t0) / 0.6, xa = x + Math.round(w * p.a), xb = x + Math.round(w * p.b); if (xb <= xa) continue;
-    c.save(); c.globalAlpha = 1 - u; c.translate(0, 26 * u * u + 2 * u); c.beginPath(); c.rect(xa, y, xb - xa, h); c.clip(); quiltHole(c, x, y, w, h, hole); quiltBand(c, x, y, w, h); c.restore();
+    const u = (G.time - p.t0) / 0.6, a = Math.round(W * p.a), b = Math.round(W * p.b); if (b <= a) continue;
+    c.globalAlpha = 1 - u; const dy = Math.round((26 * u * u + 2 * u) / QP) * QP;
+    for (let j = 0; j < H; j++) c.drawImage(T, a, j, b - a, 1, x + a * QP, y + dy + j * QP, (b - a) * QP, QP); c.globalAlpha = 1;
   }
+  c.restore();
+}
+// the portrait's frame of it (x, y, size: the portrait's box, in screen pixels), stitched in with the band
+function drawQuiltFrame(c, x, y, size, hero) {
+  const k = clamp((G.time - (hero.gambT0 || -9)) / 0.7, 0, 1), X = Math.round((x - 8) / QP) * QP, Y = Math.round((y - 8) / QP) * QP, W = Math.round((size + 16) / QP), T = quiltTex(W, W, [4, 4, W - 8, W - 8]);
+  c.save(); c.imageSmoothingEnabled = false; quiltRows(c, T, X, Y, () => Math.round(W * k)); c.restore();
 }
 function drawHUD() {
   const c = ctx, d = VIEW.dpr, W = VIEW.w, H = VIEW.h, S = VIEW.safe, L = Math.max(12, S.l + 10), R = W - Math.max(12, S.r + 10), T = Math.max(10, S.t + 8);
