@@ -24,16 +24,22 @@ const pitFace = A => A.th === THEMES.grey ? [10, 12] : [10, 4];
 let PIT_BLACK = null;
 function pitBlack() { if (PIT_BLACK) return PIT_BLACK; const P = PIX.cellar, i = ((4 * TS + 15) * P.w + 10 * TS + 8) * 4; return (PIT_BLACK = `rgb(${P.d[i]},${P.d[i + 1]},${P.d[i + 2]})`); }
 function pitAt(x, y) { const A = ARENA; if (!A || !A.fl) return false; const tx = Math.floor(x / TS), ty = Math.floor(y / TS); return tx >= 0 && ty >= 0 && tx < A.w && ty < A.h && A.fl[ty * A.w + tx] === PIT; }
-// a pit tile on the ground: black, the earth face under a floor to its north, and the wall strips beside it
+// a pit tile on the ground: black, the earth face under a floor to its north, and the walls beside it: every pixel a wall
+// piece leaves open in the four next to the pit (a side wall's strip, the open corner under a cap, a south wall's top)
+// is pit too, the earth face carried on into it, and the wall's own pixels stay over it
+const PIT_BAND = 4; let PITB = null;
 function pitPaint(A, g, i) {
-  const W = A.w, x = i % W, y = (i / W) | 0, n = A.fl[i - W], M = A.mg, face = n === 1 || n === 3, f = pitFace(A), v = (x * 5 + y * 3) % 6;
+  const W = A.w, x = i % W, y = (i / W) | 0, n = A.fl[i - W], face = n === 1 || n === 3, f = pitFace(A), v = (x * 5 + y * 3) % 6;
   g.fillStyle = pitBlack(); g.fillRect(x * TS, y * TS, TS, TS); if (face) sheetTile(g, f, x * TS, y * TS, v, 0);
-  if (!M) return; const sx = (f[0] + v) * TS, sy = f[1] * TS;
-  const ml = A.fl[i - 1] === 0 ? M.r[i - 1] : 0, mr = A.fl[i + 1] === 0 ? M.l[i + 1] : 0, mb = A.fl[i + W] === 0 ? M.t[i + W] : 0;
-  g.fillStyle = pitBlack();
-  if (ml) { g.fillRect(x * TS - ml, y * TS, ml, TS); if (face) g.drawImage(IMG.cellar, sx + TS - ml, sy, ml, TS, x * TS - ml, y * TS, ml, TS); }
-  if (mr) { g.fillRect((x + 1) * TS, y * TS, mr, TS); if (face) g.drawImage(IMG.cellar, sx, sy, mr, TS, (x + 1) * TS, y * TS, mr, TS); }
-  if (mb) g.fillRect(x * TS, (y + 1) * TS, TS, mb);
+  if (!A.wt) return; const sx = (f[0] + v) * TS, sy = f[1] * TS, B = PIT_BAND;
+  // [the wall's index, the band in its own tile, where the face's columns come from (or none)]
+  for (const [j, bx, by, bw, bh, fx] of [[i - 1, TS - B, 0, B, TS, TS - B], [i + 1, 0, 0, B, TS, 0], [i + W, 0, 0, TS, B, -1]]) {
+    if (A.fl[j] !== 0 || !A.wt[j]) continue; const c = A.wt[j] - 1, ptx = (c / 64) | 0, pty = c % 64, wx = (j % W) * TS, wy = ((j / W) | 0) * TS;
+    if (!PITB) PITB = mkCanvas(TS, TS); const t = PITB.getContext('2d'); t.imageSmoothingEnabled = false; t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, TS, TS);
+    t.fillStyle = pitBlack(); t.fillRect(bx, by, bw, bh); if (face && fx >= 0) t.drawImage(IMG.cellar, sx + fx, sy, bw, TS, bx, 0, bw, TS);
+    t.globalCompositeOperation = 'destination-out'; t.save(); if (A.wf && A.wf[j]) { t.translate(TS, 0); t.scale(-1, 1); } t.drawImage(IMG.cellar, ptx * TS, (pty + A.th.fy) * TS, TS, TS, 0, 0, TS, TS); t.restore(); // (only where the wall leaves it open)
+    t.globalCompositeOperation = 'source-over'; g.drawImage(PITB, wx, wy);
+  }
 }
 // marks painted on the ground (blood, scorch, footprints) never stay on a pit: the pits they touched are painted again
 function pitMend(A, g, x0, y0, x1, y1) {

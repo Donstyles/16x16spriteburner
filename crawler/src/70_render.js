@@ -186,7 +186,20 @@ function renderLight() {
 }
 // The world, its effects and its light are drawn at the game's own resolution (one canvas pixel per game pixel) and only then
 // enlarged to the screen, nearest-neighbour, through the camera. Every shadow, ring, glow and spark comes out in chunky pixels.
-let wb = null, wbc = null, PXO = { x: 0, y: 0 };
+let wb = null, wbc = null, PXO = { x: 0, y: 0 }, shb = null, shbc = null;
+// What lies flat on the floor (a shadow) shows only on the floor: never on a wall (a north wall's bricks are a wall
+// standing up from the floor's edge), on water or down a pit. Everything that is not floor, opaque, over the whole map;
+// the strip of floor a south wall leaves showing along its top is floor. Made again when the floor changes (a cracked
+// slab gives way, a cistern drains or fills: A.flv).
+function noFloor() {
+  const A = ARENA; if (A.nfC && A.nfV === (A.flv || 0)) return A.nfC; const c = A.nfC || (A.nfC = mkCanvas(A.pw, A.ph)), g = c.getContext('2d');
+  g.clearRect(0, 0, A.pw, A.ph); g.fillStyle = '#000';
+  for (let ty = 0; ty < A.h; ty++) for (let tx = 0; tx < A.w; tx++) {
+    const i = ty * A.w + tx, v = A.fl[i]; if (v === 1 || v === 3) continue;
+    const t = v === 0 && A.mg && ty > 0 && FLOOR(A.fl[i - A.w]) ? A.mg.t[i] : 0; g.fillRect(tx * TS, ty * TS + t, TS, TS - t);
+  }
+  A.nfV = A.flv || 0; return c;
+}
 // The buffers are sized with room to spare and keep their size through shakes and zoom kicks: re-sizing a canvas makes a phone
 // throw away and allocate its texture, and doing that every frame of a fight was what made crowds stutter.
 const BUF = { w: 0, h: 0, okT: 0 };
@@ -206,7 +219,11 @@ function render() {
   drawGround(c, ox, oy, bw, bh);
   const tb = ARENA.th === THEMES.brown ? 5 : 0; for (const t of ARENA.torches) { const f = ((G.time * 9 + t.f) | 0) % 4; c.drawImage(IMG.cellar, (tb + f) * TS, 26 * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); } // (the brown floors' own, iron on stone)
   drawWorks(c); drawPits(c); drawWet(c); drawHazards(c); drawWake(c); drawRuns(c); drawDoors(c); drawTele(c); drawTelegraphs(c);
-  for (const u of G.units) { if (u.dead && u.team === 'foe') continue; if (u.team === 'foe' && !foeShown(u)) continue; if (u.under || u.z < -1 || u.fall) continue; pxShadow(c, u.x, u.y - (u.lift || 0), u.r * 1.3 * (1 - Math.min(0.6, u.z / 160))); }
+  // the shadows, on a layer of their own cut to the floor (noFloor), then laid down
+  if (!shb) { shb = mkCanvas(1, 1); shbc = shb.getContext('2d'); } fitBuf(shb, bw, bh); const S = shbc; S.setTransform(1, 0, 0, 1, 0, 0); S.globalCompositeOperation = 'source-over'; S.clearRect(0, 0, bw, bh); X(S);
+  for (const u of G.units) { if (u.dead && u.team === 'foe') continue; if (u.team === 'foe' && !foeShown(u)) continue; if (u.under || u.z < -1 || u.fall) continue; pxShadow(S, u.x, u.y - (u.lift || 0), u.r * 1.3 * (1 - Math.min(0.6, u.z / 160))); }
+  S.globalCompositeOperation = 'destination-out'; S.drawImage(noFloor(), 0, 0); S.globalCompositeOperation = 'source-over';
+  c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(shb, 0, 0); c.restore();
   // everything standing, lying or flying, drawn back to front by where it meets the floor
   const list = []; for (const u of G.units) list.push([u.y, 0, u]); for (const p of ARENA.props) if (!p.dead && !p.flat) { const F = propFoot(p); list.push([F ? F.y1 : p.y, 1, p]); }
   for (const d of G.drops) list.push([d.y, 2, d]); for (const p of G.proj) list.push([p.y, 3, p]); for (const r of FX.rocks) list.push([r.y, 4, r]); list.sort((a, b) => a[0] - b[0]);

@@ -101,10 +101,10 @@ function buildArena(floor) {
     }
   }
   const put = (c, tx, ty, x, y, flip) => { c.save(); c.translate(flip ? (x + 1) * TS : x * TS, y * TS); if (flip) c.scale(-1, 1); c.drawImage(IMG.cellar, tx * TS, (ty + th.fy) * TS, TS, TS, 0, 0, TS, TS); c.restore(); };
-  const wt = new Uint16Array(W * H); // which wall piece went where (tx * 64 + ty + 1), for what is built against the walls later
+  const wt = new Uint16Array(W * H), wf = new Uint8Array(W * H); // which wall piece went where (tx * 64 + ty + 1), mirrored or not, for what is built against the walls later
   const mg = { t: new Uint8Array(W * H), l: new Uint8Array(W * H), r: new Uint8Array(W * H) }; // the floor a wall piece leaves showing (see wallBox)
   const T = (tx, ty, x, y, flip) => {
-    put(g, tx, ty, x, y, flip); wt[y * W + x] = tx * 64 + ty + 1; const f = FOOT[tx + ',' + ty], o = f ? (flip ? [f[0], f[2], f[1]] : f) : openEdges(tx, ty + th.fy, flip); mg.t[y * W + x] = o[0]; mg.l[y * W + x] = o[1]; mg.r[y * W + x] = o[2]; const k = tx + ',' + ty, m = CEIL[k] || CEIL_N[k], to = CEIL[k] ? cg : cng; if (!m) return;
+    put(g, tx, ty, x, y, flip); wt[y * W + x] = tx * 64 + ty + 1; wf[y * W + x] = flip ? 1 : 0; const f = FOOT[tx + ',' + ty], o = f ? (flip ? [f[0], f[2], f[1]] : f) : openEdges(tx, ty + th.fy, flip); mg.t[y * W + x] = o[0]; mg.l[y * W + x] = o[1]; mg.r[y * W + x] = o[2]; const k = tx + ',' + ty, m = CEIL[k] || CEIL_N[k], to = CEIL[k] ? cg : cng; if (!m) return;
     const R = m.map(([mx, my, mw, mh]) => [x * TS + (flip ? TS - mx - mw : mx), y * TS + my, mw, mh]);
     to.save(); to.beginPath(); for (const [rx, ry, rw, rh] of R) to.rect(rx, ry, rw, rh); to.clip(); put(to, tx, ty, x, y, flip); to.restore();
   };
@@ -121,7 +121,7 @@ function buildArena(floor) {
     else if (O(x + 1, y + 1)) T(5, 0, x, y); else if (O(x - 1, y + 1)) T(7, 0, x, y); // the inside corners of a room
     else if (O(x + 1, y - 1)) T(5, 3, x, y); else if (O(x - 1, y - 1)) T(7, 3, x, y);
   }
-  const A = ARENA = { w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilN: cn, fl, wt, mg, rooms, halls, props: [], torches: [], name: floorName(floor), floor };
+  const A = ARENA = { w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilN: cn, fl, wt, wf, mg, rooms, halls, props: [], torches: [], name: floorName(floor), floor };
   A.doors = rooms.flatMap(r => r.doors.map(d => Object.assign(d, { room: r.i, k: 0 })));
   A.start = rooms.find(r => r.kind === 'start'); A.end = rooms.find(r => r.kind === 'end');
   // ---- furnishing (the stairways' places first, so no torch or banner hangs on them)
