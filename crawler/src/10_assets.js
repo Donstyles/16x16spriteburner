@@ -85,29 +85,39 @@ function cutWeapon(key, cfg) {
   const isOut = c => c && c[0] === OUTLINE_RGB[0] && c[1] === OUTLINE_RGB[1] && c[2] === OUTLINE_RGB[2];
   const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]], N8 = N4.concat([[1, 1], [1, -1], [-1, 1], [-1, -1]]);
   const frames = [];
+  const HC = typeof HERO_CUTS !== 'undefined' ? HERO_CUTS[key] : null; // (cut by hand in the Hero Cut Painter: 11_herocuts)
   for (let f = 0; f < 4; f++) {
-    const core = (x, y) => { const c = px(f, x, y); return !!c && x >= cfg.xMin && cfg.core.includes(hex(c.slice(0, 3))); };
-    const body = (x, y) => { const c = px(f, x, y); return !!c && !isOut(c) && !core(x, y); };
+    const H = HC && HC[f], mk = (x, y) => !!H && x >= 0 && y >= 0 && x < fw && y < fh && H.mask[y * fw + x] === 1;
+    // by hand: the weapon is what was marked; by colour: the weapon's own colours, right of xMin, and the outline about them
+    const core = H ? (x, y) => { const c = px(f, x, y); return !!c && !isOut(c) && mk(x, y); } : (x, y) => { const c = px(f, x, y); return !!c && x >= cfg.xMin && cfg.core.includes(hex(c.slice(0, 3))); };
+    const body = (x, y) => { const c = px(f, x, y); return !!c && !isOut(c) && !core(x, y) && !mk(x, y); };
     const W = new Set(), key2 = (x, y) => x + ',' + y;
     for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) {
+      if (H) { if (mk(x, y) && px(f, x, y)) W.add(key2(x, y)); continue; }
       if (core(x, y)) { W.add(key2(x, y)); continue; }
       const c = px(f, x, y); if (!isOut(c)) continue;
       if (N8.some(([a, b]) => core(x + a, y + b)) && !N4.some(([a, b]) => body(x + a, y + b))) W.add(key2(x, y));
     }
     const hands = []; for (let y = 0; y < fh; y++) for (let x = Math.max(0, cfg.xMin - 2); x < fw; x++) { const c = px(f, x, y); if (c && cfg.hand.includes(hex(c.slice(0, 3))) && N8.some(([a, b]) => W.has(key2(x + a, y + b)))) hands.push([x, y, c]); }
     let mx = fw, my = fh; for (const k of W) { const [x, y] = k.split(',').map(Number); if (core(x, y)) { mx = Math.min(mx, x); my = Math.min(my, y); } }
-    frames.push({ W, hands, mx, my, core, body });
+    frames.push({ W, hands, mx, my, core, body, H });
   }
   // the grip in each frame: the weapon pixel beside the hand nearest to where frame 0's grip has moved to
+  const grip0 = frames[0].H && frames[0].H.grip || cfg.grip;
   const piv = frames.map((F, f) => {
-    const want = [cfg.grip[0] + F.mx - frames[0].mx, cfg.grip[1] + F.my - frames[0].my]; let best = want, bd = 1e9;
+    if (F.H && F.H.grip) return F.H.grip.slice(); // (set by hand)
+    const want = [grip0[0] + F.mx - frames[0].mx, grip0[1] + F.my - frames[0].my]; let best = want, bd = 1e9;
     for (const [hx, hy] of F.hands) for (const [a, b] of N4) { const x = hx + a, y = hy + b; if (!F.core(x, y)) continue; const d = Math.hypot(x - want[0], y - want[1]); if (d < bd) { bd = d; best = [x, y]; } }
-    return f === 0 ? cfg.grip : best;
+    return f === 0 ? grip0 : best;
   });
   // the hero without his weapon, frame by frame
   const cut = mkCanvas(fw * 4, fh), cx = cut.getContext('2d'), id = cx.createImageData(fw * 4, fh), E = id.data, at = (f, x, y) => (y * fw * 4 + f * fw + x) * 4;
   for (let f = 0; f < 4; f++) {
     const F = frames[f];
+    if (F.H) { // by hand: what was redrawn (alpha 1: cleared), else the original where it is not the weapon
+      for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) { const p = y * fw + x, P = F.H.paint, a = P[p * 4 + 3], i = at(f, x, y); if (a === 1) continue; const c = a > 1 ? [P[p * 4], P[p * 4 + 1], P[p * 4 + 2]] : !F.H.mask[p] && px(f, x, y); if (!c) continue; E[i] = c[0]; E[i + 1] = c[1]; E[i + 2] = c[2]; E[i + 3] = 255; }
+      continue;
+    }
     for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) { const c = px(f, x, y); if (!c || F.W.has(x + ',' + y)) continue; const i = at(f, x, y); E[i] = c[0]; E[i + 1] = c[1]; E[i + 2] = c[2]; E[i + 3] = 255; }
     for (const k of F.W) { const [x, y] = k.split(',').map(Number); if (N4.some(([a, b]) => F.body(x + a, y + b) && !F.W.has((x + a) + ',' + (y + b)))) { const i = at(f, x, y); E[i] = OUTLINE_RGB[0]; E[i + 1] = OUTLINE_RGB[1]; E[i + 2] = OUTLINE_RGB[2]; E[i + 3] = 255; } }
   }
@@ -118,13 +128,13 @@ function cutWeapon(key, cfg) {
   x0--; y0--; x1++; y1++; const iw = x1 - x0 + 1, ih = y1 - y0 + 1, img = new Uint8ClampedArray(iw * ih * 4), put = (x, y, c) => { const i = ((y - y0) * iw + (x - x0)) * 4; img[i] = c[0]; img[i + 1] = c[1]; img[i + 2] = c[2]; img[i + 3] = 255; };
   for (const [x, y] of pts) put(x, y, px(0, x, y));
   for (const [x, y] of pts) if (F0.core(x, y)) for (const [a, b] of N4) if (!F0.W.has((x + a) + ',' + (y + b))) put(x + a, y + b, OUTLINE_RGB);
-  const gx = cfg.grip[0] - x0, gy = cfg.grip[1] - y0;
+  const gx = grip0[0] - x0, gy = grip0[1] - y0;
   // which way it points at rest: from the grip to its farthest coloured pixel, to the nearest quarter turn
-  let far = 0, ang = -Math.PI / 2; for (const [x, y] of pts) if (F0.core(x, y)) { const d = Math.hypot(x - cfg.grip[0], y - cfg.grip[1]); if (d > far) { far = d; ang = Math.atan2(y - cfg.grip[1], x - cfg.grip[0]); } }
+  let far = 0, ang = -Math.PI / 2; for (const [x, y] of pts) if (F0.core(x, y)) { const d = Math.hypot(x - grip0[0], y - grip0[1]); if (d > far) { far = d; ang = Math.atan2(y - grip0[1], x - grip0[0]); } }
   const rest = Math.round(ang / (Math.PI / 2)) * (Math.PI / 2);
   let R = 0; for (let y = 0; y < ih; y++) for (let x = 0; x < iw; x++) if (img[(y * iw + x) * 4 + 3]) R = Math.max(R, Math.ceil(Math.hypot(x - gx, y - gy)) + 1);
   const I = { w: iw, h: ih, d: img, gx, gy, R }, rot = []; for (let a = 0; a < WEAPON_TURNS; a++) rot.push(turnImg(I, a));
-  let tip = 0, butt = 0; for (const [x, y] of pts) { const s = (x - cfg.grip[0]) * Math.cos(rest) + (y - cfg.grip[1]) * Math.sin(rest); tip = Math.max(tip, s); butt = Math.min(butt, s); }
+  let tip = 0, butt = 0; for (const [x, y] of pts) { const s = (x - grip0[0]) * Math.cos(rest) + (y - grip0[1]) * Math.sin(rest); tip = Math.max(tip, s); butt = Math.min(butt, s); }
   return { mid: (tip + butt) / 2, len: tip - butt, cut, cutW: silhouette(cut), rot, r: R, piv, hands: frames.map(F => F.hands), rest, tip, img: I };
 }
 // one of WEAPON_TURNS turns of a weapon image about the centre of its grip pixel: the quarter turns copy pixels exactly,
