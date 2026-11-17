@@ -72,8 +72,9 @@ function drawHeroPanel(c, h, L, T, W) {
   // the name
   font(c, 900, 18, F_DISP); label(c, KITS[h.kit].name, x0, T + 13, '#f8ecd6', { stroke: 3 });
   // health (worn in a gambeson, the bar sits in a band of quilted cloth: drawQuilt)
-  const hy = gw ? 4 : 0, gq = gw ? 12 : 0; if (gw) drawQuilt(c, x0 - 8, T + 14, bw + 16, 26, h); // (thick: while it is whole, the bar inside it is out of reach)
+  const hy = gw ? 4 : 0, gq = gw ? 12 : 0;
   hudBar(c, x0, T + 18 + hy, bw, 10, h.hp / h.maxHp, 'hpT', low ? [`rgb(255,${Math.round(110 + 60 * beat)},90)`, '#d0302a', '#6a0e10'] : ['#ff6a50', '#c8302a', '#6e1214'], Math.max(1, Math.floor(h.maxHp / 25)));
+  if (gw) drawQuilt(c, x0 - 8, T + 14, bw + 16, 26, h, [x0 + 3, T + 20 + hy, bw - 6, 6]); // (thick, and wrapped over the bar's edges: while it holds, the bar inside it is out of reach)
   if (h.acidT > 0) { const p = 0.55 + 0.45 * Math.sin(G.time * 14); c.strokeStyle = `rgba(214,255,60,${0.5 + 0.5 * p})`; c.lineWidth = 2; c.strokeRect(x0 - 3, T + 15 + hy, bw + 6, 16); c.lineWidth = 1; } // standing in acid: the bar's edge burns sour green
   font(c, 600, 12, F_NUM); label(c, Math.max(0, Math.ceil(h.hp)) + ' / ' + h.maxHp, x0 + bw - 3, T + 26.5 + hy, 'rgba(255,244,228,0.92)', { align: 'right', stroke: 3 });
   // stamina
@@ -110,6 +111,7 @@ function hudBar(c, x, y, w, h, f, trailKey, cols, n) {
 // over its middle), light along the top, the quilting's channels every six pixels each with its padding catching the
 // light, a running stitch along both edges. As much of it is left as he has armour left, hacked back from the right to a
 // ragged edge; each piece hacked off falls away and fades. Put on, it is stitched in from the left, a needle's glint at the seam.
+function quiltHole(c, x, y, w, h, hole) { if (!hole) return; c.beginPath(); c.rect(x, y, w, h); c.rect(hole[0], hole[1], hole[2], hole[3]); c.clip('evenodd'); } // (the band, less the window onto the bar)
 function quiltBand(c, x, y, w, h) {
   const g = c.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, '#eadbb4'); g.addColorStop(0.5, '#cdb586'); g.addColorStop(1, '#a28a58'); c.fillStyle = g; c.fillRect(x, y, w, h);
   c.fillStyle = 'rgba(96,70,36,0.6)'; for (let i = x + 4; i < x + w - 2; i += 6) c.fillRect(i, y, 1, h);
@@ -117,18 +119,19 @@ function quiltBand(c, x, y, w, h) {
   c.fillStyle = '#6e5432'; for (let i = x + 2; i < x + w - 2; i += 4) { c.fillRect(i, y + 1, 2, 1); c.fillRect(i, y + h - 2, 2, 1); }
   c.strokeStyle = '#2a1e10'; c.lineWidth = 1; c.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
 }
-function drawQuilt(c, x, y, w, h, hero) {
+function drawQuilt(c, x, y, w, h, hero, hole) { // (hole: the part of the health bar left showing, [x, y, w, h])
   const k = clamp((G.time - (hero.gambT0 || -9)) / 0.7, 0, 1), f = clamp((hero.gamb || 0) / GAMBESON.max, 0, 1), sw = Math.round(w * Math.min(k, f));
   if (sw > 0) {
     c.save(); c.beginPath(); c.moveTo(x, y); c.lineTo(x + sw, y);
     if (f < 1 && k >= f) for (let j = 0; j <= h; j += 2) c.lineTo(x + sw - ((j * 7 + sw * 3) % 5) * 0.8, y + j); // (the hacked edge, ragged)
-    c.lineTo(x + sw, y + h); c.lineTo(x, y + h); c.closePath(); c.clip(); quiltBand(c, x, y, w, h); c.restore();
+    c.lineTo(x + sw, y + h); c.lineTo(x, y + h); c.closePath(); c.clip(); quiltHole(c, x, y, w, h, hole); quiltBand(c, x, y, w, h);
+    if (hole) { c.strokeStyle = 'rgba(42,30,16,0.85)'; c.lineWidth = 1; c.strokeRect(hole[0] - 0.5, hole[1] - 0.5, hole[2] + 1, hole[3] + 1); } c.restore(); // (the seam where the bar is tucked in)
     if (k < f) { c.fillStyle = '#fffbe8'; c.fillRect(x + sw - 1, y + 1, 2, 2); c.fillRect(x + sw - 1, y + h - 3, 2, 2); }
   }
   hero.gambLost = (hero.gambLost || []).filter(p => G.time - p.t0 < 0.6);
   for (const p of hero.gambLost) { // the pieces hacked off, falling away
     const u = (G.time - p.t0) / 0.6, xa = x + Math.round(w * p.a), xb = x + Math.round(w * p.b); if (xb <= xa) continue;
-    c.save(); c.globalAlpha = 1 - u; c.translate(0, 26 * u * u + 2 * u); c.beginPath(); c.rect(xa, y, xb - xa, h); c.clip(); quiltBand(c, x, y, w, h); c.restore();
+    c.save(); c.globalAlpha = 1 - u; c.translate(0, 26 * u * u + 2 * u); c.beginPath(); c.rect(xa, y, xb - xa, h); c.clip(); quiltHole(c, x, y, w, h, hole); quiltBand(c, x, y, w, h); c.restore();
   }
 }
 function drawHUD() {
