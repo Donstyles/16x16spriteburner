@@ -99,7 +99,7 @@ function acidFizz(c, u, m, fr, bare, Wc, foot, dx) {
 // ---- eaten by vermin. Dying with three or more vermin round him (rats, beetles, ticks, ants, cockroaches, maggots, the
 // skitterers), he goes down and up to eight of them rush onto him and pile up on him till he is hidden; they writhe
 // there, skittering in place, chewing and crunching, blood squirting out of the heap; then they draw back, sated, and
-// what lies there is his skeleton.
+// what lies there is his skeleton (he becomes it while the heap hides him, never in view).
 const VERM = { lie: 0.35, hide: 1.5, back: 6.4 }, VERMIN_RE = /Rat$|Beetle|Bedbug|Tick$|Maggot|Ant$|Cockroach|Scarab/;
 const isVermin = f => !f.dead && !f.dying && !f.fall && (f.type === 'skitter' || (VERMIN_RE.test(f.spr) && !/^Ratkin/.test(f.spr)));
 function verminAround(h) { return G.foes.filter(f => isVermin(f) && dist(f.x, f.y, h.x, h.y) < 110).sort((a, b) => dist(a.x, a.y, h.x, h.y) - dist(b.x, b.y, h.x, h.y)).slice(0, 8); }
@@ -125,7 +125,8 @@ function verminTick(h, dt) {
     if (bleeds(h) && chance(dt * 7)) { const a = rand(TAU); for (let j = 0; j < 6; j++) part({ k: 'gore', x: h.x + rand(-6, 6), y: h.y + rand(-2, 2), z: rand(2, 6), vx: Math.cos(a) * rand(20, 60), vy: Math.sin(a) * rand(10, 40), vz: rand(30, 80), g: 420, life: 5, s0: 1, col: pick(BLOOD.red), kind: 'red' }); pool(h.x + rand(-5, 5), h.y + 1, 'red', 1.5 + t * 0.35); }
     if (chance(dt * 3)) shake(0.03);
   }
-  if (at(VERM.back)) { h.hidden = false; h.sprWas = h.spr; h.spr = 'DecrepitBones'; debris(h.x, h.y - 2, 6, [BONE.L, BONE.M, BONE.D], 30, 40, 1.5); SFX.bone(panOf(h.x), true); pool(h.x, h.y + 1, 'red', 6); } // what they leave
+  if (h.hidden && !h.sprWas && t >= VERM.hide + 0.8) { h.sprWas = h.spr; h.spr = 'DecrepitBones'; } // stripped to the bones out of sight, under the heap, never in view
+  if (at(VERM.back)) { h.hidden = false; debris(h.x, h.y - 2, 6, [BONE.L, BONE.M, BONE.D], 30, 40, 1.5); SFX.bone(panOf(h.x), true); pool(h.x, h.y + 1, 'red', 6); } // what they leave
 }
 
 // ---- beheaded. A heavy blow takes his head off at the neck: the head flies, tumbling and bleeding, bounces and rolls to
