@@ -2,25 +2,31 @@
 const F_DISP = '"Grenze Gotisch", "Palatino Linotype", Palatino, "Book Antiqua", serif', F_HUD = 'Teko, "Arial Narrow", "Avenir Next Condensed", sans-serif';
 const NUMCOL = { red: '#ff5a46', white: '#ffffff', gold: '#ffd860', heal: '#7cff9c', curse: '#d9a0ff', acid: '#e8f02c' }; // acid: a sour yellow, well clear of the mint of healing
 // The new lettering, on trial (TYPE.on; off unless switched on, on the title screen or in the pause menu; kept on this
-// device), round three: two faces and no more. Grenze Gotisch keeps every heading (the menus' titles, the kit names, the
+// device), round three: two faces and no more, and a third for the numbers. Grenze Gotisch keeps every heading (the menus' titles, the kit names, the
 // floor cards, the banners); every other word and number (the buttons, the HUD, the floating numbers, the hints, the kit
 // cards, what the shopkeeper says) is set in Cinzel, carved Roman capitals, bold enough to read small (the HUD's, outlined,
-// in its heaviest weight). The one exception is the game's own name on the title screen, its logo, in Pirata One.
+// in its heaviest weight). The numbers (the floating ones, health, gold, prices) are Cellar Numerals: Grenze Black, the
+// plain sister of Grenze Gotisch, its level digits made the default (crawler/assets/fonts), heavy enough to read in a
+// glance. The one exception is the game's own name on the title screen, its logo, in Pirata One.
 // Off, every call draws exactly as before (Teko for all those words).
 const F_LOGO = '"Grenze Gotisch", Palatino, serif'; // the title screen's title (Grenze Gotisch; Pirata One on trial)
 const F_BTN = 'Teko, "Avenir Next Condensed", sans-serif'; // the buttons' words (Teko as the HUD)
 const F_TALK = 'Teko, "Arial Narrow", sans-serif'; // what the shopkeeper says (Teko as the HUD)
 const F_SUB = 'Teko, "Avenir Next Condensed", "Arial Narrow", sans-serif'; // the lines under a floor's card and a banner (Teko)
+const F_NUM = 'Teko, "Arial Narrow", "Avenir Next Condensed", "Helvetica Neue", sans-serif'; // numbers: the floating ones, health, gold, prices (Teko as the HUD)
 const F_PIRATA = '"Pirata One", "Grenze Gotisch", serif', F_CINZEL = 'Cinzel, "Trajan Pro", "Times New Roman", serif';
 const TYPE = { on: false, shadow: false, menu: false, last: null }; // (menu: a menu or the pause screen is being drawn)
 try { TYPE.on = localStorage.getItem('cr2-type') === '1'; } catch (e) { /* storage blocked: off */ }
-const TYPE_FACES = ['400 30px "Pirata One"', '700 16px Cinzel', '800 16px Cinzel'];
-function loadTypeFaces() { if (document.fonts) return Promise.all(TYPE_FACES.map(f => document.fonts.load(f).catch(() => { }))); return Promise.resolve(); }
+const TYPE_FACES = ['400 30px "Pirata One"', '700 16px Cinzel', '800 16px Cinzel', '900 16px "Cellar Numerals"'];
+let numFace = null; // (Cellar Numerals ships inside the page: added to the document's fonts the first time it is wanted)
+function loadTypeFaces() { if (!numFace && window.FontFace && document.fonts) { try { numFace = new window.FontFace('Cellar Numerals', `url(${(window.__ASSETS && window.__ASSETS.numerals) || 'assets/fonts/cellar-numerals.ttf'})`, { weight: '900' }); document.fonts.add(numFace); } catch (e) { numFace = false; } }
+  if (document.fonts) return Promise.all(TYPE_FACES.map(f => document.fonts.load(f).catch(() => { }))); return Promise.resolve(); }
 function setType(on) { TYPE.on = on; try { localStorage.setItem('cr2-type', on ? '1' : '0'); } catch (e) { /* not kept */ } if (on) loadTypeFaces(); }
 function font(c, w, size, fam) {
   TYPE.shadow = false; TYPE.last = [w, size, fam];
   if (TYPE.on) {
     if (fam === F_LOGO) { c.font = `400 ${size * 0.86}px ${F_PIRATA}`; return; }
+    if (fam === F_NUM) { c.font = `900 ${size * 1.04}px "Cellar Numerals", ${F_CINZEL}`; return; }
     if (fam === F_HUD || fam === F_BTN || fam === F_SUB || fam === F_TALK) { const play = fam === F_HUD && !TYPE.menu; c.font = `${play ? 800 : 700} ${size * 0.8}px ${F_CINZEL}`; TYPE.shadow = !play; return; } }
   c.font = `${w} ${size}px ${fam}`;
 }
@@ -66,7 +72,7 @@ function drawHeroPanel(c, h, L, T, W) {
   // health
   hudBar(c, x0, T + 18, bw, 10, h.hp / h.maxHp, 'hpT', low ? [`rgb(255,${Math.round(110 + 60 * beat)},90)`, '#d0302a', '#6a0e10'] : ['#ff6a50', '#c8302a', '#6e1214'], Math.max(1, Math.floor(h.maxHp / 25)));
   if (h.acidT > 0) { const p = 0.55 + 0.45 * Math.sin(G.time * 14); c.strokeStyle = `rgba(214,255,60,${0.5 + 0.5 * p})`; c.lineWidth = 2; c.strokeRect(x0 - 3, T + 15, bw + 6, 16); c.lineWidth = 1; } // standing in acid: the bar's edge burns sour green
-  font(c, 600, 12, F_HUD); label(c, Math.max(0, Math.ceil(h.hp)) + ' / ' + h.maxHp, x0 + bw - 3, T + 26.5, 'rgba(255,244,228,0.92)', { align: 'right', stroke: 3 });
+  font(c, 600, 12, F_NUM); label(c, Math.max(0, Math.ceil(h.hp)) + ' / ' + h.maxHp, x0 + bw - 3, T + 26.5, 'rgba(255,244,228,0.92)', { align: 'right', stroke: 3 });
   // stamina
   const tired = G.tiredT > 0 || h.huff, cursed = h.curseT > 0, flick = tired && ((G.time * 8) | 0) % 2;
   hudBar(c, x0, T + 31, Math.round(bw * 0.85), 5, h.stam / h.maxStam, 'stT', cursed ? ['#e0b0ff', '#a050e0', '#4a1a70'] : flick ? ['#ffb070', '#e06030', '#6a2010'] : ['#e8f080', '#9ad85a', '#3e6a20'], 0);
@@ -104,7 +110,7 @@ function drawHUD() {
   // floating numbers
   const zf = clamp(CAM.z / 2.4, 0.8, 1.5);
   for (const n of FX.nums) { if (n.who && n.who.team === 'foe' && !n.who.dead && !foeShown(n.who)) continue; // nothing gives away a foe you cannot see
-    const [sx, sy] = toScreen(n.x, n.y - n.z), u = n.t / n.life, pop = n.t < 0.08 ? 1 + (1 - n.t / 0.08) * 0.8 : 1; c.globalAlpha = u > 0.7 ? (1 - u) / 0.3 : 1; font(c, 600, (n.sz || (n.big ? 18 : 12)) * zf * pop, F_HUD); label(c, n.txt, sx, sy, NUMCOL[n.col] || '#fff', { align: 'center', stroke: n.big ? 4 : 3 }); }
+    const [sx, sy] = toScreen(n.x, n.y - n.z), u = n.t / n.life, pop = n.t < 0.08 ? 1 + (1 - n.t / 0.08) * 0.8 : 1; c.globalAlpha = u > 0.7 ? (1 - u) / 0.3 : 1; font(c, 600, (n.sz || (n.big ? 18 : 12)) * zf * pop, F_NUM); label(c, n.txt, sx, sy, NUMCOL[n.col] || '#fff', { align: 'center', stroke: n.big ? 4 : 3 }); }
   c.globalAlpha = 1;
   drawShopHud(c, zf); // (the wares' names and prices, what the shopkeeper says: 39_shop)
   // a hit lands: the edges flush red
@@ -113,7 +119,7 @@ function drawHUD() {
   if (h) drawHeroPanel(c, h, L, T, W);
   // gold, the floor, the map (top right, under the menu button)
   const mb = btnLayout().menu, my = mb.y + mb.r + 10;
-  font(c, 600, 15, F_HUD); label(c, G.gold + ' GOLD', mb.x - mb.r - 10, T + 14, '#ffd860', { align: 'right', stroke: 3 });
+  font(c, 600, 15, F_NUM); label(c, G.gold + ' GOLD', mb.x - mb.r - 10, T + 14, '#ffd860', { align: 'right', stroke: 3 });
   font(c, 500, 13, F_HUD); label(c, ARENA.name, mb.x - mb.r - 10, T + 30, 'rgba(240,224,192,0.7)', { align: 'right', stroke: 3 });
   if (!UI.paused) drawMinimap(c, R, my);
   if (MENU.update && !UI.paused) { c.globalAlpha = 0.6 + 0.4 * Math.sin(performance.now() / 260); font(c, 600, 14, F_HUD); label(c, 'UPDATE READY · OPEN THE MENU', mb.x - mb.r - 10, T + 46, '#ffb860', { align: 'right', stroke: 3 }); c.globalAlpha = 1; }

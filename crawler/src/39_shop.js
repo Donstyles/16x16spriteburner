@@ -48,7 +48,7 @@ function inShop(A, x, y) { const S = A && A.shop; if (!S) return false; const r 
 function shopSay(S, txt) { S.say = { txt, t: 0 }; }
 // each frame (36_works worksTick): who is in it, the hero's weapon going onto his back or back into his hand, the ware he stands at
 function shopTick(A, dt) {
-  const S = A.shop; if (!S) { for (const h of G.heroes) { h.inShop = false; h.sheathK = Math.max(0, (h.sheathK || 0) - dt / 0.2); } return; } const kp = S.keeper; kp.anim += dt; if (S.say) { S.say.t += dt; if (S.say.t > 2.6) S.say = null; }
+  const S = A.shop; if (!S) { for (const h of G.heroes) { h.inShop = false; h.sheathK = Math.max(0, (h.sheathK || 0) - dt / 0.2); } return; } const kp = S.keeper; kp.anim += dt; if (S.say) { S.say.t += dt; if (S.say.t > 3.2) S.say = null; }
   for (const h of G.heroes) {
     const was = !!h.inShop; h.inShop = !h.dead && !h.fall && inShop(A, h.x, h.y);
     h.sheathK = h.inShop ? Math.min(1, (h.sheathK || 0) + dt / 0.28) : Math.max(0, (h.sheathK || 0) - dt / 0.2);
@@ -105,13 +105,21 @@ function drawShopHud(c, zf) {
   for (const w of S.wares) {
     if (w.stock <= 0 || (w.k === 'map' && A.mapRead)) continue; const sel = S.sel === w, p = w.price(A.floor), [sx, sy] = toScreen(w.x, w.y - 26), [tx, ty] = toScreen(w.x, w.y - 3);
     const poor = G.gold < p, red = w.noT && G.time - w.noT < 0.6 && ((G.time * 10) | 0) % 2;
-    if (!sel) { font(c, 600, 9 * zf, F_HUD); label(c, p + 'G', tx, ty, poor ? '#a08a70' : '#ffd860', { align: 'center', stroke: 3 }); continue; } // (its tag, hung on the counter's front)
+    if (!sel) { font(c, 600, 9 * zf, F_NUM); label(c, p + 'G', tx, ty, poor ? '#a08a70' : '#ffd860', { align: 'center', stroke: 3 }); continue; } // (its tag, hung on the counter's front)
     selTop = sy - (w.sub ? 40 : 29) * zf; font(c, 600, 13 * zf, F_HUD); label(c, w.name, sx, sy - 14 * zf, '#ffffff', { align: 'center', stroke: 3 });
     if (w.sub) { font(c, 600, 9 * zf, F_HUD); label(c, w.sub, sx, sy - 27 * zf, '#7cff9c', { align: 'center', stroke: 3 }); }
-    font(c, 600, 12 * zf, F_HUD); label(c, p + ' GOLD', sx, sy, red ? '#ff5a46' : poor ? '#c08a6a' : '#ffd860', { align: 'center', stroke: 3 });
+    font(c, 600, 12 * zf, F_NUM); label(c, p + ' GOLD', sx, sy, red ? '#ff5a46' : poor ? '#c08a6a' : '#ffd860', { align: 'center', stroke: 3 });
     const [hx, hy] = toScreen(G.me.x, G.me.y + 10); font(c, 600, 9 * zf, F_HUD); label(c, 'ATTACK: BUY', hx, hy, '#d8d0c0', { align: 'center', stroke: 3 });
   }
-  if (S.say) { const kp = S.keeper, [sx, sy0] = toScreen(kp.x, kp.y - headZ(kp) - 6), sy = Math.min(sy0, selTop), u = S.say.t; /* (over the name of the ware he stands at, not across it) */ c.globalAlpha = u > 2.2 ? Math.max(0, (2.6 - u) / 0.4) : Math.min(1, u / 0.12); font(c, 600, 11 * zf, F_TALK); label(c, S.say.txt, sx, sy, '#fff4d8', { align: 'center', stroke: 3 }); c.globalAlpha = 1; }
+  // what the keeper says: on a dark plate with a gold edge and a tail down to him, so it reads as speech and not as one
+  // of the numbers that fly about; above the name of the ware the hero stands at, never across it
+  if (S.say) { const kp = S.keeper, [kx, ky] = toScreen(kp.x, kp.y - headZ(kp) - 6), u = S.say.t;
+    c.globalAlpha = u > 2.8 ? Math.max(0, (3.2 - u) / 0.4) : Math.min(1, u / 0.12); font(c, 600, 11 * zf, F_TALK);
+    const m = c.measureText(S.say.txt), px = 6 * zf, py = 4 * zf, asc = m.actualBoundingBoxAscent || 8 * zf, desc = m.actualBoundingBoxDescent || 0, hw = m.width / 2 + px, r = 3;
+    const sy = Math.min(ky - desc - py - 5 * zf, selTop - py - desc), sx = clamp(kx, hw + 6, VIEW.w - hw - 6), x0 = sx - hw, x1 = sx + hw, y0 = sy - asc - py, y1 = sy + desc + py, tx = clamp(kx, x0 + 8, x1 - 8);
+    c.beginPath(); c.moveTo(x0 + r, y0); c.arcTo(x1, y0, x1, y1, r); c.arcTo(x1, y1, x0, y1, r); c.lineTo(tx + 4 * zf, y1); c.lineTo(tx, y1 + 5 * zf); c.lineTo(tx - 4 * zf, y1); c.arcTo(x0, y1, x0, y0, r); c.arcTo(x0, y0, x1, y0, r); c.closePath();
+    c.fillStyle = 'rgba(20,14,10,0.88)'; c.fill(); c.strokeStyle = 'rgba(200,168,112,0.8)'; c.lineWidth = 1; c.stroke();
+    label(c, S.say.txt, sx, sy, '#fff4d8', { align: 'center' }); c.globalAlpha = 1; }
 }
 // the shop test (kit screen): a run whose floor has a shop, the hero at its door with some gold to spend
 function beginShopTest(kit) {

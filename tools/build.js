@@ -15,6 +15,7 @@ const b64 = f => b64f(path.join('assets', f));
 const peerjs = rd('vendor', 'peerjs.min.js').replace(/<\/script/gi, '<\\/script'); // PeerJS (MIT): matchmaking and WebRTC data channels for co-op
 const ver = require('crypto').createHash('sha1').update(js).digest('hex').slice(0, 8); fs.writeFileSync(path.join(T.dir, 'version.txt'), ver + '\n'); // lets running games notice a newer build
 const extra = {}; for (const k in T.extra) extra[k] = b64f(T.extra[k]);
+if (T.pwa === 'crawler') extra.numerals = 'data:font/ttf;base64,' + fs.readFileSync(path.join(root, 'crawler', 'assets', 'fonts', 'cellar-numerals.ttf')).toString('base64'); // the lettering trial's numbers (Grenze Black, level digits: crawler/assets/fonts)
 const assets = `window.__BUILD='${ver}';` + 'window.__ASSETS=' + JSON.stringify({ cellar: b64('cellar.png'), mobs: b64('mobs.png'), mobsJson: JSON.parse(rd('assets', 'mobs.json')), ...extra }) + ';';
 const fonts = '<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@700;900&family=Teko:wght@500;600' + (T.pwa === 'crawler' ? '&family=Pirata+One&family=Cinzel:wght@700;800' : '') + '&display=swap">'; // (the crawler also loads the faces of its lettering trial: only fetched once used)
 const head = `<title>${T.title}</title>\n<meta name="claude:viewport-fit-sides" content="cover">\n${fonts}\n<style>\n${fs.readFileSync(path.join(srcDir, 'style.css'), 'utf8')}</style>`;
