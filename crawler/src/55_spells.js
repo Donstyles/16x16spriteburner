@@ -139,6 +139,7 @@ function flaskStep(p, dt) {
   p.t += dt; const u = Math.min(1, p.t / p.T), px = p.x, py = p.y; p.x = lerp(p.x0, p.x1, u); p.y = lerp(p.y0, p.y1, u); p.z = lerp(10, 0, u) + Math.sin(u * Math.PI) * 38;
   if (u < 1 && !trackClear(px, py, p.x, p.y)) { p.x = px; p.y = py; p.z = 0; } // it caught a wall: it bursts there, against the stone
   else if (u < 1) return;
+  if (ARENA.pitN && pitAt(p.x, p.y)) { p.dead = true; return; } // (into a pit: gone, no pool)
   p.dead = true; sparks(p.x, p.y, 2, 10, 'white', 90, 60); sparks(p.x, p.y, 2, 14, 'poison', 120, 80); SFX.shatter(panOf(p.x)); SFX.splash(panOf(p.x), false);
   for (let i = 0; i < 18; i++) { const a = rand(TAU), v = rand(30, 90); part({ k: 'glow', x: p.x, y: p.y, z: 2, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.7, vz: rand(20, 70), g: 200, life: rand(0.4, 0.8), s0: 1.6, s1: 0.4, col: 'poison', a0: 0.9, a1: 0 }); }
   G.hz.push({ x: p.x, y: p.y, r: 15, t: 0, life: 4.5, dps: (p.src ? p.src.def.dmg * p.src.dmgMul : 11) * 0.8, tick: 0, src: p.src, dir: Math.atan2(p.vy, p.vx) });

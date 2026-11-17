@@ -169,7 +169,7 @@ function wayArrows(A, g) {
     const cx = (r.ix0 + r.ix1) / 2, cy = (r.iy0 + r.iy1) / 2, cands = [];
     for (let y = r.iy0 + 1; y <= r.iy1 - 1; y++) for (let x = r.ix0 + 1; x <= r.ix1 - 1; x++) cands.push([x, y, Math.hypot(x - cx, (y - cy) * 1.3)]);
     cands.sort((a, b) => a[2] - b[2]);
-    const free = (x, y) => A.fl[y * A.w + x] === 1 && !(A.basin && A.basin[y * A.w + x]) && !(r.pool && r.pool.cells.has(y * A.w + x))
+    const free = (x, y) => A.fl[y * A.w + x] === 1 && !(A.basin && A.basin[y * A.w + x]) && !(A.crumbles || []).some(c => c.i === y * A.w + x) && !(r.pool && r.pool.cells.has(y * A.w + x))
       && !A.props.some(p => !p.dead && Math.abs(p.x - (x * TS + 8)) < 16 && p.y > y * TS && p.y < (y + 2) * TS + 6)
       && !(A.plates || []).some(p => p.tx === x && p.ty === y) && !(A.runes || []).some(p => p.tx === x && p.ty === y) && !(r.inlay || []).some(([a, b]) => x >= a && x <= a + 1 && y >= b && y <= b + 1);
     const at = cands.find(([x, y]) => free(x, y)); if (at) tileAt(g, COL[door.side], row, at[0] * TS, at[1] * TS);
@@ -221,6 +221,7 @@ function levelFoes(A, f) {
       const u = mkFoe('archer', f, (x + (r.lone ? 0.5 : 1)) * TS, (y + (r.lone ? 0.5 : 1)) * TS + 2); u.turret = r.pool; u.room = r.i; out.push(u);
     }
   }
+  for (const r of A.rooms) if (r.pitGuard) { const u = mkFoe('brute', f, r.pitGuard[0], r.pitGuard[1]); u.room = r.i; out.push(u); } // a brute standing guard on a chasm's bridge, or on the ledges' platform (38_pits)
   return out;
 }
 // an archer on an island while the water is up: it stands, turns and shoots whatever it can see and reach

@@ -22,6 +22,7 @@ function hitsShape(u, t, mv, dir) {
 const PARRY_WINDOW = 0.2;
 // o: { poise, kx, ky, ranged, unblockable, sneak, back, crit }
 function hurt(u, dmg, src, o = {}) {
+  if (u.fall) return 0; // (already going down a pit)
   if (!u || u.dead) return 0;
   if (u.team === 'foe' && u.ward && dmg > 0 && wardBreaks(u)) return 0; // an enchanter's ward takes the blow
   if (u.under) return 0; // a mole under the floor is out of reach
@@ -114,7 +115,10 @@ function moveActor(u, dt) {
   if (Number.isFinite(u.x + u.y)) { u.gx = u.x; u.gy = u.y; } else if (u.gx !== undefined) { u.x = u.gx; u.y = u.gy; }
   if (u.enter) { u.y += u.vy * dt; return; } // stepping out of the stairway, through the wall's face
   const gk = u.gaitK === undefined ? 1 : u.gaitK; // a gait's pace (56_gaits): the stumbler's lurch, the crawler's bursts
-  const bk = basinBrake(u, dt); tileCollide(u); slideMove(u, (u.vx * gk + u.kx) * dt * bk, (u.vy * gk + u.ky) * dt * bk); const f = Math.exp(-7 * dt); u.kx *= f; u.ky *= f; // (any small push since last frame settled first)
+  if (u.fall) return; // (going down a pit: 38_pits)
+  // (a hard knock carries over a pit's edge: while it lasts, a pit does not push back, and once the middle is over it, down it goes)
+  const bk = basinBrake(u, dt); PITPASS = pitKnock(u); tileCollide(u); slideMove(u, (u.vx * gk + u.kx) * dt * bk, (u.vy * gk + u.ky) * dt * bk); const f = Math.exp(-7 * dt); u.kx *= f; u.ky *= f; // (any small push since last frame settled first)
+  if (!u.fly && !u.under && (u.z || 0) <= 2 && pitAt(u.x, u.y)) { PITPASS = false; startFall(u); return; }
   if (!u.fly && (u.z > 0 || u.vz > 0)) { u.vz -= 560 * dt; u.z += u.vz * dt; if (u.z <= 0) { u.z = 0; u.vz = 0; } }
   for (const p of ARENA.props) {
     if (!p.solid || p.dead) continue; const F = propFoot(p);
@@ -125,11 +129,11 @@ function moveActor(u, dt) {
     }
     const dx = u.x - p.x, dy = u.y - p.cy, d = Math.hypot(dx, dy), m = u.r + p.r; if (d < m) { const nx = d > 0.01 ? dx / d : 1, ny = d > 0.01 ? dy / d : 0; u.x = p.x + nx * m; u.y = p.cy + ny * m; }
   }
-  tileCollide(u); basinHop(u); // (36_works: the step down into a drained cistern)
+  tileCollide(u); PITPASS = false; basinHop(u); // (36_works: the step down into a drained cistern)
   if (u.squash > 0) u.squash = Math.max(0, u.squash - dt * 2.5);
 }
 function separate(list) {
-  for (let i = 0; i < list.length; i++) { const a = list[i]; if (a.dead) continue; for (let j = i + 1; j < list.length; j++) { const b = list[j]; if (b.dead) continue; const dx = b.x - a.x, dy = b.y - a.y, m = a.r + b.r; if (Math.abs(dx) > m || Math.abs(dy) > m) continue; const d = Math.hypot(dx, dy); if (d < m && d > 0.01) { const push = (m - d) * 0.5, nx = dx / d, ny = dy / d, wa = a.scale > b.scale + 0.2 ? 0.3 : b.scale > a.scale + 0.2 ? 1.7 : 1; a.x -= nx * push * wa; a.y -= ny * push * wa; b.x += nx * push * (2 - wa); b.y += ny * push * (2 - wa); } } }
+  for (let i = 0; i < list.length; i++) { const a = list[i]; if (a.dead || a.fall) continue; for (let j = i + 1; j < list.length; j++) { const b = list[j]; if (b.dead || b.fall) continue; const dx = b.x - a.x, dy = b.y - a.y, m = a.r + b.r; if (Math.abs(dx) > m || Math.abs(dy) > m) continue; const d = Math.hypot(dx, dy); if (d < m && d > 0.01) { const push = (m - d) * 0.5, nx = dx / d, ny = dy / d, wa = a.scale > b.scale + 0.2 ? 0.3 : b.scale > a.scale + 0.2 ? 1.7 : 1; a.x -= nx * push * wa; a.y -= ny * push * wa; b.x += nx * push * (2 - wa); b.y += ny * push * (2 - wa); } } }
 }
 // walk toward a point, sliding round props
 function steer(u, tx, ty, spd, dt, stopAt = 0) {

@@ -119,6 +119,7 @@ function buildArena(floor) {
   A.start.stairX = wallSpot(A.start); A.end.stairX = wallSpot(A.end);
   if (!rooms.some(q => q.kind === 'treasure')) { const q = pick(rooms.filter(q => q.kind === 'room')); if (q) q.chest = true; } // no dead end: a guarded room keeps the chest
   levelPlan(A, g); // the floor's set pieces: a flooded way, a gauntlet, a sentinel (37_levels)
+  pitPlan(A, g); // a chasm, broken floor, the ledges (38_pits)
   for (const r of rooms) worksBefore(A, r, g); // a cistern, a rune shrine (36_works)
   for (const r of rooms) furnish(A, r, g);
   for (const r of rooms) worksAfter(A, r); for (const r of rooms) levelAfter(A, r); spikeHalls(A); corridorWood(A, g); wayArrows(A, g);
@@ -180,7 +181,7 @@ function groundChunks(A) {
   A.ground = A.g = null; if (A.keepClean) keepClean(A); return A.chunks;
 }
 // fn paints in map coordinates into every square the box touches
-function groundPaint(x0, y0, x1, y1, fn) { const A = ARENA; if (!A) return; for (const k of groundChunks(A)) if (x1 >= k.x && x0 < k.x + k.w && y1 >= k.y && y0 < k.y + k.h) fn(k.g); bridgePaint(x0, y0, x1, y1, fn); } // (and on a bridge's slats: 36_works)
+function groundPaint(x0, y0, x1, y1, fn) { const A = ARENA; if (!A) return; for (const k of groundChunks(A)) if (x1 >= k.x && x0 < k.x + k.w && y1 >= k.y && y0 < k.y + k.h) { fn(k.g); pitMend(A, k.g, x0, y0, x1, y1); } bridgePaint(x0, y0, x1, y1, fn); } // (no mark stays on a pit: 38_pits) // (and on a bridge's slats: 36_works)
 // draws the floor inside a box of the map (c is already in map coordinates)
 // the ceiling layer over a box of the map (on the glow layer, 'destination-out' cuts the glow away under it)
 function drawCeil(c, sx, sy, sw, sh) {
@@ -207,7 +208,7 @@ function blockTile(tx, ty) { const A = ARENA; if (tx < 0 || ty < 0 || tx >= A.w 
 // the part of a blocking tile that stops feet, [x0, y0, x1, y1], or null: all of it, but for the floor a wall piece leaves
 // showing beside the floor next to it
 function wallBox(tx, ty) {
-  if (!blockTile(tx, ty)) return null; const A = ARENA, x0 = tx * TS, y0 = ty * TS, i = ty * A.w + tx;
+  if (!blockTile(tx, ty)) return null; const A = ARENA, x0 = tx * TS, y0 = ty * TS, i = ty * A.w + tx; if (PITPASS && A.fl[i] === PIT) return null; // (knocked over a pit's edge: 38_pits)
   if (!A.mg || A.fl[i] !== 0) return [x0, y0, x0 + TS, y0 + TS]; const M = A.mg;
   const t = M.t[i] && ty > 0 && FLOOR(A.fl[i - A.w]) ? M.t[i] : 0, l = M.l[i] && tx > 0 && FLOOR(A.fl[i - 1]) ? M.l[i] : 0, r = M.r[i] && tx < A.w - 1 && FLOOR(A.fl[i + 1]) ? M.r[i] : 0;
   return [x0 + l, y0 + t, x0 + TS - r, y0 + TS];

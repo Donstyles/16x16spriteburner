@@ -173,6 +173,22 @@ const SFX = {
     this.noise(this.white, 0.5, 'highpass', 7000, 9000, 0.7, 0.03, pan, 0, 0.01);
     if (n >= 2) for (let i = 0; i < 3; i++) this.tone('sine', F[i] * 2, F[i] * 2, 2.2, 0.07, pan, 0.18 + i * 0.07, 0.01);
   },
+  // someone dropping into a pit: the rush of air as they fall away, a low groan of it sinking with them, and far below
+  // a few stones still falling, and nothing else
+  fall(pan = 0, big = false, hero = false) {
+    if (!this.ok('fall', 0.15)) return; const k = big ? 0.6 : hero ? 0.85 : 1;
+    this.noise(this.white, 1.2, 'bandpass', 1500 * k, 160, 1.3, 0.2, pan, 0, 0.06); this.noise(this.brown, 1.0, 'lowpass', 500 * k, 60, 0.8, 0.3, pan, 0, 0.05);
+    this.tone('triangle', 330 * k, 70, 1.0, 0.07, pan, 0.03, 0.04);
+    for (let i = 0; i < 4; i++) this.noise(this.white, 0.03, 'bandpass', rand(1400, 3200), 1200, 3, 0.025 - i * 0.004, pan, 1.25 + i * 0.22 + rand(0, 0.12), 0.002);
+  },
+  // a cracked slab: first a grinding under the foot (stage 0), then it breaks away and drops with a rush of rubble (1)
+  crumble(pan = 0, stage = 0) {
+    if (!this.ok('crumble' + stage, 0.1)) return;
+    if (!stage) { this.noise(this.brown, 0.5, 'lowpass', 300, 120, 1, 0.5, pan, 0, 0.08, true); for (let i = 0; i < 5; i++) this.noise(this.white, 0.025, 'bandpass', rand(1800, 3600), 1500, 3, 0.05, pan, 0.05 + i * 0.08 + rand(0, 0.04), 0.002); return; }
+    this.noise(this.white, 0.08, 'highpass', 1200, 3000, 0.7, 0.4, pan, 0, 0.001, true); this.tone('square', 90, 40, 0.12, 0.25, pan, 0, 0.001, true);
+    this.noise(this.brown, 0.9, 'lowpass', 900, 80, 0.8, 0.5, pan, 0.02, 0.01, true);
+    for (let i = 0; i < 8; i++) this.noise(this.white, 0.03, 'bandpass', rand(1200, 3600), 1000, 3, 0.07 * (1 - i / 10), pan + rand(-0.2, 0.2), 0.08 + i * 0.07 + rand(0, 0.05), 0.002);
+  },
   // a sprinting footfall: a quick dull thud of the heel and the scuff of grit under the sole (on the wet basin floor, a slap)
   stride(pan = 0, n = 0, wet = false) {
     if (!this.ok('stride', 0.05)) return; const k = n % 2 ? 0.85 : 1;

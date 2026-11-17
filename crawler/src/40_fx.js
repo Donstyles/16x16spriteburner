@@ -76,7 +76,7 @@ function splat(x, y, col, n = 6, spread = 7) { if (!ARENA) return; const R = [];
 // a wet pixel where a drop of sweat landed: it darkens the stone and dries (on water there is nothing to darken: a ring instead)
 // a wet pixel on the floor that dries in time; a glint is one catching the light (a puddle has a few); r: a soft wet
 // patch of that size instead of a pixel (water darkens the floor a little, bluish)
-function wetSpot(x, y, life = rand(7, 11), glint = false, r = 0) { if (ARENA && overWater(x, y)) { if (!glint && !r && chance(0.5)) plip(x, y); return; } FX.wet.push({ x: Math.round(x), y: Math.round(y), t: 0, life, glint, r }); if (FX.wet.length > 900) FX.wet.shift(); }
+function wetSpot(x, y, life = rand(7, 11), glint = false, r = 0) { if (ARENA && ARENA.pitN && pitAt(x, y)) return; if (ARENA && overWater(x, y)) { if (!glint && !r && chance(0.5)) plip(x, y); return; } FX.wet.push({ x: Math.round(x), y: Math.round(y), t: 0, life, glint, r }); if (FX.wet.length > 900) FX.wet.shift(); }
 function drawWet(c) {
   for (const w of FX.wet) if (w.r) { const k = Math.min(1, (w.life - w.t) / 4); c.fillStyle = `rgba(34,62,96,${0.17 * k})`; c.beginPath(); c.ellipse(w.x, w.y, w.r, w.r * 0.62, 0, 0, TAU); c.fill(); }
   for (const w of FX.wet) if (!w.r) { const k = Math.min(1, (w.life - w.t) / 3); c.fillStyle = w.glint ? `rgba(200,232,255,${0.55 * k})` : `rgba(6,10,18,${0.5 * k})`; c.fillRect(w.x, w.y, 1, 1); }
@@ -107,7 +107,7 @@ function updateFx(dt) {
       if (solidAt(nx, p.y)) { p.vx = -p.vx * 0.45; p.vr = -p.vr; } else p.x = nx;
       if (solidAt(p.x, ny)) { p.vy = -p.vy * 0.45; p.vr = -p.vr; } else p.y = ny;
     } else { p.x += p.vx * dt; p.y += p.vy * dt; }
-    if (p.g || p.vz) { p.vz -= p.g * dt; p.z += p.vz * dt; if (p.z < 0 && p.g) { if (p.k === 'drop') { wetSpot(p.x, p.y); p.t = p.life; } else if (p.bounce && p.vz < -25) { p.z = 0; p.vz = -p.vz * p.bounce; p.vx *= 0.55; p.vy *= 0.55; } else { p.z = 0; p.vz = 0; p.g = 0; p.vx *= 0.3; p.vy *= 0.3; } } }
+    if (p.g || p.vz) { p.vz -= p.g * dt; p.z += p.vz * dt; if (p.z < 0 && p.g) { if (ARENA && ARENA.pitN && pitAt(p.x, p.y)) p.t = p.life; /* (down the pit) */ else if (p.k === 'drop') { wetSpot(p.x, p.y); p.t = p.life; } else if (p.bounce && p.vz < -25) { p.z = 0; p.vz = -p.vz * p.bounce; p.vx *= 0.55; p.vy *= 0.55; } else { p.z = 0; p.vz = 0; p.g = 0; p.vx *= 0.3; p.vy *= 0.3; } } }
     if (p.vr) p.rot += p.vr * dt;
   }
   for (const b of FX.bolts) { b.t += dt; b.regen -= dt; if (b.regen <= 0) { b.regen = 0.045; boltShape(b); } }
@@ -172,6 +172,7 @@ function updateRocks(dt) {
     r.vz -= 480 * sdt; r.z += r.vz * sdt; const turn = () => { r.r = (r.r + (r.vx >= 0 ? 1 : 3)) % 4; };
     if (r.bleed && r.z > 1 && (r.dripT = (r.dripT || 0) + sdt) > 0.05) { r.dripT = 0; drip(r.x, r.y, r.z, r.bleed, r.vx * 0.3, r.vy * 0.3); }
     if (r.hay && r.z > 1 && (r.dripT = (r.dripT || 0) + sdt) > 0.06) { r.dripT = 0; hay(r.x, r.y, r.z, r.vx * 0.3, r.vy * 0.3, rand(0, 30), r.slow, r.hay === true ? null : r.hay, r.hay === true ? 0 : 2); } // a bundle sheds stalks as it flies
+    if (r.z <= 0 && ARENA.pitN && pitAt(r.x, r.y)) { r.z = 0; r.sink = 0.001; continue; } // down a pit: it drops away out of sight
     if (r.z <= 0 && overWater(r.x, r.y)) { // into the water: a splash, rings, and it sinks (bleeding a red haze if it is flesh)
       r.z = 0; r.sink = 0.001; plip(r.x, r.y); plip(r.x + rand(-2, 2), r.y + rand(-1, 1)); for (let i = 0; i < 4; i++) water(r.x, r.y, 1, rand(-25, 25), rand(-18, 18), rand(40, 80));
       if (r.bleed) bloodCloud(r.x, r.y, pick(BLOOD[r.bleed]), 1.6); if (G.me && dist(G.me.x, G.me.y, r.x, r.y) < 220) SFX.splash(panOf(r.x), false); continue;

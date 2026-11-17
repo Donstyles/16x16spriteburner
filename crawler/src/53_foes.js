@@ -305,7 +305,8 @@ function foeHits(f, a) {
   const mv = a.mv, ox = mv.at ? Math.cos(a.dir) * mv.at : 0, oy = mv.at ? Math.sin(a.dir) * mv.at * 0.85 : 0, src = { x: f.x + ox, y: f.y + oy };
   for (const h of G.heroes) {
     if (h.dead || a.hit.has(h) || !hitsShape(src, h, mv, a.dir) || !lineOfSight(f.x, f.y - 4, h.x, h.y - 4)) continue; a.hit.add(h);
-    const ka = angTo(src.x, src.y, h.x, h.y); hurt(h, f.def.dmg * f.dmgMul * (mv.dm || 1), f, { poise: mv.poise, kx: Math.cos(ka) * mv.push, ky: Math.sin(ka) * mv.push * 0.8, unblockable: mv.unblockable, ang: ka, style: 'bite', big: !!(mv.slam || (mv.wind || 0) >= 0.8) });
+    // (a brute's shove or slam knows where the edge is: 38_pits)
+    const ka = mv.shove || mv.slam ? pitAim(h, angTo(src.x, src.y, h.x, h.y)) : angTo(src.x, src.y, h.x, h.y); hurt(h, f.def.dmg * f.dmgMul * (mv.dm || 1), f, { poise: mv.poise, kx: Math.cos(ka) * mv.push, ky: Math.sin(ka) * mv.push * 0.8, unblockable: mv.unblockable, ang: ka, style: 'bite', big: !!(mv.slam || (mv.wind || 0) >= 0.8) });
   }
 }
 // ---------- arrows and stones ----------

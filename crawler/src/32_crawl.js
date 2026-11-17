@@ -56,7 +56,7 @@ function drawMinimap(c, xr, y0) {
   const A = ARENA; if (!A || !A.mem) return;
   if (!MINI || MINI.A !== A || MINI.n !== A.memN + (A.flv || 0) * 1e6) { // redrawn only when the party has seen something new (or a cistern drained)
     const cv = MINI && MINI.A === A ? MINI.cv : mkCanvas(A.w, A.h), x = cv.getContext('2d'), id = x.createImageData(A.w, A.h), d = id.data;
-    for (let i = 0; i < A.w * A.h; i++) { if (!A.mem[i]) continue; const v = A.fl[i], f = v === 1 || v === 3, w = v === 2, o = i * 4; d[o] = w ? 52 : f ? 118 : 58; d[o + 1] = w ? 96 : f ? 104 : 50; d[o + 2] = w ? 150 : f ? 92 : 46; d[o + 3] = f || w ? 230 : 200; } // water blue
+    for (let i = 0; i < A.w * A.h; i++) { if (!A.mem[i]) continue; const v = A.fl[i], f = v === 1 || v === 3, w = v === 2, pt = v === PIT, o = i * 4; d[o] = pt ? 16 : w ? 52 : f ? 118 : 58; d[o + 1] = pt ? 14 : w ? 96 : f ? 104 : 50; d[o + 2] = pt ? 20 : w ? 150 : f ? 92 : 46; d[o + 3] = f || w || pt ? 230 : 200; } // water blue
     x.putImageData(id, 0, 0); MINI = { A, n: A.memN + (A.flv || 0) * 1e6, cv };
   }
   const s = clamp(Math.min(VIEW.w, VIEW.h) / 430, 0.85, 1.3) * 1.5, w = A.w * s, h = A.h * s, x0 = Math.round(xr - w);

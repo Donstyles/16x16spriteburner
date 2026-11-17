@@ -18,7 +18,7 @@ function startFloor() {
   TEST.on = false;
   buildArena(G.floor); initSight(ARENA); G.proj = []; G.hz = []; G.drops = []; G.sched = []; for (const k in FX) FX[k].length = 0;
   const A = ARENA, sp = A.spawn;
-  G.heroes.forEach((h, i) => { h.x = sp.x + (i - (G.heroes.length - 1) / 2) * 16; h.y = sp.from; h.enter = { y1: sp.y + i * 4 }; h.z = 0; h.vx = h.vy = h.kx = h.ky = 0; h.act = null; h.stun = 0; h.iframe = 0; h.dir = -Math.PI / 2; h.path = null; h.inBasin = undefined; });
+  G.heroes.forEach((h, i) => { h.x = sp.x + (i - (G.heroes.length - 1) / 2) * 16; h.y = sp.from; h.enter = { y1: sp.y + i * 4 }; h.z = 0; h.vx = h.vy = h.kx = h.ky = 0; h.act = null; h.stun = 0; h.iframe = 0; h.dir = -Math.PI / 2; h.path = null; h.inBasin = undefined; h.fall = null; h.rise = 0; h.safe = { x: sp.x, y: sp.y }; });
   A.army = pickArmy(G.floor); G.foes = []; for (const r of A.rooms) if ((r.kind === 'room' || r.kind === 'end') && r.set !== 'flood') G.foes.push(...populateRoom(A, r, G.floor));
   G.foes.push(...chestGuards(A, G.floor));
   for (const r of A.rooms) if (r.islands) removeIf(G.foes, u => r.islands.some(([x, y]) => u.x >= x * TS - 8 && u.x <= (x + 2) * TS + 8 && u.y >= y * TS - 8 && u.y <= (y + 2) * TS + 8)); // (nobody stranded on an island but its archer)
@@ -35,8 +35,9 @@ function updateRun(dt) {
   for (let i = 0; i < G.sched.length; i++) { const s = G.sched[i]; if ((s.t -= dt) <= 0) { G.sched.splice(i--, 1); s.fn(); } }
   // a unit in hit-stop holds still (its moves pause, a knock-back waits) while everything else carries on
   for (const u of G.units) { if (u.flash > 0) u.flash -= dt; u.held = u.freeze > 0; if (u.held) u.freeze -= dt; else u.anim += dt; }
-  for (const h of G.heroes) if (!h.held) heroTick(h, dt);
-  aiPrep(dt); for (const f of G.foes) if (!f.held) { foeTick(f, dt); if (f.gait || GAIT[f.spr]) gaitTick(f, dt); }
+  for (const h of G.heroes) if (!h.held && !h.fall) heroTick(h, dt);
+  aiPrep(dt); for (const f of G.foes) if (!f.held && !f.fall) { foeTick(f, dt); if (f.gait || GAIT[f.spr]) gaitTick(f, dt); }
+  pitsTick(dt); // (falls, cracked slabs giving way: 38_pits)
   for (const u of G.units) if (!u.dead && !u.held) moveActor(u, dt);
   for (const u of G.units) if (!u.dead) bloodTick(u, dt);
   for (const u of G.units) if (u.fly && !u.dead && !u.held) flyTick(u, dt);
