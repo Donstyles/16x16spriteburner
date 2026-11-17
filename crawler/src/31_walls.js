@@ -12,7 +12,7 @@ const PAINT = {
   '5,0': ['ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', 'fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffefffc'],
   '5,1': ['ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', 'fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0'],
   '5,2': ['fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0', 'fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0fff0'],
-  '5,3': ['ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'],
+  '5,3': ['fff0fff0fff0fff0ffffffffffffffffffffffffffffffffffffffffffffffff', 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'],
   '6,0': ['ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', '0000000000000000000000000000000000000000000000000000000000000000'],
   '6,1': ['ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', '0000000000000000000000000000000000000000000000000000000000000000'],
   '6,3': ['0000000000000000000000000000000000000000000000000000000000000000', '0000000000000000ffffffffffffffffffffffffffffffffffffffffffffffff'],
