@@ -1,16 +1,17 @@
 // ===================== bottomless pits: holes in the floor going down into the dark =====================
 // The sheet's pit pieces: the earth under a floor's edge with roots hanging from it, fading into black ([10..15, 4] on
-// the brown floors, [10..15, 12] on the grey), laid in a pit tile right under a floor tile (we look down past the floor's
-// south edge at its thickness); the rest of a pit is black. Its other sides show nothing: the floor beside it is seen
-// edge on, and the floor in front of it hides the pit's far wall. A side wall's strip of floor beside a pit, and the top
-// rows of a south wall in front of one, go down into it too.
+// the brown floors, [10..15, 12] on the grey), laid in a pit tile right under a floor tile (we look down past the
+// floor's south edge at its thickness), or under the foot of a north wall the pit runs up to; the rest of a pit is
+// black. Its other sides show nothing: the floor beside it is seen edge on, and the floor in front of it hides the
+// pit's far wall. A side wall's strip of floor beside a pit, and the top rows of a south wall in front of one, go down
+// into it too.
 // Feet stop at a pit's edge (it blocks like water, and like water it lets sight, arrows and spells over it), and a roll
 // or a lunge stops there too; but a hard enough blow (a brute's shove, a heavy swing, a wave, a spike's throw) carries
-// whoever takes it over the edge, and they fall: smaller and darker into the black, sinking behind the floor in front
-// of the hole, and gone. A hero who falls climbs back out where he last stood clear of every pit, a fifth of his health
-// the poorer (a fall he cannot pay for is his last); a foe that falls is gone, and its loot with it. Blood, gibs,
-// sparks and stones that come down over a pit drop away into it and leave no mark, and nothing painted on the floor
-// ever shows on the void.
+// whoever takes it over the edge (a brute's, straight away from it), and they fall: smaller and darker into the black,
+// sinking behind the floor in front of the hole, and gone. A hero who falls climbs back out where he last stood clear
+// of every pit, a fifth of his health the poorer (a fall he cannot pay for is his last); a foe that falls is gone, and
+// its loot with it. Blood, gibs, sparks and stones that come down over a pit drop away into it and leave no mark, and
+// nothing painted on the floor ever shows on the void.
 // Three ways a room can have them (pitPlan, after the set pieces and before the rooms are furnished; never the first
 // room, the last, the treasure room or a set piece's): THE CHASM, a band of pit two or three tiles wide from wall to
 // wall, crossed by a stone bridge two tiles wide with a brute standing guard on it; BROKEN FLOOR, holes here and there,
@@ -24,12 +25,13 @@ const pitFace = A => A.th === THEMES.grey ? [10, 12] : [10, 4];
 let PIT_BLACK = null;
 function pitBlack() { if (PIT_BLACK) return PIT_BLACK; const P = PIX.cellar, i = ((4 * TS + 15) * P.w + 10 * TS + 8) * 4; return (PIT_BLACK = `rgb(${P.d[i]},${P.d[i + 1]},${P.d[i + 2]})`); }
 function pitAt(x, y) { const A = ARENA; if (!A || !A.fl) return false; const tx = Math.floor(x / TS), ty = Math.floor(y / TS); return tx >= 0 && ty >= 0 && tx < A.w && ty < A.h && A.fl[ty * A.w + tx] === PIT; }
-// a pit tile on the ground: black, the earth face under a floor to its north, and the walls beside it: every pixel a wall
+// a pit tile on the ground: black, the earth face under whatever stands to its north (a floor's edge, or the foot of a
+// wall the pit runs up to), and the walls beside it: every pixel a wall
 // piece leaves open in the four next to the pit (a side wall's strip, the open corner under a cap, a south wall's top)
 // is pit too, the earth face carried on into it, and the wall's own pixels stay over it
 const PIT_BAND = 4; let PITB = null;
 function pitPaint(A, g, i) {
-  const W = A.w, x = i % W, y = (i / W) | 0, n = A.fl[i - W], face = n === 1 || n === 3, f = pitFace(A), v = (x * 5 + y * 3) % 6;
+  const W = A.w, x = i % W, y = (i / W) | 0, n = A.fl[i - W], face = y > 0 && n !== PIT, f = pitFace(A), v = (x * 5 + y * 3) % 6;
   g.fillStyle = pitBlack(); g.fillRect(x * TS, y * TS, TS, TS); if (face) sheetTile(g, f, x * TS, y * TS, v, 0);
   if (!A.wt) return; const sx = (f[0] + v) * TS, sy = f[1] * TS, B = PIT_BAND;
   // [the wall's index, the band in its own tile, where the face's columns come from (or none)]
@@ -151,14 +153,8 @@ function endFall(u) {
 }
 // a few stones and crumbs off the edge, down into the dark
 function pebbles(x, y, n) { const A = ARENA; if (!A || !A.peb) return; for (let i = 0; i < n; i++) A.peb.push({ x: x + rand(-5, 5), y: y + rand(-2, 2), vy: rand(10, 40), t: 0, life: rand(0.35, 0.7), c: pick(['#5a4a3a', '#7a6a58', '#3a3028', '#8a7a66']) }); if (A.peb.length > 80) A.peb.splice(0, A.peb.length - 80); }
-// a brute's shove or slam near a pit throws you toward the nearest edge (as long as that is not back at the brute)
-function pitAim(h, ka) {
-  const A = ARENA; if (!A || !A.pitN) return ka; let best = null, bd = 28;
-  for (let ty = Math.floor((h.y - 28) / TS); ty <= Math.floor((h.y + 28) / TS); ty++) for (let tx = Math.floor((h.x - 28) / TS); tx <= Math.floor((h.x + 28) / TS); tx++) {
-    if (tx < 0 || ty < 0 || tx >= A.w || ty >= A.h || A.fl[ty * A.w + tx] !== PIT) continue; const px = clamp(h.x, tx * TS + 1, tx * TS + TS - 1), py = clamp(h.y, ty * TS + 1, ty * TS + TS - 1), d = dist(h.x, h.y, px, py); if (d > 0.5 && d < bd) { bd = d; best = [px, py]; }
-  }
-  if (!best) return ka; const a = angTo(h.x, h.y, best[0], best[1]); return Math.abs(angDiff(ka, a)) < 1.75 ? a : ka;
-}
+// (a brute's shove or slam throws whoever it lands on straight away from it, from a slam's middle, never bent toward an
+// edge: a hero goes over only with the pit behind him)
 function pitKnock(u) { return !u.fly && !u.under && Math.hypot(u.kx, u.ky) > PIT_KNOCK; }
 function pitsTick(dt) {
   const A = ARENA; if (!A || !A.fl) return; if (!A.peb) Object.assign(A, { peb: [], fallers: [], crumbles: A.crumbles || [], pitN: A.pitN || 0 });

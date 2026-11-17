@@ -57,18 +57,22 @@ const BIG = {}, LIE = {};
 function lieOf(spr, sc) { const k = spr + '@' + sc; if (LIE[k]) return LIE[k]; const P = spritePixels(spr); let mn = 0, mx = 0; for (const p of P) { mn = Math.min(mn, p.x - 0.5); mx = Math.max(mx, p.x + 0.5); } return (LIE[k] = { dy: Math.round((mn + mx) / 2 * sc - 1), half: Math.round((P.foot + 1) / 2 * sc) }); } // a body lying flat sits on its shadow: its middle a pixel above the shadow's
 function bigSprite(spr, sc) {
   const key = spr + '@' + sc; if (BIG[key]) return BIG[key];
-  const [sy, fw, fh] = MOBS[spr], P = PIX.mobs, W = Math.round(fw * sc), H = Math.round(fh * sc), foot = footOf(spr);
-  let img = { w: fw * 4, h: fh, d: new Uint8ClampedArray(fw * 4 * fh * 4) };
-  for (let y = 0; y < fh; y++) for (let x = 0; x < fw * 4; x++) { const i = ((sy + y) * P.w + x) * 4, j = (y * fw * 4 + x) * 4; for (let k = 0; k < 4; k++) img.d[j + k] = P.d[i + k]; if (img.d[j + 3] < 128) img.d[j + 3] = 0; else img.d[j + 3] = 255; }
+  const [sy, fw, fh] = MOBS[spr], P = PIX.mobs, W = Math.round(fw * sc), H = Math.round(fh * sc), foot = footOf(spr), G1 = fw + 2, S = W + 2;
+  // each frame enlarged with a clear column either side of it, so none borrows the edge of the frame beside it (a wide
+  // creature's tail or snout reaches its frame's edge); and laid out with a clear column between frames, for the same reason
+  let img = { w: G1 * 4, h: fh, d: new Uint8ClampedArray(G1 * 4 * fh * 4) };
+  for (let f = 0; f < 4; f++) for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) { const i = ((sy + y) * P.w + f * fw + x) * 4, j = (y * img.w + f * G1 + 1 + x) * 4; for (let k = 0; k < 3; k++) img.d[j + k] = P.d[i + k]; img.d[j + 3] = P.d[i + 3] < 128 ? 0 : 255; }
   for (let k = 0; k < 3; k++) img = scale2x(img);
-  const cv = mkCanvas(W * 4, H), x = cv.getContext('2d'), o = x.createImageData(W * 4, H);
+  const cv = mkCanvas(S * 4, H), x = cv.getContext('2d'), o = x.createImageData(S * 4, H);
   for (let f = 0; f < 4; f++) for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) {
-    const X = Math.floor((f * fw + (xx + 0.5) * fw / W) * 8), Y = Math.floor((y + 0.5) * fh / H * 8), i = (Y * img.w + X) * 4, j = (y * W * 4 + f * W + xx) * 4;
+    const X = Math.floor((f * G1 + 1 + (xx + 0.5) * fw / W) * 8), Y = Math.floor((y + 0.5) * fh / H * 8), i = (Y * img.w + X) * 4, j = (y * S * 4 + f * S + 1 + xx) * 4;
     for (let k = 0; k < 4; k++) o.data[j + k] = img.d[i + k];
   }
   x.putImageData(o, 0, 0);
-  const red = mkCanvas(W * 4, H), rx = red.getContext('2d'); rx.drawImage(cv, 0, 0); rx.globalCompositeOperation = 'source-in'; rx.fillStyle = '#ff3a24'; rx.fillRect(0, 0, W * 4, H);
-  return (BIG[key] = { cv, white: silhouette(cv), red, W, H, foot: Math.round((foot + 1) * H / fh) });
+  const red = mkCanvas(S * 4, H), rx = red.getContext('2d'); rx.drawImage(cv, 0, 0); rx.globalCompositeOperation = 'source-in'; rx.fillStyle = '#ff3a24'; rx.fillRect(0, 0, S * 4, H);
+  // fx(fr): where frame fr starts; ox: where its left edge is drawn, a whole pixel left of the feet (an odd width cannot be
+  // centred on them, and drawn at the half pixel a frame's edge column reads into the next frame on some screens)
+  return (BIG[key] = { cv, white: silhouette(cv), red, W, H, ox: -(W >> 1), fx: fr => fr * S + 1, foot: Math.round((foot + 1) * H / fh) });
 }
 function drawUnit(c, u) {
   const m = MOBS[u.spr]; if (!m) return; if (u.team === 'foe' && !foeShown(u)) return; if (u.under) { drawMound(c, u); return; }
@@ -93,8 +97,8 @@ function drawUnit(c, u) {
   }
   const B = sc !== 1 ? bigSprite(u.spr, sc) : null;
   c.scale((B ? 1 : sc) * (u.face < 0 ? -1 : 1), B ? 1 : sc);
-  const blitB = img => { if (!dip) { c.drawImage(img, fr * B.W, 0, B.W, B.H, -B.W / 2, -B.foot, B.W, B.H); return; } const k = Math.round(cut * sc);
-    c.drawImage(img, fr * B.W, k, B.W, B.H - k, -B.W / 2, -B.foot + k, B.W, B.H - k); c.drawImage(img, fr * B.W, 0, B.W, k, -B.W / 2, -B.foot + dip, B.W, k); };
+  const blitB = img => { const sx = B.fx(fr); if (!dip) { c.drawImage(img, sx, 0, B.W, B.H, B.ox, -B.foot, B.W, B.H); return; } const k = Math.round(cut * sc);
+    c.drawImage(img, sx, k, B.W, B.H - k, B.ox, -B.foot + k, B.W, B.H - k); c.drawImage(img, sx, 0, B.W, k, B.ox, -B.foot + dip, B.W, k); };
   const blit = (img, oy = sy) => { if (!dip) { c.drawImage(img, fr * fw, oy, fw, fh, -fw / 2, -foot - 1, fw, fh); return; }
     c.drawImage(img, fr * fw, oy + cut, fw, fh - cut, -fw / 2, -foot - 1 + cut, fw, fh - cut); c.drawImage(img, fr * fw, oy, fw, cut, -fw / 2, -foot - 1 + dip, fw, cut); };
   const bare = pose || (Wc && u.dropped); // swinging, or his weapon gone from his hand
@@ -160,7 +164,8 @@ function drawTelegraphs(c) {
     c.fill(); c.stroke();
   }
 }
-function drawGhosts(c) { for (const g of FX.ghosts) { const m = MOBS[g.spr]; if (!m) continue; const foot = footOf(g.spr), u = g.t / g.life; c.globalAlpha = 0.45 * (1 - u); c.save(); c.translate(Math.round(g.x), Math.round(g.y - g.z)); c.scale(g.sc * (g.face < 0 ? -1 : 1), g.sc); c.drawImage(IMG.mobsW, g.fr * m[1], m[0], m[1], m[2], -m[1] / 2, -foot - 1, m[1], m[2]); c.restore(); } c.globalAlpha = 1; }
+function drawGhosts(c) { for (const g of FX.ghosts) { const m = MOBS[g.spr]; if (!m) continue; const foot = footOf(g.spr), u = g.t / g.life; c.globalAlpha = 0.45 * (1 - u); c.save(); c.translate(Math.round(g.x), Math.round(g.y - g.z)); c.scale(g.face < 0 ? -1 : 1, 1); // (a big creature's ghost from its enlarged frames, never scaled while drawn)
+  if (g.sc !== 1) { const B = bigSprite(g.spr, g.sc); c.drawImage(B.white, B.fx(g.fr), 0, B.W, B.H, B.ox, -B.foot, B.W, B.H); } else c.drawImage(IMG.mobsW, g.fr * m[1], m[0], m[1], m[2], -m[1] / 2, -foot - 1, m[1], m[2]); c.restore(); } c.globalAlpha = 1; }
 function drawAuras(c) {
   for (const t of ARENA.torches) { const f = 0.8 + 0.2 * noise1(G.time * 9 + t.tx); c.globalAlpha = 0.55 * f; c.drawImage(GLOW.torch, t.x - 6, t.y - 13, 12, 12); }
   for (const p of ARENA.props) if (p.kind === 'brazier' && !p.dead) { c.globalAlpha = 0.6; c.drawImage(GLOW.torch, p.x - 9, p.y - 22, 18, 16); }

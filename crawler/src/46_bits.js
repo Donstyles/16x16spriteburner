@@ -96,7 +96,7 @@ function bitCols(u) {
 // a piece of the golem's own stone, from somewhere on it, left as rubble
 function ownChip(u, away) {
   const m = MOBS[u.spr]; if (!m) return; const sc = u.scale || 1, fr = ((u.anim * 9) | 0) % 4;
-  if (sc !== 1) { const B = bigSprite(u.spr, sc); B.pd = B.pd || pixelData(B.cv); chipSprite(B.pd, fr * B.W, 0, B.W, B.H, Math.round(u.x - B.W / 2), Math.round(u.y - u.z - B.foot), u.y, away); }
+  if (sc !== 1) { const B = bigSprite(u.spr, sc); B.pd = B.pd || pixelData(B.cv); chipSprite(B.pd, B.fx(fr), 0, B.W, B.H, Math.round(u.x) + B.ox, Math.round(u.y - u.z - B.foot), u.y, away); }
   else chipSprite(PIX.mobs, fr * m[1], m[0], m[1], m[2], Math.round(u.x - m[1] / 2), Math.round(u.y - u.z - footOf(u.spr) - 1), u.y, away);
 }
 

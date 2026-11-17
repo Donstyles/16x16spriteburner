@@ -185,7 +185,7 @@ function gibBurst(u) {
   const fr = ((u.anim * 9) | 0) % 4, flip = u.face < 0, opt = { away: o.ang === undefined ? null : o.ang, spd: 1.3, flip, edge: dry ? BIT_EDGE[kind] : [bl[1], bl[0], bl[2]], bleed: dry ? null : kind, lie: rand(2.5, 4), slow, hay: kind === 'straw' ? true : kind === 'wood' ? LEAF : null, tick: kind === 'bone' };
   if (kind === 'bone') { shatter(u, 1.5); burstBits(u, o, slow); return; }
   if (kind === 'water') { burstBits(u, o, slow); return; } // water has no pieces: all of it splashes // a skeleton: its bones fly, not chunks of its picture (whose head would be a second skull)
-  if (sc !== 1) { const B = bigSprite(u.spr, sc); B.pd = B.pd || pixelData(B.cv); breakSprite(B.pd, fr * B.W, 0, B.W, B.H, Math.round(u.x - B.W / 2), Math.round(u.y - u.z - B.foot), u.y, randi(6, 8), opt); }
+  if (sc !== 1) { const B = bigSprite(u.spr, sc); B.pd = B.pd || pixelData(B.cv); breakSprite(B.pd, B.fx(fr), 0, B.W, B.H, Math.round(u.x) + B.ox, Math.round(u.y - u.z - B.foot), u.y, randi(6, 8), opt); }
   else breakSprite(PIX.mobs, fr * m[1], m[0], m[1], m[2], Math.round(u.x - m[1] / 2), Math.round(u.y - u.z - footOf(u.spr) - 1), u.y, randi(5, 7), opt);
   if (dry) { burstBits(u, o, slow); return; }
   spray(u, 60, { ...o, more: 1.6, slow, spd: 1.2 }); spray(u, 40, { style: 'slam', slow }); pool(u.x, u.y, kind, 2 + sc);
