@@ -189,15 +189,23 @@ function mailTex(w, h, hole, seam = true) {
   }
   return (MTEX[key] = cv);
 }
-function drawMail(c, x, y, w, h, hero, hole) { // its broken edge: a dark nick, and links hanging loose off it here and there
-  drawBand(c, x, y, w, h, hero, hole, mailTex, clamp((hero.mail || 0) / MAIL.max, 0, 1), hero.mailT0, 'mailLost', (c, X, Y, e, j) => {
-    px2(c, MCOL.nick, X + (e - 1) * QP, Y + j * QP);
+// worn over the gambeson, the mail stops a little short of the band's left end so the quilting under it peeks out
+// there, and wherever it meets the quilting its edge is hard and dark (the items' edge), the hacked edge casting a
+// pixel of shadow on the quilting; worn alone it wraps the bar end to end
+const MAIL_PEEK = 3; // (art pixels of quilting showing at the left)
+const quiltUnder = hero => hero.gamb > 0 || !!(hero.gambLost && hero.gambLost.length);
+function drawMail(c, x, y, w, h, hero, hole) { // its broken edge: hard and dark, its shadow on the quilting, links hanging loose off it here and there
+  const under = quiltUnder(hero), inset = under ? MAIL_PEEK * QP : 0, ys = Math.round(y / QP) * QP, hy0 = Math.round((hole[1] - ys) / QP), hy1 = hy0 + Math.round(hole[3] / QP);
+  drawBand(c, x + inset, y, w - inset, h, hero, hole, mailTex, clamp((hero.mail || 0) / MAIL.max, 0, 1), hero.mailT0, 'mailLost', (c, X, Y, e, j) => {
+    px2(c, MCOL.o, X + (e - 1) * QP, Y + j * QP);
+    if (under && (j < hy0 - 1 || j > hy1)) px2(c, QCOL.line, X + e * QP, Y + j * QP); // (its shadow on the quilting, clear of the bar)
     if (j % 3 === 2) { px2(c, MCOL.link, X + e * QP, Y + j * QP); px2(c, MCOL.link, X + e * QP, Y + (j + 1) * QP); }
   }, '#ffffff');
 }
-function drawMailFrame(c, x, y, size, hero) {
-  const k = clamp((G.time - (hero.mailT0 || -9)) / 0.7, 0, 1), X = Math.round(x) - 8, Y = Math.round(y) - 8, W = Math.round(size / QP) + 8, T = mailTex(W, W, [4, 4, W - 8, W - 8], false);
-  c.save(); c.imageSmoothingEnabled = false; quiltRows(c, T, X, Y, () => Math.round(W * k)); c.restore();
+function drawMailFrame(c, x, y, size, hero) { // (over the quilted frame, the quilting peeking out down its left side as on the band)
+  const k = clamp((G.time - (hero.mailT0 || -9)) / 0.7, 0, 1), inset = quiltUnder(hero) ? MAIL_PEEK : 0, X = Math.round(x) - 8 + inset * QP, Y = Math.round(y) - 8, W = Math.round(size / QP) + 8;
+  const T = mailTex(W - inset, W, [4 - inset, 4, W - 8, W - 8], false);
+  c.save(); c.imageSmoothingEnabled = false; quiltRows(c, T, X, Y, () => Math.round((W - inset) * k)); c.restore();
 }
 function drawHUD() {
   const c = ctx, d = VIEW.dpr, W = VIEW.w, H = VIEW.h, S = VIEW.safe, L = Math.max(12, S.l + 10), R = W - Math.max(12, S.r + 10), T = Math.max(10, S.t + 8);
