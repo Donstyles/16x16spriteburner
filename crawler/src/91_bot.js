@@ -26,7 +26,9 @@ function botDrive(h, dt) {
   if (!B.goal || (B.t -= dt) <= 0 || dist(h.x, h.y, B.goal.x, B.goal.y) < 10) {
     B.t = 3; let best = null, bd = 1e9; const seenAll = A.mem.reduce((n, v, i) => n + (A.fl[i] === 1 && !v ? 1 : 0), 0) < 40;
     if (!seenAll) for (let i = 0; i < A.w * A.h; i += 3) { if (A.fl[i] !== 1 || A.mem[i]) continue; const x = (i % A.w) * TS + 8, y = ((i / A.w) | 0) * TS + 8, dd = dist(h.x, h.y, x, y); if (dd < bd) { bd = dd; best = { x, y }; } }
-    B.goal = best || { x: A.stairs.x, y: A.stairs.y - 6 }; B.path = findPath(h.x, h.y, B.goal.x, B.goal.y) || [];
+    // a button it has seen and not yet pressed (a sluice, a drawbridge's), if it can get there
+    const pl = (A.plates || []).find(q => !q.down && A.mem[q.ty * A.w + q.tx] && findPath(h.x, h.y, q.x, q.y));
+    B.goal = pl ? { x: pl.x, y: pl.y } : best || { x: A.stairs.x, y: A.stairs.y - 6 }; B.path = findPath(h.x, h.y, B.goal.x, B.goal.y) || [];
   }
   const p = B.path || []; while (p.length && dist(h.x, h.y, p[0].x, p[0].y) < 8) p.shift(); const wp = p[0] || B.goal, l = dist(h.x, h.y, wp.x, wp.y) || 1; I.mx = (wp.x - h.x) / l; I.my = (wp.y - h.y) / l;
 }

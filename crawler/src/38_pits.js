@@ -37,7 +37,7 @@ function pitAt(x, y) { const A = ARENA; if (!A || !A.fl) return false; const tx 
 // is pit too, the earth face carried on into it, and the wall's own pixels stay over it
 const PIT_BAND = 4; let PITB = null;
 function pitPaint(A, g, i) {
-  const W = A.w, x = i % W, y = (i / W) | 0, n = A.fl[i - W], face = y > 0 && n !== PIT, f = pitFace(A), v = (x * 5 + y * 3) % 6;
+  const W = A.w, x = i % W, y = (i / W) | 0, n = A.fl[i - W], face = y > 0 && n !== PIT && !(A.plankSet && A.plankSet.has(i - W)), f = pitFace(A), v = (x * 5 + y * 3) % 6; // (no earth face under a wooden bridge: its planks' own edge)
   g.fillStyle = pitBlack(); g.fillRect(x * TS, y * TS, TS, TS); if (face) sheetTile(g, f, x * TS, y * TS, v, 0);
   if (!A.wt) return; const sx = (f[0] + v) * TS, sy = f[1] * TS, B = PIT_BAND;
   // [the wall's index, the band in its own tile, where the face's columns come from (or none)]
@@ -52,7 +52,7 @@ function pitPaint(A, g, i) {
 // marks painted on the ground (blood, scorch, footprints) never stay on a pit: the pits they touched are painted again
 function pitMend(A, g, x0, y0, x1, y1) {
   if (!A.pitN) return; const tx0 = Math.max(0, Math.floor(x0 / TS) - 1), tx1 = Math.min(A.w - 1, Math.floor(x1 / TS) + 1), ty0 = Math.max(0, Math.floor(y0 / TS) - 1), ty1 = Math.min(A.h - 1, Math.floor(y1 / TS) + 1);
-  for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) if (A.fl[ty * A.w + tx] === PIT) pitPaint(A, g, ty * A.w + tx);
+  for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) if (A.fl[ty * A.w + tx] === PIT && !(A.plankSet && A.plankSet.has(ty * A.w + tx))) pitPaint(A, g, ty * A.w + tx); // (a plank being laid stays)
 }
 
 // ---- building
@@ -107,7 +107,7 @@ function pitChasm(A, r) {
       const x = o.v ? o.at + k : s, y = o.v ? s : o.at + k, i = y * W + x; if (s === b || s === b + 1) { bridge.push([x, y]); continue; } cells.add(i);
     }
     const R = pitReach(A, r, cells); if (!R || !R.linked || R.seen.size < R.all * 0.95) continue;
-    return { cells, guard: o.v ? [(o.at + H / 2) * TS, (b + 1) * TS + 4] : [(b + 1) * TS, (o.at + H / 2) * TS + 4], bridge };
+    return { cells, guard: o.v ? [(o.at + H / 2) * TS, (b + 1) * TS + 4] : [(b + 1) * TS, (o.at + H / 2) * TS + 4], bridge, v: o.v };
   }
   return null;
 }
@@ -207,7 +207,7 @@ function pitEdges(A, r, rim) {
   return made >= 2 ? { cells: gone } : null;
 }
 function pitPlan(A, g) {
-  A.pitSets = []; A.crumbles = []; A.crumbleSet = new Set(); A.live = new Set(); A.pitN = 0; A.peb = []; A.fallers = [];
+  A.pitSets = []; A.crumbles = []; A.crumbleSet = new Set(); A.live = new Set(); A.pitN = A.pitN || 0; A.plankSet = A.plankSet || new Set(); A.peb = []; A.fallers = []; // (a drawbridge's chasm is already dug: 37_levels)
   const kinds = FORCE_PITS.on ? ['spikeway', 'ledges', 'chasm', 'crumble', 'rim', 'corners', 'holes'] : A.floor < 2 ? [chance(0.35) && 'holes', chance(0.25) && 'crumble', chance(0.25) && 'corners'].filter(Boolean)
     : [chance(0.5) && pick(['chasm', 'ledges', 'spikeway']), chance(0.4) && 'holes', chance(0.3) && 'crumble', chance(0.35) && pick(['rim', 'corners'])].filter(Boolean);
   // the treasure room's: cracked slabs ('loot'), pit corners or the pit rim ('t' + kind)
@@ -217,7 +217,11 @@ function pitPlan(A, g) {
     if (k === 'ledges' && (r.w < 11 || r.h < 8) || k === 'chasm' && (r.w < 9 || r.h < 8) || (k === 'crumble' || k === 'loot') && (r.w < 8 || r.h < 6) || k === 'rim' && (r.w < 7 || r.h < 6) || k === 'spikeway' && (r.w < 10 || r.h < 8) || k === 'corners' && (r.w < 8 || r.h < 7) || r.w * r.h < 48) continue;
     const res = k === 'chasm' ? pitChasm(A, r) : k === 'ledges' ? pitLedges(A, r) : k === 'crumble' || k === 'loot' ? pitCrumble(A, r) : k === 'rim' || k === 'corners' ? pitEdges(A, r, k === 'rim') : k === 'spikeway' ? pitSpikeway(A, r) : pitHoles(A, r); if (!res) continue;
     if (res.spikes) { const Wk = wkOf(A), ph = rand(0, SPIKE_T); A.spikes = A.spikes || []; for (const [tx, ty] of res.spikes) A.spikes.push({ tx, ty, x: tx * TS + 8, y: ty * TS + 8, tile: spikeLook(Wk), ph, hit: new Set(), was: 0, ax: res.spikeAx, fc: res.spikeC }); }
+    // a chasm's bridge: the floor left standing (stone), or half the time the sheet's wooden bridge over the black
+    const wood = k === 'chasm' && res.bridge && chance(0.5) ? pick(['orange', 'green']) : null; if (wood) for (const [x, y] of res.bridge) A.plankSet.add(y * A.w + x);
     for (const i of res.cells) A.fl[i] = PIT; for (const i of res.cells) pitPaint(A, g, i); A.pitN += res.cells.size;
+    if (wood) { const xs = res.bridge.map(c => c[0]), ys = res.bridge.map(c => c[1]), x0 = Math.min(...xs), y0 = Math.min(...ys), tr = res.v ? 'ew' : 'ns', n = (res.v ? Math.max(...xs) - x0 + 1 : Math.max(...ys) - y0 + 1) * 2;
+      for (const [x, y] of res.bridge) pitPaint(A, g, y * A.w + x); for (let j = 0; j < n; j++) plankStrip(g, tr, wood, j, x0 * TS + (res.v ? j * 8 : 0), y0 * TS + (res.v ? 0 : j * 8)); }
     r.set = kind; r.pitGuard = res.guard || null; A.pitSets.push(kind);
     for (const i of res.crack || []) { const x = i % A.w, y = (i / A.w) | 0, cv = mkCanvas(TS, TS); cv.getContext('2d').drawImage(g.canvas, x * TS, y * TS, TS, TS, 0, 0, TS, TS); A.crumbles.push({ i, x, y, cv, st: 0, t: 0, ph: rand(TAU), room: r.i, tell: res.tell || 0.5 }); A.crumbleSet.add(i); }
     break;

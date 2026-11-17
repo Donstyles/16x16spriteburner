@@ -29,6 +29,12 @@ const WK = {
 };
 const wkOf = A => WK[A.th === THEMES.grey ? 'grey' : 'brown'];
 const sheetTile = (g, [tx, ty], x, y, dx = 0, dy = 0) => g.drawImage(IMG.cellar, (tx + dx) * TS, (ty + dy) * TS, TS, TS, x, y, TS, TS);
+// The sheet's wooden bridges, two tiles wide, fresh (orange) or green with age: for a way running east and west the planks
+// lie north to south ([440, 424] / [440, 376]: four planks a block, eight pixels each), for a way running north and south
+// they lie east to west ([408, 472] / [472, 472]). A bridge of any length is laid strip by strip, one plank at a time.
+const PLANK = { ew: { orange: [440, 424], green: [440, 376] }, ns: { orange: [408, 472], green: [472, 472] } };
+function plankStrip(g, travel, wood, j, x, y) { const [sx, sy] = PLANK[travel][wood], s = j % 4; if (travel === 'ew') g.drawImage(IMG.cellar, sx + s * 8, sy, 8, 32, x, y, 8, 32); else g.drawImage(IMG.cellar, sx, sy + s * 8, 32, 8, x, y, 32, 8); }
+function plankArt(travel, wood, len) { const ew = travel === 'ew', cv = mkCanvas(ew ? len : 32, ew ? 32 : len), g = cv.getContext('2d'); for (let j = 0; j * 8 < len; j++) plankStrip(g, travel, wood, j, ew ? j * 8 : 0, ew ? 0 : j * 8); return cv; }
 // A body of water: its tiles (cells, a set of tile indices) put together on a canvas of their own, and the same with the
 // water turned to wet stone (its bed), which is painted on the floor under it. Square-cut water is built tile by tile,
 // each tile from four quarter tiles picked by that corner's neighbours (floor on both sides: an outer corner; on one: an
@@ -113,14 +119,14 @@ function cistern(A, r, g) {
   // the bridge: across the way the room's doors face, two tiles wide, over the middle
   const ew = r.doors.some(d => d.side === 'E' || d.side === 'W'), ns = r.doors.some(d => d.side === 'N' || d.side === 'S');
   const horiz = (ew && !ns) || (ew === ns && chance(0.5)) ? p.y1 - p.y0 >= 3 : p.x1 - p.x0 < 4;
-  p.bridge = { horiz, cells: [] };
+  p.bridge = { horiz, cells: [], wood: chance(0.5) ? pick(['orange', 'green']) : null }; // (the stone slats, or the wooden bridge)
   if (horiz) { const m = Math.floor((p.y0 + p.y1) / 2); for (let x = p.x0; x <= p.x1; x++) p.bridge.cells.push([x, m], [x, m + 1]); }
   else { const m = Math.floor((p.x0 + p.x1) / 2); for (let y = p.y0; y <= p.y1; y++) p.bridge.cells.push([m, y], [m + 1, y]); }
   for (const [x, y] of p.bridge.cells) A.fl[y * A.w + x] = 3;
   { // blood on the bridge: its own layer over the slats, clipped to them (what lands in a gap falls through, 45_blood)
     const B = p.bridge, xs = B.cells.map(c => c[0]), ys = B.cells.map(c => c[1]); B.bx0 = Math.min(...xs) * TS; B.by0 = Math.min(...ys) * TS;
     const w = (Math.max(...xs) + 1) * TS - B.bx0, h = (Math.max(...ys) + 1) * TS - B.by0, W = wkOf(A);
-    B.mask = mkCanvas(w, h); const mg = B.mask.getContext('2d'); for (const [x, y] of B.cells) sheetTile(mg, B.horiz ? W.slatH : W.slatV, x * TS - B.bx0, y * TS - B.by0);
+    B.mask = mkCanvas(w, h); const mg = B.mask.getContext('2d'); if (B.wood) { B.art = plankArt(B.horiz ? 'ew' : 'ns', B.wood, B.horiz ? w : h); mg.drawImage(B.art, 0, 0); } else for (const [x, y] of B.cells) sheetTile(mg, B.horiz ? W.slatH : W.slatV, x * TS - B.bx0, y * TS - B.by0);
     const md = mg.getImageData(0, 0, w, h).data; B.solid = new Uint8Array(w * h); for (let i = 0; i < w * h; i++) B.solid[i] = md[i * 4 + 3] > 0 ? 1 : 0;
     B.w = w; B.h = h; B.cv = mkCanvas(w, h); B.g = B.cv.getContext('2d'); B.g.translate(-B.bx0, -B.by0);
   }
@@ -267,7 +273,7 @@ function worksTick(dt) {
     }
     // (pressed once he has landed on it)
     if (!pl.down && heroes.some(h => h.onPlat === pl && h.z <= 0.5)) { pl.down = true; pl.t = 0; SFX.stone(panOf(pl.x), true); shake(0.05); }
-    if (pl.down) { pl.t += dt; pl.f = Math.min(3, Math.floor(pl.t / 0.06)); if (pl.pool && !pl.pool.drain && pl.t > 0.35) { if (pl.remote) startCine(pl); else startDrain(pl.pool); } }
+    if (pl.down) { pl.t += dt; pl.f = Math.min(3, Math.floor(pl.t / 0.06)); if (pl.pool && !pl.pool.drain && pl.t > 0.35) { if (pl.remote) startCine(pl); else startDrain(pl.pool); } if (pl.bridge && !pl.bridge.going && pl.t > 0.35) startBridgeCine(pl); } // (a drawbridge's: 37_levels)
   }
   for (const p of A.pools || []) if (p.drain === 1) {
     p.level = Math.max(0, p.level - dt / (p.rate || 3.4)); const [dx, dy] = p.drainAt, cx = dx * TS + 8, cy = dy * TS + 8;
@@ -423,7 +429,7 @@ function drawWorks(c) {
       const k = Math.min(1, p.level * 1.6); c.fillStyle = `rgba(8,16,34,${0.55 * k})`;
       for (const [x, y] of bc) { const top = bc.some(([a, b]) => a === x && b === y - 1) ? 0 : 2; c.fillRect(x * TS, y * TS + top, TS, TS - top); if (!bc.some(([a, b]) => a === x && b === y + 1) && A.fl[(y + 1) * A.w + x] === 2) c.fillRect(x * TS, (y + 1) * TS, TS, 3); }
     }
-    for (const [x, y] of bc) sheetTile(c, p.bridge.horiz ? W.slatH : W.slatV, x * TS, y * TS);
+    if (p.bridge.art) c.drawImage(p.bridge.art, p.bridge.bx0, p.bridge.by0); else for (const [x, y] of bc) sheetTile(c, p.bridge.horiz ? W.slatH : W.slatV, x * TS, y * TS);
     if (p.bridge.cv) c.drawImage(p.bridge.cv, p.bridge.bx0, p.bridge.by0); // blood on its slats
   }
   for (const q of A.plips || []) { q.t += 1 / 60; const u = q.t / 0.5; if (u >= 1) continue; c.strokeStyle = `rgba(220,240,255,${0.7 * (1 - u)})`; c.lineWidth = 1; c.beginPath(); c.ellipse(q.x, q.y, 1 + u * 4, (1 + u * 4) * 0.6, 0, 0, TAU); c.stroke(); }

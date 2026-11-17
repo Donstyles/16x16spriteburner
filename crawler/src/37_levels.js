@@ -20,8 +20,8 @@ function levelPlan(A, g) {
   const rooms = A.rooms, adj = r => A.halls.filter(h => h.A === r || h.B === r).map(h => (h.A === r ? h.B : h.A));
   const reach = skip => { const seen = new Set([A.start]), q = [A.start]; while (q.length) { const r = q.shift(); for (const n of adj(r)) if (n !== skip && !seen.has(n)) { seen.add(n); q.push(n); } } return seen; };
   const free = r => r.kind === 'room' && !r.chest && !r.set && !r.sluice, shuffled = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(v => v[1]);
-  A.sets = [];
-  if (FORCE.set || chance(0.55)) for (const r of shuffled(rooms.filter(r => free(r) && !reach(r).has(A.end)))) {
+  A.sets = []; A.plankSet = new Set(); A.noProp = new Set();
+  const tryFlood = () => { for (const r of shuffled(rooms.filter(r => free(r) && !reach(r).has(A.end)))) {
     // the flooded way stands where the way to the stairs runs through it and a side branch leaves it too: you come in
     // on one side, a ledge along the wall takes you round to the branch, and the stairs' side lies across the water.
     // The sluice is in the branch, which can only be reached through the flooded room.
@@ -33,10 +33,57 @@ function levelPlan(A, g) {
     const far = new Set([...parts.entries()].filter(([, v]) => v === 'far').map(([d]) => d));
     const p = floodedWay(A, r, g, far); if (!p) continue;
     r.set = 'flood'; A.sets.push('flood'); hostSluice(A, host, p);
-    break;
-  }
+    return true;
+  } return false; };
+  const tryBridge = () => { for (const r of shuffled(rooms.filter(r => (r === A.end || free(r) && !reach(r).has(A.end)) && r.w >= 9 && r.h >= 7))) if (drawbridge(A, r, g, reach(r), adj)) return true; return false; };
+  // THE PUZZLES THAT STAND IN THE WAY: from the second floor every floor has one between you and the stairs, from the
+  // third two (a flooded way, a drawbridge, one of each if they fit); the first floor may have a flooded way or not.
+  // A floor that cannot take them is laid out again (30_arena buildArena).
+  A.need = FORCE.set ? 0 : A.floor >= 3 ? 2 : A.floor === 2 ? 1 : 0;
+  const musts = () => A.sets.filter(s => s === 'flood' || s === 'drawbridge').length;
+  if (A.need) for (let k = 0; k < 3 && musts() < A.need; k++) { const order = A.sets.includes('flood') ? [tryBridge, tryFlood] : A.sets.includes('drawbridge') ? [tryFlood, tryBridge] : chance(0.5) ? [tryFlood, tryBridge] : [tryBridge, tryFlood]; if (!order[0]()) order[1](); }
+  else if (FORCE.set || chance(0.55)) tryFlood();
+  if (FORCE.set) tryBridge();
   if (FORCE.set || chance(0.45)) for (const r of shuffled(rooms.filter(r => free(r) && r.w >= 12 && r.h >= 8 && r.doors.length >= 2 && beyondHost(A, r)))) if (gauntlet(A, r, g)) { r.set = 'gauntlet'; A.sets.push('gauntlet'); remoteSluice(A, r, r.pool); break; }
   if (FORCE.set || chance(0.4)) for (const r of shuffled(rooms.filter(r => free(r) && r.w >= 11 && r.h >= 7 && beyondHost(A, r)))) if (sentinelPond(A, r, g)) { r.set = 'sentinel'; A.sets.push('sentinel'); remoteSluice(A, r, r.pool); break; }
+  A.musts = musts();
+}
+// THE DRAWBRIDGE: a chasm across a room the way down runs through (the end room, between its doors and the stairs, or a
+// room on the way), wall to wall and two or three tiles wide, with no way over it. Its bridge (the sheet's wooden one, two
+// tiles wide, fresh or green with age) is laid by a button in a room of its own: down a side branch that leaves this room
+// on the near side of the chasm when there is one (so it is found after the chasm), or else some other room on this side.
+// Stepping on it takes the view to the chasm while the bridge goes across, plank by plank from the near side.
+function drawbridge(A, r, g, near, adj) {
+  const W = A.w, other = d => (d.hall.A === r ? d.hall.B : d.hall.A), nearDoors = r.doors.filter(d => near.has(other(d))); if (!nearDoors.length) return false;
+  const toEnd = new Map([[A.end, 0]]), q = [A.end]; while (q.length) { const a = q.shift(); for (const n of adj(a)) if (!toEnd.has(n)) { toEnd.set(n, toEnd.get(a) + 1); q.push(n); } }
+  // what must lie across it: the stairs (the end room), or the door on toward them
+  const far = r === A.end ? [0, 1, 2].map(k => [r.stairX + k, r.iy0]) : r.doors.filter(d => !near.has(other(d)) && toEnd.get(other(d)) < toEnd.get(r)).flatMap(d => d.cells); if (!far.length) return false;
+  const H = randi(2, 3), opts = [], sideRows = r.doors.filter(d => d.side === 'E' || d.side === 'W').flatMap(d => d.cells.map(c => c[1])), sideCols = r.doors.filter(d => d.side === 'N' || d.side === 'S').flatMap(d => d.cells.map(c => c[0])).concat(r === A.end ? [r.stairX, r.stairX + 1, r.stairX + 2] : []);
+  for (let y = r.iy0 + 2; y + H - 1 <= r.iy1 - 2; y++) if (!sideRows.some(v => v >= y - 1 && v <= y + H)) opts.push({ v: false, at: y });
+  for (let x = r.ix0 + 2; x + H - 1 <= r.ix1 - 2; x++) if (!sideCols.some(v => v >= x - 1 && v <= x + H)) opts.push({ v: true, at: x });
+  const inside = i => { const x = i % W, y = (i / W) | 0; return x >= r.fx0 && x <= r.fx1 && y >= r.fy0 && y <= r.fy1; };
+  for (const o of pitShuffle(opts)) {
+    const band = new Set(); for (let k = 0; k < H; k++) for (let s = o.v ? r.iy0 : r.ix0; s <= (o.v ? r.iy1 : r.ix1); s++) band.add(o.v ? s * W + o.at + k : (o.at + k) * W + s);
+    const open = i => inside(i) && FLOOR(A.fl[i]) && !band.has(i), fill = s => { const seen = new Set([s]), st = [s]; while (st.length) { const i = st.pop(); for (const j of [i - 1, i + 1, i - W, i + W]) if (!seen.has(j) && open(j)) { seen.add(j); st.push(j); } } return seen; };
+    const [sx, sy] = nearDoors[0].cells[1], S = fill(sy * W + sx);
+    if (!nearDoors.every(d => d.cells.some(([x, y]) => S.has(y * W + x))) || far.some(([x, y]) => S.has(y * W + x))) continue; // (the near doors together, the way on across)
+    const F = fill(far[1][1] * W + far[1][0]); let lost = false; // (no floor cut off from both sides)
+    for (let y = r.iy0; y <= r.iy1 && !lost; y++) for (let x = r.ix0; x <= r.ix1; x++) { const i = y * W + x; if (open(i) && !S.has(i) && !F.has(i)) { lost = true; break; } }
+    if (lost) continue;
+    const ends = b => [b, b + 1].every(s => { const [ax, ay, bx, by] = o.v ? [o.at - 1, s, o.at + H, s] : [s, o.at - 1, s, o.at + H]; return FLOOR(A.fl[ay * W + ax]) && FLOOR(A.fl[by * W + bx]); });
+    const bs = []; for (let b = (o.v ? r.iy0 : r.ix0) + 1; b <= (o.v ? r.iy1 : r.ix1) - 2; b++) bs.push(b); const b = pitShuffle(bs).find(ends); if (b === undefined) continue;
+    // the button's room: off a door of this room on the near side (a branch beyond it), else any room on this side
+    const branch = new Set(); for (const d of r.doors) { if (near.has(other(d)) || !d.cells.some(([x, y]) => S.has(y * W + x))) continue; const seen = new Set([other(d)]), st = [other(d)]; while (st.length) { const a = st.pop(); for (const n of adj(a)) if (n !== r && !seen.has(n)) { seen.add(n); st.push(n); } } seen.forEach(h => branch.add(h)); }
+    const ok = hostOK(A), hosts = [...branch].filter(ok), host = (hosts.length ? hosts : [...near].filter(ok)).sort((a, c) => adj(a).length - adj(c).length || Math.random() - 0.5)[0]; if (!host) continue;
+    for (const i of band) A.fl[i] = PIT; for (const i of band) pitPaint(A, g, i); A.pitN = (A.pitN || 0) + band.size;
+    const cells = []; for (let k = 0; k < H; k++) for (const s of [b, b + 1]) cells.push(o.v ? [o.at + k, s] : [s, o.at + k]);
+    const lowNear = o.v ? S.has(b * W + o.at - 1) : S.has((o.at - 1) * W + b); // (laid from the near side)
+    const br = { bridge: true, room: r.i, travel: o.v ? 'ew' : 'ns', wood: pick(['orange', 'green']), cells, len: H, back: !lowNear, laid: 0, going: false, x0: o.v ? o.at : b, x1: o.v ? o.at + H - 1 : b + 1, y0: o.v ? b : o.at, y1: o.v ? b + 1 : o.at + H - 1 };
+    (A.bridges = A.bridges || []).push(br); r.set = 'drawbridge'; r.bridge = br; A.sets.push('drawbridge'); hostSluice(A, host, br);
+    for (const [x, y] of cells) for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) A.noProp.add((y + dy) * W + x + dx); // (nothing stands where it comes ashore)
+    return true;
+  }
+  return false;
 }
 // Every body of water that drains has its sluice in another room, and the order is in the layout: the sluice is in a room
 // that can only be reached through the water's own room (across the causeway, past the sentinel, round the cistern, or
@@ -142,7 +189,8 @@ function sentinelPond(A, r, g) {
 function levelAfter(A, r) {
   const W = wkOf(A), plate = (tx, ty, p, o = {}) => { A.plates = A.plates || []; A.plates.push(Object.assign({ x: tx * TS + 8, y: ty * TS + 8, tx, ty, tile: W.plate, f: 0, down: false, pool: p, room: r.i }, o)); };
   const clear = (tx, ty) => removeIf(A.props, q => Math.abs(q.x - (tx * TS + 8)) < 14 && Math.abs(q.cy - (ty * TS + 10)) < 14);
-  if (r.sluice) { // the outlet grate in the north wall, the plate before it
+  if (r.sluice && r.sluice.bridge) { const x = r.sluiceX; clear(x, r.iy0); plate(x, r.iy0, null, { remote: true, bridge: r.sluice }); } // a drawbridge's button
+  else if (r.sluice) { // the outlet grate in the north wall, the plate before it
     const x = r.sluiceX, wy = A.th === THEMES.brown ? 3 : 0; tileAt(A.g, 19, 3 + wy, x * TS, (r.fy0 + 1) * TS); clear(x, r.iy0);
     plate(x, r.iy0, r.sluice, { remote: true, outlet: { x: x * TS + 8, y: (r.fy0 + 1) * TS + 11 } });
   }
@@ -238,8 +286,31 @@ function startCine(pl) {
   SFX.stone(panOf(pl.x), true); shake(0.15);
   if (pl.outlet) for (let i = 0; i < 18; i++) water(pl.outlet.x + rand(-3, 3), pl.outlet.y, 6, rand(-30, 30), rand(10, 40), rand(10, 50)); // a gush from the outlet
 }
+function startBridgeCine(pl) {
+  const br = pl.bridge; if (br.going) return; br.going = true; const cx = (br.x0 + br.x1 + 1) / 2 * TS, cy = (br.y0 + br.y1 + 1) / 2 * TS;
+  G.cine = { x: cx, y: cy, t: 0, bridge: br, pl }; G.eyes = [{ x: cx, y: cy + 4, lightR: 90, eyeR: 7, dead: false, hush: 1, dir: 0 }];
+  SFX.stone(panOf(pl.x), true); shake(0.12);
+}
+// one plank of a drawbridge down, from the near side (strip j counted from the bridge's low end); a tile with both its
+// planks down can be walked
+function layPlank(br, quiet) {
+  const A = ARENA, n = br.len * 2, k = br.laid++, j = br.back ? n - 1 - k : k, ew = br.travel === 'ew', t = j >> 1;
+  const x = br.x0 * TS + (ew ? j * 8 : 0), y = br.y0 * TS + (ew ? 0 : j * 8), cells = ew ? [[br.x0 + t, br.y0], [br.x0 + t, br.y1]] : [[br.x0, br.y0 + t], [br.x1, br.y0 + t]];
+  for (const [cx, cy] of cells) A.plankSet.add(cy * A.w + cx);
+  groundPaint(x, y, x + (ew ? 8 : 32), y + (ew ? 32 : 8), gg => plankStrip(gg, br.travel, br.wood, j, x, y));
+  if (k % 2) { for (const [cx, cy] of cells) A.fl[cy * A.w + cx] = 1; A.flv = (A.flv || 0) + 1; }
+  if (!quiet) { const mx = x + (ew ? 4 : 16), my = y + (ew ? 16 : 4); SFX.wood(panOf(mx)); pebbles(mx, my, 4); smoke(mx, my, 1, 'dust', 5, 10, 0.6); shake(0.03); }
+}
+function bridgeCine(C, dt) {
+  const br = C.bridge, n = br.len * 2; updateSight(dt); updateProj(0);
+  while (br.laid < n && C.t > 0.8 + br.laid * 0.14) layPlank(br);
+  if (br.laid >= n && C.endT === undefined) { C.endT = C.t; SFX.stone(panOf(C.x), false); }
+  const I = G.me && G.me.inp, skip = C.t > 1 && I && (I.atkP || I.dodgeP);
+  if (skip) { while (br.laid < n) layPlank(br, true); I.atkP = I.dodgeP = I.atkR = false; }
+  if (skip || (C.endT !== undefined && C.t - C.endT > 1.1)) { G.cine = null; G.eyes = null; }
+}
 function cineTick(dt) {
-  const C = G.cine; C.t += dt; const p = C.pool;
+  const C = G.cine; C.t += dt; if (C.bridge) { bridgeCine(C, dt); return; } const p = C.pool;
   if (C.t > 0.8 && !p.drain) startDrain(p);
   worksTick(dt); updateSight(dt); updateProj(0);
   for (const f of G.foes) if (f.drowned) foeTick(f, dt); // (the drowned settle where they lie)
@@ -282,6 +353,6 @@ function levelTick(dt) {
 // ---- the puzzle floor (kit screen): a run whose first floor holds every set piece that will fit
 function beginPuzzleFloor(kit) {
   beginRun(kit); FORCE.set = true;
-  for (let n = 0; n < 120; n++) { startFloor(); if (ARENA.sets.length >= (n < 90 ? 3 : 2)) break; }
-  FORCE.set = false; G.card = { t: 0, life: 3.2, a: 'PUZZLE FLOOR', b: (ARENA.sets || []).map(s => ({ flood: 'THE FLOODED WAY', gauntlet: 'THE GAUNTLET', sentinel: 'THE SENTINEL' })[s]).join('  ·  '), c: 'EVERY WATER HAS ITS SLUICE' };
+  for (let n = 0; n < 120; n++) { startFloor(); if (ARENA.sets.length >= (n < 90 ? 4 : 2)) break; }
+  FORCE.set = false; G.card = { t: 0, life: 3.2, a: 'PUZZLE FLOOR', b: (ARENA.sets || []).map(s => ({ flood: 'THE FLOODED WAY', gauntlet: 'THE GAUNTLET', sentinel: 'THE SENTINEL', drawbridge: 'THE DRAWBRIDGE' })[s]).join('  ·  '), c: 'EVERY WATER HAS ITS SLUICE' };
 }

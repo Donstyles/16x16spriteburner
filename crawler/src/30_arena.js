@@ -15,7 +15,20 @@ const CW = 24, CH = 17; // one grid cell, in tiles
 // off the top of the wall, as the ceiling does.
 const CEIL_N = { '6,0': [[0, 0, 16, 11]] };
 function tileAt(g, tx, ty, dx, dy) { g.drawImage(IMG.cellar, tx * TS, ty * TS, TS, TS, dx, dy, TS, TS); }
+// A floor that cannot take the puzzles its depth asks for (37_levels levelPlan) is laid out again, a few times at most.
+// It looks for some variety too: two puzzles of different kinds where it can, and the flooded way as often as the
+// drawbridge where one is asked for (it takes a room with a side branch, so it fits less often); after eight tries any
+// layout that has its puzzles will do.
 function buildArena(floor) {
+  let A = null; const wantFlood = chance(0.5);
+  for (let k = 0; k < 40; k++) { // (the one built last is ARENA: the one handed back)
+    A = buildArena1(floor); if (!A.need) return A; if (A.musts < A.need) continue;
+    const kinds = new Set(A.sets.filter(s => s === 'flood' || s === 'drawbridge'));
+    if (k >= 8 || (A.need >= 2 ? kinds.size >= 2 : kinds.has(wantFlood ? 'flood' : 'drawbridge'))) return A;
+  }
+  return A;
+}
+function buildArena1(floor) {
   const th = floor % 2 ? THEMES.brown : THEMES.grey, GW = floor <= 2 ? 3 : 4, GH = 3;
   const N = Math.min(GW * GH - 1, 5 + Math.min(4, Math.floor((floor + 1) / 2)));
   // ---- the room graph: grown outward from the start cell, then a loop or two so not every floor is a single line
@@ -160,7 +173,7 @@ function furnish(A, r, g) {
   // the tall arched windows and the tall vent ([17..18, 2..3], [20, 2..3]) are two tiles high, their tops in the brick above
   const wy = th === THEMES.brown ? 3 : 0, WIN = [[16, 2, 1], [16, 3, 1], [17, 3, 2], [18, 3, 2], [19, 2, 1], [19, 3, 1], [20, 3, 2]];
   for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || !chance(0.16)) continue; const [wx, wy0, wh] = pick(WIN); for (let j = 0; j < wh; j++) tileAt(g, wx, wy0 + wy - j, x * TS, (r.fy0 + 1 - j) * TS); used.add(x); }
-  const prop = (kind, tx, ty, o = {}) => { if (!FLOOR(A.fl[Math.floor(ty) * A.w + Math.floor(tx)]) || !FLOOR(A.fl[Math.floor(ty) * A.w + Math.ceil(tx)]) || A.crumbleSet && (A.crumbleSet.has(Math.floor(ty) * A.w + Math.floor(tx)) || A.crumbleSet.has(Math.floor(ty) * A.w + Math.ceil(tx)))) return; A.props.push(Object.assign({ kind, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o)); }; // (never in water, nor on a cracked slab: 38_pits)
+  const prop = (kind, tx, ty, o = {}) => { if (A.noProp && A.noProp.has(Math.floor(ty) * A.w + Math.floor(tx)) || !FLOOR(A.fl[Math.floor(ty) * A.w + Math.floor(tx)]) || !FLOOR(A.fl[Math.floor(ty) * A.w + Math.ceil(tx)]) || A.crumbleSet && (A.crumbleSet.has(Math.floor(ty) * A.w + Math.floor(tx)) || A.crumbleSet.has(Math.floor(ty) * A.w + Math.ceil(tx)))) return; A.props.push(Object.assign({ kind, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o)); }; // (never in water, nor on a cracked slab: 38_pits)
   const free = (x, y, d = 10) => !A.props.some(p => Math.abs(p.x - x) < d && Math.abs(p.y - y) < d);
   if (r.w * r.h >= 100) for (const [tx, ty] of [[r.ix0 + 1, r.iy1 - 1], [r.ix1 - 1, r.iy0 + 1]]) if (!nearDoor(tx, ty)) prop('brazier', tx, ty, { f: randi(0, 3) });
   const corner = (cx, cy) => { for (let i = 0; i < randi(1, 3); i++) { const tx = clamp(cx + randi(-1, 1), r.ix0, r.ix1), ty = clamp(cy + randi(-1, 1), r.iy0, r.iy1); if (nearDoor(tx, ty) || !free(tx * TS + 8, ty * TS + 14)) continue; const t = pick(CLUTTER); prop(t[2] || (t[0] >= 28 && t[1] === 8 ? 'chest' : 'barrel'), tx, ty, { tile: [t[0], t[1]], th: t[3] || 1, hp: 40 }); } };
