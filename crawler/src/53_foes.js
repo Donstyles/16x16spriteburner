@@ -367,7 +367,7 @@ function updateDrops(dt) {
   for (const d of G.drops) {
     if (d.wait > 0) { d.wait -= dt; if (d.wait <= 0) SFX.toss(panOf(d.x), d.k === 'gold'); continue; }
     d.t += dt; d.vz -= 400 * dt; d.z += d.vz * dt; if (d.z < 0) { d.z = 0; d.vz = -d.vz * 0.35; d.vx *= 0.6; d.vy *= 0.6; }
-    const f = Math.exp(-3 * dt); d.vx *= f; d.vy *= f; const nx = d.x + d.vx * dt, ny = d.y + d.vy * dt; if (!blockAt(nx, ny) && !trimAt(nx, ny)) { d.x = nx; d.y = ny; } // (nor slides in under the ceiling, out of sight)
+    const f = Math.exp(-3 * dt); d.vx *= f; d.vy *= f; const nx = d.x + d.vx * dt, ny = d.y + d.vy * dt; if (!blockAt(nx, ny) && !trimAt(nx, ny) && !propFootAt(nx, ny)) { d.x = nx; d.y = ny; } // (nor slides in under the ceiling, out of sight, nor into a column's plinth)
     if (d.t < (d.hold || 0.4)) continue;
     if (d.k !== 'gold') { const h = nearest(d, G.heroes.filter(alive), 8); if (h && d.z < 2 && takeItem(d, h)) d.dead = true; continue; } // stepped on, and of use
     const h = nearest(d, G.heroes.filter(alive), 26); if (!h) continue;

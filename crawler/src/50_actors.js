@@ -102,13 +102,24 @@ function deathFx(u) {
   else debris(u.x, u.y, 8, DUST, 120, 140, 1.6 * sc);
   SFX.pop(panOf(u.x));
 }
-// where a column's plinth meets the floor (the three-tile column's plinth stands at the top of its tile, the flooded
-// column's at the bottom): the box nobody walks into, and the line it is drawn in front of or behind by
+// A column on its plinth (the three-tile column's plinth is drawn from 19 to 8 pixels above its prop's foot line, the
+// flooded column's, two tiles, from 12 to 1). The box nobody walks into: from the front of the plinth back to its drawn
+// top edge, so a foot coming from the north stops where the plinth's top begins and never sinks in behind it.
 function propFoot(p) {
-  if (p.kind === 'pillar') return { x0: p.x - 6, x1: p.x + 6, y0: p.y - 14, y1: p.y - 7 };
-  if (p.kind === 'wetpillar') return { x0: p.x - 6, x1: p.x + 6, y0: p.y - 7, y1: p.y };
+  if (p.kind === 'pillar') return { x0: p.x - 6, x1: p.x + 6, y0: p.y - 17, y1: p.y - 7 };
+  if (p.kind === 'wetpillar') return { x0: p.x - 6, x1: p.x + 6, y0: p.y - 10, y1: p.y };
   return null;
 }
+// How a column is drawn among the rest: its plinth (everything from its top edge down) is low, under anyone's hand, so it
+// goes down first and everyone stands and swings over it (nobody's feet reach in behind it: propFoot); the column above
+// it is drawn in front of or behind a unit by the column's own middle (band: the plinth's top edge; mid: that line)
+function propSplit(p) {
+  if (p.kind === 'pillar') return { band: p.y - 19, mid: p.y - 10 };
+  if (p.kind === 'wetpillar') return { band: p.y - 12, mid: p.y - 3 };
+  return null;
+}
+// a point in a column's plinth (a coin does not come to rest in it)
+function propFootAt(x, y) { for (const p of ARENA.props) { if (!p.solid || p.dead) continue; const F = propFoot(p); if (F && x >= F.x0 && x < F.x1 && y >= F.y0 && y < F.y1) return true; } return false; }
 // physics: own velocity plus knockback, then walls, props and each other
 function moveActor(u, dt) {
   if (!Number.isFinite(u.vx + u.vy + u.kx + u.ky)) { u.vx = u.vy = u.kx = u.ky = 0; }

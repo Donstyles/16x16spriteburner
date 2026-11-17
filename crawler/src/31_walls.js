@@ -43,14 +43,16 @@ function maskRects(rows) {
 const pieceAt = (A, i) => A.fl[i] === 0 && A.wt && A.wt[i] > 0; // (a wall tile with a piece drawn on it)
 const paintAt = (A, i) => { const c = A.wt[i] - 1; return paintOf((c / 64) | 0, c % 64, A.wf && A.wf[i]); };
 // Which of the pieces' floor pixels really are floor: those the floor reaches, pixel by pixel from the floor tiles beside
-// them (a south wall's row behind a room is; behind a pit or a pool it is not, nor is a strip with no floor beside it).
-// Worked out again whenever the floor changes (a pool drained, a slab fallen into a pit: A.flv). For each wall piece:
+// them (a south wall's row behind a room is; a strip with no floor beside it is not). Behind a wall the floor is what lies
+// north of it: under a pit or a pool's water the row is pit or water too, none of it floor, so nobody walks round a chasm
+// or a flooded way behind the wall. Worked out again whenever the floor changes (a pool drained, a slab fallen into a
+// pit: A.flv). For each wall piece:
 // A.fp its floor pixels (16 rows of bits), A.home the floor tile they were reached from (where a foot there counts as
 // standing), A.wr the rest of it as the rectangles that stop feet (null when none do).
 function openMap(A) {
   const v = A.flv || 0; if (A.fp && A.fpV === v) return A; A.fpV = v;
   const W = A.w, H = A.h, N = W * H, fl = A.fl, fp = A.fp = new Uint16Array(N * 16), can = new Uint16Array(N * 16), home = A.home = new Int32Array(N).fill(-1), wr = A.wr = new Array(N).fill(null);
-  for (let i = 0; i < N; i++) if (pieceAt(A, i)) { const w = paintAt(A, i).w; for (let y = 0; y < 16; y++) can[i * 16 + y] = ~w[y] & 0xffff; }
+  for (let i = 0; i < N; i++) if (pieceAt(A, i) && !(i >= W && (fl[i - W] === 2 || fl[i - W] === PIT))) { const w = paintAt(A, i).w; for (let y = 0; y < 16; y++) can[i * 16 + y] = ~w[y] & 0xffff; } // (2: water)
   const q = [], go = (i, x, y, h) => { const r = i * 16 + y, b = 0x8000 >>> x; if (!(can[r] & b) || (fp[r] & b)) return; fp[r] |= b; if (home[i] < 0) home[i] = h; q.push(i * 256 + y * 16 + x); };
   for (let i = 0; i < N; i++) { // (from every edge a piece shares with a floor tile)
     if (!pieceAt(A, i)) continue; const x = i % W, y = (i / W) | 0;

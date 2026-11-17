@@ -265,7 +265,11 @@ function strikeHits(h, a) {
   const mv = a.mv, W = weaponOf(h), ox = mv.k === 'circle' && mv.at ? Math.cos(a.dir) * mv.at : 0, oy = mv.k === 'circle' && mv.at ? Math.sin(a.dir) * mv.at * 0.85 : 0, src = { x: h.x + ox, y: h.y + oy };
   for (const f of G.foes) {
     if (f.dead || f.under || a.hit.has(f) || !hitsShape(src, f, mv, a.dir)) continue; if (!lineOfSight(h.x, h.y - 4, f.x, f.y - 4)) continue;
-    a.hit.add(f); let crit = 1, o = {};
+    a.hit.add(f);
+    // cursed (55_spells): a standard blow, the moment it would land, goes wide two times in three (one throw for the
+    // whole swing); a heavy blow still lands
+    if (h.curseT > 0 && mv !== W.heavy) { if (a.miss === undefined) a.miss = chance(0.66); if (a.miss) { textPop(f.x, f.y, headZ(f) + 2, 'MISS', 'curse', false); continue; } }
+    let crit = 1, o = {};
     if (!f.aware) { crit = 2.5 * (W.back || 1); o.sneak = true; }
     else if (Math.abs(angDiff(f.dir, angTo(f.x, f.y, h.x, h.y))) > 2.1) { crit = 1.5 * (W.back || 1); o.back = true; }
     if (h.riposteT > 0 && f.stun > 0) { crit = Math.max(crit, 2.4); o.riposte = true; h.riposteT = 0; }
@@ -279,13 +283,25 @@ function breakProp(p) {
   // (a shrine's chest opens only once its vault does)
   if (p.dead || p.hp > 1e8) return; if (p.kind === 'tchest') { if (p.sealed && !p.sealed.open) { SFX.clang(panOf(p.x)); return; } openChest(p); return; } if (p.kind === 'ore') { hitOre(p); return; }
   if ((p.th || 1) >= 2 && !p.wetTile && !p.struck) { strikeTall(p); return; } // a tall crate: one piece, two blows
+  if (p.kind === 'chest' && !p.open) { openSmall(p); return; } // a small chest: the first blow opens it, the next breaks it
   p.dead = true; p.solid = false;
   // clay or wood: a pot (or a heap of them) bursts into terracotta shards; a crate, a cart or a chest splinters with a knock
   if (isPot(p)) { debris(p.x, p.cy, 22, POT_SHARDS, 120, 150, 1.4); smoke(p.x, p.cy, 3, 'dust', 7, 22, 1); SFX.crack(panOf(p.x)); }
   else { const n = p.th || 1; for (let i = 0; i < n; i++) debris(p.x, p.cy - i * 14, 18, ['#6a4a2a', '#8a6638', '#4a3018', '#a07848'], 140, 180, 2.2); smoke(p.x, p.cy - (n - 1) * 7, 4 * n, 'dust', 9, 30, 1.2); SFX.wood(panOf(p.x), (p.th || 1) >= 2 || p.tw >= 2); SFX.crack(panOf(p.x)); }
-  if (chance(p.kind === 'chest' ? 1 : 0.25)) dropGold(p.x, p.cy, p.kind === 'chest' ? randi(6, 14) : randi(1, 4));
-  // a fish or a flask in a pot, barrel or crate is a rare find (a little less rare in a small chest); the treasure chests hold them
-  const chest = p.kind === 'chest'; if (!chest && chance(0.015)) dropItem('fish', p.x, p.cy); else if (chance(chest ? 0.03 : 0.008)) dropItem('flask', p.x, p.cy); // (no fish in a chest)
+  if (p.kind === 'chest') return; // (an opened small chest is empty: what it held came out when it opened)
+  if (chance(0.25)) dropGold(p.x, p.cy, randi(1, 4));
+  // a fish or a flask in a pot, barrel or crate is a rare find (a flask a little less rare in a small chest); the treasure chests hold them
+  if (chance(0.015)) dropItem('fish', p.x, p.cy); else if (chance(0.008)) dropItem('flask', p.x, p.cy);
+}
+// A small chest (the sheet's two, [28, 8] and [30, 8], each with its open twin beside it): the first blow knocks its lid
+// open and tosses out what it held, as a treasure chest does but less (a little gold, now and then a flask; no fish);
+// it stands there open and empty, and the next blow splinters it
+function openSmall(p) {
+  p.open = true; p.tile = [p.tile[0] + 1, p.tile[1]]; SFX.chest(panOf(p.x)); SFX.wood(panOf(p.x));
+  const loot = [], n = randi(6, 14), coins = Math.min(n, 4); for (let i = 0; i < coins; i++) loot.push(Math.ceil(n / coins));
+  if (chance(0.03)) loot.splice(randi(0, loot.length), 0, 'flask');
+  loot.forEach((k, i) => spill(p, k, i, loot.length));
+  debris(p.x, p.cy - 6, 4, ['#6a4a2a', '#8a6638', '#4a3018', '#a07848'], 60, 90, 1.1); smoke(p.x, p.cy - 5, 1, 'dust', 6, 14, 0.7);
 }
 // a tall crate (the sheet's crates two tiles high) is one thing and takes two blows: the first flashes it white (fading
 // back, as a foe does) and knocks a splinter or two of its own wood off, the whole of it still standing; the second breaks

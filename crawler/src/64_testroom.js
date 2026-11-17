@@ -35,7 +35,9 @@ function dummyDied(u) { const A = ARENA; G.sched.push({ t: 1.5, fn: () => { if (
 // blood lands on it and runs down it like any wall; a side door's portcullis is drawn down in the wall line
 function shutDoor(A, d) {
   const th = A.th; for (const [x, y] of d.cells) { A.fl[y * A.w + x] = 0; if (d.side === 'N') A.fl[(y - 1) * A.w + x] = 0; }
-  if (d.side === 'E' || d.side === 'W') { d.k = 1; return; }
+  // a side doorway gets its door; the floor behind the room's south wall runs on under it (31_walls), so where that row
+  // crosses the doorway it is rock now as well
+  if (d.side === 'E' || d.side === 'W') { const x = d.cells[0][0], y = Math.max(...d.cells.map(c => c[1])) + 1; A.wt[y * A.w + x] = 0; A.flv = (A.flv || 0) + 1; d.k = 1; return; }
   // a south doorway has no door (the sheet's shutters are blast doors for north walls): it is walled up, the room's own
   // south wall run on across it, and the first stretch of the corridor beyond it painted over as rock
   if (d.side === 'S') {

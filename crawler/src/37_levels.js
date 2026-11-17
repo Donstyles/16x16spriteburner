@@ -197,7 +197,7 @@ function corridorWood(A, g) {
     if (roll < 0.22 && len >= 4) { // a barricade across it, somewhere along the middle
       const k = randi(a0 + 1, a1 - 1); if ([0, 1, 2].some(l => spiky(...at(k, l)))) continue;
       const style = pick(['carts', 'crates', 'mixed']);
-      for (let l = 0; l < 3; l++) {
+      for (let l = 0; l < (h ? 4 : 3); l++) { // (across a corridor running east and west, its south wall's row too: floor behind the wall, 31_walls)
         const [x, y] = at(k, l), w = style === 'carts' ? ['cart', pick(FURN.cart)] : style === 'crates' ? ['crate', pick(FURN.crate)] : pick([['cart', pick(FURN.cart)], ['crate', pick(FURN.crate)], ['barrel', pick(FURN.pot)]]);
         if (!h && l !== 1 && chance(0.4)) put('crate', pick(FURN.stack), x, y, 2); else put(w[0] === 'cart' ? 'crate' : w[0], w[1], x, y);
       }

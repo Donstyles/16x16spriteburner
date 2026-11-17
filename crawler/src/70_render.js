@@ -111,6 +111,10 @@ function drawUnit(c, u) {
   if (u.team === 'foe' && u.hp < u.maxHp && !u.dead && !u.dying && !u.fall) { const w = 10 * sc, x = u.x - w / 2, y = u.y - u.z + 3; c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(x - 0.5, y - 0.5, w + 1, 2.5); c.fillStyle = u.stun > 0 ? '#ffd24a' : '#e8443a'; c.fillRect(x, y, w * clamp(u.hp / u.maxHp, 0, 1), 1.5); }
   if (u.team === 'hero' && u.blocking) { const a0 = u.dir; c.strokeStyle = u.blockT < PARRY_WINDOW ? '#ffd860' : '#d8d0c0'; c.lineWidth = 1.5; c.beginPath(); c.ellipse(u.x, u.y + GUARD.dy, GUARD.r, GUARD.r * GUARD.k, 0, a0 - GUARD.half, a0 + GUARD.half); c.stroke(); }
 }
+// a column's plinth alone (low) or the column above it (high): the prop drawn through a cut at the plinth's top edge
+function drawPropPart(c, p, low) {
+  const S = propSplit(p), top = p.y - 64; c.save(); c.beginPath(); if (low) c.rect(p.x - 9, S.band, 18, p.y + 4 - S.band); else c.rect(p.x - 9, top, 18, S.band - top); c.clip(); drawProp(c, p); c.restore();
+}
 function drawProp(c, p) {
   if (p.kind === 'pillar') { const [tx, ty] = p.tile; for (let i = 0; i < 3; i++) c.drawImage(IMG.cellar, tx * TS, (ty + i) * TS, TS, TS, p.x - 8, p.y - 14 - 32 + i * TS, TS, TS); }
   else if (p.kind === 'brazier') { const f = ((G.time * 8 + p.f) | 0) % 4 + (ARENA.th === THEMES.brown ? 5 : 0); c.drawImage(IMG.cellar, f * TS, 27 * TS, TS, TS, p.x - 8, p.y - 14, TS, TS); }
@@ -229,9 +233,10 @@ function render() {
   S.globalCompositeOperation = 'destination-out'; S.drawImage(noFloor(), 0, 0); S.globalCompositeOperation = 'source-over';
   c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(shb, 0, 0); c.restore();
   // everything standing, lying or flying, drawn back to front by where it meets the floor
-  const list = []; for (const u of G.units) list.push([u.y, 0, u]); for (const p of ARENA.props) if (!p.dead && !p.flat) { const F = propFoot(p); list.push([F ? F.y1 : p.y, 1, p]); }
+  for (const p of ARENA.props) if (!p.dead && !p.flat && propSplit(p)) drawPropPart(c, p, true); // (the columns' plinths, under everyone)
+  const list = []; for (const u of G.units) list.push([u.y, 0, u]); for (const p of ARENA.props) if (!p.dead && !p.flat) { const S = propSplit(p); list.push([S ? S.mid : p.y, 1, p]); }
   for (const d of G.drops) list.push([d.y, 2, d]); for (const p of G.proj) list.push([p.y, 3, p]); for (const r of FX.rocks) list.push([r.y, 4, r]); list.sort((a, b) => a[0] - b[0]);
-  for (const [, k, o] of list) if (k === 0) { if (o.fall) drawFalling(c, o); else if (!(o.rise > 0 && ((G.time * 18) | 0) % 2)) drawUnit(c, o); } else if (k === 1) drawProp(c, o); else if (k === 2) drawDrop(c, o); else if (k === 3) drawProj(c, o); else drawRock(c, o);
+  for (const [, k, o] of list) if (k === 0) { if (o.fall) drawFalling(c, o); else if (!(o.rise > 0 && ((G.time * 18) | 0) % 2)) drawUnit(c, o); } else if (k === 1) { if (propSplit(o)) drawPropPart(c, o, false); else drawProp(c, o); } else if (k === 2) drawDrop(c, o); else if (k === 3) drawProj(c, o); else drawRock(c, o);
   drawWorldParts(c); drawCeil(c, ox, oy, bw, bh); // the tops of the south, east and west walls, at the ceiling, over everything in the room
   renderLight();
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'multiply'; c.drawImage(lc, 0, 0);

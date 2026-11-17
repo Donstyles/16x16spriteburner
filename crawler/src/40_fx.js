@@ -53,13 +53,19 @@ function bolt(x0, y0, x1, y1, o = {}) {
   boltShape(b); FX.bolts.push(b); return b;
 }
 // --- ground cracks: grow outward over time, get painted into the floor, glow with magma while hot ---
+// a crack's stretch painted into the floor in whole pixels: dark, two wide where it opens from the blow and one wide
+// along the rest and its branches, a faint pale lip under it
+function crackPx(g, s) {
+  const k = s.ww || 1, x0 = Math.round(s.x0), y0 = Math.round(s.y0), x1 = Math.round(s.x1), y1 = Math.round(s.y1), n = Math.max(1, Math.abs(x1 - x0), Math.abs(y1 - y0));
+  for (let i = 0; i <= n; i++) { const x = Math.round(x0 + (x1 - x0) * i / n), y = Math.round(y0 + (y1 - y0) * i / n); g.fillStyle = 'rgba(255,230,190,0.14)'; g.fillRect(x, y + k, k, 1); g.fillStyle = 'rgba(6,4,4,0.85)'; g.fillRect(x, y, k, k); }
+}
 function cracks(x, y, n, len, speed = 260, hot = 2.5, col = 'magma') {
   const segs = [];
   const grow = (sx, sy, a, l, t, depth) => {
     let px = sx, py = sy; const steps = Math.max(2, (l / 7) | 0);
     for (let i = 0; i < steps; i++) {
       a += rand(-0.55, 0.55); const sl = rand(4, 9), nx = px + Math.cos(a) * sl, ny = py + Math.sin(a) * sl * 0.8; if (!inArena(nx, ny)) break;
-      t += sl / speed; segs.push({ x0: px, y0: py, x1: nx, y1: ny, t0: t, w: Math.max(0.7, 2.2 - depth * 0.6 - i * 0.07), p: false }); px = nx; py = ny;
+      t += sl / speed; segs.push({ x0: px, y0: py, x1: nx, y1: ny, t0: t, w: Math.max(0.7, 2.2 - depth * 0.6 - i * 0.07), ww: depth === 0 && i < 2 ? 2 : 1, p: false }); px = nx; py = ny;
       if (depth < 2 && chance(0.2)) grow(px, py, a + rand(-1.3, 1.3), l * 0.45, t, depth + 1);
     }
   };
@@ -119,7 +125,7 @@ function updateFx(dt) {
   for (const w of FX.wet) w.t += dt; removeIf(FX.wet, w => w.t >= w.life);
   for (const c of FX.cracks) {
     c.t += dt;
-    if (ARENA) for (const s of c.segs) if (!s.p && c.t >= s.t0) { s.p = true; groundPaint(Math.min(s.x0, s.x1) - 3, Math.min(s.y0, s.y1) - 3, Math.max(s.x0, s.x1) + 3, Math.max(s.y0, s.y1) + 3, g => { g.strokeStyle = 'rgba(6,4,4,0.9)'; g.lineWidth = s.w + 0.6; g.lineCap = 'round'; g.beginPath(); g.moveTo(s.x0, s.y0); g.lineTo(s.x1, s.y1); g.stroke(); g.strokeStyle = 'rgba(255,230,190,0.18)'; g.lineWidth = 0.6; g.beginPath(); g.moveTo(s.x0 + 0.8, s.y0 + 0.8); g.lineTo(s.x1 + 0.8, s.y1 + 0.8); g.stroke(); }); if (chance(0.08)) { smoke(s.x1, s.y1, 1, 'dust', 8, 6, 1, 8); } }
+    if (ARENA) for (const s of c.segs) if (!s.p && c.t >= s.t0) { s.p = true; groundPaint(Math.min(s.x0, s.x1) - 3, Math.min(s.y0, s.y1) - 3, Math.max(s.x0, s.x1) + 3, Math.max(s.y0, s.y1) + 3, g => crackPx(g, s)); if (chance(0.08)) { smoke(s.x1, s.y1, 1, 'dust', 8, 6, 1, 8); } }
   }
   removeIf(FX.cracks, c => c.t >= c.life);
   updateRocks(dt); updateBlood(); updateWake(dt);
@@ -274,7 +280,7 @@ function drawCrackGlow(ctx) {
   ctx.lineCap = 'round';
   for (const c of FX.cracks) {
     const heat = clamp(1 - (c.t - 0.2) / c.hot, 0, 1); if (heat <= 0) continue;
-    for (const [w, al] of [[4, 0.25], [1.4, 0.9]]) { ctx.lineWidth = w; ctx.strokeStyle = rgba(al > 0.5 ? 'fire2' : c.col, al * heat); ctx.beginPath(); for (const s of c.segs) if (c.t >= s.t0) { ctx.moveTo(s.x0, s.y0); ctx.lineTo(s.x1, s.y1); } ctx.stroke(); }
+    for (const [w, al] of [[3, 0.22], [1, 0.9]]) { ctx.lineWidth = w; ctx.strokeStyle = rgba(al > 0.5 ? 'fire2' : c.col, al * heat); ctx.beginPath(); for (const s of c.segs) if (c.t >= s.t0) { ctx.moveTo(s.x0, s.y0); ctx.lineTo(s.x1, s.y1); } ctx.stroke(); }
   }
 }
 function drawTele(ctx) { // danger zones: normal blend, painted on the floor
