@@ -11,7 +11,7 @@ function deathKind(h, o) {
   if (TEST.on && TEST.forceDeath) return TEST.forceDeath; // (the armour and death room's DIE: 64_testroom)
   if (GORE.level === 2 && o.big) return 'burst';
   if (o.acid) return 'acid';
-  if (verminAround(h).length >= 3) return 'vermin';
+  if (verminBury(h)) return 'vermin';
   const s = h.lastSrc; if (GORE.level === 2 && s && s.team === 'foe' && s.def && s.def.role !== 'archer' && !o.ranged && headless(h.spr) && ((h.lastD || 0) >= 18 || chance(0.25))) return 'behead'; // (a heavy blow, or a quarter of the rest, from a blade at close quarters)
   return 'bleed';
 }
@@ -97,36 +97,104 @@ function acidFizz(c, u, m, fr, bare, Wc, foot, dx) {
 }
 
 // ---- eaten by vermin. Dying with three or more vermin round him (rats, beetles, ticks, ants, cockroaches, maggots, the
-// skitterers), he goes down and up to eight of them rush onto him and pile up on him till he is hidden; they writhe
-// there, skittering in place, chewing and crunching, blood squirting out of the heap; then they draw back, sated, and
-// what lies there is his skeleton (he becomes it while the heap hides him, never in view).
-const VERM = { lie: 0.35, hide: 1.5, back: 6.4 }, VERMIN_RE = /Rat$|Beetle|Bedbug|Tick$|Maggot|Ant$|Cockroach|Scarab/;
+// skitterers), enough of them to bury him, he goes down and up to eight of them rush onto him and pile up on him, the
+// later ones climbing over the first, each where it hides most of what still shows of him; they writhe there,
+// skittering in place, chewing and crunching, blood squirting out of the heap; then they draw back, sated, and what
+// lies there is his skeleton. He is never taken out of the picture: he lies under them, and turns to bones only in a
+// frame where the heap in front of him hides every pixel of him and every pixel of the bones (verminCover).
+const VERM = { lie: 0.35, hide: 1.5, back: 6.4, bulk: 2.4 }, VERMIN_RE = /Rat$|Beetle|Bedbug|Tick$|Maggot|Ant$|Cockroach|Scarab/;
 const isVermin = f => !f.dead && !f.dying && !f.fall && (f.type === 'skitter' || (VERMIN_RE.test(f.spr) && !/^Ratkin/.test(f.spr)));
 function verminAround(h) { return G.foes.filter(f => isVermin(f) && dist(f.x, f.y, h.x, h.y) < 110).sort((a, b) => dist(a.x, a.y, h.x, h.y) - dist(b.x, b.y, h.x, h.y)).slice(0, 8); }
+// enough of them to bury him: three or more, and between them a good deal more body than he has (three rats will do,
+// three ticks will not)
+function verminBury(h) { const V = verminAround(h); if (V.length < 3) return false; let n = 0; for (const f of V) n += solidOf(f.spr).length; return n >= VERM.bulk * spritePixels(h.spr).length; }
+// a vermin's pixels that are there in all four of its frames, from where it is drawn (its feet's middle), so a spot
+// it covers stays covered while its legs work; cached
+const SOLID = {};
+function solidOf(spr) {
+  if (SOLID[spr]) return SOLID[spr]; const m = MOBS[spr], P = PIX.mobs, fw = m[1], fh = m[2], foot = footOf(spr), out = [];
+  for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) { let all = true; for (let f = 0; f < 4 && all; f++) all = P.d[((m[0] + y) * P.w + f * fw + x) * 4 + 3] > 128; if (all) out.push([x - fw / 2, y - foot - 1]); }
+  return (SOLID[spr] = out);
+}
+// what of him shows: drawn as the game draws it (70_render drawUnit) into a little canvas round him, as 0/1 per pixel
+const COVER = { w: 72, h: 48, oy: 36 }; let coverCv = null;
+function coverGrid(h, draw) {
+  if (!coverCv) coverCv = mkCanvas(COVER.w, COVER.h); const c = coverCv.getContext('2d');
+  c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, COVER.w, COVER.h); c.imageSmoothingEnabled = false; c.globalAlpha = 1;
+  c.translate(COVER.w / 2 - Math.round(h.x), COVER.oy - Math.round(h.y)); draw(c);
+  const d = c.getImageData(0, 0, COVER.w, COVER.h).data, g = new Uint8Array(COVER.w * COVER.h); for (let i = 0; i < g.length; i++) g[i] = d[i * 4 + 3] > 0 ? 1 : 0; return g;
+}
+function lyingGrid(h, spr) { const was = [h.spr, h.deadT, h.hidden]; h.spr = spr; h.deadT = Math.max(h.deadT || 0, VERM.lie + 0.01); h.hidden = false; const g = coverGrid(h, c => drawUnit(c, h)); [h.spr, h.deadT, h.hidden] = was; return g; }
+// where each goes on him, the biggest first, each where it hides most of what still shows of him lying there (and of
+// his bones), a pixel's margin round him counting a little so one skittering a pixel aside still covers him. Lying, half
+// of him is in front of where he fell, so they stand as far as ten pixels forward of it (oy), and some climb (lz: how
+// high), the climbing and the far forward a little less liked when it hides no more
+function pileOn(h, V) {
+  const W = COVER.w, H = COVER.h, A = lyingGrid(h, h.spr), B = lyingGrid(h, 'DecrepitBones'), wt = new Float32Array(W * H);
+  for (let i = 0; i < wt.length; i++) if (A[i] || B[i]) wt[i] = 4;
+  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) { const i = y * W + x; if (!wt[i] && (wt[i - 1] === 4 || wt[i + 1] === 4 || wt[i - W] === 4 || wt[i + W] === 4)) wt[i] = 1; }
+  const at = (X, Y, fs, P, fn) => { for (const [px, py] of P) { const x = X + (fs > 0 ? px : -px - 1), y = Y + py; if (x >= 0 && y >= 0 && x < W && y < H) fn(y * W + x); } };
+  return V.slice().sort((a, b) => solidOf(b.spr).length - solidOf(a.spr).length).map(f => {
+    const P = solidOf(f.spr); let best = null;
+    for (let dx = -14; dx <= 14; dx++) for (let oy = 2; oy <= 10; oy++) for (const lz of [0, 2, 4, 6, 8]) for (const fs of [1, -1]) {
+      let sc = -lz * 0.5 - oy * 0.2; at(W / 2 + dx, COVER.oy + oy - lz, fs, P, i => { sc += wt[i]; });
+      if (!best || sc > best.sc) best = { sc, dx, oy, lz, fs };
+    }
+    at(W / 2 + best.dx, COVER.oy + best.oy - best.lz, best.fs, P, i => { wt[i] = 0; });
+    return { f, ox: best.dx, oy: best.oy, lz: best.lz, fs: best.fs };
+  });
+}
 function verminPose(t) { return { lie: t > VERM.lie, dip: t > 0.12 && t <= VERM.lie ? 2 : 0, jit: 0 }; }
 function verminStart(h) {
-  const V = verminAround(h); h.death.feeders = V; dropWeapon(h, 1.2);
-  V.forEach((f, i) => { const a = i / V.length * TAU + rand(-0.3, 0.3); f.feed = { h, ox: Math.round(Math.cos(a) * rand(3, 9)), oy: Math.round(Math.sin(a) * rand(1, 3)) + 1, j: 0, jx: 0, jy: 0 }; f.act = null; });
+  const V = verminAround(h), D = h.death; D.feeders = V; dropWeapon(h, 1.2);
+  const A = lyingGrid(h, h.spr), B = lyingGrid(h, 'DecrepitBones'); D.T = []; for (let i = 0; i < A.length; i++) if (A[i] || B[i]) D.T.push(i); // (his pixels and his bones', lying)
+  for (const p of pileOn(h, V)) { p.f.feed = { h, ox: p.ox, oy: p.oy, lz: p.lz, fs: p.fs, lift: 0, j: 0, jx: 0, jy: 0 }; p.f.act = null; }
 }
+// how many of his pixels (and his bones') the heap leaves showing, reckoned from the vermin's solid pixels where they
+// are, or with one of them (f0) a skitter's step aside (jx, jy): a step that would open a gap in the heap is not taken
+function heapGaps(h, f0, jx0, jy0) {
+  const D = h.death, W = COVER.w, H = COVER.h, K = D.K || (D.K = new Uint8Array(W * H)); K.fill(0);
+  for (const f of D.feeders) {
+    const F = f.feed; if (!F || f.dead || !F.at || F.h !== h) continue; const X = W / 2 + F.ox + (f === f0 ? jx0 : F.jx), Y = COVER.oy + F.oy + (f === f0 ? jy0 : F.jy) - Math.round(F.lift);
+    for (const [px, py] of solidOf(f.spr)) { const x = X + (F.fs > 0 ? px : -px - 1), y = Y + py; if (x >= 0 && y >= 0 && x < W && y < H) K[y * W + x] = 1; }
+  }
+  let n = 0; for (const i of D.T) if (!K[i]) n++; return n;
+}
+const STEPS = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1], [0, 0]];
 function feedTick(f, dt) { // (53_foes foeTick: a vermin at its meal)
   const F = f.feed, h = F.h, t = h.deadT || 0;
-  if (!h.dead) { f.feed = null; return; }
-  if (t >= VERM.back) { if (!F.away) { const a = angTo(h.x, h.y, f.x, f.y); F.away = { x: h.x + Math.cos(a) * rand(30, 48), y: h.y + Math.sin(a) * rand(18, 30) }; } steer(f, F.away.x, F.away.y, f.def.spd, dt, 2); f.face = F.away.x < f.x ? -1 : 1; return; } // drawn back, sated
+  if (!h.dead) { f.feed = null; f.lift = 0; return; }
+  if (t >= VERM.back) { // drawn back, sated: down off him and away
+    F.lift = Math.max(0, F.lift - dt * 40); f.lift = Math.round(F.lift);
+    if (!F.away) { const a = angTo(h.x, h.y, f.x, f.y); F.away = { x: h.x + Math.cos(a) * rand(30, 48), y: h.y + Math.sin(a) * rand(18, 30) }; } steer(f, F.away.x, F.away.y, f.def.spd, dt, 2); f.face = F.away.x < f.x ? -1 : 1; return;
+  }
   const tx = h.x + F.ox, ty = h.y + F.oy;
   if (!F.at) { const d = steer(f, tx, ty, f.def.spd * 1.7, dt, 1.5); f.face = tx < f.x ? -1 : 1; if (d <= 2) F.at = true; return; }
-  if ((F.j -= dt) <= 0) { F.j = rand(0.05, 0.12); F.jx = randi(-1, 1); F.jy = randi(-1, 1); if (chance(0.3)) f.face = -f.face; } // skittering in place
+  F.lift = Math.min(F.lz, F.lift + dt * 30); f.lift = Math.round(F.lift); f.face = F.fs; // climbing on, then held facing the way it fits
+  if ((F.j -= dt) <= 0) { // skittering in place, never so as to open a gap in the heap over him
+    F.j = rand(0.05, 0.12); const now = heapGaps(h, f, F.jx, F.jy);
+    for (const [jx, jy] of STEPS.slice().sort(() => Math.random() - 0.5)) if (heapGaps(h, f, jx, jy) <= now) { F.jx = jx; F.jy = jy; break; }
+  }
   f.x = tx + F.jx; f.y = ty + F.jy; f.vx = f.vy = 0; f.moving = true;
+}
+// (70_render, just before the frame is drawn) he turns to bones in a frame where the heap in front of him hides every
+// pixel of him and every pixel of the bones, tested as drawn; never otherwise, so never in view
+function verminCover(h) {
+  const t = h.deadT; if (h.sprWas || t < VERM.hide || t >= VERM.back || !h.death.heap) return;
+  const F = G.foes.filter(f => f.feed && f.feed.h === h && !f.dead && f.y > h.y).sort((a, b) => a.y - b.y); if (!F.length) return;
+  const A = coverGrid(h, c => drawUnit(c, h)), B = lyingGrid(h, 'DecrepitBones'), C = coverGrid(h, c => { for (const f of F) drawUnit(c, f); });
+  for (let i = 0; i < A.length; i++) if ((A[i] || B[i]) && !C[i]) return;
+  h.sprWas = h.spr; h.spr = 'DecrepitBones'; h.death.boned = t;
 }
 function verminTick(h, dt) {
   const t = h.deadT, p = t - dt, at = s => p < s && t >= s, V = h.death.feeders || [], n = V.filter(f => f.feed && f.feed.at && !f.dead).length;
-  if (!h.hidden && t > VERM.hide && t < VERM.back && n >= Math.min(3, V.length)) h.hidden = true; // the heap has him
-  if (h.hidden && t < VERM.back) { // feeding: chewing, crunching, blood squirting out of the heap
+  if (!h.death.heap && t > VERM.hide && t < VERM.back && n >= Math.min(3, V.length)) h.death.heap = true; // the heap has him
+  if (h.death.heap && t < VERM.back) { // feeding: chewing, crunching, blood squirting out of the heap
     if (chance(dt * 9)) SFX.squelch(panOf(h.x), false); if (chance(dt * 3.5)) SFX.bone(panOf(h.x), false); if (chance(dt * 7)) SFX.tick(panOf(h.x));
     if (bleeds(h) && chance(dt * 7)) { const a = rand(TAU); for (let j = 0; j < 6; j++) part({ k: 'gore', x: h.x + rand(-6, 6), y: h.y + rand(-2, 2), z: rand(2, 6), vx: Math.cos(a) * rand(20, 60), vy: Math.sin(a) * rand(10, 40), vz: rand(30, 80), g: 420, life: 5, s0: 1, col: pick(BLOOD.red), kind: 'red' }); pool(h.x + rand(-5, 5), h.y + 1, 'red', 1.5 + t * 0.35); }
     if (chance(dt * 3)) shake(0.03);
   }
-  if (h.hidden && !h.sprWas && t >= VERM.hide + 0.8) { h.sprWas = h.spr; h.spr = 'DecrepitBones'; } // stripped to the bones out of sight, under the heap, never in view
-  if (at(VERM.back)) { h.hidden = false; debris(h.x, h.y - 2, 6, [BONE.L, BONE.M, BONE.D], 30, 40, 1.5); SFX.bone(panOf(h.x), true); pool(h.x, h.y + 1, 'red', 6); } // what they leave
+  if (at(VERM.back)) { debris(h.x, h.y - 2, 6, [BONE.L, BONE.M, BONE.D], 30, 40, 1.5); SFX.bone(panOf(h.x), true); pool(h.x, h.y + 1, 'red', 6); } // what they leave
 }
 
 // ---- beheaded. A heavy blow takes his head off at the neck: the head flies, tumbling and bleeding, bounces and rolls to
