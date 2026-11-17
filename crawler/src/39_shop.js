@@ -1,13 +1,13 @@
 // ===================== the shop: a small room where nobody fights =====================
 // From the second floor one of a floor's dead ends may be the shop (30_arena): a small room, lit, with a counter across it
-// (the sheet's crates end to end, wall to wall), the shopkeeper behind it (the gnome alchemist, his flask bubbling) and
+// (the sheet's crates end to end, wall to wall), the shopkeeper behind it (the overworked old villager) and
 // his wares laid out on it. Nobody fights in here: stepping in, the hero puts his weapon away (slung on his back) and
 // walks slowly, it being a small room full of things, and the view comes in a little closer. Standing at a ware shows
 // its name and price; attack buys it: the coins go over the counter, the ware comes over to him. The foes stop at the
 // door, and their arrows come no further than it.
 // A prototype of how a shop looks and feels: he sells what the cellar already has (flasks, fish, the floor's map) and a
 // belt with room for one more flask; gold is what the cellars give.
-const SHOP = { slow: 0.5, zoom: 1.3, keeper: 'GnomeAlchemist' };
+const SHOP = { slow: 0.5, zoom: 1.3, keeper: 'OverworkedVillager' };
 const WARES = [
   { k: 'flask', name: 'FLASK', price: f => 12 + 3 * f, stock: 2 },
   { k: 'fish', name: 'FISH', price: f => 6 + 2 * f, stock: 2 },
@@ -111,15 +111,13 @@ function drawShopHud(c, zf) {
     font(c, 600, 12 * zf, F_NUM); label(c, p + ' GOLD', sx, sy, red ? '#ff5a46' : poor ? '#c08a6a' : '#ffd860', { align: 'center', stroke: 3 });
     const [hx, hy] = toScreen(G.me.x, G.me.y + 10); font(c, 600, 9 * zf, F_HUD); label(c, 'ATTACK: BUY', hx, hy, '#d8d0c0', { align: 'center', stroke: 3 });
   }
-  // what the keeper says: on a dark plate with a gold edge and a tail down to him, so it reads as speech and not as one
-  // of the numbers that fly about; above the name of the ware the hero stands at, never across it
-  if (S.say) { const kp = S.keeper, [kx, ky] = toScreen(kp.x, kp.y - headZ(kp) - 6), u = S.say.t;
-    c.globalAlpha = u > 2.8 ? Math.max(0, (3.2 - u) / 0.4) : Math.min(1, u / 0.12); font(c, 600, 11 * zf, F_TALK);
-    const m = c.measureText(S.say.txt), px = 6 * zf, py = 4 * zf, asc = m.actualBoundingBoxAscent || 8 * zf, desc = m.actualBoundingBoxDescent || 0, hw = m.width / 2 + px, r = 3;
-    const sy = Math.min(ky - desc - py - 5 * zf, selTop - py - desc), sx = clamp(kx, hw + 6, VIEW.w - hw - 6), x0 = sx - hw, x1 = sx + hw, y0 = sy - asc - py, y1 = sy + desc + py, tx = clamp(kx, x0 + 8, x1 - 8);
-    c.beginPath(); c.moveTo(x0 + r, y0); c.arcTo(x1, y0, x1, y1, r); c.arcTo(x1, y1, x0, y1, r); c.lineTo(tx + 4 * zf, y1); c.lineTo(tx, y1 + 5 * zf); c.lineTo(tx - 4 * zf, y1); c.arcTo(x0, y1, x0, y0, r); c.arcTo(x0, y0, x1, y0, r); c.closePath();
-    c.fillStyle = 'rgba(20,14,10,0.88)'; c.fill(); c.strokeStyle = 'rgba(200,168,112,0.8)'; c.lineWidth = 1; c.stroke();
-    label(c, S.say.txt, sx, sy, '#fff4d8', { align: 'center' }); c.globalAlpha = 1; }
+  // what the keeper says: in the words' own face and outline, but pale blue (no number is) and typed out a letter at a
+  // time, steady over his head, so it reads as speech and not as one of the numbers that pop and fly; above the name of
+  // the ware the hero stands at, never across it
+  if (S.say) { const kp = S.keeper, [kx, ky] = toScreen(kp.x, kp.y - headZ(kp) - 6), u = S.say.t, txt = S.say.txt, n = Math.min(txt.length, Math.floor(u * 38) + 1);
+    c.globalAlpha = u > 2.8 ? Math.max(0, (3.2 - u) / 0.4) : 1; font(c, 600, 12 * zf, F_TALK);
+    const m = c.measureText(txt), desc = m.actualBoundingBoxDescent || 0, hw = m.width / 2, sy = Math.min(ky, selTop - desc), sx = clamp(kx, hw + 8, VIEW.w - hw - 8);
+    label(c, txt.slice(0, n), sx - hw, sy, '#a8dcff', { stroke: 3 }); c.globalAlpha = 1; } // (set from the left edge of the whole line, so it does not shift as it grows)
 }
 // the shop test (kit screen): a run whose floor has a shop, the hero at its door with some gold to spend
 function beginShopTest(kit) {
