@@ -4,7 +4,8 @@ const CAM = { x: 0, y: 0, z: 2, kick: 0 };
 const SH = { x: 0, y: 0, r: 0 };
 let cvs, ctx, fxc, fctx, lc, lctx, b1, b1c, b2, b2c, vign;
 const LIGHTTEX = {};
-function lightTex(k) { if (LIGHTTEX[k]) return LIGHTTEX[k]; const c = COL[k] || COL.white, s = 256, cv = mkCanvas(s, s), x = cv.getContext('2d'), g = x.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); g.addColorStop(0, `rgba(${c},1)`); g.addColorStop(0.35, `rgba(${c},0.55)`); g.addColorStop(1, `rgba(${c},0)`); x.fillStyle = g; x.fillRect(0, 0, s, s); posterize(cv, 6); return (LIGHTTEX[k] = cv); }
+// (lv: how many steps of light it is cut into; the hero's lamp has one more than the rest, so it falls off more gradually)
+function lightTex(k, lv = 6) { const key = k + lv; if (LIGHTTEX[key]) return LIGHTTEX[key]; const c = COL[k] || COL.white, s = 256, cv = mkCanvas(s, s), x = cv.getContext('2d'), g = x.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); g.addColorStop(0, `rgba(${c},1)`); g.addColorStop(0.35, `rgba(${c},0.55)`); g.addColorStop(1, `rgba(${c},0)`); x.fillStyle = g; x.fillRect(0, 0, s, s); posterize(cv, lv); return (LIGHTTEX[key] = cv); }
 function resize() {
   // phones held upright still get the landscape game: the canvas is turned 90° clockwise, so it reads correctly once the phone is turned (even with rotation lock on)
   const iw = Math.max(1, innerWidth), ih = Math.max(1, innerHeight), rot = ih > iw && matchMedia('(pointer: coarse)').matches;
@@ -183,8 +184,8 @@ function renderLight() {
   lctx.setTransform(1, 0, 0, 1, 0, 0); lctx.globalAlpha = 1; lctx.globalCompositeOperation = 'source-over'; lctx.clearRect(0, 0, bw, bh);
   if (menu) { lctx.fillStyle = 'rgb(70,62,74)'; lctx.fillRect(0, 0, bw, bh); } else maskToMemory(lctx, PXO.x, PXO.y, 'source-over');
   lctx.globalCompositeOperation = 'lighter'; lctx.imageSmoothingEnabled = false; lctx.setTransform(1, 0, 0, 1, -PXO.x, -PXO.y);
-  const L = (x, y, r, k, a) => { if (a <= 0.01) return; const t = lightTex(k); for (let i = 0; i < 2 && a > 0.01; i++, a -= 1) { lctx.globalAlpha = Math.min(1, a); lctx.drawImage(t, x - r, y - r * 0.8, r * 2, r * 1.6); } };
-  for (const h of G.heroes) { const hs = (h.hush || 1) * (h.dead ? Math.max(0.4, 1 - (h.deadT || 0) * 0.08) : 1); L(h.x, h.y - 6, h.lightR * 1.35 * hs, 'hot', 1.15 * hs); L(h.x, h.y - 6, h.lightR * 0.7 * hs, 'torch', 0.35); } // a fallen hero's lamp burns on, dimming
+  const L = (x, y, r, k, a, lv) => { if (a <= 0.01) return; const t = lightTex(k, lv); for (let i = 0; i < 2 && a > 0.01; i++, a -= 1) { lctx.globalAlpha = Math.min(1, a); lctx.drawImage(t, x - r, y - r * 0.8, r * 2, r * 1.6); } };
+  for (const h of G.heroes) { const hs = (h.hush || 1) * (h.dead ? Math.max(0.4, 1 - (h.deadT || 0) * 0.08) : 1); L(h.x, h.y - 6, h.lightR * 1.35 * hs, 'hot', 1.15 * hs, 7); L(h.x, h.y - 6, h.lightR * 0.7 * hs, 'torch', 0.35, 7); } // a fallen hero's lamp burns on, dimming
   for (const e of G.eyes || []) L(e.x, e.y - 6, e.lightR * 1.3, 'hot', 1.05); // (the sluice's view lights the water it drains)
   for (const t of ARENA.torches) L(t.x, t.y + 6, 62 + 6 * noise1(G.time * 7 + t.tx), 'torch', 0.85);
   for (const p of ARENA.props) if (p.kind === 'brazier' && !p.dead) L(p.x, p.y - 4, 90 + 8 * noise1(G.time * 6 + p.x), 'torch', 0.95);

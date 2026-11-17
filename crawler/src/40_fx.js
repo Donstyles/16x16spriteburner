@@ -125,7 +125,7 @@ function updateFx(dt) {
   for (const w of FX.wet) w.t += dt; removeIf(FX.wet, w => w.t >= w.life);
   for (const c of FX.cracks) {
     c.t += dt;
-    if (ARENA) for (const s of c.segs) if (!s.p && c.t >= s.t0) { s.p = true; groundPaint(Math.min(s.x0, s.x1) - 3, Math.min(s.y0, s.y1) - 3, Math.max(s.x0, s.x1) + 3, Math.max(s.y0, s.y1) + 3, g => crackPx(g, s)); if (chance(0.08)) { smoke(s.x1, s.y1, 1, 'dust', 8, 6, 1, 8); } }
+    if (ARENA) for (const s of c.segs) if (!s.p && c.t >= s.t0) { s.p = true; groundPaint(Math.min(s.x0, s.x1) - 3, Math.min(s.y0, s.y1) - 3, Math.max(s.x0, s.x1) + 3, Math.max(s.y0, s.y1) + 3, g => crackPx(g, s)); crackSlabs(s.x0, s.y0, s.x1, s.y1); if (chance(0.08)) { smoke(s.x1, s.y1, 1, 'dust', 8, 6, 1, 8); } }
   }
   removeIf(FX.cracks, c => c.t >= c.life);
   updateRocks(dt); updateBlood(); updateWake(dt);

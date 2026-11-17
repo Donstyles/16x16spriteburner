@@ -94,7 +94,7 @@ const GROUPS = [
 function populateRoom(A, r, f) {
   const area = r.w * r.h; let budget = (3.5 + f * 1.4) * clamp(area / 150, 0.6, 1.4) * (r.kind === 'end' ? 1.6 : 1);
   const out = [], spots = [], cost = g => g.reduce((a, t) => a + FOE_TYPES[t].cost, 0);
-  const ok = (x, y) => !blockAt(x, y) && !A.props.some(p => !p.dead && dist(p.x, p.cy, x, y) < p.r + 8) && !r.doors.some(d => d.cells.some(([cx, cy]) => dist(cx * TS + 8, cy * TS + 8, x, y) < 40)) && !spots.some(s => dist(s.x, s.y, x, y) < 12);
+  const ok = (x, y) => !blockAt(x, y) && !(A.crumbleSet && A.crumbleSet.has(Math.floor(y / TS) * A.w + Math.floor(x / TS))) && !A.props.some(p => !p.dead && dist(p.x, p.cy, x, y) < p.r + 8) && !r.doors.some(d => d.cells.some(([cx, cy]) => dist(cx * TS + 8, cy * TS + 8, x, y) < 40)) && !spots.some(s => dist(s.x, s.y, x, y) < 12);
   let guard = 0; while (budget > 1.5 && guard++ < 30) {
     const has = t => !A.army || ARMIES[A.army][t].length; // only groups the army can field
     // an army with the mutilated stumblers often sends them as a horde: four to six of them, awake and milling about
@@ -367,7 +367,7 @@ function updateDrops(dt) {
   for (const d of G.drops) {
     if (d.wait > 0) { d.wait -= dt; if (d.wait <= 0) SFX.toss(panOf(d.x), d.k === 'gold'); continue; }
     d.t += dt; d.vz -= 400 * dt; d.z += d.vz * dt; if (d.z < 0) { d.z = 0; d.vz = -d.vz * 0.35; d.vx *= 0.6; d.vy *= 0.6; }
-    const f = Math.exp(-3 * dt); d.vx *= f; d.vy *= f; const nx = d.x + d.vx * dt, ny = d.y + d.vy * dt; if (!blockAt(nx, ny) && !trimAt(nx, ny) && !propFootAt(nx, ny)) { d.x = nx; d.y = ny; } // (nor slides in under the ceiling, out of sight, nor into a column's plinth)
+    const f = Math.exp(-3 * dt); d.vx *= f; d.vy *= f; const nx = d.x + d.vx * dt, ny = d.y + d.vy * dt; if (!blockAt(nx, ny) && !trimAt(nx, ny) && (!propFootAt(nx, ny) || propFootAt(d.x, d.y))) { d.x = nx; d.y = ny; } // (nor slides in under the ceiling, out of sight, nor into a column's plinth or a chest: one tossed out of a chest gets out of it)
     if (d.t < (d.hold || 0.4)) continue;
     if (d.k !== 'gold') { const h = nearest(d, G.heroes.filter(alive), 8); if (h && d.z < 2 && takeItem(d, h)) d.dead = true; continue; } // stepped on, and of use
     const h = nearest(d, G.heroes.filter(alive), 26); if (!h) continue;

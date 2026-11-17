@@ -108,6 +108,7 @@ function deathFx(u) {
 function propFoot(p) {
   if (p.kind === 'pillar') return { x0: p.x - 6, x1: p.x + 6, y0: p.y - 17, y1: p.y - 7 };
   if (p.kind === 'wetpillar') return { x0: p.x - 6, x1: p.x + 6, y0: p.y - 10, y1: p.y };
+  if (p.kind === 'tchest') return { x0: p.x - 7, x1: p.x + 7, y0: p.y - 6, y1: p.y + 1 }; // (a treasure chest, its lid's edge 11 above its foot line: from the north, feet go a pixel or two in behind it)
   return null;
 }
 // How a column is drawn among the rest: its plinth (everything from its top edge down) is low, under anyone's hand, so it
@@ -118,7 +119,7 @@ function propSplit(p) {
   if (p.kind === 'wetpillar') return { band: p.y - 12, mid: p.y - 3 };
   return null;
 }
-// a point in a column's plinth (a coin does not come to rest in it)
+// a point in a column's plinth or a treasure chest (a coin does not come to rest in one)
 function propFootAt(x, y) { for (const p of ARENA.props) { if (!p.solid || p.dead) continue; const F = propFoot(p); if (F && x >= F.x0 && x < F.x1 && y >= F.y0 && y < F.y1) return true; } return false; }
 // physics: own velocity plus knockback, then walls, props and each other
 function moveActor(u, dt) {
