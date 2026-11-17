@@ -216,12 +216,14 @@ function autoHead(d, W, ox, fw, fh, spr) {
   if (xs.length) { const cx = xs[xs.length >> 1]; for (const x of [cx - 1, cx, cx + 1]) { if (!xs.includes(x)) continue; const i = (cut * fw + x) * 4, raw = x === cx; paint[i] = raw ? 0xb8 : 0x6e; paint[i + 1] = raw ? 0x24 : 0x14; paint[i + 2] = raw ? 0x24 : 0x16; paint[i + 3] = 255; } }
   return { mask, paint };
 }
-// the head's own cut, drawn by the game whether the body's stump is hand-painted or not: every pixel of the head with the
-// body right under it, where the blade went through, turns raw red, the two ends of the cut darker
-function rawNeck(o, mask, d0, W, fw, fh) {
+// the head's own cut: painted by hand in the Head Cut Painter (its head stump layer, 12_heads hpaint: alpha 1 clears a
+// pixel, above that paints it), or else drawn by the game: the middle three pixels of the cut (head pixels with the
+// body right under them, where the blade went through), raw red, darker at the two ends
+function rawNeck(o, mask, d0, W, fw, fh, hp) {
+  if (hp) { for (let j = 0; j < fw * fh; j++) { const a = hp[j * 4 + 3], i = j * 4; if (a === 1) o[i + 3] = 0; else if (a > 1) { o[i] = hp[i]; o[i + 1] = hp[i + 1]; o[i + 2] = hp[i + 2]; o[i + 3] = 255; } } return; }
   const cut = []; for (let y = 0; y < fh - 1; y++) for (let x = 0; x < fw; x++) { const j = y * fw + x; if (mask[j] && !mask[j + fw] && d0[((y + 1) * W + x) * 4 + 3] > 0) cut.push([x, y]); }
-  if (!cut.length) return; const xs = cut.map(c => c[0]), lo = Math.min(...xs), hi = Math.max(...xs);
-  for (const [x, y] of cut) { const i = (y * fw + x) * 4, rim = x === lo || x === hi; o[i] = rim ? 0x6e : 0xb8; o[i + 1] = rim ? 0x14 : 0x24; o[i + 2] = rim ? 0x16 : 0x24; o[i + 3] = 255; }
+  if (!cut.length) return; const xs = cut.map(c => c[0]).sort((a, b) => a - b), cx = xs[xs.length >> 1];
+  for (const [x, y] of cut) { if (Math.abs(x - cx) > 1) continue; const i = (y * fw + x) * 4, raw = x === cx; o[i] = raw ? 0xb8 : 0x6e; o[i + 1] = raw ? 0x24 : 0x14; o[i + 2] = raw ? 0x24 : 0x16; o[i + 3] = 255; }
 }
 // his body without its head (his weapon already cut away) and his head on its own in its four quarter turns
 function headless(spr) {
@@ -237,7 +239,7 @@ function headless(spr) {
       const pa = C.paint ? C.paint[j * 4 + 3] : 0; if (pa === 1) d[i + 3] = 0; else if (pa > 1) { d[i] = C.paint[j * 4]; d[i + 1] = C.paint[j * 4 + 1]; d[i + 2] = C.paint[j * 4 + 2]; d[i + 3] = 255; }
     }
   }
-  rawNeck(HD.data, (H[0] || autoHead(d0, W, 0, fw, fh, spr)).mask, d0, W, fw, fh);
+  rawNeck(HD.data, (H[0] || autoHead(d0, W, 0, fw, fh, spr)).mask, d0, W, fw, fh, H[0] && H[0].hpaint);
   g.putImageData(D, 0, 0); hg.putImageData(HD, 0, 0);
   const t = tight(head), r1 = rot90(t), r2 = rot90(r1);
   return (HEADLESS[spr] = { body, rot: [t, r1, r2, rot90(r2)], neckZ: Math.max(4, footOf(spr) - neck + 1) });

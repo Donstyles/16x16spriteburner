@@ -109,24 +109,24 @@ function hudBar(c, x, y, w, h, f, trailKey, cols, n) {
 }
 // The gambeson on the HUD, in pixel art as the game is: a band of quilted linen wrapped round the health bar (and a
 // frame of it round the portrait), drawn in art pixels two screen pixels square in the gambeson sprite's own colours
-// (armours [0, 5]): cream linen quilted in padded cells seven pixels by four, stitched round, each puffed up and lit
-// from the top left (not channels, which read as straw); outlined in warm browns as the chests and the
+// (armours [0, 5]): cream linen quilted in diamonds, stitched on both diagonals every six pixels, each diamond padded
+// out and lit from the top left (not channels, which read as straw); outlined in warm browns as the chests and the
 // gambeson's own sprite are (never black), a dark seam where the bar is tucked in. As much of it is left as he has
 // armour left, hacked back from the right to a frayed edge, the white wadding showing and threads hanging loose; each
 // piece hacked off falls away and fades. Put on, it is stitched in from the left, a needle's glint at the seam.
 const QP = 2, QCOL = { lit: '#604330', o: '#473023', base: '#e8d4b2', hi: '#fff9e4', line: '#a28a58', low: '#ddbe88', dip: '#cca96d', seam: '#452e25', wad: '#fbf5e6', thread: '#cdb586' };
 const QTEX = {};
-function quiltTex(w, h, hole) { // w, h, hole ([x, y, w, h]) in art pixels; the hole see-through
-  const key = w + 'x' + h + (hole ? ':' + hole.join(',') : ''); if (QTEX[key]) return QTEX[key];
+function quiltTex(w, h, hole, seam = true) { // w, h, hole ([x, y, w, h]) in art pixels; the hole see-through; seam: a dark seam round the hole
+  const key = w + 'x' + h + (hole ? ':' + hole.join(',') : '') + (seam ? '' : ':open'); if (QTEX[key]) return QTEX[key];
   const cv = mkCanvas(w, h), g = cv.getContext('2d'), inH = (x, y) => hole && x >= hole[0] && x < hole[0] + hole[2] && y >= hole[1] && y < hole[1] + hole[3];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     if (inH(x, y)) continue; let col;
     if (x === 0 || y === 0) col = QCOL.lit; else if (x === w - 1 || y === h - 1) col = QCOL.o;
-    else if (hole && (inH(x - 1, y) || inH(x + 1, y) || inH(x, y - 1) || inH(x, y + 1) || inH(x - 1, y - 1) || inH(x + 1, y + 1) || inH(x - 1, y + 1) || inH(x + 1, y - 1))) col = QCOL.seam;
-    else { // padded cells seven by four, stitched round (a stitch, a gap), each puffed up: lit along its top and left, shaded on its right
-      const u = (x - 1) % 7, v = (y - 1) % 4;
-      if (u === 0) col = v % 2 ? QCOL.dip : QCOL.line; else if (v === 3) col = u % 2 ? QCOL.dip : QCOL.line;
-      else col = v === 0 || u === 1 ? QCOL.hi : u === 6 ? QCOL.low : QCOL.base;
+    else if (hole && seam && (inH(x - 1, y) || inH(x + 1, y) || inH(x, y - 1) || inH(x, y + 1) || inH(x - 1, y - 1) || inH(x + 1, y + 1) || inH(x - 1, y + 1) || inH(x + 1, y - 1))) col = QCOL.seam;
+    else { // diamonds: stitched on both diagonals every six pixels, each diamond padded out between them and lit from the top
+      // left: its upper left face brightest, its upper right a little less, its lower left darker, its lower right darkest
+      const a = (x + y) % 6, b = ((x - y) % 6 + 6) % 6, v = (3 - a) + (b - 3) * 0.5;
+      col = a === 0 || b === 0 ? QCOL.line : v >= 1.5 ? QCOL.hi : v >= -0.6 ? QCOL.base : v >= -2.1 ? QCOL.low : QCOL.dip;
     }
     g.fillStyle = col; g.fillRect(x, y, 1, 1);
   }
@@ -159,8 +159,8 @@ function drawQuilt(c, x, y, w, h, hero, hole) { // (x, y, w, h, hole in screen p
   c.restore();
 }
 // the portrait's frame of it (x, y, size: the portrait's box, in screen pixels), stitched in with the band
-function drawQuiltFrame(c, x, y, size, hero) {
-  const k = clamp((G.time - (hero.gambT0 || -9)) / 0.7, 0, 1), X = Math.round((x - 8) / QP) * QP, Y = Math.round((y - 8) / QP) * QP, W = Math.round((size + 16) / QP), T = quiltTex(W, W, [4, 4, W - 8, W - 8]);
+function drawQuiltFrame(c, x, y, size, hero) { // (it meets the portrait's own edge with no gap: no seam, set to the portrait's pixel)
+  const k = clamp((G.time - (hero.gambT0 || -9)) / 0.7, 0, 1), X = Math.round(x) - 8, Y = Math.round(y) - 8, W = Math.round(size / QP) + 8, T = quiltTex(W, W, [4, 4, W - 8, W - 8], false);
   c.save(); c.imageSmoothingEnabled = false; quiltRows(c, T, X, Y, () => Math.round(W * k)); c.restore();
 }
 function drawHUD() {
