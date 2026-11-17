@@ -77,7 +77,7 @@ function bigSprite(spr, sc) {
   return (BIG[key] = { cv, white: silhouette(cv), red, W, H, ox: -(W >> 1), fx: fr => fr * S + 1, foot: Math.round((foot + 1) * H / fh) });
 }
 function drawUnit(c, u) {
-  const m = MOBS[u.spr]; if (!m || u.hidden) return; if (u.team === 'foe' && !foeShown(u)) return; /* (hidden: under the vermin's heap, 48_deaths) */ if (u.under) { drawMound(c, u); return; }
+  const m = MOBS[u.spr]; if (!m || u.hidden) return; const fade = darkFade(u); if (fade <= 0.02) return; /* (taken off into the dark: 49_deaths2) */ if (u.team === 'foe' && !foeShown(u)) return; /* (hidden: under the vermin's heap, 48_deaths) */ if (u.under) { drawMound(c, u); return; }
   const sy = m[0], fw = m[1], fh = m[2], foot = footOf(u.spr), sleep = u.state === 'sleep' && !u.aware, dp = u.team === 'hero' && u.dead ? deathPose(u) : null; if (dp && dp.gone) return;
   const creep = u.team === 'hero' && u.moving && u.noise === 0 && !u.act;
   const fr = sleep || (dp && !dp.walk) || (u.act && u.act.k === 'roll') ? 0 : ((u.anim * (u.fly && !sleep ? 10 : u.moving ? (creep ? 5 : u.sprint ? 14 : 9) : 5) * (u.animK || 1)) | 0) % 4, sc = u.scale, jit = u.freeze > 0 && u.team === 'foe' ? (((G.time * 60) | 0) % 2 ? 1 : -1) : u.stun > 0 ? Math.sin(u.anim * 50) * 0.6 : 0;
@@ -104,7 +104,7 @@ function drawUnit(c, u) {
   const blit = (img, oy = sy) => { if (!dip) { c.drawImage(img, fr * fw, oy, fw, fh, -fw / 2, -foot - 1, fw, fh); return; }
     c.drawImage(img, fr * fw, oy + cut, fw, fh - cut, -fw / 2, -foot - 1 + cut, fw, fh - cut); c.drawImage(img, fr * fw, oy, fw, cut, -fw / 2, -foot - 1 + dip, fw, cut); };
   const bare = pose || (Wc && u.dropped); // swinging, or his weapon gone from his hand
-  if (B) blitB(B.cv); else if (bare) blit(u.headless && HEADLESS[u.spr] ? HEADLESS[u.spr].body : Wc.cut, 0); else blit(IMG.mobs); // (beheaded: 48_deaths)
+  c.globalAlpha = fade; if (B) blitB(B.cv); else if (u.husk) blit(bare ? huskOf(u.spr, Wc.cut, 0) : huskOf(u.spr, IMG.mobs, sy), 0); /* (drained by the bats: 49_deaths2) */ else if (bare) blit(u.headless && HEADLESS[u.spr] ? HEADLESS[u.spr].body : Wc.cut, 0); else blit(IMG.mobs); // (beheaded: 48_deaths)
   const a = u.act, warn = u.team === 'foe' && a && ((a.k === 'atk' && a.phase === 'wind') || (a.k === 'aim' && a.t > a.dur - 0.25));
   if (warn) { c.globalAlpha = 0.35 + 0.35 * Math.sin(G.time * 40); if (B) blitB(B.red); else blit(mobsRed()); }
   if (u.flash > 0) { c.globalAlpha = Math.min(1, u.flash * 9); if (B) blitB(B.white); else if (bare) blit(Wc.cutW, 0); else blit(IMG.mobsW); }
@@ -187,7 +187,7 @@ function renderLight() {
   if (menu) { lctx.fillStyle = 'rgb(70,62,74)'; lctx.fillRect(0, 0, bw, bh); } else maskToMemory(lctx, PXO.x, PXO.y, 'source-over');
   lctx.globalCompositeOperation = 'lighter'; lctx.imageSmoothingEnabled = false; lctx.setTransform(1, 0, 0, 1, -PXO.x, -PXO.y);
   const L = (x, y, r, k, a, lv) => { if (a <= 0.01) return; const t = lightTex(k, lv); for (let i = 0; i < 2 && a > 0.01; i++, a -= 1) { lctx.globalAlpha = Math.min(1, a); lctx.drawImage(t, x - r, y - r * 0.8, r * 2, r * 1.6); } };
-  for (const h of G.heroes) { const hs = (h.hush || 1) * (h.dead ? Math.max(0.4, 1 - (h.deadT || 0) * 0.08) : 1); L(h.x, h.y - 6, h.lightR * 1.35 * hs, 'hot', 1.15 * hs, 7); L(h.x, h.y - 6, h.lightR * 0.7 * hs, 'torch', 0.35, 7); } // a fallen hero's lamp burns on, dimming
+  for (const h of G.heroes) { const hs = (h.hush || 1) * (h.dead ? Math.max(0.4, 1 - (h.deadT || 0) * 0.08) : 1), lp = h.dead && h.lampAt ? h.lampAt : h; L(lp.x, lp.y - 6, h.lightR * 1.35 * hs, 'hot', 1.15 * hs, 7); L(lp.x, lp.y - 6, h.lightR * 0.7 * hs, 'torch', 0.35, 7); } // a fallen hero's lamp burns on, dimming
   for (const e of G.eyes || []) L(e.x, e.y - 6, e.lightR * 1.3, 'hot', 1.05); // (the sluice's view lights the water it drains)
   for (const t of ARENA.torches) if (!t.out) L(t.x, t.y + 6, (62 + 6 * noise1(G.time * 7 + t.tx)) * (1 + 0.5 * litFlare(t)), 'torch', 0.85 * litK(t) + 0.6 * litFlare(t)); // (just lit: it flares, then settles)
   for (const p of ARENA.props) if (p.kind === 'brazier' && !p.dead && !p.out) L(p.x, p.y - 4, (90 + 8 * noise1(G.time * 6 + p.x)) * (1 + 0.4 * litFlare(p)), 'torch', 0.95 * litK(p) + 0.6 * litFlare(p));
@@ -240,7 +240,7 @@ function render() {
   c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(shb, 0, 0); c.restore();
   // everything standing, lying or flying, drawn back to front by where it meets the floor
   for (const p of ARENA.props) if (!p.dead && !p.flat && propSplit(p)) drawPropPart(c, p, true); // (the columns' plinths, under everyone)
-  for (const h of G.heroes) if (h.dead && h.death && h.death.kind === 'vermin') verminCover(h); // (to bones only in a frame the heap hides him wholly: 48_deaths)
+  for (const h of G.heroes) if (h.dead && h.death && (h.death.kind === 'vermin' || h.death.kind === 'bats')) verminCover(h); // (to bones only in a frame the heap hides him wholly: 48_deaths)
   const list = []; for (const u of G.units) list.push([u.y, 0, u]); if (ARENA.shop) { list.push([ARENA.shop.keeper.y, 0, ARENA.shop.keeper]); } for (const p of ARENA.props) if (!p.dead && !p.flat) { const S = propSplit(p); list.push([S ? S.mid : p.y, 1, p]); } // (the shopkeeper, his wares on the counter: 39_shop)
   for (const d of G.drops) list.push([d.y, 2, d]); for (const p of G.proj) list.push([p.y, 3, p]); for (const r of FX.rocks) list.push([r.y, 4, r]); list.sort((a, b) => a[0] - b[0]);
   for (const [, k, o] of list) if (k === 0) { if (o.fall) drawFalling(c, o); else if (!(o.rise > 0 && ((G.time * 18) | 0) % 2)) drawUnit(c, o); } else if (k === 1) { if (propSplit(o)) drawPropPart(c, o, false); else drawProp(c, o); } else if (k === 2) drawDrop(c, o); else if (k === 3) drawProj(c, o); else drawRock(c, o);

@@ -185,7 +185,7 @@ function watchDeath(f, h, dt) {
   else { f.vx = damp(f.vx, 0, 6, dt); f.vy = damp(f.vy, 0, 6, dt); f.moving = false; }
 }
 function foeTick(f, dt) { // (a raised skeleton below the floor climbs out of it: z rises to 0)
-  if (f.dead) return; if (f.feed) { feedTick(f, dt); return; } /* (feed: a vermin at its meal, 48_deaths) */ if (f.dying) { throesTick(f, dt); return; } if (f.dormant) { dormantTick(f, dt); return; } if (f.z < 0 && !f.fly) f.z = Math.min(0, f.z + 22 * dt); if (f.poiseT > 0) f.poiseT -= dt; else f.poise = f.maxPoise; if (f.poiseGuard > 0) f.poiseGuard -= dt;
+  if (f.dead) return; if (f.feed) { feedTick(f, dt); return; } /* (feed: a vermin at its meal, 48_deaths) */ if (f.script) { f.script.tick(f, dt); return; } /* (script: one at work on a dead hero, 49_deaths2) */ if (f.dying) { throesTick(f, dt); return; } if (f.dormant) { dormantTick(f, dt); return; } if (f.z < 0 && !f.fly) f.z = Math.min(0, f.z + 22 * dt); if (f.poiseT > 0) f.poiseT -= dt; else f.poise = f.maxPoise; if (f.poiseGuard > 0) f.poiseGuard -= dt;
   if (f.stun > 0) { f.stun -= dt; f.vx = damp(f.vx, 0, 8, dt); f.vy = damp(f.vy, 0, 8, dt); f.moving = false; return; }
   if (f.dummy) { dummyTick(f, dt); return; } // the test room's foes only stand there
   if (!f.aware) { senses(f, dt); if (f.aware) return; idleFoe(f, dt); return; }
@@ -347,7 +347,7 @@ function updateProj(dt) {
         sparks(p.x, p.y, 7, 12, 'gold', 160, 80); SFX.clang(panOf(p.x)); textPop(u.x, u.y, headZ(u) + 3, 'DEFLECTED', 'gold', false); freeze(u, 0.06); break;
       }
       const from = { x: p.x - p.vx * 0.2, y: p.y - p.vy * 0.2, team: p.team, def: {} };
-      hurt(u, p.dmg, u.team === 'hero' ? from : p.src, { ranged: true, poise: 12, kx: p.vx * 0.3, ky: p.vy * 0.3, ang: Math.atan2(p.vy, p.vx), style: 'jet' }); if (p.spell) spellHit(p, u); p.dead = true; break;
+      hurt(u, p.dmg, u.team === 'hero' ? from : p.src, { ranged: true, poise: 12, kx: p.vx * 0.3, ky: p.vy * 0.3, ang: Math.atan2(p.vy, p.vx), style: 'jet', spell: p.spell ? p.k : undefined, caster: p.src }); if (p.spell) spellHit(p, u); p.dead = true; break;
     }
   }
   removeIf(G.proj, p => p.dead);

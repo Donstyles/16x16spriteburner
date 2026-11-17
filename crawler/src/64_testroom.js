@@ -180,16 +180,21 @@ function digTestPit(A, r) {
   TEST.pit = { x: (tx + 1) * TS, y: (ty + 1) * TS }; if (A.clean) keepClean(A); // (CLEAN wipes back to the floor with the pit in it)
 }
 // DIE: he dies the next death on the list, at once (the fall: he is walked into the pit with nothing left to pay for it)
-const TEST_DEATHS = ['bleed', 'fall', 'burst', 'acid', 'vermin', 'vermin3', 'behead'];
+const TEST_DEATHS = ['bleed', 'fall', 'burst', 'acid', 'vermin', 'vermin3', 'behead', 'drag', 'raised', 'bats', 'carried'];
 const testDeathName = k => k === 'vermin3' ? 'EATEN BY THREE RATS' : DEATH_NAMES[k]; // (vermin3: the fewest that can bury him)
 function testDie() {
   const h = G.me; if (!TEST.on || TEST.mode !== 'armour' || !h || h.dead || h.fall) return;
   const kind = TEST_DEATHS[TEST.di % TEST_DEATHS.length]; TEST.di++; TEST.gen++; TEST.waiting = false; /* (gen: a lot of foes on its way is called off) */ h.gamb = 0; h.iframe = 0; h.blocking = false; h.act = null;
   if (kind === 'fall') { h.hp = 1; h.x = TEST.pit.x; h.y = TEST.pit.y; return; }
+  const near = (spr, type, n, r0, r1) => { const out = []; for (let i = 0; i < n; i++) { const p = spotNear(h, r0, r1), v = mkFoe(type, 1, p.x, p.y, spr); Object.assign(v, { aware: true, state: 'fight', tgt: h, ctest: TEST.gen }); v.def.gold = [0, 0]; G.foes.push(v); G.units.push(v); smoke(p.x, p.y, 2, 'dust', 6, 12, 0.5); out.push(v); } return out; }; // (brought on for the death: 49_deaths2)
+  let more = {};
+  if (kind === 'drag') near('CarcassFeeder', 'skitter', 2, 26, 40);
+  if (kind === 'bats' || kind === 'carried') near('VampireBat', 'skitter', 3, 30, 50);
+  if (kind === 'raised') { const [n] = near('AdeptNecromancer', 'archer', 1, 60, 80); more = { spell: 'soul', caster: n }; }
   const f = G.foes.filter(q => !q.dead).sort((a, b) => dist(a.x, a.y, h.x, h.y) - dist(b.x, b.y, h.x, h.y))[0], src = f || { x: h.x + 20, y: h.y, team: 'foe', def: {} }, a = angTo(src.x, src.y, h.x, h.y);
   if (kind === 'vermin3') for (const [i, sp] of ['GiantRat', 'GiantRat', 'MonstrousRat'].entries()) { const b = i / 3 * TAU + rand(-0.4, 0.4), x = h.x + Math.cos(b) * 34, y = h.y + Math.sin(b) * 22, v = mkFoe('skitter', 1, x, y, sp); Object.assign(v, { aware: true, state: 'fight', tgt: h, ctest: TEST.gen }); v.def.gold = [0, 0]; G.foes.push(v); G.units.push(v); smoke(x, y, 2, 'dust', 6, 12, 0.5); } // (three rats and no more)
   if (kind === 'vermin') for (let i = 0; i < 7; i++) { const b = rand(TAU), x = h.x + Math.cos(b) * rand(26, 40), y = h.y + Math.sin(b) * rand(18, 28), v = mkFoe('skitter', 1, x, y, pick(['GiantRat', 'MonstrousRat', 'TaintedCockroach', 'DungBeetle', 'BloatedBedbug', 'FamishedTick', 'ForagingMaggot'])); Object.assign(v, { aware: true, state: 'fight', tgt: h, ctest: TEST.gen }); v.def.gold = [0, 0]; G.foes.push(v); G.units.push(v); smoke(x, y, 2, 'dust', 6, 12, 0.5); } // (a swarm brought on for it)
-  TEST.forceDeath = kind === 'vermin3' ? 'vermin' : kind; hurt(h, Math.ceil((h.hp + 6) / 0.9), src, { kx: Math.cos(a) * 120, ky: Math.sin(a) * 90, ang: a, big: kind === 'burst', acid: kind === 'acid' }); TEST.forceDeath = null;
+  TEST.forceDeath = kind === 'vermin3' ? 'vermin' : kind; hurt(h, Math.ceil((h.hp + 6) / 0.9), src, { kx: Math.cos(a) * 120, ky: Math.sin(a) * 90, ang: a, big: kind === 'burst', acid: kind === 'acid', ...more }); TEST.forceDeath = null;
 }
 function rackGambeson() { G.drops.push({ k: 'gambeson', x: TEST.rack.x, y: TEST.rack.y, z: 0, vx: 0, vy: 0, vz: 0, t: 1, hold: 0 }); smoke(TEST.rack.x, TEST.rack.y, 2, 'dust', 6, 12, 0.6); }
 function armourTick(dt) {
@@ -200,7 +205,7 @@ function armourTick(dt) {
 function armourRevive() {
   const h = G.me; if (!h) return;
   if (h.sprWas) { h.spr = h.sprWas; h.sprWas = null; } removeIf(G.hz, z => z.deathPool); // (the skeleton and the acid that took him go)
-  Object.assign(h, { dead: false, gone: false, dropped: false, deadT: 0, death: null, sway: 0, fall: null, hidden: false, headless: false, hp: h.maxHp, stam: h.maxStam, flasks: h.maxFlasks, x: TEST.home.x, y: TEST.home.y, vx: 0, vy: 0, kx: 0, ky: 0, z: 0, act: null, blocking: false, iframe: 1.2, curseT: 0, acidT: 0, gore: 0 });
+  Object.assign(h, { dead: false, gone: false, dropped: false, deadT: 0, death: null, sway: 0, fall: null, hidden: false, headless: false, lampAt: null, husk: false, hp: h.maxHp, stam: h.maxStam, flasks: h.maxFlasks, x: TEST.home.x, y: TEST.home.y, vx: 0, vy: 0, kx: 0, ky: 0, z: 0, act: null, blocking: false, iframe: 1.2, curseT: 0, acidT: 0, gore: 0 });
   G.phase = 'play'; G.phaseT = 0; G.fade = 0; G.banner = null; G.bq.length = 0; G.summary = null; G.hurtFlash = 0;
   putOnGambeson(h); G.banner = null; G.bq.length = 0; textPop(h.x, h.y, headZ(h) + 6, 'AGAIN', 'white', true); SFX.whoosh(0); armourFoes(1.2);
 }

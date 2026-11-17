@@ -40,7 +40,7 @@ function updateRun(dt) {
   pitsTick(dt); // (falls, cracked slabs giving way: 38_pits)
   for (const u of G.units) if (!u.dead && !u.held) moveActor(u, dt);
   for (const u of G.units) if (!u.dead) bloodTick(u, dt);
-  for (const u of G.units) if (u.fly && !u.dead && !u.held) flyTick(u, dt);
+  for (const u of G.units) if (u.fly && !u.dead && !u.held && !u.feed && !u.script) flyTick(u, dt); // (bats at work on a dead hero fly as they are told: 48/49_deaths)
   separate(G.units);
   if (TEST.on && TEST.mode === 'creatures') creatureTick(dt);
   if (TEST.on && TEST.mode === 'water') waterTick(dt);
