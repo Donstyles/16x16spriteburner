@@ -236,9 +236,10 @@ function render() {
   c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(shb, 0, 0); c.restore();
   // everything standing, lying or flying, drawn back to front by where it meets the floor
   for (const p of ARENA.props) if (!p.dead && !p.flat && propSplit(p)) drawPropPart(c, p, true); // (the columns' plinths, under everyone)
-  const list = []; for (const u of G.units) list.push([u.y, 0, u]); if (ARENA.shop) { list.push([ARENA.shop.keeper.y, 0, ARENA.shop.keeper]); for (const w of ARENA.shop.wares) list.push([w.y + 0.5, 5, w]); } for (const p of ARENA.props) if (!p.dead && !p.flat) { const S = propSplit(p); list.push([S ? S.mid : p.y, 1, p]); } // (the shopkeeper, his wares on the counter: 39_shop)
+  const list = []; for (const u of G.units) list.push([u.y, 0, u]); if (ARENA.shop) { list.push([ARENA.shop.keeper.y, 0, ARENA.shop.keeper]); } for (const p of ARENA.props) if (!p.dead && !p.flat) { const S = propSplit(p); list.push([S ? S.mid : p.y, 1, p]); } // (the shopkeeper, his wares on the counter: 39_shop)
   for (const d of G.drops) list.push([d.y, 2, d]); for (const p of G.proj) list.push([p.y, 3, p]); for (const r of FX.rocks) list.push([r.y, 4, r]); list.sort((a, b) => a[0] - b[0]);
-  for (const [, k, o] of list) if (k === 0) { if (o.fall) drawFalling(c, o); else if (!(o.rise > 0 && ((G.time * 18) | 0) % 2)) drawUnit(c, o); } else if (k === 1) { if (propSplit(o)) drawPropPart(c, o, false); else drawProp(c, o); } else if (k === 5) drawWare(c, o); else if (k === 2) drawDrop(c, o); else if (k === 3) drawProj(c, o); else drawRock(c, o);
+  for (const [, k, o] of list) if (k === 0) { if (o.fall) drawFalling(c, o); else if (!(o.rise > 0 && ((G.time * 18) | 0) % 2)) drawUnit(c, o); } else if (k === 1) { if (propSplit(o)) drawPropPart(c, o, false); else drawProp(c, o); } else if (k === 2) drawDrop(c, o); else if (k === 3) drawProj(c, o); else drawRock(c, o);
+  if (ARENA.shop) for (const w of ARENA.shop.wares) drawWare(c, w); // (his wares, over everyone: they never hide behind a customer, 39_shop)
   for (const h of G.heroes) if (h.shown) drawShown(c, h);
   drawWorldParts(c); drawCeil(c, ox, oy, bw, bh); // the tops of the south, east and west walls, at the ceiling, over everything in the room
   renderLight();

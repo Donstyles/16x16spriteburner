@@ -240,8 +240,8 @@ const SFX = {
     const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5, t + 0.08); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.6); f.connect(g); g.connect(this.crunch);
     for (const fr of [55, 55.6, 82.4, 110.3]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr; o.connect(f); o.start(t); o.stop(t + 2.7); }
   },
-  // the shop's quiet (39_shop): the dungeon's drone sinks away while the hero is inside and comes back as he leaves
-  calm(on) { if (!this.droneG || !this.ctx) return; const t = this.ctx.currentTime, g = this.droneG.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(on ? 0.012 : 0.05, t + (on ? 1.2 : 0.8)); },
+  // the shop's quiet (39_shop): the dungeon's drone fades out while the hero is inside and comes back as he leaves
+  calm(on) { if (!this.droneG || !this.ctx) return; const t = this.ctx.currentTime, g = this.droneG.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(on ? 0 : 0.05, t + (on ? 1.2 : 0.8)); }, // (gone altogether in the shop)
   // a torch or a brazier crackling: a dry pop or two of resin, now and then; v: how near
   crackle(pan = 0, v = 1) { if (!this.ok('crackle', 0.02)) return; const n = Math.random() < 0.3 ? 2 : 1; for (let i = 0; i < n; i++) this.noise(this.white, rand(0.006, 0.02), 'bandpass', rand(1800, 4200), rand(1200, 2600), rand(1.2, 3), rand(0.05, 0.11) * v, pan, i * rand(0.015, 0.05), 0.001); },
   // the soft breath of a flame, low and slow
