@@ -26,8 +26,12 @@ const CEIL = {
 // off the top of the wall, as the ceiling does.
 const CEIL_N = { '6,0': [[0, 0, 16, 11]] };
 // how much floor a wall piece leaves showing along its top, left and right (its rows or columns with nothing drawn, at most
-// four): the south wall's top four rows, the side walls' four columns beside the floor. Feet may step onto it (wallBox).
+// four): the south wall's top four rows, the side walls' four columns beside the floor. Feet may step onto the south
+// wall's (wallBox); the side walls' are only painted over with the black of a pit beside them (38_pits).
 const OPEN = {};
+// The corner jutting into the floor where a south wall ends: its cap overhangs the strip the south wall leaves showing, so
+// the strip runs on under it (feet go under the cap, the ceiling over them): [top, left, right] in the sheet's facing.
+const FOOT = { '3,0': [4, 0, 0] };
 function openEdges(tx, ty, flip) {
   const k = tx + ',' + ty + ',' + (flip ? 1 : 0); if (OPEN[k]) return OPEN[k]; const P = PIX.cellar, a = (x, y) => P.d[((ty * TS + y) * P.w + tx * TS + x) * 4 + 3];
   const run = f => { let n = 0; while (n < 4 && f(n)) n++; return n; }, row = y => { for (let x = 0; x < TS; x++) if (a(x, y)) return false; return true; }, col = x => { for (let y = 0; y < TS; y++) if (a(x, y)) return false; return true; };
@@ -100,7 +104,7 @@ function buildArena(floor) {
   const wt = new Uint16Array(W * H); // which wall piece went where (tx * 64 + ty + 1), for what is built against the walls later
   const mg = { t: new Uint8Array(W * H), l: new Uint8Array(W * H), r: new Uint8Array(W * H) }; // the floor a wall piece leaves showing (see wallBox)
   const T = (tx, ty, x, y, flip) => {
-    put(g, tx, ty, x, y, flip); wt[y * W + x] = tx * 64 + ty + 1; const o = openEdges(tx, ty + th.fy, flip); mg.t[y * W + x] = o[0]; mg.l[y * W + x] = o[1]; mg.r[y * W + x] = o[2]; const k = tx + ',' + ty, m = CEIL[k] || CEIL_N[k], to = CEIL[k] ? cg : cng; if (!m) return;
+    put(g, tx, ty, x, y, flip); wt[y * W + x] = tx * 64 + ty + 1; const f = FOOT[tx + ',' + ty], o = f ? (flip ? [f[0], f[2], f[1]] : f) : openEdges(tx, ty + th.fy, flip); mg.t[y * W + x] = o[0]; mg.l[y * W + x] = o[1]; mg.r[y * W + x] = o[2]; const k = tx + ',' + ty, m = CEIL[k] || CEIL_N[k], to = CEIL[k] ? cg : cng; if (!m) return;
     const R = m.map(([mx, my, mw, mh]) => [x * TS + (flip ? TS - mx - mw : mx), y * TS + my, mw, mh]);
     to.save(); to.beginPath(); for (const [rx, ry, rw, rh] of R) to.rect(rx, ry, rw, rh); to.clip(); put(to, tx, ty, x, y, flip); to.restore();
   };
@@ -203,19 +207,19 @@ function drawGround(c, sx, sy, sw, sh) {
 const FLOOR = v => v === 1 || v === 3;
 function solidTile(tx, ty) { const A = ARENA; if (tx < 0 || ty < 0 || tx >= A.w || ty >= A.h) return true; return A.fl[ty * A.w + tx] === 0; }
 function blockTile(tx, ty) { const A = ARENA; if (tx < 0 || ty < 0 || tx >= A.w || ty >= A.h) return true; return !FLOOR(A.fl[ty * A.w + tx]); }
-// the part of a blocking tile that stops feet, [x0, y0, x1, y1], or null: all of it, but for the floor a wall piece leaves
-// showing beside the floor next to it
+// the part of a blocking tile that stops feet, [x0, y0, x1, y1], or null: all of it, but for the strip of floor a south wall
+// leaves showing along its top (feet never go into an east or west wall)
 function wallBox(tx, ty) {
   if (!blockTile(tx, ty)) return null; const A = ARENA, x0 = tx * TS, y0 = ty * TS, i = ty * A.w + tx; if (PITPASS && A.fl[i] === PIT) return null; // (knocked over a pit's edge: 38_pits)
   if (!A.mg || A.fl[i] !== 0) return [x0, y0, x0 + TS, y0 + TS]; const M = A.mg;
-  const t = M.t[i] && ty > 0 && FLOOR(A.fl[i - A.w]) ? M.t[i] : 0, l = M.l[i] && tx > 0 && FLOOR(A.fl[i - 1]) ? M.l[i] : 0, r = M.r[i] && tx < A.w - 1 && FLOOR(A.fl[i + 1]) ? M.r[i] : 0;
-  return [x0 + l, y0 + t, x0 + TS - r, y0 + TS];
+  const t = M.t[i] && ty > 0 && FLOOR(A.fl[i - A.w]) ? M.t[i] : 0;
+  return [x0, y0 + t, x0 + TS, y0 + TS];
 }
 function blockAt(x, y) { if (!ARENA || !ARENA.fl) return false; const b = wallBox(Math.floor(x / TS), Math.floor(y / TS)); return !!b && x >= b[0] && x < b[2] && y >= b[1] && y < b[3]; }
 // the tile a point counts as standing on: a wall's open edge belongs to the floor beside it
 function footTile(x, y) {
   const A = ARENA, tx = Math.floor(x / TS), ty = Math.floor(y / TS), i = ty * A.w + tx; if (!A.mg || A.fl[i] !== 0) return i;
-  const lx = x - tx * TS, ly = y - ty * TS, M = A.mg; if (ly < M.t[i]) return i - A.w; if (lx < M.l[i]) return i - 1; if (lx >= TS - M.r[i]) return i + 1; return i;
+  return y - ty * TS < A.mg.t[i] ? i - A.w : i;
 }
 function solidAt(x, y) { return ARENA && ARENA.fl ? solidTile(Math.floor(x / TS), Math.floor(y / TS)) : false; }
 function roomAt(x, y, m = 0) { const A = ARENA; if (!A || !A.rooms) return null; const tx = x / TS, ty = y / TS; for (const r of A.rooms) if (tx >= r.ix0 + m && tx < r.ix1 + 1 - m && ty >= r.iy0 + m && ty < r.iy1 + 1 - m) return r; return null; }
