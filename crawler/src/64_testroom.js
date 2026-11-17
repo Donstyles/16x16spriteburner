@@ -63,7 +63,7 @@ function cleanBlood() {
   const A = ARENA; if (!A || !A.clean) return;
   groundChunks(A).forEach((k, i) => { k.g.save(); k.g.setTransform(1, 0, 0, 1, 0, 0); k.g.globalCompositeOperation = 'copy'; k.g.drawImage(A.clean[i], 0, 0); k.g.restore(); });
   for (const p of A.pools || []) if (p.bridge && p.bridge.g) { const B = p.bridge; B.g.save(); B.g.setTransform(1, 0, 0, 1, 0, 0); B.g.clearRect(0, 0, B.w, B.h); B.g.restore(); }
-  if (BMAP.a) { BMAP.a.fill(0); BMAP.k.fill(0); } BTR.length = 0; FX.rocks.length = 0; FX.wet.length = 0; removeIf(FX.P, p => p.k === 'gore' || p.k === 'hay' || p.k === 'chip' || p.k === 'water' || p.k === 'pdust');
+  if (BMAP.a) { BMAP.a.fill(0); BMAP.k.fill(0); } BTR.length = 0; FX.rocks.length = 0; FX.wet.length = 0; removeIf(FX.P, p => p.k === 'gore' || p.k === 'hay' || p.k === 'cloth' || p.k === 'chip' || p.k === 'water' || p.k === 'pdust');
   for (const h of G.heroes) { h.gore = 0; h.fpN = 0; }
   SFX.whoosh(0); const h = G.me; if (h) textPop(h.x, h.y, headZ(h) + 4, 'CLEANED', 'white', false);
 }
@@ -147,20 +147,28 @@ function beginArmourTest(kit) {
   Object.assign(TEST, { mode: 'armour', god: false, i: 0, list: ARMOUR_TESTS, gen: 0, rackT: 0, di: 0, forceDeath: null, calm: false }); const A = ARENA, h = G.me, r = roomAt(h.x, h.y) || A.start; A.name = 'ARMOUR & DEATH ROOM';
   TEST.home = { x: h.x, y: h.y }; TEST.rack = { x: (r.ix0 + 1.5) * TS, y: h.y }; // (the spare gambeson lies by the west wall, level with him)
   digTestPit(A, r); putOnGambeson(h); G.banner = null; G.bq.length = 0; rackGambeson(); TEST.label = ARMOUR_TESTS[0][0];
-  G.card = { t: 0, life: 3.4, a: 'ARMOUR & DEATH ROOM', b: 'YOU WEAR A GAMBESON · THEY FIGHT FOR REAL · YOU CAN DIE', c: 'YOUR DEATH PLAYS OUT, THEN YOU GET UP AGAIN', d: 'FOES SENDS THEM AWAY OR BACK · NEXT BRINGS ON OTHER FOES · DIE DIES THE NEXT DEATH · A PIT BY THE EAST WALL' };
+  G.card = { t: 0, life: 3.4, a: 'ARMOUR & DEATH ROOM', b: 'YOU WEAR A GAMBESON · THEY FIGHT FOR REAL · YOU CAN DIE', c: 'YOUR DEATH PLAYS OUT, THEN YOU GET UP AGAIN', d: 'HIT LANDS A BLOW · FOES SENDS THEM AWAY OR BACK · NEXT BRINGS ON OTHER FOES · DIE DIES THE NEXT DEATH · A PIT BY THE EAST WALL' };
   armourFoes(2.6); // (they come on once the card has gone)
 }
 // the foes go, and the current lot comes on fresh after a delay (unless NEXT has brought on another lot meanwhile)
 function armourFoes(delay) {
   const gen = ++TEST.gen; for (const f of G.foes) if (!f.dead) { smoke(f.x, f.y, 3, 'dust', 8, 16, 0.6); f.dead = true; }
   if (TEST.calm) return; // (FOES off: nobody comes)
-  G.sched.push({ t: delay, fn: () => { if (TEST.on && TEST.mode === 'armour' && TEST.gen === gen && G.phase === 'play') creatureSpawn(); } }); // (never while he is dying)
+  G.sched.push({ t: delay, fn: () => { if (TEST.on && TEST.mode === 'armour' && TEST.gen === gen && !TEST.calm && G.phase === 'play') creatureSpawn(); } }); // (never while he is dying)
 }
 // FOES: they go and stay away, so he can try the deaths and the gambeson in peace; again, and they come back
 function testFoes() {
   if (!TEST.on || TEST.mode !== 'armour') return; TEST.calm = !TEST.calm; TEST.waiting = false; const h = G.me;
   if (TEST.calm) { armourFoes(0); if (h) textPop(h.x, h.y, headZ(h) + 4, 'NO FOES', 'white', false); } else { armourFoes(0.4); if (h) textPop(h.x, h.y, headZ(h) + 4, 'FOES', 'white', false); }
   SFX.whoosh(0);
+}
+// HIT: a blow lands on him out of nowhere, from any side, as a foe's would (the gambeson takes it first), so the
+// gambeson and its spill can be tried with no foes about; it never kills him (DIE is for that)
+function testHit() {
+  const h = G.me; if (!TEST.on || TEST.mode !== 'armour' || !h || h.dead || h.fall) return;
+  const a = rand(TAU), d = randi(8, 16), src = { x: h.x - Math.cos(a) * 20, y: h.y - Math.sin(a) * 20, team: 'foe', def: {} };
+  h.iframe = 0; h.blocking = false; if (!(h.gamb > 0) && h.hp <= d * 1.2) h.hp = h.maxHp; // (no armour left and too little health: he is made whole first)
+  hurt(h, d, src, { kx: Math.cos(a) * 110, ky: Math.sin(a) * 80, ang: a, style: pick(['arc', 'line', 'clot', 'bite']) }); shake(0.06);
 }
 // a pit two by two by the east wall, dug into the finished floor, to fall to his death in
 function digTestPit(A, r) {

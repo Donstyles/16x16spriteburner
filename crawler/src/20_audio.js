@@ -131,6 +131,13 @@ const SFX = {
     for (let i = 0; i < 12; i++) { const t = 0.03 + Math.pow(i / 12, 1.4) * 0.75, f = rand(600, 1300); this.tone('triangle', f, f * 0.7, 0.035, 0.1 * (1 - i / 16), pan + rand(-0.3, 0.3), t); this.noise(this.white, 0.014, 'bandpass', rand(1800, 4200), 1500, 4, 0.09 * (1 - i / 16), pan + rand(-0.3, 0.3), t, 0.001); }
   },
   // straw struck: a soft dull whump, and the dry rustle and crackle of the stalks flying
+  // linen tearing (the gambeson hacked): a run of tiny dry bursts, the threads parting one after another, rising a little
+  // as it goes, over the dull thump of the padding taking the blow
+  rip(pan = 0, big = false) {
+    if (!this.ok('rip', 0.05)) return; const n = big ? 26 : 16, dur = big ? 0.3 : 0.18;
+    for (let i = 0; i < n; i++) { const f = rand(1500, 2500) + i * 40; this.noise(this.white, rand(0.006, 0.013), 'bandpass', f, f * 0.85, 2.4, rand(0.05, 0.1) * (1 - i / n * 0.5), pan + rand(-0.1, 0.1), i / n * dur + rand(0, 0.005), 0.001); }
+    this.noise(this.brown, big ? 0.16 : 0.1, 'lowpass', 650, 180, 0.8, big ? 0.32 : 0.22, pan, 0, 0.004);
+  },
   hay(pan = 0, big = false) {
     if (!this.ok('hay', 0.05)) return;
     this.noise(this.brown, big ? 0.22 : 0.13, 'lowpass', 900, 220, 0.8, big ? 0.45 : 0.32, pan, 0, 0.004);

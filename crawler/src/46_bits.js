@@ -66,11 +66,27 @@ function hay(x, y, z, vx, vy, vz, slow = 0, cols = null, len = 0) {
 // light as it is, it soon loses its speed; it sinks slowly, swaying, turning over and over, and settles where it comes down
 function hayStep(p, dt) {
   if (p.slow > G.time) dt *= 0.15;
-  const f = Math.exp(-2.6 * dt); p.vx *= f; p.vy *= f; p.vz = Math.max(p.vz - 190 * dt, -24);
+  const f = Math.exp(-2.6 * dt); p.vx *= f; p.vy *= f; p.vz = Math.max(p.vz - 190 * dt, -(p.fall || 24));
   const sway = Math.sin(p.t * p.w + p.ph) * 16 * (p.vz < 0 ? 1 : 0.3), nx = p.x + (p.vx + sway) * dt, ny = p.y + p.vy * dt;
   if (solidAt(nx, p.y)) p.vx = -p.vx * 0.3; else p.x = nx; if (solidAt(p.x, ny)) p.vy = -p.vy * 0.3; else p.y = ny;
   if ((p.ot -= dt) <= 0) { p.ot = rand(0.07, 0.22); p.o = (p.o + (chance(0.5) ? 1 : 3)) % 4; }
-  p.z += p.vz * dt; if (p.z <= 0) { p.z = 0; if (ARENA) { const x = Math.round(p.x), y = Math.round(p.y); groundPaint(x - 3, y - 3, x + 3, y + 3, g => { g.fillStyle = p.col; hayPx(p, (a, b) => g.fillRect(a, b, 1, 1)); }); } p.t = p.life; }
+  p.z += p.vz * dt; if (p.z <= 0) { p.z = 0; if (ARENA) { const x = Math.round(p.x), y = Math.round(p.y); groundPaint(x - 3, y - 3, x + 3, y + 3, g => { if (p.k === 'cloth') { if (p.o % 2) p.o = (p.o + 1) % 4; clothPx(p, (a, b, col) => { g.fillStyle = col; g.fillRect(a, b, 1, 1); }); } else { g.fillStyle = p.col; hayPx(p, (a, b) => g.fillRect(a, b, 1, 1)); } }); } p.t = p.life; } // (a scrap settles flat, face or back up)
+}
+// The gambeson's spill (53_foes clothSpill): scraps of its quilted linen and tufts of its wadding, light as hay and
+// fluttering down the same way (hayStep), but nothing like straw: a scrap is a little flat patch of cloth turning over
+// as it falls (face, edge, back, edge), a stitch on its face; a tuft of wadding is a soft white wisp that drifts and
+// hangs in the air longer still (fall: how fast it may sink)
+const LINEN = { face: ['#fff9e4', '#f1e6cc', '#e8d4b2'], back: ['#ddbe88', '#cdb586'], stitch: '#a28a58', tuft: ['#fffdf6', '#fbf5e6', '#f1e6cc'] };
+function scrap(x, y, z, vx, vy, vz, slow = 0, tuft = false) {
+  part({ k: 'cloth', tuft, x, y, z, vx, vy, vz, life: 12, o: randi(0, 3), ot: rand(0.06, 0.2), ph: rand(TAU), w: rand(3, 7), fall: tuft ? rand(7, 12) : rand(16, 24), pw: randi(2, 3), plh: chance(0.5) ? 2 : 1, st: chance(0.5), col: pick(tuft ? LINEN.tuft : LINEN.face), back: pick(LINEN.back), slow });
+}
+function clothPx(p, f) {
+  const x0 = Math.round(p.x), y0 = Math.round(p.y - p.z);
+  if (p.tuft) { f(x0, y0, p.col); if (p.o !== 3) f(x0 + 1, y0, p.col); if (p.o === 1 || p.o === 2) f(x0 + (p.o === 1 ? 0 : 1), y0 - 1, LINEN.tuft[0]); return; } // (a wisp, its shape stirring)
+  const w = p.pw, h = p.plh, edge = p.o % 2 === 1, col = p.o === 2 ? p.back : p.col;
+  if (edge) { for (let i = 0; i < (p.o === 1 ? w : h + 1); i++) p.o === 1 ? f(x0 + i, y0, p.back) : f(x0, y0 + i, p.back); return; } // seen edge-on, a line of it
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) f(x0 + i, y0 + j, col);
+  if (p.st && p.o === 0) f(x0 + w - 1, y0 + h - 1, LINEN.stitch); // (a stitch of the quilting on its face)
 }
 // a chip: a pixel or two of bone or stone; it bounces once and stays where it stops
 function chip(x, y, z, vx, vy, vz, col, slow = 0) { part({ k: 'chip', x, y, z, vx, vy, vz, life: 6, s0: chance(0.45) ? 2 : 1, col, slow }); }

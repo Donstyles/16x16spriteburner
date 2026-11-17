@@ -109,20 +109,25 @@ function hudBar(c, x, y, w, h, f, trailKey, cols, n) {
 }
 // The gambeson on the HUD, in pixel art as the game is: a band of quilted linen wrapped round the health bar (and a
 // frame of it round the portrait), drawn in art pixels two screen pixels square in the gambeson sprite's own colours
-// (armours [0, 5]): cream padding in channels stitched every four pixels, as a gambeson is quilted, lit from the left, a black
-// outline as the sprites have, a dark brown seam where the bar is tucked in. As much of it is left as he has armour
-// left, hacked back from the right to a ragged edge with loose threads; each piece hacked off falls away and fades.
-// Put on, it is stitched in from the left, a needle's glint at the seam.
-const QP = 2, QCOL = { o: '#1d1d1c', base: '#e8d4b2', hi: '#fff9e4', line: '#cca96d', low: '#ddbe88', seam: '#452e25' };
+// (armours [0, 5]): cream linen quilted in padded cells seven pixels by four, stitched round, each puffed up and lit
+// from the top left (not channels, which read as straw); outlined in warm browns as the chests and the
+// gambeson's own sprite are (never black), a dark seam where the bar is tucked in. As much of it is left as he has
+// armour left, hacked back from the right to a frayed edge, the white wadding showing and threads hanging loose; each
+// piece hacked off falls away and fades. Put on, it is stitched in from the left, a needle's glint at the seam.
+const QP = 2, QCOL = { lit: '#604330', o: '#473023', base: '#e8d4b2', hi: '#fff9e4', line: '#a28a58', low: '#ddbe88', dip: '#cca96d', seam: '#452e25', wad: '#fbf5e6', thread: '#cdb586' };
 const QTEX = {};
 function quiltTex(w, h, hole) { // w, h, hole ([x, y, w, h]) in art pixels; the hole see-through
   const key = w + 'x' + h + (hole ? ':' + hole.join(',') : ''); if (QTEX[key]) return QTEX[key];
   const cv = mkCanvas(w, h), g = cv.getContext('2d'), inH = (x, y) => hole && x >= hole[0] && x < hole[0] + hole[2] && y >= hole[1] && y < hole[1] + hole[3];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     if (inH(x, y)) continue; let col;
-    if (x === 0 || y === 0 || x === w - 1 || y === h - 1) col = QCOL.o;
+    if (x === 0 || y === 0) col = QCOL.lit; else if (x === w - 1 || y === h - 1) col = QCOL.o;
     else if (hole && (inH(x - 1, y) || inH(x + 1, y) || inH(x, y - 1) || inH(x, y + 1) || inH(x - 1, y - 1) || inH(x + 1, y + 1) || inH(x - 1, y + 1) || inH(x + 1, y - 1))) col = QCOL.seam;
-    else { const u = x % 4; col = u === 0 ? QCOL.line : u === 1 ? QCOL.hi : u === 3 ? QCOL.low : QCOL.base; if (u !== 0 && (y === 1 || (hole && inH(x, y + 2) && !inH(x, y + 1)))) col = col === QCOL.low ? QCOL.base : QCOL.hi; } // (padded channels, stitched every four pixels, lit along the top)
+    else { // padded cells seven by four, stitched round (a stitch, a gap), each puffed up: lit along its top and left, shaded on its right
+      const u = (x - 1) % 7, v = (y - 1) % 4;
+      if (u === 0) col = v % 2 ? QCOL.dip : QCOL.line; else if (v === 3) col = u % 2 ? QCOL.dip : QCOL.line;
+      else col = v === 0 || u === 1 ? QCOL.hi : u === 6 ? QCOL.low : QCOL.base;
+    }
     g.fillStyle = col; g.fillRect(x, y, 1, 1);
   }
   return (QTEX[key] = cv);
@@ -139,7 +144,10 @@ function drawQuilt(c, x, y, w, h, hero, hole) { // (x, y, w, h, hole in screen p
   if (n > 0) {
     const rag = j => torn ? [0, 1, 2, 1, 0, 2, 1, 0, 1, 2, 0, 1, 2][j % 13] : 0; // (the hacked edge: ragged, row by row)
     quiltRows(c, T, x, y, j => n - rag(j));
-    if (torn) for (let j = 1; j < H - 1; j++) { const e = n - rag(j); if (e <= 0 || e >= W) continue; c.fillStyle = QCOL.seam; c.fillRect(x + e * QP, y + j * QP, QP, QP); if (j % 4 === 1) { c.fillStyle = QCOL.hi; c.fillRect(x + (e + 1) * QP, y + j * QP, QP, QP); } } // (its torn rim, a loose thread here and there)
+    if (torn) for (let j = 1; j < H - 1; j++) { // its frayed rim: the white wadding showing at the cut, a dark nick here and there, threads hanging loose
+      const e = n - rag(j); if (e <= 0 || e >= W) continue; c.fillStyle = j % 5 === 2 ? QCOL.seam : QCOL.wad; c.fillRect(x + (e - 1) * QP, y + j * QP, QP, QP);
+      if (j % 3 === 1) { c.fillStyle = QCOL.thread; c.fillRect(x + e * QP, y + j * QP, QP, QP); if (j % 6 === 1) c.fillRect(x + (e + 1) * QP, y + (j + 1) * QP, QP, QP); }
+    }
     if (k < f) { c.fillStyle = '#fffbe8'; c.fillRect(x + n * QP - QP, y + QP, QP, QP); c.fillRect(x + n * QP - QP, y + (H - 2) * QP, QP, QP); }
   }
   hero.gambLost = (hero.gambLost || []).filter(p => G.time - p.t0 < 0.6);
