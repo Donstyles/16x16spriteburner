@@ -359,7 +359,7 @@ const ITEM = { fish: [0, 0, 12, 10], flask: [16, 0, 6, 11], map: [64, 0, 14, 15,
 function dropItem(k, x, y) { G.drops.push({ k, x, y, z: 4, vx: rand(-30, 30), vy: rand(-20, 20), vz: rand(70, 110), t: 0 }); }
 function takeItem(d, h) {
   if (d.k === 'fish') { if (h.hp >= h.maxHp) return false; const g = Math.min(h.maxHp - h.hp, Math.round(h.maxHp * 0.15)); h.hp += g; number(h.x, h.y, headZ(h) + 1, '+' + g, 'heal', true); healGlow(h.x, h.y); SFX.heal(); return true; }
-  if (d.k === 'map') { revealFloor(ARENA); h.shown = { k: 'map', t0: G.time }; textPop(h.x, h.y, headZ(h) + 20, 'AHA!', 'gold', false); SFX.aha(panOf(h.x)); for (let i = 0; i < 10; i++) part({ k: 'glow', x: h.x + rand(-7, 7), y: h.y, z: headZ(h) + rand(6, 16), vz: rand(10, 30), drag: 2, life: rand(0.5, 0.9), s0: rand(1.2, 2), s1: 0, col: 'gold' }); return true; } // the floor's map (52_hero: in a small chest)
+  if (d.k === 'map') { revealFloor(ARENA); ARENA.mapRead = true; h.shown = { k: 'map', t0: G.time }; textPop(h.x, h.y, headZ(h) + 20, 'AHA!', 'gold', false); SFX.aha(panOf(h.x)); for (let i = 0; i < 10; i++) part({ k: 'glow', x: h.x + rand(-7, 7), y: h.y, z: headZ(h) + rand(6, 16), vz: rand(10, 30), drag: 2, life: rand(0.5, 0.9), s0: rand(1.2, 2), s1: 0, col: 'gold' }); return true; } // the floor's map (52_hero: in a small chest)
   if (d.k === 'flask') { if (h.flasks >= h.maxFlasks) return false; h.flasks++; textPop(h.x, h.y, headZ(h) + 2, '+1 FLASK', 'heal', false); SFX.coin(panOf(d.x)); return true; }
   return false;
 }

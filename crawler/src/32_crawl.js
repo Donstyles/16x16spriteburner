@@ -50,7 +50,7 @@ function drawDoors(c) {
   }
   const s = A.stairs; if (s && s.open) { const p = 0.5 + 0.5 * Math.sin(G.time * 3); c.globalAlpha = 0.25 + 0.2 * p; c.fillStyle = '#ffd27a'; c.fillRect(s.sx * TS + 8, (s.sy + 1) * TS + 10, TS * 2, 6); c.globalAlpha = 1; }
 }
-// the map in the corner: every tile the party has seen, the way down once found, every hero
+// the map in the corner: every tile the party has seen, where it came down, the way down once the map is read, every hero
 let MINI = null;
 function drawMinimap(c, xr, y0) {
   const A = ARENA; if (!A || !A.mem) return;
@@ -62,7 +62,10 @@ function drawMinimap(c, xr, y0) {
   const s = clamp(Math.min(VIEW.w, VIEW.h) / 430, 0.85, 1.3) * 1.5, w = A.w * s, h = A.h * s, x0 = Math.round(xr - w);
   c.globalAlpha = 0.85; c.fillStyle = 'rgba(8,7,10,0.6)'; c.fillRect(x0 - 4, y0 - 4, w + 8, h + 8);
   c.imageSmoothingEnabled = false; c.drawImage(MINI.cv, x0, y0, w, h);
-  const st = A.stairs, sx = Math.floor(st.x / TS), sy = Math.floor(st.y / TS); if (A.mem[sy * A.w + sx]) { c.fillStyle = '#ffd860'; c.fillRect(Math.round(x0 + st.x / TS * s) - 2, Math.round(y0 + (st.y - 12) / TS * s) - 2, 4, 4); }
+  // where the party came down (dark violet), and the way down once the floor's map is read (yellow: 53_foes)
+  const dot = (x, y, col) => { c.fillStyle = col; c.fillRect(Math.round(x0 + x / TS * s) - 2, Math.round(y0 + (y - 12) / TS * s) - 2, 4, 4); };
+  if (A.spawn) dot(A.spawn.x, (A.start.fy0 + 2) * TS + 2, '#6c3aa6');
+  const st = A.stairs; if (st && A.mapRead) dot(st.x, st.y, '#ffd860');
   for (const h of G.heroes) { if (h.dead) continue; c.fillStyle = h === G.me ? '#ffffff' : '#9fd0ff'; c.fillRect(Math.round(x0 + h.x / TS * s) - 2, Math.round(y0 + h.y / TS * s) - 2, 4, 4); }
   c.globalAlpha = 1;
 }
