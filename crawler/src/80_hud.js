@@ -110,11 +110,11 @@ function hudBar(c, x, y, w, h, f, trailKey, cols, n) {
 // The gambeson on the HUD, in pixel art as the game is: a band of quilted linen wrapped round the health bar (and a
 // frame of it round the portrait), drawn in art pixels two screen pixels square in the gambeson sprite's own colours
 // (armours [0, 5]): cream linen quilted in diamonds, stitched on both diagonals every six pixels, each diamond padded
-// out and lit from the top left (not channels, which read as straw); outlined in warm browns as the chests and the
-// gambeson's own sprite are (never black), a dark seam where the bar is tucked in. As much of it is left as he has
+// out and lit from the top left (not channels, which read as straw); outlined in the items' dark, faintly warm
+// edge, as every pickup is (never black), a dark seam where the bar is tucked in. As much of it is left as he has
 // armour left, hacked back from the right to a frayed edge, the white wadding showing and threads hanging loose; each
 // piece hacked off falls away and fades. Put on, it is stitched in from the left, a needle's glint at the seam.
-const QP = 2, QCOL = { lit: '#604330', o: '#473023', base: '#e8d4b2', hi: '#fff9e4', line: '#a28a58', low: '#ddbe88', dip: '#cca96d', seam: '#452e25', wad: '#fbf5e6', thread: '#cdb586' };
+const QP = 2, QCOL = { lit: '#2b2522', o: '#2b2522', base: '#e8d4b2', hi: '#fff9e4', line: '#a28a58', low: '#ddbe88', dip: '#cca96d', seam: '#452e25', wad: '#fbf5e6', thread: '#cdb586' };
 const QTEX = {};
 function quiltTex(w, h, hole, seam = true) { // w, h, hole ([x, y, w, h]) in art pixels; the hole see-through; seam: a dark seam round the hole
   const key = w + 'x' + h + (hole ? ':' + hole.join(',') : '') + (seam ? '' : ':open'); if (QTEX[key]) return QTEX[key];
