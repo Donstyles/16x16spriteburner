@@ -24,6 +24,7 @@ function uiKey(code) {
   if (UI.paused) { if (code === 'Escape' || code === 'Enter') togglePause(); return; }
   if (MENU.screen === 'title') { if (code === 'Enter' || code === 'Space') MENU.screen = 'kits'; }
   else if (MENU.screen === 'kits') { if (code === 'ArrowLeft' || code === 'KeyA') MENU.sel = (MENU.sel + 3) % 4; else if (code === 'ArrowRight' || code === 'KeyD') MENU.sel = (MENU.sel + 1) % 4; else if (code === 'Enter' || code === 'Space') beginRun(KIT_ORDER[MENU.sel]); else if (code === 'Escape') MENU.screen = 'title'; }
+  else if (MENU.screen === 'tests') { if (code === 'Escape') MENU.screen = 'kits'; }
   else if (MENU.screen === 'summary') { if (code === 'Enter' || code === 'Space') MENU.screen = 'kits'; else if (code === 'Escape') MENU.screen = 'title'; }
 }
 function togglePause() { if (G.mode !== 'play') return; UI.paused = !UI.paused; INPUT.btn = {}; INPUT.stick = null; }
@@ -52,11 +53,15 @@ function drawMenu(c) {
     });
     const bw = Math.min(240, W * 0.36), bh = 42; btn(c, W / 2 - bw / 2, Math.min(H - bh - 12, y0 + ch + 14), bw, bh, 'BEGIN AS ' + KITS[KIT_ORDER[MENU.sel]].name, () => beginRun(KIT_ORDER[MENU.sel]));
     btn(c, 14 + VIEW.safe.l, 14 + VIEW.safe.t, 70, 32, 'BACK', () => { MENU.screen = 'title'; }, { size: 16 });
-    btn(c, 14 + VIEW.safe.l, 52 + VIEW.safe.t, 150, 32, 'PUZZLE FLOOR', () => beginPuzzleFloor(KIT_ORDER[MENU.sel]), { size: 15, col: '#e8c87a' });
-    btn(c, 14 + VIEW.safe.l, 90 + VIEW.safe.t, 150, 32, 'PIT FLOOR', () => beginPitFloor(KIT_ORDER[MENU.sel]), { size: 15, col: '#c8a0e8' });
-    btn(c, W - 14 - VIEW.safe.r - 170, 14 + VIEW.safe.t, 170, 32, 'BLOOD TEST ROOM', () => beginTest(KIT_ORDER[MENU.sel]), { size: 15, col: '#e8907a' });
-    btn(c, W - 14 - VIEW.safe.r - 170, 52 + VIEW.safe.t, 170, 32, 'CREATURE TEST ROOM', () => beginCreatureTest(KIT_ORDER[MENU.sel]), { size: 15, col: '#9ad0e8' });
-    btn(c, W - 14 - VIEW.safe.r - 170, 90 + VIEW.safe.t, 170, 32, 'WATER TEST ROOM', () => beginWaterTest(KIT_ORDER[MENU.sel]), { size: 15, col: '#7ab8f0' });
+    btn(c, W - 14 - VIEW.safe.r - 130, 14 + VIEW.safe.t, 130, 32, 'TEST ROOMS', () => { MENU.screen = 'tests'; }, { size: 15, col: '#a8987e' });
+  } else if (MENU.screen === 'tests') {
+    // (the test rooms and set-piece floors: off the kit screen, played as the kit chosen there)
+    const k = KIT_ORDER[MENU.sel]; font(c, 900, clamp(big / 9, 26, 46), F_DISP); label(c, 'Test rooms', W / 2, H * 0.15, '#f8ecd6', { align: 'center' });
+    font(c, 500, 13, F_HUD); spaced(c, 'AS ' + KITS[k].name, W / 2, H * 0.15 + 24, 2, 'rgba(240,224,192,0.6)', 'center');
+    const T = [['PUZZLE FLOOR', () => beginPuzzleFloor(k), '#e8c87a'], ['PIT FLOOR', () => beginPitFloor(k), '#c8a0e8'], ['BLOOD TEST ROOM', () => beginTest(k), '#e8907a'], ['CREATURE TEST ROOM', () => beginCreatureTest(k), '#9ad0e8'], ['WATER TEST ROOM', () => beginWaterTest(k), '#7ab8f0']];
+    const bw = Math.min(260, W * 0.42), y0 = H * 0.15 + 42, bh = clamp((H - y0 - 14 - VIEW.safe.b) / T.length - 8, 30, 40);
+    T.forEach(([txt, fn, col], i) => btn(c, W / 2 - bw / 2, y0 + i * (bh + 8), bw, bh, txt, fn, { size: 15, col }));
+    btn(c, 14 + VIEW.safe.l, 14 + VIEW.safe.t, 70, 32, 'BACK', () => { MENU.screen = 'kits'; }, { size: 16 });
   } else if (MENU.screen === 'summary') {
     const s = G.summary || {}; font(c, 900, clamp(big / 6, 34, 72), F_DISP); c.shadowColor = 'rgba(255,40,30,0.7)'; c.shadowBlur = 24; label(c, 'You have fallen', W / 2, H * 0.3, '#f8ecd6', { align: 'center' }); c.shadowBlur = 0;
     font(c, 500, clamp(big / 20, 15, 22), F_HUD);
