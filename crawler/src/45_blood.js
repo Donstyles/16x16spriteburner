@@ -199,24 +199,16 @@ function gibBurst(u) {
 // winds up 0.8 s or more), with gore at FULL, he is blown apart instead.
 function heroFalls(h) {
   const o = h.lastBlow || {}; if (o.ang !== undefined) h.face = Math.cos(o.ang) < 0 ? 1 : -1; // facing his killer, he falls back away
-  h.deadT = 0; h.gone = false; h.dropped = false;
+  h.deadT = 0; h.gone = false; h.dropped = false; h.sway = 0; h.death = { kind: deathKind(h, o) }; // (how he dies: 48_deaths)
   if (bleeds(h)) { spray(h, 60, { ...o, more: 2.2, spd: 1.2 }); SFX.squelch(panOf(h.x), true); }
-  if (GORE.level === 2 && o.big) heroBurst(h, o); // killed by a heavy, long-telegraphed blow (a brute's slam): blown apart
+  if (h.death.kind === 'burst') heroBurst(h, o); // killed by a heavy, long-telegraphed blow (a brute's slam): blown apart
 }
-function deathPose(u) {
-  if (u.gone) return { gone: true }; const t = u.deadT || 0;
-  return { lie: t > 0.55, dip: t > 0.55 ? 0 : t > 0.42 ? 2 : t > 0.3 ? 1 : 0, jit: t < 0.3 ? (((G.time * 40) | 0) % 2 ? 1 : -1) : 0 };
+function deathPose(u) { // (by the kind of death: 48_deaths)
+  if (u.gone) return { gone: true }; return bleedPose(u.deadT || 0);
 }
 function deathTick(h, dt) {
-  const t = h.deadT, p = t - dt, at = s => p < s && t >= s; if (h.gone) return;
-  if (at(0.15)) dropWeapon(h, 1);
-  if (at(0.55)) { SFX.boom(0.25, panOf(h.x)); shake(0.12); smoke(h.x, h.y, 3, 'dust', 8, 18, 0.8); }
-  [0.9, 1.7, 2.6, 3.6, 4.7, 5.9].forEach((s, i) => { // the heart slows
-    if (!at(s)) return; const k = 1 - i * 0.14; SFX.heart(0.5 * k); if (!bleeds(h)) return;
-    const fs = h.face < 0 ? -1 : 1, x = h.x - fs * 3, y = h.y; // the wound, about his chest as he lies
-    for (let j = 0, n = Math.round(12 * k); j < n; j++) part({ k: 'gore', x: x + rand(-1, 1), y: y + rand(-1, 1), z: 3, vx: rand(-22, 22) * k, vy: rand(-12, 12) * k, vz: rand(55, 115) * k, g: 420, life: 5, s0: chance(0.2) ? 2 : 1, col: pick(BLOOD.red), kind: 'red' });
-    pool(x, y + 1, 'red', 2.4 + i * 1.1); // the pool spreads out from under him with every beat
-  });
+  const k = h.death ? h.death.kind : 'bleed';
+  if (k === 'fall') fallTick(h, dt); else if (k === 'bleed') bleedTick(h, dt);
 }
 // a canvas cropped to its pixels (so a thrown weapon lies on the floor, not above it)
 function tight(cv) {

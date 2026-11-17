@@ -183,6 +183,18 @@ const SFX = {
     this.tone('triangle', 330 * k, 70, 1.0, 0.07, pan, 0.03, 0.04);
     for (let i = 0; i < 4; i++) this.noise(this.white, 0.03, 'bandpass', rand(1400, 3200), 1200, 3, 0.025 - i * 0.004, pan, 1.25 + i * 0.22 + rand(0, 0.12), 0.002);
   },
+  // the hero going down a pit for good: a cry that falls away with him (48_deaths)
+  scream(pan = 0) {
+    if (!this.ok('scream', 1)) return;
+    this.tone('sawtooth', 760, 230, 1.9, 0.045, pan, 0, 0.06); this.tone('sawtooth', 773, 236, 1.9, 0.035, pan, 0, 0.06); this.tone('square', 382, 118, 1.7, 0.014, pan, 0.02, 0.06);
+    this.noise(this.white, 1.7, 'bandpass', 2600, 700, 2.5, 0.045, pan, 0, 0.06);
+  },
+  // and, a long moment later, him striking bottom far below, and its echo back up the shaft
+  farImpact(pan = 0) {
+    if (!this.ok('farimpact', 1)) return;
+    this.noise(this.brown, 0.55, 'lowpass', 240, 45, 0.7, 0.5, pan, 0, 0.004); this.noise(this.white, 0.14, 'bandpass', 760, 280, 1.4, 0.13, pan, 0.012, 0.002);
+    this.noise(this.brown, 0.5, 'lowpass', 170, 40, 0.7, 0.17, pan, 0.4, 0.01); this.noise(this.brown, 0.5, 'lowpass', 130, 40, 0.7, 0.07, pan, 0.82, 0.01);
+  },
   // a cracked slab: first a grinding under the foot (stage 0), then it breaks away and drops with a rush of rubble (1)
   crumble(pan = 0, stage = 0) {
     if (!this.ok('crumble' + stage, 0.1)) return;

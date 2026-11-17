@@ -113,7 +113,7 @@ function hudBar(c, x, y, w, h, f, trailKey, cols, n) {
 // outline as the sprites have, a dark brown seam where the bar is tucked in. As much of it is left as he has armour
 // left, hacked back from the right to a ragged edge with loose threads; each piece hacked off falls away and fades.
 // Put on, it is stitched in from the left, a needle's glint at the seam.
-const QP = 2, QCOL = { o: '#070707', base: '#e8d4b2', hi: '#fff9e4', line: '#cca96d', low: '#ddbe88', seam: '#452e25' };
+const QP = 2, QCOL = { o: '#1d1d1c', base: '#e8d4b2', hi: '#fff9e4', line: '#cca96d', low: '#ddbe88', seam: '#452e25' };
 const QTEX = {};
 function quiltTex(w, h, hole) { // w, h, hole ([x, y, w, h]) in art pixels; the hole see-through
   const key = w + 'x' + h + (hole ? ':' + hole.join(',') : ''); if (QTEX[key]) return QTEX[key];

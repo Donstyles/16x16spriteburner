@@ -9,12 +9,12 @@ function ctrlScale() { return clamp(Math.min(VIEW.w, VIEW.h) / 430, 0.85, 1.35);
 function btnLayout() {
   const S = VIEW.safe, sc = ctrlScale(), R = VIEW.w - Math.max(14, S.r + 10), B = VIEW.h - Math.max(12, S.b + 8);
   const atk = { x: R - 62 * sc, y: B - 64 * sc, r: 44 * sc };
-  return { atk, dodge: { x: atk.x - 96 * sc, y: atk.y + 20 * sc, r: 30 * sc }, block: { x: atk.x + 6 * sc, y: atk.y - 92 * sc, r: 30 * sc }, flask: { x: atk.x - 88 * sc, y: atk.y - 66 * sc, r: 24 * sc }, menu: { x: R - 22 * sc, y: Math.max(10, S.t + 8) + 18 * sc, r: 18 * sc }, ...(TEST.on ? { clean: { x: VIEW.w / 2 - (TEST.mode !== 'blood' ? 30 * sc : 0), y: Math.max(10, S.t + 8) + 22 * sc, r: 22 * sc } } : {}), ...(TEST.on && TEST.mode !== 'blood' ? { next: { x: VIEW.w / 2 + 30 * sc, y: Math.max(10, S.t + 8) + 22 * sc, r: 22 * sc } } : {}) };
+  return { atk, dodge: { x: atk.x - 96 * sc, y: atk.y + 20 * sc, r: 30 * sc }, block: { x: atk.x + 6 * sc, y: atk.y - 92 * sc, r: 30 * sc }, flask: { x: atk.x - 88 * sc, y: atk.y - 66 * sc, r: 24 * sc }, menu: { x: R - 22 * sc, y: Math.max(10, S.t + 8) + 18 * sc, r: 18 * sc }, ...(TEST.on ? { clean: { x: VIEW.w / 2 - (TEST.mode !== 'blood' ? 30 * sc : 0), y: Math.max(10, S.t + 8) + 22 * sc, r: 22 * sc } } : {}), ...(TEST.on && TEST.mode !== 'blood' ? { next: { x: VIEW.w / 2 + 30 * sc, y: Math.max(10, S.t + 8) + 22 * sc, r: 22 * sc } } : {}), ...(TEST.on && TEST.mode === 'armour' ? { die: { x: VIEW.w / 2 + 90 * sc, y: Math.max(10, S.t + 8) + 22 * sc, r: 22 * sc } } : {}) };
 }
 function screenPt(e) { return VIEW.rot ? [e.clientY, VIEW.iw - e.clientX] : [e.clientX, e.clientY]; }
 function toWorld(px, py) { const s = CAM.z * (1 + CAM.kick); return [(px - VIEW.w / 2 - SH.x) / s + CAM.x, (py - VIEW.h / 2 - SH.y) / s + CAM.y]; }
 function btnAt(x, y) { const L = btnLayout(); for (const k in L) { const b = L[k]; if (dist(x, y, b.x, b.y) < b.r * 1.25) return k; } return null; }
-function press(name) { INPUT.btn[name] = true; const I = G.me && G.me.inp; if (!I) return; if (name === 'atk') { I.atkP = true; } if (name === 'dodge') I.dodgeP = true; if (name === 'flask') I.itemP = true; if (name === 'menu') togglePause(); if (name === 'clean') cleanBlood(); if (name === 'next') testNext(); }
+function press(name) { INPUT.btn[name] = true; const I = G.me && G.me.inp; if (!I) return; if (name === 'atk') { I.atkP = true; } if (name === 'dodge') I.dodgeP = true; if (name === 'flask') I.itemP = true; if (name === 'menu') togglePause(); if (name === 'clean') cleanBlood(); if (name === 'next') testNext(); if (name === 'die') testDie(); }
 function release(name) { INPUT.btn[name] = false; const I = G.me && G.me.inp; if (I && name === 'atk') I.atkR = true; }
 function setupInput() {
   const c = cvs;
@@ -82,6 +82,7 @@ function drawControls(c) {
   }
   if (L.clean) roundBtn(c, L.clean, 'CLEAN', INPUT.btn.clean, '#e8907a'); // the test room's blood wipe (every device)
   if (L.next) { roundBtn(c, L.next, TEST.mode === 'water' ? 'REFILL' : 'NEXT', INPUT.btn.next, '#9ad0e8'); c.globalAlpha = 0.85; font(c, 600, 12, F_HUD); spaced(c, TEST.label || '', VIEW.w / 2, L.next.y + L.next.r + 14, 2, '#f0e0c0', 'center'); c.globalAlpha = 1; } // the creature test room's next lot, and what is on now
+  if (L.die) { roundBtn(c, L.die, 'DIE', INPUT.btn.die, '#e8907a'); c.globalAlpha = 0.85; font(c, 600, 12, F_HUD); spaced(c, 'DIE: ' + DEATH_NAMES[TEST_DEATHS[TEST.di % TEST_DEATHS.length]], VIEW.w / 2, L.next.y + L.next.r + 30, 2, '#e8907a', 'center'); c.globalAlpha = 1; } // (the armour and death room's next death)
   // menu, top right (every device)
   const m = L.menu; c.globalAlpha = 0.8; c.fillStyle = 'rgba(10,8,12,0.55)'; c.beginPath(); c.arc(m.x, m.y, m.r, 0, TAU); c.fill(); c.fillStyle = '#e8dcc0'; for (let i = -1; i <= 1; i++) c.fillRect(m.x - m.r * 0.45, m.y + i * m.r * 0.32 - 1, m.r * 0.9, 2); c.globalAlpha = 1;
 }

@@ -233,15 +233,14 @@ function startFall(u) {
   u.fall = { t: 0, T: FALL_T * (u.scale > 1.2 ? 1.2 : 1), x: u.x, y: u.y, spin: rand(-0.9, 0.9) }; u.vx = u.vy = u.kx = u.ky = 0; u.act = null; u.sprint = false; u.blocking = false; u.stun = 0;
   removeIf(FX.nums, n => n.on === u); // (its marks go with it)
   pebbles(u.x, u.y - 2, 8); smoke(u.x, u.y, 2, 'dust', 6, 12, 0.6); SFX.fall(panOf(u.x), u.scale > 1.2, u.team === 'hero');
-  if (u.team === 'hero') { shake(0.15); G.hurtFlash = 0.2; }
+  if (u.team === 'hero') { shake(0.15); G.hurtFlash = 0.2; if (u.hp - Math.round(u.maxHp * PIT_DMG) <= 0 && !(TEST.on && TEST.god)) { u.fall.fatal = true; SFX.scream(panOf(u.x)); } } // (a fall he will not climb out of: he screams, 48_deaths)
 }
 function endFall(u) {
-  u.fall = null;
+  const F = u.fall; u.fall = null;
   if (u.team !== 'hero') { u.dead = true; u.hp = 0; u.act = null; if (!u.raisedBy) G.kills++; return; } // gone, and all it carried
   const dmg = Math.round(u.maxHp * PIT_DMG);
   if (u.hp - dmg <= 0 && !(TEST.on && TEST.god)) { // a fall he cannot pay for: he is gone
-    Object.assign(u, { dead: true, hp: 0, act: null, stun: 0, deadT: 0, gone: true, dropped: true });
-    textPop(u.x, u.y, 18, (u.pname || u.def.name) + ' FELL', 'red'); SFX.boom(0.4, panOf(u.x)); shake(0.3); slowmo(0.3, 1.2); return;
+    Object.assign(u, { dead: true, hp: 0, act: null, stun: 0, deadT: 0, gone: true, dropped: true, death: { kind: 'fall', x: F.x, y: F.y } }); return; // (the long fall: silence, then the impact far below, 48_deaths)
   }
   const s = u.safe || ARENA.spawn; u.hp = Math.max(1, u.hp - dmg); u.x = s.x; u.y = s.y; u.z = 0; u.vx = u.vy = u.kx = u.ky = 0; u.iframe = 1; u.rise = 1; u.path = null;
   number(u.x, u.y, headZ(u) + 1, dmg, 'red', false, u); G.hurtFlash = 0.35; shake(0.2); smoke(u.x, u.y, 4, 'dust', 8, 14, 0.8); SFX.stone(panOf(u.x), false);

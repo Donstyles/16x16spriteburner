@@ -49,15 +49,16 @@ function updateRun(dt) {
   removeIf(G.foes, f => f.dead); removeIf(G.units, u => u.dead && u.team === 'foe');
   if (G.hurtFlash > 0) G.hurtFlash -= dt; if (G.tiredT > 0) G.tiredT -= dt;
   if (G.phase === 'play') {
-    if (!G.heroes.some(alive)) { G.phase = 'dead'; G.phaseT = 0; G.best = Math.max(G.best, G.floor); saveBest(); G.summary = { floor: G.floor, kills: G.kills, gold: G.gold, kit: G.kit, name: ARENA.name }; textBanner('YOU HAVE FALLEN', 'FLOOR ' + G.floor + '  ·  ' + G.kills + ' SLAIN  ·  ' + G.gold + ' GOLD', 'red'); SFX.braam(); return; }
+    if (!G.heroes.some(alive)) { G.phase = 'dead'; G.phaseT = 0; G.best = Math.max(G.best, G.floor); saveBest(); G.summary = { floor: G.floor, kills: G.kills, gold: G.gold, kit: G.kit, name: ARENA.name }; G.fallenT = 0; return; } // (the title comes once his death has played out: below)
     const s = ARENA.stairs; if (G.heroes.some(h => alive(h) && Math.abs(h.x - s.x) < 18 && h.y < s.y + 6 && h.y > s.y - 20)) { G.phase = 'descend'; G.phaseT = 0; SFX.whoosh(0); }
   } else if (G.phase === 'descend') {
     G.fade = Math.min(1, G.phaseT / 0.7);
     if (G.phaseT > 0.9) { G.floor++; G.best = Math.max(G.best, G.floor); saveBest(); for (const h of G.heroes) { if (h.dead) { h.dead = false; h.gone = h.dropped = false; h.hp = Math.round(h.maxHp * 0.3); } } startFloor(); }
   } else if (G.phase === 'dead') {
-    if (G.phaseT > 7) G.fade = Math.min(1, (G.phaseT - 7) / 1.2); // the death plays out first
-    if (TEST.on && TEST.mode === 'armour') { if (G.phaseT > 7.6) armourRevive(); return; } // (the armour and death room: up again, 64_testroom)
-    if (G.phaseT > 8.2) { G.mode = 'menu'; MENU.screen = 'summary'; G.fade = 0; }
+    const DL = deathLen(); if (!G.fallenT && G.phaseT > DL - 2.2) { G.fallenT = 1; textBanner('YOU HAVE FALLEN', 'FLOOR ' + G.floor + '  ·  ' + G.kills + ' SLAIN  ·  ' + G.gold + ' GOLD', 'red'); SFX.braam(); } // (the title, once his death has played out in silence)
+    if (G.phaseT > DL) G.fade = Math.min(1, (G.phaseT - DL) / 1.2); // the death plays out first (as long as its kind runs: 48_deaths)
+    if (TEST.on && TEST.mode === 'armour') { if (G.phaseT > DL + 0.6) armourRevive(); return; } // (the armour and death room: up again, 64_testroom)
+    if (G.phaseT > DL + 1.2) { G.mode = 'menu'; MENU.screen = 'summary'; G.fade = 0; }
   }
 }
 function saveBest() { try { localStorage.setItem('cor2-best', String(G.best)); } catch (e) { } }

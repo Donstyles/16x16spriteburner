@@ -144,16 +144,34 @@ const ARMOUR_TESTS = [
 ];
 function beginArmourTest(kit) {
   beginTest(kit); G.foes.length = 0; G.units = G.heroes.slice(); G.sched.length = 0;
-  Object.assign(TEST, { mode: 'armour', god: false, i: 0, list: ARMOUR_TESTS, gen: 0, rackT: 0 }); const A = ARENA, h = G.me, r = roomAt(h.x, h.y) || A.start; A.name = 'ARMOUR & DEATH ROOM';
+  Object.assign(TEST, { mode: 'armour', god: false, i: 0, list: ARMOUR_TESTS, gen: 0, rackT: 0, di: 0, forceDeath: null }); const A = ARENA, h = G.me, r = roomAt(h.x, h.y) || A.start; A.name = 'ARMOUR & DEATH ROOM';
   TEST.home = { x: h.x, y: h.y }; TEST.rack = { x: (r.ix0 + 1.5) * TS, y: h.y }; // (the spare gambeson lies by the west wall, level with him)
-  putOnGambeson(h); G.banner = null; G.bq.length = 0; rackGambeson(); TEST.label = ARMOUR_TESTS[0][0];
-  G.card = { t: 0, life: 3.4, a: 'ARMOUR & DEATH ROOM', b: 'YOU WEAR A GAMBESON · THEY FIGHT FOR REAL · YOU CAN DIE', c: 'YOUR DEATH PLAYS OUT, THEN YOU GET UP AGAIN', d: 'NEXT AT THE TOP BRINGS ON OTHER FOES · A SPARE GAMBESON LIES BY THE WALL' };
+  digTestPit(A, r); putOnGambeson(h); G.banner = null; G.bq.length = 0; rackGambeson(); TEST.label = ARMOUR_TESTS[0][0];
+  G.card = { t: 0, life: 3.4, a: 'ARMOUR & DEATH ROOM', b: 'YOU WEAR A GAMBESON · THEY FIGHT FOR REAL · YOU CAN DIE', c: 'YOUR DEATH PLAYS OUT, THEN YOU GET UP AGAIN', d: 'NEXT BRINGS ON OTHER FOES · DIE DIES THE NEXT DEATH · A PIT BY THE EAST WALL' };
   armourFoes(2.6); // (they come on once the card has gone)
 }
 // the foes go, and the current lot comes on fresh after a delay (unless NEXT has brought on another lot meanwhile)
 function armourFoes(delay) {
   const gen = ++TEST.gen; for (const f of G.foes) if (!f.dead) { smoke(f.x, f.y, 3, 'dust', 8, 16, 0.6); f.dead = true; }
   G.sched.push({ t: delay, fn: () => { if (TEST.on && TEST.mode === 'armour' && TEST.gen === gen) creatureSpawn(); } });
+}
+// a pit two by two by the east wall, dug into the finished floor, to fall to his death in
+function digTestPit(A, r) {
+  const tx = r.ix1 - 2, ty = Math.round((r.iy0 + r.iy1) / 2) - 1, cells = [[tx, ty], [tx + 1, ty], [tx, ty + 1], [tx + 1, ty + 1]];
+  for (const p of A.props) if (cells.some(([x, y]) => Math.abs(p.x - (x * TS + 8)) < 14 && Math.abs(p.cy - (y * TS + 8)) < 14)) { p.dead = true; p.solid = false; }
+  A.pitSets = A.pitSets || []; A.crumbles = A.crumbles || []; A.crumbleSet = A.crumbleSet || new Set(); A.live = A.live || new Set(); A.plankSet = A.plankSet || new Set(); A.peb = A.peb || []; A.fallers = A.fallers || []; A.pitN = A.pitN || 0;
+  for (const [x, y] of cells) { A.fl[y * A.w + x] = PIT; A.pitN++; } A.flv = (A.flv || 0) + 1; A.lights = A.slit = null;
+  for (const k of groundChunks(A)) for (const [x, y] of cells) pitPaint(A, k.g, y * A.w + x);
+  TEST.pit = { x: (tx + 1) * TS, y: (ty + 1) * TS };
+}
+// DIE: he dies the next death on the list, at once (the fall: he is walked into the pit with nothing left to pay for it)
+const TEST_DEATHS = ['bleed', 'fall', 'burst'];
+function testDie() {
+  const h = G.me; if (!TEST.on || TEST.mode !== 'armour' || !h || h.dead || h.fall) return;
+  const kind = TEST_DEATHS[TEST.di % TEST_DEATHS.length]; TEST.di++; h.gamb = 0; h.iframe = 0; h.blocking = false; h.act = null;
+  if (kind === 'fall') { h.hp = 1; h.x = TEST.pit.x; h.y = TEST.pit.y; return; }
+  const f = G.foes.filter(q => !q.dead).sort((a, b) => dist(a.x, a.y, h.x, h.y) - dist(b.x, b.y, h.x, h.y))[0], src = f || { x: h.x + 20, y: h.y, team: 'foe', def: {} }, a = angTo(src.x, src.y, h.x, h.y);
+  TEST.forceDeath = kind; hurt(h, Math.ceil((h.hp + 6) / 0.9), src, { kx: Math.cos(a) * 120, ky: Math.sin(a) * 90, ang: a, big: kind === 'burst' }); TEST.forceDeath = null;
 }
 function rackGambeson() { G.drops.push({ k: 'gambeson', x: TEST.rack.x, y: TEST.rack.y, z: 0, vx: 0, vy: 0, vz: 0, t: 1, hold: 0 }); smoke(TEST.rack.x, TEST.rack.y, 2, 'dust', 6, 12, 0.6); }
 function armourTick(dt) {
@@ -163,7 +181,7 @@ function armourTick(dt) {
 // his death played out: he gets up again, whole, in a new gambeson, where he began; the foes come on fresh
 function armourRevive() {
   const h = G.me; if (!h) return;
-  Object.assign(h, { dead: false, gone: false, dropped: false, deadT: 0, hp: h.maxHp, stam: h.maxStam, flasks: h.maxFlasks, x: TEST.home.x, y: TEST.home.y, vx: 0, vy: 0, kx: 0, ky: 0, z: 0, act: null, blocking: false, iframe: 1.2, curseT: 0, acidT: 0, gore: 0 });
+  Object.assign(h, { dead: false, gone: false, dropped: false, deadT: 0, death: null, sway: 0, fall: null, hp: h.maxHp, stam: h.maxStam, flasks: h.maxFlasks, x: TEST.home.x, y: TEST.home.y, vx: 0, vy: 0, kx: 0, ky: 0, z: 0, act: null, blocking: false, iframe: 1.2, curseT: 0, acidT: 0, gore: 0 });
   G.phase = 'play'; G.phaseT = 0; G.fade = 0; G.banner = null; G.bq.length = 0; G.summary = null; G.hurtFlash = 0;
   putOnGambeson(h); G.banner = null; G.bq.length = 0; textPop(h.x, h.y, headZ(h) + 6, 'AGAIN', 'white', true); SFX.whoosh(0); armourFoes(1.2);
 }

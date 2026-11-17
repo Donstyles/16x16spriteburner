@@ -22,16 +22,17 @@ function resize() {
 function exploreZoom() { return clamp(Math.min(VIEW.w / 330, VIEW.h / 205), 1, 6); }
 function updateCam(dt) {
   if (!ARENA) return; const me = G.me && !G.me.dead ? G.me : G.heroes.find(alive);
-  let fx, fy;
+  let fx, fy, zk = G.me && G.me.inShop ? SHOP.zoom : 1, zr = 2, pr = 6; // (zoom: a factor on the usual, and how quickly it and the view get there)
   if (G.mode !== 'play') { const t = G.time * 0.12, r = ARENA.start; fx = (r.ix0 + r.ix1 + 1) / 2 * TS + Math.cos(t) * 30; fy = (r.iy0 + r.iy1 + 1) / 2 * TS + Math.sin(t * 0.7) * 16; }
   else if (G.cine) { fx = G.cine.x; fy = G.cine.y; } // (a sluice's water draining: 37_levels)
+  else if (G.me && G.me.dead && !G.heroes.some(alive)) { const D = deathCam(G.me); fx = D.x; fy = D.y; zk = D.z; zr = D.r; pr = 2.5; } // (his death's own camera: 48_deaths)
   else if (me) { fx = me.x + Math.cos(me.dir) * 14 + me.vx * 0.15; fy = me.y - 8 + Math.sin(me.dir) * 10 + me.vy * 0.12; }
   else { fx = CAM.x; fy = CAM.y; }
   if (!Number.isFinite(fx + fy)) { fx = Number.isFinite(CAM.x) ? CAM.x : ARENA.spawn.x; fy = Number.isFinite(CAM.y) ? CAM.y : ARENA.spawn.y; }
-  CAM.z = damp(CAM.z, exploreZoom() * (G.me && G.me.inShop ? SHOP.zoom : 1), 2, dt); // (a little closer in the shop)
+  CAM.z = damp(CAM.z, exploreZoom() * zk, zr, dt); // (a little closer in the shop)
   const hw = VIEW.w / (2 * CAM.z), hh = VIEW.h / (2 * CAM.z);
-  fx = clamp(fx, hw - 10, ARENA.pw - hw + 10); fy = clamp(fy, hh - 10, ARENA.ph - hh + 10);
-  CAM.x = damp(CAM.x, fx, 6, dt); CAM.y = damp(CAM.y, fy, 6, dt); CAM.kick = damp(CAM.kick, 0, 5, dt);
+  if (!(G.me && G.me.dead)) { fx = clamp(fx, hw - 10, ARENA.pw - hw + 10); fy = clamp(fy, hh - 10, ARENA.ph - hh + 10); } // (a death is framed wherever it is, the dark beyond the map edge and all)
+  CAM.x = damp(CAM.x, fx, pr, dt); CAM.y = damp(CAM.y, fy, pr, dt); CAM.kick = damp(CAM.kick, 0, 5, dt);
 }
 function updateShake(rdt) {
   G.trauma = Math.max(0, G.trauma - rdt * 1.25); let q = 0;
