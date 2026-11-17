@@ -356,7 +356,7 @@ function updateProj(dt) {
 function dropLoot(u) { const g = u.def.gold || [0, 1]; const n = randi(g[0], g[1]); if (n > 0) dropGold(u.x, u.y, n); }
 // Pickups from the item sheet: a fish heals on the spot, a flask gives back a flask charge. Either one waits on the floor
 // while the hero has no use for it (full health, every flask full).
-const ITEM = { fish: [0, 0, 12, 10], flask: [16, 0, 6, 11], map: [64, 0, 14, 15, 'scrolls'], gambeson: [0, 80, 12, 15], chainmail: [16, 80, 12, 15] }; // where on the item sheet (or another), how long a shadow it casts, and the row it rests on (the fish's belly; its tail hangs a row lower)
+const ITEM = { fish: [0, 0, 12, 10], flask: [16, 0, 6, 11], map: [64, 0, 14, 15, 'scrolls'], gambeson: [0, 80, 10, 15], chainmail: [16, 80, 10, 15] }; // (the armours drawn fourteen pixels square in their cells, a little smaller than the rest) // where on the item sheet (or another), how long a shadow it casts, and the row it rests on (the fish's belly; its tail hangs a row lower)
 // The gambeson (16x16 Assorted RPG Icons, armours [0, 5], on the item sheet's last row): quilted cloth armour, forty
 // points of it, that takes each blow before his health does and is hacked away doing it: scraps of quilted linen fly off
 // him, the number struck comes up in the cloth's colour, and on the HUD the band of quilting round his health bar is cut
