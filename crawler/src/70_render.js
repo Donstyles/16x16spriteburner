@@ -88,7 +88,7 @@ function drawUnit(c, u) {
   // the sellsword swinging: drawn without his sword, and the sword drawn on its own, behind him when it points behind him
   const Wc = u.team === 'hero' && !ra ? WEAPON[u.spr] : null, pose = Wc ? weaponPose(u) : null, back = pose && (pose.behind || (!pose.front && Math.cos(pose.th) * (u.face < 0 ? -1 : 1) < -0.15));
   if (back) drawWeapon(c, u, pose, Wc, fr, fw, foot, dip, cut);
-  c.save(); if (u.z < 0) { c.beginPath(); c.rect(u.x - 40, u.y - 90, 80, 91); c.clip(); } // rising out of the floor: nothing shows below it
+  c.save(); if (u.z < 0) { c.beginPath(); c.rect(Math.round(u.x) - 40, Math.round(u.y) - 90, 80, 91); c.clip(); } // rising out of the floor (or sinking into it): nothing shows below it, cut on a whole row
   // on whole pixels: drawn at a fraction of one, a frame's edge columns read past it into the next frame on the sheet (a dark pixel by a head)
   c.translate(Math.round(u.x + jit + (dp ? dp.jit : 0) + (u.sway || 0)), Math.round(u.y - u.z - (u.lift || 0))); // (lift: standing on something raised, a plate's slab)
   if ((sleep && !FLAT_SLEEPERS.has(u.spr)) || (dp && dp.lie)) { const L = lieOf(u.spr, sc), fs = u.face < 0 ? -1 : 1; c.translate(fs * L.half, L.dy); c.rotate(-fs * Math.PI / 2); } // asleep: lying on its back, its front turned up (a quarter turn, exact to the pixel)
@@ -109,6 +109,7 @@ function drawUnit(c, u) {
   if (warn) { c.globalAlpha = 0.35 + 0.35 * Math.sin(G.time * 40); if (B) blitB(B.red); else blit(mobsRed()); }
   if (u.flash > 0) { c.globalAlpha = Math.min(1, u.flash * 9); if (B) blitB(B.white); else if (bare) blit(Wc.cutW, 0); else blit(IMG.mobsW); }
   c.restore(); c.globalAlpha = 1;
+  if (dp && u.death && u.death.kind === 'acid') acidFizz(c, u, m, fr, bare, Wc, foot, jit + dp.jit + (u.sway || 0)); // (his waterline eaten away: 48_deaths)
   if (pose && !back) drawWeapon(c, u, pose, Wc, fr, fw, foot, dip, cut);
   if (u.team === 'foe' && u.hp < u.maxHp && !u.dead && !u.dying && !u.fall) { const w = 10 * sc, x = u.x - w / 2, y = u.y - u.z + 3; c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(x - 0.5, y - 0.5, w + 1, 2.5); c.fillStyle = u.stun > 0 ? '#ffd24a' : '#e8443a'; c.fillRect(x, y, w * clamp(u.hp / u.maxHp, 0, 1), 1.5); }
   if (u.team === 'hero' && u.blocking) { const a0 = u.dir; c.strokeStyle = u.blockT < PARRY_WINDOW ? '#ffd860' : '#d8d0c0'; c.lineWidth = 1.5; c.beginPath(); c.ellipse(u.x, u.y + GUARD.dy, GUARD.r, GUARD.r * GUARD.k, 0, a0 - GUARD.half, a0 + GUARD.half); c.stroke(); }

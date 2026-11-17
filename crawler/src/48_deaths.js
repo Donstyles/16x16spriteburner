@@ -71,6 +71,30 @@ function acidTick(h, dt) {
   if (t < A.sink1 + 0.4 && chance(dt * 7)) smoke(h.x + rand(-4, 4), h.y, 1, 'green', 6, 8, 1.2, 22);
   if (t < A.sink1 + 0.6 && ((t * 3) | 0) !== (((t - dt) * 3) | 0)) SFX.sizzle(panOf(h.x));
 }
+// Where he goes into the acid it eats him: the row of him at the surface fizzes yellow-green, every pixel of it flickering
+// through the acid's pale shades; the row above catches here and there; a froth seethes on the surface round him, a
+// little wider than he is, and goes on a moment after he is under. Drawn over him at his own pixels (70_render drawUnit).
+const FIZZ = ['#f4f8a8', '#e0ef62', '#c6e23e', '#a8d42e'], FIZZ_UP = ['#9cbc2c', '#b8d03a', '#7e9e26'], FROTH = ['#eef8b0', '#d4ee70', '#a2d03c'];
+const fizzH = (x, k) => (Math.imul(x + 11, 2654435761) ^ Math.imul(k + 5, 40503)) >>> 9;
+function acidFizz(c, u, m, fr, bare, Wc, foot, dx) {
+  const t = u.deadT, A = ACIDD; if (t < 0.25 || t > A.sink1 + 1.6) return;
+  const fw = m[1], fh = m[2], d = Math.max(0, -Math.round(u.z)), row = Math.min(foot, foot + 1 - d), y0 = -foot - 1;
+  const P = bare ? (Wc.pxd || (Wc.pxd = pixelData(Wc.cut))) : PIX.mobs, oy = bare ? 0 : m[0], ox = fr * fw, k = (G.time * 16) | 0;
+  const op = (x, y) => y >= 0 && y < fh && P.d[((oy + y) * P.w + ox + x) * 4 + 3] > 128;
+  c.save(); c.translate(Math.round(u.x + dx), Math.round(u.y - u.z)); c.scale(u.face < 0 ? -1 : 1, 1);
+  let xl = 99, xr = -99;
+  for (let x = 0; x < fw; x++) {
+    if (op(x, row)) { xl = Math.min(xl, x); xr = Math.max(xr, x); c.fillStyle = FIZZ[fizzH(x, k) & 3]; c.fillRect(x - fw / 2, y0 + row, 1, 1); }
+    if (op(x, row - 1) && fizzH(x + 40, k) % 3 === 0) { c.fillStyle = FIZZ_UP[fizzH(x, k + 9) % 3]; c.fillRect(x - fw / 2, y0 + row - 1, 1, 1); }
+  }
+  if (xl > xr) [xl, xr] = u.death.fizzW || [(fw >> 1) - 2, (fw >> 1) + 1]; else u.death.fizzW = [xl, xr];
+  const fade = t > A.sink1 ? 1 - (t - A.sink1) / 1.6 : 1;
+  for (let x = xl - 2; x <= xr + 2; x++) {
+    const inner = x >= xl && x <= xr, h = fizzH(x + 90, k);
+    if (h % 6 < (inner ? 2 : 3) * fade) { c.fillStyle = FROTH[(h >> 3) % 3]; c.fillRect(x - fw / 2, y0 + row + 1, 1, 1); }
+  }
+  c.restore();
+}
 
 // ---- eaten by vermin. Dying with three or more vermin round him (rats, beetles, ticks, ants, cockroaches, maggots, the
 // skitterers), he goes down and up to eight of them rush onto him and pile up on him till he is hidden; they writhe
