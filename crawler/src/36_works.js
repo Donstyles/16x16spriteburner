@@ -87,7 +87,7 @@ function waterBody(A, cells, set, W, dual) {
 function worksBefore(A, r, g) {
   if (r.kind !== 'room' || r.chest || r.set || r.sluice) return; // (a set piece's room, or the room with its sluice: 37_levels)
   if (!A.cistern && r.w >= 12 && r.h >= 8 && beyondHost(A, r) && chance(0.6)) cistern(A, r, g); // (only where its sluice can be beyond it: 37_levels)
-  else if (!A.shrine && r.w >= 12 && r.h >= 8 && chance(0.55)) { A.shrine = r; r.shrine = true; }
+  else if (!A.shrine && r.w >= 12 && r.h >= 8 && chance(0.55)) { A.shrine = r; r.shrine = true; r.dark = A.floor >= 2 && chance(0.5); } // (dark: its runes hidden)
   else if (chance(0.3)) ponds(A, r, g);
 }
 function worksAfter(A, r) {
@@ -114,7 +114,7 @@ function cistern(A, r, g) {
   const W = wkOf(A), x0 = r.ix0 + 2, x1 = r.ix1 - 2, y0 = r.iy0 + 2, y1 = r.iy1 - 2;
   if (x1 - x0 < 3 || y1 - y0 < 2) return;
   const cells = new Set(); for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) cells.add(ty * A.w + tx);
-  const p = waterBody(A, cells, W.square, W, false); p.room = r.i;
+  const p = waterBody(A, cells, W.square, W, false); p.room = r.i; p.store = A.floor >= 3 && r.w >= 14 && r.h >= 9 && chance(0.6); // (THE FLOODED STORE: cisternAfter)
   A.cistern = r; r.pool = p; (A.pools = A.pools || []).push(p); remoteSluice(A, r, p); // (its sluice in another room: 37_levels)
   // the bridge: across the way the room's doors face, two tiles wide, over the middle
   const ew = r.doors.some(d => d.side === 'E' || d.side === 'W'), ns = r.doors.some(d => d.side === 'N' || d.side === 'S');
@@ -146,14 +146,27 @@ function cistern(A, r, g) {
 // Things standing in a cistern's water. The sheet has its pots, chests, crates, carts and heaps a second time standing
 // in water ([5..14, 16..23]: the same pixels, the foot under the waterline tinted the water's blue); each is set here with
 // its dry twin ([22..31, 8..15]), which it turns into as the water drains below it, and then it breaks like any other.
-// (Not the chests: a chest that low would be under water but for its lid, and the sheet has nothing for that.)
+// Every one of the sheet's wet pieces is here: the pots, the two small chests (shut; dry, they open like any other), the
+// crates whole and smashed (the wide ones too), the crate stacks two high, the eight mine carts, the heap of pots and the
+// three heaps of crates two wide and two high; and in stone, for the floor's own stone ([0..4, 16..18] grey, three rows
+// down brown, dry twins [22..27, 2..4] / [.., 5..7]): the square column, the statue on its pedestal, the low blocks, the
+// slabs and the cold braziers ([0..3, 22]). Stone stays stone when the water goes (it never breaks). Only the rune slabs
+// are left out: they are the shrines' (a carved slab under water that does nothing would only mislead).
 // [wet tile, dry tile, kind, tiles wide, tiles tall]
 const SUNK = [
   [[7, 16], [24, 8], 'barrel'], [[8, 16], [25, 8], 'barrel'], [[9, 16], [26, 8], 'barrel'], [[10, 16], [27, 8], 'barrel'],
-  [[8, 20], [25, 12], 'crate'], [[9, 20], [26, 12], 'crate'],
-  [[13, 20], [30, 12], 'cart'], [[14, 20], [31, 12], 'cart'], [[13, 22], [30, 14], 'cart'], [[14, 22], [31, 14], 'cart'],
-  [[5, 22], [22, 8], 'sacks', 2], [[11, 23], [28, 15], 'crate', 2], [[7, 22], [24, 14], 'crate', 2, 2], [[9, 22], [26, 14], 'crate', 2, 2],
+  [[11, 16], [28, 8], 'chest'], [[13, 16], [30, 8], 'chest'],
+  ...[7, 8, 9, 10, 11, 14].flatMap(x => [[[x, 18], [x + 17, 10], 'crate'], [[x, 17], [x + 17, 9], 'crate'], [[x, 19], [x + 17, 11], 'crate']]),
+  [[12, 18], [29, 10], 'crate', 2], [[12, 17], [29, 9], 'crate', 2], [[12, 19], [29, 11], 'crate', 2],
+  [[8, 20], [25, 12], 'crate'], [[9, 20], [26, 12], 'crate'], [[7, 21], [24, 13], 'crate'], [[8, 21], [25, 13], 'crate'], [[9, 21], [26, 13], 'crate'],
+  [[10, 20], [27, 12], 'crate', 1, 2], [[11, 20], [28, 12], 'crate', 1, 2], [[12, 20], [29, 12], 'crate', 1, 2],
+  ...[20, 21, 22, 23].flatMap(y => [[[13, y], [30, y - 8], 'cart'], [[14, y], [31, y - 8], 'cart']]),
+  [[5, 22], [22, 8], 'sacks', 2], [[7, 22], [24, 14], 'crate', 2, 2], [[9, 22], [26, 14], 'crate', 2, 2], [[11, 22], [28, 14], 'crate', 2, 2],
 ];
+const sunkStone = A => { const d = A.th === THEMES.brown ? 3 : 0, br = d ? 2 : 0; return [
+  [[0, 16 + d], [22, 2 + d], 'stone', 1, 2], [[2, 16 + d], [25, 2 + d], 'stone', 1, 2], [[0, 18 + d], [22, 4 + d], 'stone'], [[1, 18 + d], [24, 4 + d], 'stone'], [[2, 18 + d], [25, 4 + d], 'stone'],
+  [[3, 16 + d], [26, 2 + d], 'stone'], [[3, 17 + d], [26, 3 + d], 'stone'], [[3, 18 + d], [26, 4 + d], 'stone'], [[4, 16 + d], [27, 2 + d], 'stone'],
+  [[br, 22], [30, 3 + d], 'stone'], [[br + 1, 22], [31, 3 + d], 'stone']]; };
 // n of them about the water, each on open water clear of the bridge, the drain, the pillars and each other
 function sinkThings(A, p, n, kinds) {
   const bc = p.bridge ? p.bridge.cells : [], taken = new Set();
@@ -161,7 +174,7 @@ function sinkThings(A, p, n, kinds) {
   const wet8 = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (A.fl[(y + j) * A.w + x + i] !== 2) return false; return true; };
   const open = (x, y) => { const i = y * A.w + x; return p.cells.has(i) && A.fl[i] === 2 && wet8(x, y) && !taken.has(i) && !bc.some(([a, b]) => Math.abs(a - x) <= 1 && Math.abs(b - y) <= 1) && !(x === p.drainAt[0] && y === p.drainAt[1]) &&
     !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 16 && Math.abs(q.cy - (y * TS + 10)) < 20); };
-  const list = kinds || Array.from({ length: n }, () => pick(SUNK)); let made = 0;
+  const all = SUNK.concat(sunkStone(A)), list = kinds || Array.from({ length: n * 2 }, () => pick(all)); let made = 0; // (twice as many to try as are wanted: the big ones often find no room)
   for (const s of list) for (let k = 0; k < 10 && made < n; k++) { // each a few tries for a spot it fits
     // (on open water, never on the stone rim: the foot off the edge rows and columns; a tall heap's top may stand in front of the north rim)
     const [wt, dt, kind, w = 1, h = 1] = s, xa = p.x0 + 1, xb = p.x1 - w, ya = Math.max(p.y0 + 1, p.y0 + h - 1), yb = p.y1 - 1; if (xb < xa || yb < ya) break;
@@ -169,7 +182,7 @@ function sinkThings(A, p, n, kinds) {
     const cells = []; for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) cells.push([x + i, y - j]);
     if (!cells.every(([a, b]) => open(a, b))) continue;
     for (const [a, b] of cells) taken.add(b * A.w + a);
-    A.props.push({ kind: kind === 'cart' ? 'crate' : kind, tile: wt, wetTile: wt, dry: dt, tw: w, th: h, x: (x + (w - 1) / 2) * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: w > 1 ? 9 : 5, solid: true, hp: 1e9, sunk: p, room: p.room });
+    A.props.push({ kind: kind === 'cart' ? 'crate' : kind, stone: kind === 'stone', tile: wt, wetTile: wt, dry: dt, tw: w, th: h, x: (x + (w - 1) / 2) * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: w > 1 ? 9 : 5, solid: true, hp: 1e9, sunk: p, room: p.room });
     made++; break;
   }
   return made;
@@ -180,7 +193,7 @@ function cisternAfter(A, r) {
   const bc = p.bridge.cells, nearBridge = (x, y) => bc.some(([a, b]) => Math.abs(a - x) <= 1 && Math.abs(b - y) <= 1);
   const spots = [[p.x0 + 1, p.y0 + 1], [p.x1 - 1, p.y0 + 1], [p.x0 + 1, p.y1], [p.x1 - 1, p.y1]].filter(([x, y]) => y > p.y0 && !nearBridge(x, y) && !(x === p.drainAt[0] && y === p.drainAt[1]));
   for (const [x, y] of spots.slice(0, randi(1, 2))) A.props.push({ kind: 'wetpillar', tile: W.wetPillar, wetTile: W.wetPillar, dry: W.dryPillar, sunk: p, th: 2, x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 6, solid: true, hp: 1e9, room: r.i });
-  sinkThings(A, p, randi(2, 4)); // crates, pots, a cart or a chest standing in the water, to be had once it drains
+  sinkThings(A, p, p.store ? randi(8, 12) : randi(2, 4)); // crates, pots, carts, chests, stone standing in the water, to be had once it drains (a flooded store: crowded with them)
   // the drain plate: on the walk round the cistern, clear of the doors and of anything standing there
   const ring = [];
   for (let x = p.x0 - 1; x <= p.x1 + 1; x++) ring.push([x, p.y0 - 1], [x, p.y1 + 1]);
@@ -199,11 +212,15 @@ function shrine(A, r) {
     if (dx || dy) { const b = { kind: 'block', tile: W.block, f: 0, x: x * TS + 8, y: y * TS + 14, cy: y * TS + 8, r: 7, solid: true, hp: 1e9, room: r.i }; A.props.push(b); v.blocks.push(b); }
   }
   A.props.push({ kind: 'tchest', x: vx * TS + 8, y: vy * TS + 14, cy: vy * TS + 10, r: 6, solid: true, hp: 1, room: r.i, tier: pick(['red', 'red', 'gold']), open: false, sealed: v });
-  // three rune plates, each its own sign, spread out round the room clear of the vault and the doors
-  const nearDoor = (tx, ty) => r.doors.some(d => d.cells.some(([x, y]) => Math.abs(x - tx) <= 2 && Math.abs(y - ty) <= 2));
+  placeRunes(A, r, v, vx, vy);
+  if (r.dark) { v.dark = true; hideRunes(A, r, v, vx, vy); darkRoom(A, r); } // (the dark storeroom: below)
+}
+// three rune plates, each its own sign, spread out round the room clear of the vault (if any) and the doors
+function placeRunes(A, r, v, vx, vy) {
+  const W = wkOf(A), nearDoor = (tx, ty) => r.doors.some(d => d.cells.some(([x, y]) => Math.abs(x - tx) <= 2 && Math.abs(y - ty) <= 2));
   const cands = []; for (let ty = r.iy0 + 1; ty <= r.iy1 - 1; ty++) for (let tx = r.ix0 + 1; tx <= r.ix1 - 1; tx++) {
-    if (Math.abs(tx - vx) <= 2 && Math.abs(ty - vy) <= 2 || nearDoor(tx, ty)) continue;
-    if (A.props.some(q => !q.dead && Math.abs(q.x - (tx * TS + 8)) < 14 && Math.abs(q.cy - (ty * TS + 10)) < 12)) continue; cands.push([tx, ty]);
+    if (vx !== undefined && Math.abs(tx - vx) <= 2 && Math.abs(ty - vy) <= 2 || nearDoor(tx, ty) || A.fl[ty * A.w + tx] !== 1) continue;
+    if (A.props.some(q => !q.dead && Math.abs(q.x - (tx * TS + 8)) < 14 && Math.abs(q.cy - (ty * TS + 10)) < 12) || (A.plates || []).some(p => p.tx === tx && p.ty === ty)) continue; cands.push([tx, ty]);
   }
   A.runes = A.runes || [];
   for (let i = 0; i < 3 && cands.length; i++) {
@@ -211,6 +228,28 @@ function shrine(A, r) {
     const rn = { tx: x, ty: y, x: x * TS + 8, y: y * TS + 8, tile: [W.rune[0] + i, W.rune[1]], lit: [W.runeOn[0] + i, W.runeOn[1]], on: false, t: 0, vault: v, room: r.i }; A.runes.push(rn); v.runes.push(rn);
     removeIf(cands, ([a, b]) => a === x && b === y);
   }
+}
+// THE DARK STOREROOM (from the second floor; a rune shrine, or the room whose runes lay a drawbridge: 37_levels): its torches
+// and braziers are dead, and its rune plates lie under crates, pots and stacks among a good many more that hide nothing;
+// smash your way to them. The last rune woken, the dead lights catch one after another round the room.
+function hideRunes(A, r, v, vx, vy) {
+  const put = (x, y) => { const t = Math.random(), stack = t < 0.25, pot = !stack && t < 0.5; A.props.push({ kind: pot ? 'barrel' : 'crate', tile: pick(stack ? FURN.stack : pot ? FURN.pot : FURN.crate), th: stack ? 2 : 1, x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 5, solid: true, hp: 40, room: r.i }); };
+  for (const rn of v.runes) put(rn.tx, rn.ty);
+  const nearDoor = (tx, ty) => r.doors.some(d => d.cells.some(([x, y]) => Math.abs(x - tx) <= 2 && Math.abs(y - ty) <= 2)), cands = [];
+  for (let ty = r.iy0 + 1; ty <= r.iy1 - 1; ty++) for (let tx = r.ix0 + 1; tx <= r.ix1 - 1; tx++) {
+    if (vx !== undefined && Math.abs(tx - vx) <= 2 && Math.abs(ty - vy) <= 2 || nearDoor(tx, ty) || A.fl[ty * A.w + tx] !== 1 || (A.plates || []).some(p => p.tx === tx && p.ty === ty)) continue;
+    if (!A.props.some(q => !q.dead && Math.abs(q.x - (tx * TS + 8)) < 20 && Math.abs(q.cy - (ty * TS + 10)) < 18)) cands.push([tx, ty]);
+  }
+  for (let i = randi(7, 10); i > 0 && cands.length; i--) { const [x, y] = pick(cands); put(x, y); removeIf(cands, ([a, b]) => Math.abs(a - x) <= 1 && Math.abs(b - y) <= 1); }
+}
+function darkRoom(A, r) {
+  for (const t of A.torches) if (t.tx >= r.ix0 && t.tx <= r.ix1 && Math.abs(t.y - ((r.fy0 + 1) * TS + 9)) < 2) Object.assign(t, { out: true, ember: chance(0.3), room: r.i });
+  for (const p of A.props) if (p.kind === 'brazier' && p.room === r.i) Object.assign(p, { out: true, ember: chance(0.4) });
+  A.lights = A.slit = null;
+}
+function lightRoom(A, ri) { // round the room, one after another
+  const L = A.torches.filter(t => t.out && t.room === ri).map(t => [t, false]).concat(A.props.filter(p => p.kind === 'brazier' && p.out && p.room === ri).map(p => [p, true])).sort((a, b) => a[0].x - b[0].x);
+  L.forEach(([o, br], i) => after(0.15 + i * 0.22, () => { if (ARENA === A) lightUp(o, br); }));
 }
 // spike traps across the corridors (not on the first floor): a field of them the corridor's width and four to six tiles
 // deep, all in step, somewhere along the middle: crossing it between two beats takes a quick walk at the right moment or a sprint
@@ -290,7 +329,9 @@ function worksTick(dt) {
       SFX.rune(panOf(rn.x), n); ring(rn.x, rn.y, 30, 'gold', 0.6, 3); ring(rn.x, rn.y, 16, 'white', 0.35, 2); flashLight(rn.x, rn.y, 90, 'gold', 1.4, 0.7); shake(0.08);
       for (let i = 0; i < 22; i++) { const a = rand(TAU), sp = rand(20, 70); part({ k: 'glow', x: rn.x + rand(-5, 5), y: rn.y + rand(-3, 3), z: rand(0, 4), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.6, vz: rand(30, 90), drag: 2.2, life: rand(0.6, 1.2), s0: rand(1.4, 2.4), s1: 0, col: 'gold', a0: 1, a1: 0 }); }
       sparks(rn.x, rn.y, 6, 12, 'gold', 120, 80);
-      if (v.runes.every(q => q.on) && !v.open) {
+      if (v.runes.every(q => q.on) && !v.open && v.bridge) { v.open = true; if (v.dark) lightRoom(A, v.room); const br = v.bridge, x = rn.x; after(1.4, () => { if (ARENA === A) startBridgeCine({ bridge: br, x }); }); } // (a drawbridge's: 37_levels)
+      else if (v.runes.every(q => q.on) && !v.open) {
+        if (v.dark) lightRoom(A, v.room);
         v.open = true; v.t = -1; const vx = v.blocks.reduce((s, b) => s + b.x, 0) / v.blocks.length, vy = v.blocks.reduce((s, b) => s + b.cy, 0) / v.blocks.length;
         for (const q of v.runes) FX.beams.push({ x0: q.x, y0: q.y - 2, x1: vx, y1: vy - 4, w: 1.6, col: 'gold', life: 1.1, t: 0, steady: true, cap: true });
         textPop(vx, vy, 26, 'THE VAULT OPENS', 'gold', true); G.sched.push({ t: 0.9, fn: () => SFX.quake(1.4) });
@@ -298,7 +339,7 @@ function worksTick(dt) {
     }
     if (rn.on) rn.t += dt;
   }
-  for (const v of A.vaults || []) if (v.open) { // the blocks sink one after another, round the ring
+  for (const v of A.vaults || []) if (v.open && v.blocks.length) { // the blocks sink one after another, round the ring
     v.t += dt; if (v.t > 0 && v.t - dt <= 0) { shake(0.3); flashLight(v.blocks[0].x, v.blocks[0].cy, 110, 'gold', 1.2, 0.6); }
     v.blocks.forEach((b, i) => { const u = v.t - i * 0.14; if (u <= 0 || b.f >= 3 && !b.solid) return; const f = Math.min(3, Math.floor(u / 0.12)); if (f > b.f) { b.f = f; debris(b.x, b.cy, 3, ['#5a5450', '#7a726a'], 40, 60, 1.1); if (f === 1) smoke(b.x, b.cy, 2, 'dust', 6, 12, 0.8); } if (f >= 3 && b.solid) { b.solid = false; b.flat = true; } });
   }
@@ -334,7 +375,7 @@ function endDrain(p) {
 function dryOut(p) {
   p.dried = true;
   if (ARENA.clouds) removeIf(ARENA.clouds, q => p.cells.has(Math.floor(q.y / TS) * ARENA.w + Math.floor(q.x / TS)));
-  for (const q of ARENA.props) if (q.sunk === p && !q.dead) { q.tile = q.dry; q.hp = q.kind === 'wetpillar' ? 1e9 : 40; q.wet = q.sunk; q.sunk = null; water(q.x, q.y - 4, 4, 0, 0, rand(8, 18)); }
+  for (const q of ARENA.props) if (q.sunk === p && !q.dead) { q.tile = q.dry; q.hp = q.kind === 'wetpillar' || q.stone ? 1e9 : 40; q.wet = q.sunk; q.sunk = null; water(q.x, q.y - 4, 4, 0, 0, rand(8, 18)); }
 }
 // the test room's refill: the water comes back in from the grate over a couple of seconds, everything that stood in it
 // stands there again (wet), whatever the drain left at the bottom goes, and the plate rises for another go

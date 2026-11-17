@@ -7,9 +7,14 @@ function botDrive(h, dt) {
   if (!h || h.dead) return; const I = h.inp, A = ARENA; I.aim = null; I.block = false; I.atk = false;
   const B = h.bot = h.bot || { t: 0, goal: null };
   const foes = G.foes.filter(f => !f.dead && foeShown(f) && !(f.botNo > G.time)), f = nearest(h, foes);
-  B.st = (B.st || 0) + dt; if (B.st > 0.8) { B.stuck = B.lx !== undefined && dist(h.x, h.y, B.lx, B.ly) < 3; B.lx = h.x; B.ly = h.y; B.st = 0; }
-  if (B.stuck && !h.act) { const p = A.props.filter(q => !q.dead && q.solid && q.hp < 1e8 && dist(h.x, h.y, q.x, q.cy) < 28).sort((a, b) => dist(h.x, h.y, a.x, a.cy) - dist(h.x, h.y, b.x, b.cy))[0];
-    if (p) { const a = angTo(h.x, h.y, p.x, p.cy); I.mx = Math.cos(a) * 0.05; I.my = Math.sin(a) * 0.05; if (h.stam > 20 && chance(dt * 9)) I.atkP = true; return; } }
+  B.st = (B.st || 0) + dt; if (B.st > 0.8) { B.stuck = B.lx !== undefined && dist(h.x, h.y, B.lx, B.ly) < 6; B.lx = h.x; B.ly = h.y; B.st = 0; }
+  if (B.stuck && !h.act) { const p = A.props.filter(q => !q.dead && q.solid && q.hp < 1e8 && !(q.sealed && !q.sealed.open) && !(q.kind === 'tchest' && q.open) && !(q.botNo > G.time) && dist(h.x, h.y, q.x, q.cy) < 28).sort((a, b) => dist(h.x, h.y, a.x, a.cy) - dist(h.x, h.y, b.x, b.cy))[0];
+    if (p) { if (B.hitQ !== p) { B.hitQ = p; B.hitT = G.time; } else if (G.time - B.hitT > 4) { p.botNo = G.time + 20; B.hitQ = null; } // (four seconds at it and still standing: something else)
+      const a = angTo(h.x, h.y, p.x, p.cy); I.mx = Math.cos(a) * 0.05; I.my = Math.sin(a) * 0.05; if (h.stam > 20 && chance(dt * 9)) I.atkP = true; return; }
+    // held up with nothing to smash and nobody to fight (a brazier or a pillar in the way of its path): a step aside, and
+    // that goal (a button, a rune, a tile to explore) left alone a while
+    if (!f && B.goal) { if (B.goal.q) B.goal.q.botNo = G.time + 15; (B.bad = B.bad || new Map()).set(Math.floor(B.goal.y / TS) * A.w + Math.floor(B.goal.x / TS), G.time + 20); B.goal = null; B.side = { t: 0.5, a: rand(TAU) }; B.stuck = false; } }
+  if (B.side && B.side.t > 0 && !f) { B.side.t -= dt; I.mx = Math.cos(B.side.a); I.my = Math.sin(B.side.a); return; }
   const danger = foes.some(o => o.act && o.act.phase === 'wind' && dist(h.x, h.y, o.x, o.y) < 45);
   if (h.hp < h.maxHp * 0.4 && h.flasks > 0 && !h.act && !danger && (!f || dist(h.x, h.y, f.x, f.y) > 26 || h.hp < h.maxHp * 0.25)) { I.itemP = true; I.mx = I.my = 0; return; }
   if (f) {
@@ -25,10 +30,12 @@ function botDrive(h, dt) {
   // explore: the nearest floor tile not yet seen, else the way down
   if (!B.goal || (B.t -= dt) <= 0 || dist(h.x, h.y, B.goal.x, B.goal.y) < 10) {
     B.t = 3; let best = null, bd = 1e9; const seenAll = A.mem.reduce((n, v, i) => n + (A.fl[i] === 1 && !v ? 1 : 0), 0) < 40;
-    if (!seenAll) for (let i = 0; i < A.w * A.h; i += 3) { if (A.fl[i] !== 1 || A.mem[i]) continue; const x = (i % A.w) * TS + 8, y = ((i / A.w) | 0) * TS + 8, dd = dist(h.x, h.y, x, y); if (dd < bd) { bd = dd; best = { x, y }; } }
+    if (!seenAll) for (let i = 0; i < A.w * A.h; i += 3) { if (A.fl[i] !== 1 || A.mem[i] || B.bad && B.bad.get(i) > G.time) continue; const x = (i % A.w) * TS + 8, y = ((i / A.w) | 0) * TS + 8, dd = dist(h.x, h.y, x, y); if (dd < bd) { bd = dd; best = { x, y }; } }
     // a button it has seen and not yet pressed (a sluice, a drawbridge's), if it can get there
-    const pl = (A.plates || []).find(q => !q.down && A.mem[q.ty * A.w + q.tx] && findPath(h.x, h.y, q.x, q.y));
-    B.goal = pl ? { x: pl.x, y: pl.y } : best || { x: A.stairs.x, y: A.stairs.y - 6 }; B.path = findPath(h.x, h.y, B.goal.x, B.goal.y) || [];
+    const pl = (A.plates || []).concat(A.runes || []).find(q => !q.down && !q.on && !(q.botNo > G.time) && A.mem[q.ty * A.w + q.tx] && findPath(h.x, h.y, q.x, q.y)); // (and a rune: a crate on it, it smashes)
+    B.goal = pl ? { x: pl.x, y: pl.y, q: pl } : best || { x: A.stairs.x, y: A.stairs.y - 6 }; B.path = findPath(h.x, h.y, B.goal.x, B.goal.y) || [];
+    // behind a south wall (a wall tile, its floor open) there is no path from where it stands: from the floor tile it counts as on
+    if (!B.path.length) { const ft = footTile(h.x, h.y), fx = (ft % A.w) * TS + 8, fy = ((ft / A.w) | 0) * TS + 8, q2 = findPath(fx, fy, B.goal.x, B.goal.y); if (q2) B.path = [{ x: fx, y: fy }].concat(q2); }
   }
   const p = B.path || []; while (p.length && dist(h.x, h.y, p[0].x, p[0].y) < 8) p.shift(); const wp = p[0] || B.goal, l = dist(h.x, h.y, wp.x, wp.y) || 1; I.mx = (wp.x - h.x) / l; I.my = (wp.y - h.y) / l;
 }

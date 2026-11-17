@@ -78,7 +78,8 @@ function drawbridge(A, r, g, near, adj) {
     for (const i of band) A.fl[i] = PIT; for (const i of band) pitPaint(A, g, i); A.pitN = (A.pitN || 0) + band.size;
     const cells = []; for (let k = 0; k < H; k++) for (const s of [b, b + 1]) cells.push(o.v ? [o.at + k, s] : [s, o.at + k]);
     const lowNear = o.v ? S.has(b * W + o.at - 1) : S.has((o.at - 1) * W + b); // (laid from the near side)
-    const br = { bridge: true, room: r.i, travel: o.v ? 'ew' : 'ns', wood: pick(['orange', 'green']), cells, len: H, back: !lowNear, laid: 0, going: false, x0: o.v ? o.at : b, x1: o.v ? o.at + H - 1 : b + 1, y0: o.v ? b : o.at, y1: o.v ? b + 1 : o.at + H - 1 };
+    const br = { drawbridge: true, room: r.i, travel: o.v ? 'ew' : 'ns', wood: pick(['orange', 'green']), cells, len: H, back: !lowNear, laid: 0, going: false, x0: o.v ? o.at : b, x1: o.v ? o.at + H - 1 : b + 1, y0: o.v ? b : o.at, y1: o.v ? b + 1 : o.at + H - 1 };
+    br.runes = A.floor >= 2 && chance(0.4); // (laid by a button, or by the runes of a dark storeroom: 36_works)
     (A.bridges = A.bridges || []).push(br); r.set = 'drawbridge'; r.bridge = br; A.sets.push('drawbridge'); hostSluice(A, host, br);
     for (const [x, y] of cells) for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) A.noProp.add((y + dy) * W + x + dx); // (nothing stands where it comes ashore)
     return true;
@@ -189,7 +190,9 @@ function sentinelPond(A, r, g) {
 function levelAfter(A, r) {
   const W = wkOf(A), plate = (tx, ty, p, o = {}) => { A.plates = A.plates || []; A.plates.push(Object.assign({ x: tx * TS + 8, y: ty * TS + 8, tx, ty, tile: W.plate, f: 0, down: false, pool: p, room: r.i }, o)); };
   const clear = (tx, ty) => removeIf(A.props, q => Math.abs(q.x - (tx * TS + 8)) < 14 && Math.abs(q.cy - (ty * TS + 10)) < 14);
-  if (r.sluice && r.sluice.bridge) { const x = r.sluiceX; clear(x, r.iy0); plate(x, r.iy0, null, { remote: true, bridge: r.sluice }); } // a drawbridge's button
+  // (a drawbridge's room: r.sluice is the bridge, marked drawbridge; a cistern's water has a .bridge of its own, its walkway)
+  if (r.sluice && r.sluice.drawbridge && r.sluice.runes) { const v = { blocks: [], open: false, t: 0, room: r.i, runes: [], bridge: r.sluice, dark: true }; (A.vaults = A.vaults || []).push(v); placeRunes(A, r, v); hideRunes(A, r, v); darkRoom(A, r); } // a drawbridge laid by three hidden runes (36_works)
+  else if (r.sluice && r.sluice.drawbridge) { const x = r.sluiceX; clear(x, r.iy0); plate(x, r.iy0, null, { remote: true, bridge: r.sluice }); } // a drawbridge's button
   else if (r.sluice) { // the outlet grate in the north wall, the plate before it
     const x = r.sluiceX, wy = A.th === THEMES.brown ? 3 : 0; tileAt(A.g, 19, 3 + wy, x * TS, (r.fy0 + 1) * TS); clear(x, r.iy0);
     plate(x, r.iy0, r.sluice, { remote: true, outlet: { x: x * TS + 8, y: (r.fy0 + 1) * TS + 11 } });
@@ -286,7 +289,7 @@ function startCine(pl) {
   SFX.stone(panOf(pl.x), true); shake(0.15);
   if (pl.outlet) for (let i = 0; i < 18; i++) water(pl.outlet.x + rand(-3, 3), pl.outlet.y, 6, rand(-30, 30), rand(10, 40), rand(10, 50)); // a gush from the outlet
 }
-function startBridgeCine(pl) {
+function startBridgeCine(pl) { // (pl: the button, or where the last rune was)
   const br = pl.bridge; if (br.going) return; br.going = true; const cx = (br.x0 + br.x1 + 1) / 2 * TS, cy = (br.y0 + br.y1 + 1) / 2 * TS;
   G.cine = { x: cx, y: cy, t: 0, bridge: br, pl }; G.eyes = [{ x: cx, y: cy + 4, lightR: 90, eyeR: 7, dead: false, hush: 1, dir: 0 }];
   SFX.stone(panOf(pl.x), true); shake(0.12);
