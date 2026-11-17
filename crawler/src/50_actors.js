@@ -150,7 +150,7 @@ function moveActor(u, dt) {
   if (u.squash > 0) u.squash = Math.max(0, u.squash - dt * 2.5);
 }
 function separate(list) {
-  for (let i = 0; i < list.length; i++) { const a = list[i]; if (a.dead || a.fall) continue; for (let j = i + 1; j < list.length; j++) { const b = list[j]; if (b.dead || b.fall) continue; const dx = b.x - a.x, dy = b.y - a.y, m = a.r + b.r; if (Math.abs(dx) > m || Math.abs(dy) > m) continue; const d = Math.hypot(dx, dy); if (d < m && d > 0.01) { const push = (m - d) * 0.5, nx = dx / d, ny = dy / d, wa = a.scale > b.scale + 0.2 ? 0.3 : b.scale > a.scale + 0.2 ? 1.7 : 1; a.x -= nx * push * wa; a.y -= ny * push * wa; b.x += nx * push * (2 - wa); b.y += ny * push * (2 - wa); } } }
+  for (let i = 0; i < list.length; i++) { const a = list[i]; if (a.dead || a.fall || a.feed) continue; for (let j = i + 1; j < list.length; j++) { const b = list[j]; if (b.dead || b.fall || b.feed) continue; /* (vermin at a meal heap up: 48_deaths) */ const dx = b.x - a.x, dy = b.y - a.y, m = a.r + b.r; if (Math.abs(dx) > m || Math.abs(dy) > m) continue; const d = Math.hypot(dx, dy); if (d < m && d > 0.01) { const push = (m - d) * 0.5, nx = dx / d, ny = dy / d, wa = a.scale > b.scale + 0.2 ? 0.3 : b.scale > a.scale + 0.2 ? 1.7 : 1; a.x -= nx * push * wa; a.y -= ny * push * wa; b.x += nx * push * (2 - wa); b.y += ny * push * (2 - wa); } } }
 }
 // walk toward a point, sliding round props
 function steer(u, tx, ty, spd, dt, stopAt = 0) {

@@ -200,15 +200,16 @@ function gibBurst(u) {
 function heroFalls(h) {
   const o = h.lastBlow || {}; if (o.ang !== undefined) h.face = Math.cos(o.ang) < 0 ? 1 : -1; // facing his killer, he falls back away
   h.deadT = 0; h.gone = false; h.dropped = false; h.sway = 0; h.death = { kind: deathKind(h, o) }; // (how he dies: 48_deaths)
-  if (bleeds(h)) { spray(h, 60, { ...o, more: 2.2, spd: 1.2 }); SFX.squelch(panOf(h.x), true); }
-  if (h.death.kind === 'burst') heroBurst(h, o); // killed by a heavy, long-telegraphed blow (a brute's slam): blown apart
+  if (bleeds(h) && h.death.kind !== 'acid') { spray(h, 60, { ...o, more: 2.2, spd: 1.2 }); SFX.squelch(panOf(h.x), true); }
+  if (h.death.kind === 'burst') heroBurst(h, o); else if (h.death.kind === 'acid') acidStart(h); else if (h.death.kind === 'vermin') verminStart(h); // killed by a heavy, long-telegraphed blow (a brute's slam): blown apart
 }
 function deathPose(u) { // (by the kind of death: 48_deaths)
-  if (u.gone) return { gone: true }; return bleedPose(u.deadT || 0);
+  if (u.gone) return { gone: true }; const k = u.death ? u.death.kind : 'bleed', t = u.deadT || 0;
+  return k === 'acid' ? acidPose(t) : k === 'vermin' ? verminPose(t) : bleedPose(t);
 }
 function deathTick(h, dt) {
   const k = h.death ? h.death.kind : 'bleed';
-  if (k === 'fall') fallTick(h, dt); else if (k === 'bleed') bleedTick(h, dt);
+  if (k === 'fall') fallTick(h, dt); else if (k === 'bleed') bleedTick(h, dt); else if (k === 'acid') acidTick(h, dt); else if (k === 'vermin') verminTick(h, dt);
 }
 // a canvas cropped to its pixels (so a thrown weapon lies on the floor, not above it)
 function tight(cv) {

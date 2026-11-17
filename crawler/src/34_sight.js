@@ -59,7 +59,7 @@ function revealFloor(A) {
 }
 const tileVisible = (x, y) => { const A = ARENA; if (!A || !A.vis) return true; const tx = Math.floor(x / TS), ty = Math.floor(y / TS); return tx >= 0 && ty >= 0 && tx < A.w && ty < A.h && A.vis[ty * A.w + tx] === 1; };
 // a foe is drawn while the party sees where it stands (or it is right next to a hero)
-function foeShown(u) { if (u.team === 'hero') return true; if (tileVisible(u.x, u.y - 2)) return true; for (const h of G.heroes) if (!h.dead && dist(h.x, h.y, u.x, u.y) < 22) return true; return false; }
+function foeShown(u) { if (u.team === 'hero' || u.feed) return true; if (tileVisible(u.x, u.y - 2)) return true; for (const h of G.heroes) if (dist(h.x, h.y, u.x, u.y) < (h.dead ? 70 : 22)) return true; return false; } // (round a hero lying dead, whoever is at him or watching shows: 48_deaths)
 // remembered tiles as a mask over a buffer drawn in world pixels from (ox, oy): what was never seen goes black
 function maskToMemory(c, ox, oy, op) {
   const A = ARENA; if (!A || !A.memCv) return; c.save(); c.setTransform(1, 0, 0, 1, -ox, -oy); c.imageSmoothingEnabled = false; c.globalCompositeOperation = op; c.globalAlpha = 1;

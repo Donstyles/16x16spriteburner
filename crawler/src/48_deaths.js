@@ -1,14 +1,17 @@
 // ===================== the hero's deaths =====================
-// How he dies is chosen when he falls (heroFalls, 45_blood: deathKind) by what killed him: blown apart by a heavy slam
-// (gore FULL), down a pit (38_pits), or the bleeding out, the plain one. Each kind of death plays for its own length
+// How he dies is chosen when he falls (heroFalls, 45_blood: deathKind) by what killed him and what stood round him:
+// blown apart by a heavy slam (gore FULL), dissolved in acid, eaten by the vermin round him, down a pit (38_pits), or
+// the bleeding out, the plain one. Each kind of death plays for its own length
 // before the screen fades (deathLen: 60_run) and has its own camera (deathCam: 70_render's updateCam), and its own
 // pose (deathPose) and its own beats (deathTick), both in 45_blood.
-const DEATH_LEN = { bleed: 10, burst: 6.5, fall: 5 };
-const DEATH_NAMES = { bleed: 'BLED OUT', burst: 'BLOWN APART', fall: 'THE LONG FALL' };
+const DEATH_LEN = { bleed: 10, burst: 6.5, fall: 5, acid: 8, vermin: 9.5 };
+const DEATH_NAMES = { bleed: 'BLED OUT', burst: 'BLOWN APART', fall: 'THE LONG FALL', acid: 'DISSOLVED IN ACID', vermin: 'EATEN BY VERMIN' };
 function deathLen() { let L = 0; for (const h of G.heroes) if (h.dead) L = Math.max(L, DEATH_LEN[(h.death && h.death.kind) || 'bleed'] || 8); return L || 7; }
 function deathKind(h, o) {
   if (TEST.on && TEST.forceDeath) return TEST.forceDeath; // (the armour and death room's DIE: 64_testroom)
   if (GORE.level === 2 && o.big) return 'burst';
+  if (o.acid) return 'acid';
+  if (verminAround(h).length >= 3) return 'vermin';
   return 'bleed';
 }
 const ease = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
@@ -17,6 +20,8 @@ function deathCam(h) {
   const D = h.death || { kind: 'bleed' }, t = h.deadT || 0;
   if (D.kind === 'fall') return { x: D.x, y: D.y - 2, z: 1 + 0.5 * ease(t / 3.5), r: 1.6 }; // held at the rim, leaning in over the dark
   if (D.kind === 'burst') return { x: h.x, y: h.y - 4, z: 1.2, r: 3 };
+  if (D.kind === 'acid') return { x: h.x, y: h.y - 7, z: 1.2 + 0.55 * ease(t / 5), r: 1.6 }; // in close on him as he goes down
+  if (D.kind === 'vermin') return { x: h.x, y: h.y - 3, z: 1.35 + 0.4 * ease(t / 3), r: 1.8 }; // on the pile
   const lying = t > BLEED.fall; return { x: h.x, y: h.y - (lying ? 3 : 9), z: 1.05 + 0.6 * ease(t / 7), r: 1.4 }; // a slow push in on him: standing, kneeling, then on the floor
 }
 
@@ -49,4 +54,50 @@ function spurt(h, k, lying, kneel) {
 function fallTick(h, dt) {
   const t = h.deadT, p = t - dt, D = h.death;
   if (p < 1.7 && t >= 1.7) { SFX.farImpact(panOf(D.x)); shake(0.05); smoke(D.x, D.y, 2, 'dark', 6, 10, 1.4); pebbles(D.x, D.y - 2, 5); }
+}
+
+// ---- dissolved in acid. Killed by acid (a witch's flask, an ant's spit, a pool he stood in), he does not fall: he
+// stands where it took him and sinks into it, slowly, then faster, shuddering now and then, the acid seething, bubbling
+// and steaming round him as it eats him, a sizzle as it goes; the pool stays (harmless now) until the screen has faded.
+const ACIDD = { sink0: 0.5, sink1: 5.2 };
+function acidPose(t) { return { lie: false, dip: 0, jit: t > 0.3 && t < ACIDD.sink1 && ((G.time * 22) | 0) % 6 === 0 ? (((G.time * 7) | 0) % 2 ? 1 : -1) : 0 }; }
+function acidStart(h) { G.hz.push({ x: h.x, y: h.y + 1, r: 17, t: 0.3, life: 1e9, dps: 0, tick: 1e9, src: null, dir: rand(TAU), deathPool: true }); acidBurn(h); }
+function acidTick(h, dt) {
+  const t = h.deadT, A = ACIDD, m = MOBS[h.spr], depth = (m ? m[2] : 16) + 3, u = clamp((t - A.sink0) / (A.sink1 - A.sink0), 0, 1);
+  h.z = -Math.round(depth * ease(u));
+  if (t < A.sink1 + 1.4 && chance(dt * 30)) { const a = rand(TAU), d = rand(1, 7); part({ k: 'glow', x: h.x + Math.cos(a) * d, y: h.y + Math.sin(a) * d * 0.6, z: rand(0, 2), vz: rand(8, 26), life: rand(0.3, 0.6), s0: rand(1, 2.2), s1: 2.8, col: 'poison', a0: 0.9, a1: 0 }); }
+  if (t < A.sink1 + 0.4 && chance(dt * 7)) smoke(h.x + rand(-4, 4), h.y, 1, 'green', 6, 8, 1.2, 22);
+  if (t < A.sink1 + 0.6 && ((t * 3) | 0) !== (((t - dt) * 3) | 0)) SFX.sizzle(panOf(h.x));
+}
+
+// ---- eaten by vermin. Dying with three or more vermin round him (rats, beetles, ticks, ants, cockroaches, maggots, the
+// skitterers), he goes down and up to eight of them rush onto him and pile up on him till he is hidden; they writhe
+// there, skittering in place, chewing and crunching, blood squirting out of the heap; then they draw back, sated, and
+// what lies there is his skeleton.
+const VERM = { lie: 0.35, hide: 1.5, back: 6.4 }, VERMIN_RE = /Rat$|Beetle|Bedbug|Tick$|Maggot|Ant$|Cockroach|Scarab/;
+const isVermin = f => !f.dead && !f.dying && !f.fall && (f.type === 'skitter' || (VERMIN_RE.test(f.spr) && !/^Ratkin/.test(f.spr)));
+function verminAround(h) { return G.foes.filter(f => isVermin(f) && dist(f.x, f.y, h.x, h.y) < 110).sort((a, b) => dist(a.x, a.y, h.x, h.y) - dist(b.x, b.y, h.x, h.y)).slice(0, 8); }
+function verminPose(t) { return { lie: t > VERM.lie, dip: t > 0.12 && t <= VERM.lie ? 2 : 0, jit: 0 }; }
+function verminStart(h) {
+  const V = verminAround(h); h.death.feeders = V; dropWeapon(h, 1.2);
+  V.forEach((f, i) => { const a = i / V.length * TAU + rand(-0.3, 0.3); f.feed = { h, ox: Math.round(Math.cos(a) * rand(3, 9)), oy: Math.round(Math.sin(a) * rand(1, 3)) + 1, j: 0, jx: 0, jy: 0 }; f.act = null; });
+}
+function feedTick(f, dt) { // (53_foes foeTick: a vermin at its meal)
+  const F = f.feed, h = F.h, t = h.deadT || 0;
+  if (!h.dead) { f.feed = null; return; }
+  if (t >= VERM.back) { if (!F.away) { const a = angTo(h.x, h.y, f.x, f.y); F.away = { x: h.x + Math.cos(a) * rand(30, 48), y: h.y + Math.sin(a) * rand(18, 30) }; } steer(f, F.away.x, F.away.y, f.def.spd, dt, 2); f.face = F.away.x < f.x ? -1 : 1; return; } // drawn back, sated
+  const tx = h.x + F.ox, ty = h.y + F.oy;
+  if (!F.at) { const d = steer(f, tx, ty, f.def.spd * 1.7, dt, 1.5); f.face = tx < f.x ? -1 : 1; if (d <= 2) F.at = true; return; }
+  if ((F.j -= dt) <= 0) { F.j = rand(0.05, 0.12); F.jx = randi(-1, 1); F.jy = randi(-1, 1); if (chance(0.3)) f.face = -f.face; } // skittering in place
+  f.x = tx + F.jx; f.y = ty + F.jy; f.vx = f.vy = 0; f.moving = true;
+}
+function verminTick(h, dt) {
+  const t = h.deadT, p = t - dt, at = s => p < s && t >= s, V = h.death.feeders || [], n = V.filter(f => f.feed && f.feed.at && !f.dead).length;
+  if (!h.hidden && t > VERM.hide && t < VERM.back && n >= Math.min(3, V.length)) h.hidden = true; // the heap has him
+  if (h.hidden && t < VERM.back) { // feeding: chewing, crunching, blood squirting out of the heap
+    if (chance(dt * 9)) SFX.squelch(panOf(h.x), false); if (chance(dt * 3.5)) SFX.bone(panOf(h.x), false); if (chance(dt * 7)) SFX.tick(panOf(h.x));
+    if (bleeds(h) && chance(dt * 7)) { const a = rand(TAU); for (let j = 0; j < 6; j++) part({ k: 'gore', x: h.x + rand(-6, 6), y: h.y + rand(-2, 2), z: rand(2, 6), vx: Math.cos(a) * rand(20, 60), vy: Math.sin(a) * rand(10, 40), vz: rand(30, 80), g: 420, life: 5, s0: 1, col: pick(BLOOD.red), kind: 'red' }); pool(h.x + rand(-5, 5), h.y + 1, 'red', 1.5 + t * 0.35); }
+    if (chance(dt * 3)) shake(0.03);
+  }
+  if (at(VERM.back)) { h.hidden = false; h.sprWas = h.spr; h.spr = 'DecrepitBones'; debris(h.x, h.y - 2, 6, [BONE.L, BONE.M, BONE.D], 30, 40, 1.5); SFX.bone(panOf(h.x), true); pool(h.x, h.y + 1, 'red', 6); } // what they leave
 }

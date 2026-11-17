@@ -77,7 +77,7 @@ function bigSprite(spr, sc) {
   return (BIG[key] = { cv, white: silhouette(cv), red, W, H, ox: -(W >> 1), fx: fr => fr * S + 1, foot: Math.round((foot + 1) * H / fh) });
 }
 function drawUnit(c, u) {
-  const m = MOBS[u.spr]; if (!m) return; if (u.team === 'foe' && !foeShown(u)) return; if (u.under) { drawMound(c, u); return; }
+  const m = MOBS[u.spr]; if (!m || u.hidden) return; if (u.team === 'foe' && !foeShown(u)) return; /* (hidden: under the vermin's heap, 48_deaths) */ if (u.under) { drawMound(c, u); return; }
   const sy = m[0], fw = m[1], fh = m[2], foot = footOf(u.spr), sleep = u.state === 'sleep' && !u.aware, dp = u.team === 'hero' && u.dead ? deathPose(u) : null; if (dp && dp.gone) return;
   const creep = u.team === 'hero' && u.moving && u.noise === 0 && !u.act;
   const fr = sleep || dp || (u.act && u.act.k === 'roll') ? 0 : ((u.anim * (u.fly && !sleep ? 10 : u.moving ? (creep ? 5 : u.sprint ? 14 : 9) : 5) * (u.animK || 1)) | 0) % 4, sc = u.scale, jit = u.freeze > 0 && u.team === 'foe' ? (((G.time * 60) | 0) % 2 ? 1 : -1) : u.stun > 0 ? Math.sin(u.anim * 50) * 0.6 : 0;
@@ -231,7 +231,7 @@ function render() {
   drawWorks(c); drawPits(c); drawWet(c); drawHazards(c); drawWake(c); drawRuns(c); drawDoors(c); drawTele(c); drawTelegraphs(c);
   // the shadows, on a layer of their own cut to the floor (noFloor), then laid down
   if (!shb) { shb = mkCanvas(1, 1); shbc = shb.getContext('2d'); } fitBuf(shb, bw, bh); const S = shbc; S.setTransform(1, 0, 0, 1, 0, 0); S.globalCompositeOperation = 'source-over'; S.clearRect(0, 0, bw, bh); X(S);
-  for (const u of G.units) { if (u.dead && u.team === 'foe') continue; if (u.team === 'foe' && !foeShown(u)) continue; if (u.under || u.z < -1 || u.fall || u.gone) continue; // (blown apart: nothing left to cast one)
+  for (const u of G.units) { if (u.dead && u.team === 'foe') continue; if (u.team === 'foe' && !foeShown(u)) continue; if (u.under || u.z < -1 || u.fall || u.gone || u.hidden) continue; // (blown apart: nothing left to cast one)
     const dp = u.team === 'hero' && u.dead ? deathPose(u) : null; if (dp && dp.lie) { const L = lieOf(u.spr, u.scale || 1); pxEllipse(S, u.x, u.y + 1, L.half + 4, 3); continue; } // (lying dead: a long flat shadow, wider than he is)
     pxShadow(S, u.x, u.y - (u.lift || 0), u.r * 1.3 * (1 - Math.min(0.6, u.z / 160))); }
   if (ARENA.shop) pxShadow(S, ARENA.shop.keeper.x, ARENA.shop.keeper.y, 6.5); // (the shopkeeper's: 39_shop)
