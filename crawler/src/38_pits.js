@@ -20,7 +20,8 @@
 // THE CRUMBLING FLOOR, a room with no hole in it as you come in, nearly every slab of it cracked (pitCrumble); and two
 // that only give a fight an edge: PIT CORNERS, a hole two or three tiles square in two to four of a room's corners, and
 // THE PIT RIM, a pit a tile wide along every wall but where the doors come in (pitEdges). A treasure room may be laid
-// any of the last three ways.
+// any of the last three ways. THE SPIKED WALKWAY: a room all pit but a walkway two wide from every door to a junction in
+// its middle, with a field of spike traps across one of the ways (pitSpikeway).
 // Every door of such a room stays joined to every other, and no floor is left cut off. Its cracked slabs lie still until
 // a hero first sets foot in the room (nobody breaks them before he gets there).
 const PIT = 4, PIT_DMG = 0.2, FALL_T = 0.95, CRUMBLE_T = 0.55, PIT_KNOCK = 110;
@@ -150,6 +151,39 @@ function pitCrumble(A, r) {
   for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) { const i = y * W + x; if (FLOOR(A.fl[i]) && !R.seen.has(i)) crack.add(i); } // (no sound slab left an island)
   return { cells: new Set(), crack: [...crack], tell: 0.15 };
 }
+// THE SPIKED WALKWAY. All pit but a walkway two wide from every door to a two-by-two junction in the middle: straight in
+// from the door, then along to the junction (an L where a door does not line up with it). Across one door's way, a field
+// of spike traps two or three deep, in step. A spike throws whoever it stabs hard out of the nearer end of its field,
+// along the way: on a straight stretch that is along the walkway, but from the deeper floors on the field lies right
+// before a turn, and thrown out of that end you go on over the corner into the pit. There a brute holds the junction.
+function pitSpikeway(A, r) {
+  if (r.doors.length < 2) return null; const W = A.w, keep = doorLanding(A, r, 1), add = (x, y) => { if (x >= r.ix0 && x <= r.ix1 && y >= r.iy0 && y <= r.iy1) keep.add(y * W + x); };
+  const cx = Math.floor((r.ix0 + r.ix1) / 2), cy = Math.floor((r.iy0 + r.iy1) / 2), legs = [];
+  for (let y = cy; y <= cy + 1; y++) for (let x = cx; x <= cx + 1; x++) add(x, y);
+  for (const d of r.doors) {
+    const V = d.side === 'N' || d.side === 'S', [ax, ay] = d.cells[0];
+    if (V) { // straight in down (or up) the door's columns to the junction's rows, then along them to the junction
+      const y0 = d.side === 'N' ? r.iy0 : r.iy1, sy = d.side === 'N' ? 1 : -1, y1 = sy > 0 ? cy + 1 : cy; for (let y = y0; y !== y1 + sy; y += sy) { add(ax, y); add(ax + 1, y); }
+      for (let x = Math.min(ax, cx); x <= Math.max(ax + 1, cx + 1); x++) { add(x, cy); add(x, cy + 1); }
+      legs.push({ ax: 'y', lane: ax, from: y0, to: y1, s: sy, turn: ax !== cx });
+    } else {
+      const x0 = d.side === 'W' ? r.ix0 : r.ix1, sx = d.side === 'W' ? 1 : -1, x1 = sx > 0 ? cx + 1 : cx; for (let x = x0; x !== x1 + sx; x += sx) { add(x, ay); add(x, ay + 1); }
+      for (let y = Math.min(ay, cy); y <= Math.max(ay + 1, cy + 1); y++) { add(cx, y); add(cx + 1, y); }
+      legs.push({ ax: 'x', lane: ay, from: x0, to: x1, s: sx, turn: ay !== cy });
+    }
+  }
+  const cells = new Set(); for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) { const i = y * W + x; if (!keep.has(i) && FLOOR(A.fl[i])) cells.add(i); }
+  const R = pitReach(A, r, cells); if (!R || !R.linked) return null;
+  for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) { const i = y * W + x; if (FLOOR(A.fl[i]) && !cells.has(i) && !R.seen.has(i)) cells.add(i); } // (nothing left cut off)
+  // the spikes: across the longest way in (from the deeper floors, one that turns, the field right before its turn)
+  const deep = A.floor >= 3, D = randi(2, 3), len = l => Math.abs(l.to - l.from) + 1, fit = legs.filter(l => len(l) >= D + 3);
+  const leg = (deep && fit.filter(l => l.turn).sort((a, b) => len(b) - len(a))[0]) || fit.sort((a, b) => len(b) - len(a))[0]; if (!leg) return null;
+  const turnAt = deep && leg.turn, end = leg.ax === 'y' ? (leg.s > 0 ? cy : cy + 1) : (leg.s > 0 ? cx : cx + 1); // (the junction's near edge along the way)
+  const m0 = turnAt ? end - leg.s * D : Math.round((leg.from + leg.to) / 2 - leg.s * (D - 1) / 2), lo = Math.min(m0, m0 + leg.s * (D - 1)), spikes = [];
+  for (let j = 0; j < D; j++) for (let k = 0; k < 2; k++) { const a = lo + j, tx = leg.ax === 'y' ? leg.lane + k : a, ty = leg.ax === 'y' ? a : leg.lane + k; spikes.push([tx, ty]); }
+  if (spikes.some(([x, y]) => cells.has(y * W + x) || !FLOOR(A.fl[y * W + x]))) return null;
+  return { cells, spikes, spikeAx: leg.ax, spikeC: (lo + D / 2) * TS, guard: deep ? [(cx + 1) * TS, (cy + 1) * TS + 4] : null };
+}
 // what of a room stays floor whatever pit it gets: every door's landing, and a treasure room's chest with a little floor
 // in front of it for its guardian
 function pitKeep(A, r) {
@@ -174,14 +208,15 @@ function pitEdges(A, r, rim) {
 }
 function pitPlan(A, g) {
   A.pitSets = []; A.crumbles = []; A.crumbleSet = new Set(); A.live = new Set(); A.pitN = 0; A.peb = []; A.fallers = [];
-  const kinds = FORCE_PITS.on ? ['ledges', 'chasm', 'crumble', 'rim', 'corners', 'holes'] : A.floor < 2 ? [chance(0.35) && 'holes', chance(0.25) && 'crumble', chance(0.25) && 'corners'].filter(Boolean)
-    : [chance(0.5) && pick(['chasm', 'ledges']), chance(0.4) && 'holes', chance(0.3) && 'crumble', chance(0.35) && pick(['rim', 'corners'])].filter(Boolean);
+  const kinds = FORCE_PITS.on ? ['spikeway', 'ledges', 'chasm', 'crumble', 'rim', 'corners', 'holes'] : A.floor < 2 ? [chance(0.35) && 'holes', chance(0.25) && 'crumble', chance(0.25) && 'corners'].filter(Boolean)
+    : [chance(0.5) && pick(['chasm', 'ledges', 'spikeway']), chance(0.4) && 'holes', chance(0.3) && 'crumble', chance(0.35) && pick(['rim', 'corners'])].filter(Boolean);
   // the treasure room's: cracked slabs ('loot'), pit corners or the pit rim ('t' + kind)
   const tk = FORCE_PITS.on ? 'loot' : chance(A.floor < 2 ? 0.3 : 0.45) ? pick(['loot', 'loot', 'trim', 'tcorners']) : null; if (tk) kinds.push(tk);
   for (const kind of kinds) for (const r of pitShuffle(A.rooms.filter(r => kind === 'loot' || kind[0] === 't' ? (r.kind === 'treasure' || r.chest) && !r.set && !r.sluice && !r.pool && !r.shrine : pitRoomOK(A, r)))) {
     const k = kind[0] === 't' ? kind.slice(1) : kind; // (rim, corners)
-    if (k === 'ledges' && (r.w < 11 || r.h < 8) || k === 'chasm' && (r.w < 9 || r.h < 8) || (k === 'crumble' || k === 'loot') && (r.w < 8 || r.h < 6) || k === 'rim' && (r.w < 7 || r.h < 6) || k === 'corners' && (r.w < 8 || r.h < 7) || r.w * r.h < 48) continue;
-    const res = k === 'chasm' ? pitChasm(A, r) : k === 'ledges' ? pitLedges(A, r) : k === 'crumble' || k === 'loot' ? pitCrumble(A, r) : k === 'rim' || k === 'corners' ? pitEdges(A, r, k === 'rim') : pitHoles(A, r); if (!res) continue;
+    if (k === 'ledges' && (r.w < 11 || r.h < 8) || k === 'chasm' && (r.w < 9 || r.h < 8) || (k === 'crumble' || k === 'loot') && (r.w < 8 || r.h < 6) || k === 'rim' && (r.w < 7 || r.h < 6) || k === 'spikeway' && (r.w < 10 || r.h < 8) || k === 'corners' && (r.w < 8 || r.h < 7) || r.w * r.h < 48) continue;
+    const res = k === 'chasm' ? pitChasm(A, r) : k === 'ledges' ? pitLedges(A, r) : k === 'crumble' || k === 'loot' ? pitCrumble(A, r) : k === 'rim' || k === 'corners' ? pitEdges(A, r, k === 'rim') : k === 'spikeway' ? pitSpikeway(A, r) : pitHoles(A, r); if (!res) continue;
+    if (res.spikes) { const Wk = wkOf(A), ph = rand(0, SPIKE_T); A.spikes = A.spikes || []; for (const [tx, ty] of res.spikes) A.spikes.push({ tx, ty, x: tx * TS + 8, y: ty * TS + 8, tile: Wk.spike, ph, hit: new Set(), was: 0, ax: res.spikeAx, fc: res.spikeC }); }
     for (const i of res.cells) A.fl[i] = PIT; for (const i of res.cells) pitPaint(A, g, i); A.pitN += res.cells.size;
     r.set = kind; r.pitGuard = res.guard || null; A.pitSets.push(kind);
     for (const i of res.crack || []) { const x = i % A.w, y = (i / A.w) | 0, cv = mkCanvas(TS, TS); cv.getContext('2d').drawImage(g.canvas, x * TS, y * TS, TS, TS, 0, 0, TS, TS); A.crumbles.push({ i, x, y, cv, st: 0, t: 0, ph: rand(TAU), room: r.i, tell: res.tell || 0.5 }); A.crumbleSet.add(i); }
@@ -271,5 +306,5 @@ function drawFalling(c, u) {
 function beginPitFloor(kit) {
   beginRun(kit); FORCE_PITS.on = true;
   for (let n = 0; n < 160; n++) { startFloor(); if (ARENA.pitSets.length >= (n < 60 ? 6 : n < 120 ? 5 : 4)) break; }
-  FORCE_PITS.on = false; G.card = { t: 0, life: 3.2, a: 'PIT FLOOR', b: ARENA.pitSets.map(s => ({ chasm: 'THE CHASM', holes: 'BROKEN FLOOR', ledges: 'THE LEDGES', crumble: 'CRUMBLING FLOOR', loot: 'LOOSE TREASURE', rim: 'THE PIT RIM', corners: 'PIT CORNERS', trim: 'TREASURE ON THE RIM', tcorners: 'TREASURE WITH PIT CORNERS' })[s]).join('  ·  '), c: 'MIND THE EDGE' };
+  FORCE_PITS.on = false; G.card = { t: 0, life: 3.2, a: 'PIT FLOOR', b: ARENA.pitSets.map(s => ({ chasm: 'THE CHASM', holes: 'BROKEN FLOOR', ledges: 'THE LEDGES', crumble: 'CRUMBLING FLOOR', loot: 'LOOSE TREASURE', rim: 'THE PIT RIM', corners: 'PIT CORNERS', spikeway: 'SPIKED WALKWAY', trim: 'TREASURE ON THE RIM', tcorners: 'TREASURE WITH PIT CORNERS' })[s]).join('  ·  '), c: 'MIND THE EDGE' };
 }

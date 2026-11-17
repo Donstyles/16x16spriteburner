@@ -154,6 +154,8 @@ const SFX = {
     if (big) { this.tone('sawtooth', 90, 55, 0.45, 0.05, pan, 0.05, 0.05); for (let i = 0; i < 5; i++) this.noise(this.white, 0.02, 'bandpass', rand(900, 2000), 800, 3, 0.1, pan + rand(-0.2, 0.2), rand(0.08, 0.5), 0.001); }
   },
   // pixie dust: a few high chimes from a bright scale, and a shimmer
+  // the floor's map found: a rustle of parchment and two notes going up
+  aha(pan = 0) { if (!this.ok('aha', 0.4)) return; this.noise(this.white, 0.14, 'bandpass', 2600, 1800, 1.5, 0.22, pan, 0, 0.01); this.tone('triangle', 784, 784, 0.14, 0.12, pan, 0.03, 0.005); this.tone('triangle', 1175, 1175, 0.3, 0.12, pan, 0.15, 0.005); },
   chime(pan = 0) {
     if (!this.ok('chime', 0.06)) return; const N = [1568, 1760, 2093, 2349, 2637, 3136];
     for (let i = 0; i < 3; i++) { const f = pick(N); this.tone('sine', f, f, 0.35, 0.05, pan + rand(-0.2, 0.2), i * rand(0.03, 0.07), 0.003); }

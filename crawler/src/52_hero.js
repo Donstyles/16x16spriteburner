@@ -299,7 +299,7 @@ function breakProp(p) {
 function openSmall(p) {
   p.open = true; p.tile = [p.tile[0] + 1, p.tile[1]]; SFX.chest(panOf(p.x)); SFX.wood(panOf(p.x));
   const loot = [], n = randi(6, 14), coins = Math.min(n, 4); for (let i = 0; i < coins; i++) loot.push(Math.ceil(n / coins));
-  if (chance(0.03)) loot.splice(randi(0, loot.length), 0, 'flask');
+  if (chance(0.03)) loot.splice(randi(0, loot.length), 0, 'flask'); if (p.map) loot.splice(randi(0, loot.length), 0, 'map'); // (one small chest on each floor holds its map: 30_arena mapChest)
   loot.forEach((k, i) => spill(p, k, i, loot.length));
   debris(p.x, p.cy - 6, 4, ['#6a4a2a', '#8a6638', '#4a3018', '#a07848'], 60, 90, 1.1); smoke(p.x, p.cy - 5, 1, 'dust', 6, 14, 0.7);
 }

@@ -110,6 +110,7 @@ function buildArena(floor) {
   pitPlan(A, g); // a chasm, broken floor, the ledges (38_pits)
   for (const r of rooms) worksBefore(A, r, g); // a cistern, a rune shrine (36_works)
   for (const r of rooms) furnish(A, r, g);
+  mapChest(A); // (the floor's map, in one of its small chests)
   for (const r of rooms) worksAfter(A, r); for (const r of rooms) levelAfter(A, r); spikeHalls(A); corridorWood(A, g); wayArrows(A, g);
   // the stairway we came down, in the start room's north wall; the way down waits shut in the end room's
   { const r = A.start, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 12, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 13, (sx + i) * TS, (r.fy0 + 1) * TS); } }
@@ -123,6 +124,17 @@ function buildArena(floor) {
 // crates and crate stacks, and the heap of sacks; all of it breaks
 const CLUTTER = [[24, 8], [25, 8], [26, 8], [27, 8], [28, 8], [30, 8], [25, 12, 'crate'], [26, 12, 'crate'], [24, 13, 'crate'], [25, 13, 'crate'], [26, 13, 'crate']];
 const STOCK = [[25, 12, 'crate'], [26, 12, 'crate'], [24, 13, 'crate'], [25, 13, 'crate'], [26, 13, 'crate'], [27, 12, 'crate', 2], [28, 12, 'crate', 2], [29, 12, 'crate', 2], [22, 8, 'sacks', 1, 2], [24, 8], [26, 8]].map(t => t[2] ? t : [t[0], t[1], 'barrel']);
+// The floor's map lies in one of its small wooden chests (not in the room you come down into, if it can be helped); a floor
+// with none gets one, in a free corner of one of its rooms. Picked up, the whole floor is remembered (53_foes takeItem).
+function mapChest(A) {
+  let ch = A.props.filter(p => p.kind === 'chest' && !p.dead);
+  if (!ch.length) for (const r of pitShuffle(A.rooms.filter(r => r.kind === 'room' && !r.set && !r.pool && !r.shrine))) {
+    const near = (tx, ty) => r.doors.some(d => d.cells.some(([x, y]) => Math.abs(x - tx) <= 2 && Math.abs(y - ty) <= 2));
+    const at = pitShuffle([[r.ix0, r.iy0], [r.ix1, r.iy0], [r.ix0, r.iy1], [r.ix1, r.iy1]]).find(([x, y]) => FLOOR(A.fl[y * A.w + x]) && !(A.crumbleSet && A.crumbleSet.has(y * A.w + x)) && !near(x, y) && !A.props.some(p => !p.dead && Math.abs(p.x - (x * TS + 8)) < 18 && Math.abs(p.y - (y * TS + 14)) < 18));
+    if (at) { A.props.push({ kind: 'chest', tile: [pick([28, 30]), 8], th: 1, x: at[0] * TS + 8, y: at[1] * TS + 14, cy: at[1] * TS + 10, r: 5, solid: true, hp: 40, room: r.i }); ch = A.props.filter(p => p.kind === 'chest'); break; }
+  }
+  const away = ch.filter(p => p.room !== A.start.i); if (ch.length) pick(away.length ? away : ch).map = true;
+}
 // where a room's treasure chest stands: against the north wall, as near the middle as a spot clear of the doors comes, or
 // else in the middle of the room
 function chestSpot(r) {

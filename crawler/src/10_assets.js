@@ -3,7 +3,7 @@ const IMG = {}; let MOBS = {};
 function loadImage(src) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('image ' + String(src).slice(0, 40))); i.src = src; }); }
 async function loadAssets() {
   const A = window.__ASSETS;
-  for (const k of ['cellar', 'mobs', 'doors', 'items', 'ores']) IMG[k] = await loadImage(A ? A[k] : 'assets/' + (k === 'doors' ? 'cellar_doors' : k) + '.png');
+  for (const k of ['cellar', 'mobs', 'doors', 'items', 'ores', 'scrolls']) IMG[k] = await loadImage(A ? A[k] : 'assets/' + (k === 'doors' ? 'cellar_doors' : k) + '.png');
   MOBS = A ? A.mobsJson : await (await fetch('assets/mobs.json')).json();
   padMobs();
   IMG.mobsW = silhouette(IMG.mobs); IMG.oresW = silhouette(IMG.ores); IMG.cellarW = silhouette(IMG.cellar); PIX.ores = pixelData(IMG.ores); PIX.mobs = pixelData(IMG.mobs); PIX.cellar = pixelData(IMG.cellar); cutWeapons();

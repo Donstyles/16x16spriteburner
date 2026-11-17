@@ -153,7 +153,7 @@ function drawArrowGlints(c) {
 function drawDrop(c, d) {
   if (d.wait > 0) return; const x = Math.round(d.x), gy = Math.round(d.y), z = Math.round(d.z);
   if (d.k === 'gold') { const y = gy - z, s = ((G.time * 6 + d.x) | 0) % 4; c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(x - 1, gy, 3, 1); c.fillStyle = '#7a5a10'; c.fillRect(x - 1, y - 2, 3, 3); c.fillStyle = s ? '#ffd24a' : '#fff4c0'; c.fillRect(x - 1, y - 2, s === 2 ? 1 : 2, 2); return; }
-  const [ix, iy, sw, base] = ITEM[d.k]; c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(x - (sw >> 1), gy, sw, 1); c.drawImage(IMG.items, ix, iy, 16, 16, x - 8, gy - z - base - 1, 16, 16); // its resting row just above the shadow
+  const [ix, iy, sw, base, sheet] = ITEM[d.k]; c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(x - (sw >> 1), gy, sw, 1); c.drawImage(IMG[sheet || 'items'], ix, iy, 16, 16, x - 8, gy - z - base - 1, 16, 16); // its resting row just above the shadow
 }
 // where a foe's blow will land, painted on the floor while it winds up; an archer's aim is a line
 function drawTelegraphs(c) {
@@ -238,6 +238,7 @@ function render() {
   const list = []; for (const u of G.units) list.push([u.y, 0, u]); for (const p of ARENA.props) if (!p.dead && !p.flat) { const S = propSplit(p); list.push([S ? S.mid : p.y, 1, p]); }
   for (const d of G.drops) list.push([d.y, 2, d]); for (const p of G.proj) list.push([p.y, 3, p]); for (const r of FX.rocks) list.push([r.y, 4, r]); list.sort((a, b) => a[0] - b[0]);
   for (const [, k, o] of list) if (k === 0) { if (o.fall) drawFalling(c, o); else if (!(o.rise > 0 && ((G.time * 18) | 0) % 2)) drawUnit(c, o); } else if (k === 1) { if (propSplit(o)) drawPropPart(c, o, false); else drawProp(c, o); } else if (k === 2) drawDrop(c, o); else if (k === 3) drawProj(c, o); else drawRock(c, o);
+  for (const h of G.heroes) if (h.shown) drawShown(c, h);
   drawWorldParts(c); drawCeil(c, ox, oy, bw, bh); // the tops of the south, east and west walls, at the ceiling, over everything in the room
   renderLight();
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'multiply'; c.drawImage(lc, 0, 0);
@@ -253,6 +254,12 @@ function render() {
   if (G.flashA > 0.01) { ctx.fillStyle = rgba(G.flashC, Math.min(0.9, G.flashA)); ctx.fillRect(0, 0, W, H); }
   ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(vign, 0, 0, W, H);
   drawHUD();
+}
+// a find held up over a hero's head for a moment (the floor's map): it rises a little out of his hands, hangs there, and fades
+function drawShown(c, h) {
+  const t = G.time - h.shown.t0, T = 1.5; if (t >= T || h.dead) { h.shown = null; return; } const [ix, iy, , , sheet] = ITEM[h.shown.k];
+  const up = Math.round(Math.min(1, t / 0.18) * 4), y = Math.round(h.y - headZ(h) - 17 - up); c.globalAlpha = t > T - 0.3 ? (T - t) / 0.3 : 1;
+  c.drawImage(IMG[sheet || 'items'], ix, iy, 16, 16, Math.round(h.x) - 8, y, 16, 16); c.globalAlpha = 1;
 }
 // a hero's weapon, turned about his hand (screen pixels, so it stays crisp), then his hand drawn over it again
 function drawWeapon(c, u, p, Wc, fr, fw, foot, dip, cutRow) {

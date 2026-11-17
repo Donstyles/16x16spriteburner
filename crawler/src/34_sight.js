@@ -45,6 +45,18 @@ function updateSight(dt) {
   }
   if (fresh) { A.memN += fresh; A.memCx.putImageData(A.memId, 0, 0); }
 }
+// the floor's map read (53_foes): all of the floor remembered at once, as if seen, with its walls (to two tiles above any
+// floor, a north wall's top behind its face) and the soft edge round it
+function revealFloor(A) {
+  const W = A.w, H = A.h, D = A.memId.data, open = (x, y) => x >= 0 && y >= 0 && x < W && y < H && A.fl[y * W + x] !== 0; let n = 0;
+  const paint = (i, a) => { const o = i * 4; if (D[o + 3] >= a) return; D[o] = 46; D[o + 1] = 40; D[o + 2] = 52; D[o + 3] = a; };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x; if (A.mem[i]) continue; let near = false; for (let dy = -1; dy <= 2 && !near; dy++) for (let dx = -1; dx <= 1; dx++) if (open(x + dx, y + dy)) { near = true; break; }
+    if (near) { A.mem[i] = 1; n++; paint(i, 255); }
+  }
+  for (let i = 0; i < W * H; i++) if (!A.mem[i]) { const x = i % W, y = (i / W) | 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < W && Y < H && A.mem[Y * W + X]) paint(i, 96); } }
+  A.memN += n; A.memCx.putImageData(A.memId, 0, 0);
+}
 const tileVisible = (x, y) => { const A = ARENA; if (!A || !A.vis) return true; const tx = Math.floor(x / TS), ty = Math.floor(y / TS); return tx >= 0 && ty >= 0 && tx < A.w && ty < A.h && A.vis[ty * A.w + tx] === 1; };
 // a foe is drawn while the party sees where it stands (or it is right next to a hero)
 function foeShown(u) { if (u.team === 'hero') return true; if (tileVisible(u.x, u.y - 2)) return true; for (const h of G.heroes) if (!h.dead && dist(h.x, h.y, u.x, u.y) < 22) return true; return false; }
