@@ -394,7 +394,7 @@ function clothSpill(h, a, o) {
 const MAIL = { max: 60 }, STEEL = ['#e6ebef', '#c9d0d7', '#9aa2ad', '#7e8792', '#5a616c'];
 function putOnMail(h) {
   h.mail = MAIL.max; h.mailT0 = G.time; h.mailLost = []; SFX.mailOn(panOf(h.x)); textPop(h.x, h.y, headZ(h) + 2, 'CHAINMAIL', 'mail', false);
-  pushBanner({ a: 'Chainmail', b: 'RINGS OF IRON · TAKES THE FIRST ' + MAIL.max + ' DAMAGE, OVER THE GAMBESON', col: 'gold', small: true, life: 2.6 });
+  pushBanner({ a: 'Chainmail', b: 'RINGS OF IRON · TAKES THE FIRST ' + MAIL.max + ' DAMAGE' + (h.gamb > 0 ? ' · OVER YOUR GAMBESON' : ''), col: 'gold', small: true, life: 2.6 }); // (worn alone, or over the gambeson)
   for (let i = 0; i < 12; i++) part({ k: 'glow', x: h.x + rand(-7, 7), y: h.y + rand(-3, 3), z: rand(2, 14), vz: rand(20, 50), drag: 1, life: rand(0.5, 1), s0: rand(1.5, 3), s1: 0, col: 'white' });
 }
 function mailTakes(h, d, o = {}) { // (as gambesonTakes: it takes what it can and gives back what goes on)
