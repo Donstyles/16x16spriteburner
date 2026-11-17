@@ -192,6 +192,8 @@ function heroTick(h, dt) {
   // meanwhile, and running it dry leaves the hero winded); loud, and kicking up dust
   if (h.sprint && (!I.dodge || !(I.mx || I.my) || blocking || h.stam <= 0)) h.sprint = false;
   if (h.sprint) { spendStam(h, SPRINT.cost * dt, 0.5); if (h.stam <= 0) h.sprint = false; if ((h.dustT = (h.dustT || 0) - dt) <= 0) { h.dustT = 0.1; smoke(h.x - I.mx * 4, h.y, 1, 'dust', 5, 10, 0.5, 6); } }
+  if (h.sprint && h.z <= 0.5 && (h.strideT = (h.strideT || 0) - dt) <= 0) { h.strideT = 1 / 7; h.strideN = (h.strideN || 0) + 1; SFX.stride(panOf(h.x), h.strideN, !!basinAt(h.x, h.y)); } // his feet, seven a second
+  else if (!h.sprint) h.strideT = 0;
   const tired = !h.huff ? 1 : h.stamT > 0 ? WINDED_PACE : lerp(WINDED_PACE, 1, clamp(h.stam / (h.maxStam / 3), 0, 1)); // winded: a trudge, picking up as the stamina returns
   const spd = h.def.spd * (blocking ? 0.45 : h.sprint ? SPRINT.speed : 1) * tired;
   h.vx = damp(h.vx, I.mx * spd, 14, dt); h.vy = damp(h.vy, I.my * spd, 14, dt); h.moving = !!(I.mx || I.my);

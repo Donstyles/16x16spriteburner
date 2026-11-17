@@ -173,8 +173,20 @@ const SFX = {
     this.noise(this.white, 0.5, 'highpass', 7000, 9000, 0.7, 0.03, pan, 0, 0.01);
     if (n >= 2) for (let i = 0; i < 3; i++) this.tone('sine', F[i] * 2, F[i] * 2, 2.2, 0.07, pan, 0.18 + i * 0.07, 0.01);
   },
-  // a spike trap shooting up: a scrape of iron and a sharp ring
-  spike(pan = 0) { if (!this.ok('spike', 0.12)) return; this.noise(this.white, 0.07, 'highpass', 2600, 5200, 0.8, 0.13, pan, 0, 0.002); this.tone('triangle', 900, 1500, 0.12, 0.06, pan, 0.01); },
+  // a sprinting footfall: a quick dull thud of the heel and the scuff of grit under the sole (on the wet basin floor, a slap)
+  stride(pan = 0, n = 0, wet = false) {
+    if (!this.ok('stride', 0.05)) return; const k = n % 2 ? 0.85 : 1;
+    this.noise(this.brown, 0.06, 'lowpass', 520 * k, 140, 0.9, 0.34, pan, 0, 0.002); this.tone('sine', 95 * k, 55, 0.05, 0.14, pan, 0, 0.002);
+    if (wet) this.noise(this.white, 0.08, 'bandpass', 1400, 900, 1.6, 0.12, pan, 0.005, 0.003); else this.noise(this.white, 0.035, 'bandpass', rand(2600, 3600), 1800, 2.5, 0.05, pan, 0.01, 0.002);
+  },
+  // a spike trap shooting up, SHHHUK: blades of steel hissing up out of their slots, rising in pitch, then bottoming out hard,
+  // the steel ringing on a moment
+  spike(pan = 0) {
+    if (!this.ok('spike', 0.12)) return;
+    this.noise(this.white, 0.15, 'bandpass', 2200, 7200, 3.5, 0.24, pan, 0, 0.11); this.noise(this.white, 0.15, 'highpass', 4200, 8500, 0.7, 0.08, pan, 0, 0.1);
+    this.noise(this.brown, 0.07, 'lowpass', 1900, 280, 1, 0.55, pan, 0.13, 0.002, true); this.tone('square', 200, 70, 0.06, 0.15, pan, 0.13, 0.001);
+    for (const [f, g] of [[1730, 0.05], [2560, 0.04], [3990, 0.03], [5310, 0.02]]) this.tone('sine', f, f * 0.99, 0.32, g, pan, 0.13, 0.002);
+  },
   // a cistern draining: a long gurgle sinking away, bubbles breaking through it
   drain(pan = 0) {
     if (!this.ok('drain', 1)) return; this.noise(this.brown, 3.4, 'lowpass', 900, 160, 1.2, 0.22, pan, 0, 0.3);

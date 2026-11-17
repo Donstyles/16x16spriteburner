@@ -18,6 +18,14 @@ const CEIL = {
   '6,0': [[0, 0, 16, 9]], '6,3': [[0, 4, 16, 12]], // the trim over a north wall's face, and along a south wall
   '5,1': [[0, 0, 12, 16]], '7,1': [[4, 0, 12, 16]], '5,2': [[0, 0, 12, 16]], '7,2': [[4, 0, 12, 16]], // side walls
 };
+// how much floor a wall piece leaves showing along its top, left and right (its rows or columns with nothing drawn, at most
+// four): the south wall's top four rows, the side walls' four columns beside the floor. Feet may step onto it (wallBox).
+const OPEN = {};
+function openEdges(tx, ty, flip) {
+  const k = tx + ',' + ty + ',' + (flip ? 1 : 0); if (OPEN[k]) return OPEN[k]; const P = PIX.cellar, a = (x, y) => P.d[((ty * TS + y) * P.w + tx * TS + x) * 4 + 3];
+  const run = f => { let n = 0; while (n < 4 && f(n)) n++; return n; }, row = y => { for (let x = 0; x < TS; x++) if (a(x, y)) return false; return true; }, col = x => { for (let y = 0; y < TS; y++) if (a(x, y)) return false; return true; };
+  const t = run(row), l = run(col), r = run(n => col(TS - 1 - n)); return (OPEN[k] = flip ? [t, r, l] : [t, l, r]);
+}
 function tileAt(g, tx, ty, dx, dy) { g.drawImage(IMG.cellar, tx * TS, ty * TS, TS, TS, dx, dy, TS, TS); }
 function buildArena(floor) {
   const th = floor % 2 ? THEMES.brown : THEMES.grey, GW = floor <= 2 ? 3 : 4, GH = 3;
@@ -81,9 +89,13 @@ function buildArena(floor) {
     }
   }
   const put = (c, tx, ty, x, y, flip) => { c.save(); c.translate(flip ? (x + 1) * TS : x * TS, y * TS); if (flip) c.scale(-1, 1); c.drawImage(IMG.cellar, tx * TS, (ty + th.fy) * TS, TS, TS, 0, 0, TS, TS); c.restore(); };
+  const wt = new Uint16Array(W * H); // which wall piece went where (tx * 64 + ty + 1), for what is built against the walls later
+  const mg = { t: new Uint8Array(W * H), l: new Uint8Array(W * H), r: new Uint8Array(W * H) }; // the floor a wall piece leaves showing (see wallBox)
+  const cr = new Array(W * H); // each tile's ceiling rectangles, in world pixels (see overCeil)
   const T = (tx, ty, x, y, flip) => {
-    put(g, tx, ty, x, y, flip); const m = CEIL[tx + ',' + ty]; if (!m) return;
-    cg.save(); cg.beginPath(); for (const [mx, my, mw, mh] of m) cg.rect(x * TS + (flip ? TS - mx - mw : mx), y * TS + my, mw, mh); cg.clip(); put(cg, tx, ty, x, y, flip); cg.restore();
+    put(g, tx, ty, x, y, flip); wt[y * W + x] = tx * 64 + ty + 1; const o = openEdges(tx, ty + th.fy, flip); mg.t[y * W + x] = o[0]; mg.l[y * W + x] = o[1]; mg.r[y * W + x] = o[2]; const m = CEIL[tx + ',' + ty]; if (!m) return;
+    const R = m.map(([mx, my, mw, mh]) => [x * TS + (flip ? TS - mx - mw : mx), y * TS + my, mw, mh]); cr[y * W + x] = R;
+    cg.save(); cg.beginPath(); for (const [rx, ry, rw, rh] of R) cg.rect(rx, ry, rw, rh); cg.clip(); put(cg, tx, ty, x, y, flip); cg.restore();
   };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (isF(x, y)) continue;
@@ -98,7 +110,7 @@ function buildArena(floor) {
     else if (O(x + 1, y + 1)) T(5, 0, x, y); else if (O(x - 1, y + 1)) T(7, 0, x, y); // the inside corners of a room
     else if (O(x + 1, y - 1)) T(5, 3, x, y); else if (O(x - 1, y - 1)) T(7, 3, x, y);
   }
-  const A = ARENA = { w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, fl, rooms, halls, props: [], torches: [], name: floorName(floor), floor };
+  const A = ARENA = { w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilR: cr, fl, wt, mg, rooms, halls, props: [], torches: [], name: floorName(floor), floor };
   A.doors = rooms.flatMap(r => r.doors.map(d => Object.assign(d, { room: r.i, k: 0 })));
   A.start = rooms.find(r => r.kind === 'start'); A.end = rooms.find(r => r.kind === 'end');
   // ---- furnishing (the stairways' places first, so no torch or banner hangs on them)
@@ -175,6 +187,15 @@ function drawCeil(c, sx, sy, sw, sh) {
   const C = ARENA.ceil, x0 = Math.max(0, Math.floor(sx)), y0 = Math.max(0, Math.floor(sy)), x1 = Math.min(C.width, Math.ceil(sx + sw)), y1 = Math.min(C.height, Math.ceil(sy + sh));
   if (x1 > x0 && y1 > y0) c.drawImage(C, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
 }
+// The wall tops cover what stands behind them, never what stands beside or in front: a unit is drawn again over the trim
+// of the tiles round it in its own row and the rows north of it (rock that is level with it or behind it), and stays
+// under the trim of any row south of its feet (a spear thrust or a blow swung down over a wall in front of it).
+function overCeil(c, u, draw) {
+  const A = ARENA; if (!A || !A.ceilR) return; const fr = Math.floor(footTile(u.x, u.y) / A.w), R = [];
+  const tx0 = Math.floor((u.x - 22) / TS), tx1 = Math.floor((u.x + 22) / TS), ty0 = Math.floor((u.y - (u.z || 0) - 48) / TS);
+  for (let ty = Math.max(0, ty0); ty <= Math.min(fr, A.h - 1); ty++) for (let tx = Math.max(0, tx0); tx <= Math.min(tx1, A.w - 1); tx++) { const r = A.ceilR[ty * A.w + tx]; if (r) for (const q of r) R.push(q); }
+  if (!R.length) return; c.save(); c.beginPath(); for (const [x, y, w, h] of R) c.rect(x, y, w, h); c.clip(); draw(c, u); c.restore();
+}
 function drawGround(c, sx, sy, sw, sh) {
   for (const k of groundChunks(ARENA)) { const x0 = Math.max(sx, k.x), y0 = Math.max(sy, k.y), x1 = Math.min(sx + sw, k.x + k.w), y1 = Math.min(sy + sh, k.y + k.h); if (x1 > x0 && y1 > y0) c.drawImage(k.cv, x0 - k.x, y0 - k.y, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0); }
 }
@@ -183,7 +204,20 @@ function drawGround(c, sx, sy, sw, sh) {
 const FLOOR = v => v === 1 || v === 3;
 function solidTile(tx, ty) { const A = ARENA; if (tx < 0 || ty < 0 || tx >= A.w || ty >= A.h) return true; return A.fl[ty * A.w + tx] === 0; }
 function blockTile(tx, ty) { const A = ARENA; if (tx < 0 || ty < 0 || tx >= A.w || ty >= A.h) return true; return !FLOOR(A.fl[ty * A.w + tx]); }
-function blockAt(x, y) { return ARENA && ARENA.fl ? blockTile(Math.floor(x / TS), Math.floor(y / TS)) : false; }
+// the part of a blocking tile that stops feet, [x0, y0, x1, y1], or null: all of it, but for the floor a wall piece leaves
+// showing beside the floor next to it
+function wallBox(tx, ty) {
+  if (!blockTile(tx, ty)) return null; const A = ARENA, x0 = tx * TS, y0 = ty * TS, i = ty * A.w + tx;
+  if (!A.mg || A.fl[i] !== 0) return [x0, y0, x0 + TS, y0 + TS]; const M = A.mg;
+  const t = M.t[i] && ty > 0 && FLOOR(A.fl[i - A.w]) ? M.t[i] : 0, l = M.l[i] && tx > 0 && FLOOR(A.fl[i - 1]) ? M.l[i] : 0, r = M.r[i] && tx < A.w - 1 && FLOOR(A.fl[i + 1]) ? M.r[i] : 0;
+  return [x0 + l, y0 + t, x0 + TS - r, y0 + TS];
+}
+function blockAt(x, y) { if (!ARENA || !ARENA.fl) return false; const b = wallBox(Math.floor(x / TS), Math.floor(y / TS)); return !!b && x >= b[0] && x < b[2] && y >= b[1] && y < b[3]; }
+// the tile a point counts as standing on: a wall's open edge belongs to the floor beside it
+function footTile(x, y) {
+  const A = ARENA, tx = Math.floor(x / TS), ty = Math.floor(y / TS), i = ty * A.w + tx; if (!A.mg || A.fl[i] !== 0) return i;
+  const lx = x - tx * TS, ly = y - ty * TS, M = A.mg; if (ly < M.t[i]) return i - A.w; if (lx < M.l[i]) return i - 1; if (lx >= TS - M.r[i]) return i + 1; return i;
+}
 function solidAt(x, y) { return ARENA && ARENA.fl ? solidTile(Math.floor(x / TS), Math.floor(y / TS)) : false; }
 function roomAt(x, y, m = 0) { const A = ARENA; if (!A || !A.rooms) return null; const tx = x / TS, ty = y / TS; for (const r of A.rooms) if (tx >= r.ix0 + m && tx < r.ix1 + 1 - m && ty >= r.iy0 + m && ty < r.iy1 + 1 - m) return r; return null; }
 // a unit's feet are a small box; push it out of any wall tile it overlaps
@@ -197,8 +231,8 @@ function slideAxis(u, d, ax) {
   if (ax) u.y += d; else u.x += d;
   const k = 0.02, tx0 = Math.floor((u.x - hw + k) / TS), tx1 = Math.floor((u.x + hw - k) / TS), ty0 = Math.floor((u.y - hh + k) / TS), ty1 = Math.floor((u.y + hh - k) / TS); let e = null; // (touching is not in)
   for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
-    if (!blockTile(tx, ty)) continue;
-    const v = ax ? (d > 0 ? ty * TS - hh - 0.01 : (ty + 1) * TS + hh + 0.01) : (d > 0 ? tx * TS - hw - 0.01 : (tx + 1) * TS + hw + 0.01);
+    const b = wallBox(tx, ty); if (!b || u.x + hw - k <= b[0] || u.x - hw + k >= b[2] || u.y + hh - k <= b[1] || u.y - hh + k >= b[3]) continue;
+    const v = ax ? (d > 0 ? b[1] - hh - 0.01 : b[3] + hh + 0.01) : (d > 0 ? b[0] - hw - 0.01 : b[2] + hw + 0.01);
     if (e === null || (d > 0 ? v < e : v > e)) e = v;
   }
   if (e === null) return;
@@ -209,10 +243,10 @@ function tileCollide(u) {
   for (let pass = 0; pass < 2; pass++) {
     const tx0 = Math.floor((u.x - hw) / TS), tx1 = Math.floor((u.x + hw) / TS), ty0 = Math.floor((u.y - hh) / TS), ty1 = Math.floor((u.y + hh) / TS);
     for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
-      if (!blockTile(tx, ty)) continue;
-      const ox = Math.min(u.x + hw - tx * TS, (tx + 1) * TS - (u.x - hw)), oy = Math.min(u.y + hh - ty * TS, (ty + 1) * TS - (u.y - hh));
+      const b = wallBox(tx, ty); if (!b) continue;
+      const ox = Math.min(u.x + hw - b[0], b[2] - (u.x - hw)), oy = Math.min(u.y + hh - b[1], b[3] - (u.y - hh));
       if (ox <= 0 || oy <= 0) continue;
-      if (ox < oy) { const s = u.x < tx * TS + TS / 2 ? -1 : 1; u.x += s * ox; u.kx *= -0.3; } else { const s = u.y < ty * TS + TS / 2 ? -1 : 1; u.y += s * oy; u.ky *= -0.3; }
+      if (ox < oy) { const s = u.x < (b[0] + b[2]) / 2 ? -1 : 1; u.x += s * ox; u.kx *= -0.3; } else { const s = u.y < (b[1] + b[3]) / 2 ? -1 : 1; u.y += s * oy; u.ky *= -0.3; }
     }
   }
 }

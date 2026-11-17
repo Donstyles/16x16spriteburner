@@ -123,15 +123,22 @@ function drawSpellGlows(c) { // in the glow layer: they shine in the dark
 }
 
 // --- the witch's flask: thrown up in an arc at a spot (a little ahead of a moving target), marked on the floor
+// its track over the floor touches no rock, not even a corner's tip (a strip 5 px wide, walked in 2 px steps)
+function trackClear(x0, y0, x1, y1) {
+  const L = dist(x0, y0, x1, y1), n = Math.max(1, Math.ceil(L / 2)), nx = L ? -(y1 - y0) / L * 2 : 0, ny = L ? (x1 - x0) / L * 2 : 0;
+  for (let i = 1; i <= n; i++) { const x = lerp(x0, x1, i / n), y = lerp(y0, y1, i / n); if (solidAt(x, y) || solidAt(x + nx, y + ny) || solidAt(x - nx, y - ny)) return false; }
+  return true;
+}
 function lobFlask(f, t) {
-  let tx = t.x + (t.vx || 0) * 0.45, ty = t.y + (t.vy || 0) * 0.45; if (blockAt(tx, ty)) { tx = t.x; ty = t.y; }
+  let tx = t.x + (t.vx || 0) * 0.45, ty = t.y + (t.vy || 0) * 0.45; if (blockAt(tx, ty) || !trackClear(f.x, f.y, tx, ty)) { tx = t.x; ty = t.y; }
   const T = clamp(dist(f.x, f.y, tx, ty) / 120, 0.6, 1.1);
   G.proj.push({ k: 'flask', x: f.x, y: f.y, z: 10, x0: f.x, y0: f.y, x1: tx, y1: ty, t: 0, T, vx: tx - f.x, vy: ty - f.y, team: 'foe', src: f, life: T + 1, r: 0, dmg: 0 });
   teleg(tx, ty, 15, T, 'red'); SFX.whoosh(panOf(f.x));
 }
 function flaskStep(p, dt) {
-  p.t += dt; const u = Math.min(1, p.t / p.T); p.x = lerp(p.x0, p.x1, u); p.y = lerp(p.y0, p.y1, u); p.z = lerp(10, 0, u) + Math.sin(u * Math.PI) * 38;
-  if (u < 1) return;
+  p.t += dt; const u = Math.min(1, p.t / p.T), px = p.x, py = p.y; p.x = lerp(p.x0, p.x1, u); p.y = lerp(p.y0, p.y1, u); p.z = lerp(10, 0, u) + Math.sin(u * Math.PI) * 38;
+  if (u < 1 && !trackClear(px, py, p.x, p.y)) { p.x = px; p.y = py; p.z = 0; } // it caught a wall: it bursts there, against the stone
+  else if (u < 1) return;
   p.dead = true; sparks(p.x, p.y, 2, 10, 'white', 90, 60); sparks(p.x, p.y, 2, 14, 'poison', 120, 80); SFX.shatter(panOf(p.x)); SFX.splash(panOf(p.x), false);
   for (let i = 0; i < 18; i++) { const a = rand(TAU), v = rand(30, 90); part({ k: 'glow', x: p.x, y: p.y, z: 2, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.7, vz: rand(20, 70), g: 200, life: rand(0.4, 0.8), s0: 1.6, s1: 0.4, col: 'poison', a0: 0.9, a1: 0 }); }
   G.hz.push({ x: p.x, y: p.y, r: 15, t: 0, life: 4.5, dps: (p.src ? p.src.def.dmg * p.src.dmgMul : 11) * 0.8, tick: 0, src: p.src, dir: Math.atan2(p.vy, p.vx) });

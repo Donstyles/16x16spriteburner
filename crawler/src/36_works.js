@@ -39,8 +39,12 @@ const sheetTile = (g, [tx, ty], x, y, dx = 0, dy = 0) => g.drawImage(IMG.cellar,
 function waterBody(A, cells, set, W, dual) {
   const xs = [...cells].map(i => i % A.w), ys = [...cells].map(i => (i / A.w) | 0), x0 = Math.min(...xs), y0 = Math.min(...ys), x1 = Math.max(...xs), y1 = Math.max(...ys);
   const px0 = x0 * TS - (dual ? 8 : 0), py0 = y0 * TS - (dual ? 8 : 0);
-  const cv = mkCanvas((x1 - x0 + 1) * TS + (dual ? TS : 0), (y1 - y0 + 1) * TS + (dual ? TS : 0)), g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
-  const wet = (x, y) => cells.has(y * A.w + x), [[ox, oy], [ix, iy]] = set, H = TS / 2;
+  // Square-cut water that runs up to a south wall runs on under the wall's top edge: from the north we look over that wall
+  // at the water, so neither the pool's south rim nor floor in front of it can be seen (the wall piece's top four rows,
+  // floor elsewhere, are water here). Such a wall counts as water when the pieces are picked.
+  const SW = 6 * 64 + 3 + 1, swAt = (x, y) => !dual && A.wt && A.fl[y * A.w + x] === 0 && A.wt[y * A.w + x] === SW && cells.has((y - 1) * A.w + x);
+  const cv = mkCanvas((x1 - x0 + 1) * TS + TS, (y1 - y0 + 1) * TS + TS), g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+  const wet = (x, y) => cells.has(y * A.w + x) || swAt(x, y), [[ox, oy], [ix, iy]] = set, H = TS / 2;
   if (dual) for (let vy = y0; vy <= y1 + 1; vy++) for (let vx = x0; vx <= x1 + 1; vx++) {
     const tl = wet(vx - 1, vy - 1), tr = wet(vx, vy - 1), bl = wet(vx - 1, vy), br = wet(vx, vy), n = tl + tr + bl + br; if (!n) continue;
     const P = n === 4 ? [[ox + 1, oy + 1]] : n === 1 ? [br ? [ox, oy] : bl ? [ox + 2, oy] : tr ? [ox, oy + 2] : [ox + 2, oy + 2]]
@@ -55,6 +59,10 @@ function waterBody(A, cells, set, W, dual) {
       const [tx, ty] = !h && !v ? [ox + (qx ? 2 : 0), oy + (qy ? 2 : 0)] : h && !v ? [ox + 1, oy + (qy ? 2 : 0)] : !h && v ? [ox + (qx ? 2 : 0), oy + 1] : !d ? [ix + (qx ? 0 : 2), iy + (qy ? 0 : 2)] : [ox + 1, oy + 1];
       g.drawImage(IMG.cellar, tx * TS + qx * H, ty * TS + qy * H, H, H, x * TS - px0 + qx * H, y * TS - py0 + qy * H, H, H);
     }
+    if (swAt(x, y + 1)) for (let qx = 0; qx < 2; qx++) { // the wall's top four rows: open water, or the side rim running on down
+      const [tx, ty] = wet(x + (qx ? 1 : -1), y + 1) ? [ox + 1, oy + 1] : [ox + (qx ? 2 : 0), oy + 1];
+      g.drawImage(IMG.cellar, tx * TS + qx * H, ty * TS, H, 4, x * TS - px0 + qx * H, (y + 1) * TS - py0, H, 4);
+    }
   }
   const bed = mkCanvas(cv.width, cv.height), bg = bed.getContext('2d'); bg.drawImage(cv, 0, 0);
   const id = bg.getImageData(0, 0, bed.width, bed.height), dd = id.data, [br, bgc, bb] = W.basin;
@@ -65,7 +73,8 @@ function waterBody(A, cells, set, W, dual) {
   }
   bg.putImageData(id, 0, 0);
   for (const i of cells) A.fl[i] = 2;
-  return { cells, x0, y0, x1, y1, px0, py0, cv, bed, level: 1, drain: 0 };
+  const cw = (x1 - x0 + 1) * TS + (dual ? TS : 0), ch = (y1 - y0 + 1) * TS + (dual ? TS : [...cells].some(i => swAt(i % A.w, ((i / A.w) | 0) + 1)) ? 4 : 0); // (what is drawn of it)
+  return { cells, x0, y0, x1, y1, px0, py0, cv, bed, cw, ch, level: 1, drain: 0 };
 }
 
 // ---- building (called from buildArena): before the room is furnished, and after
@@ -197,13 +206,14 @@ function shrine(A, r) {
     removeIf(cands, ([a, b]) => a === x && b === y);
   }
 }
-// spike traps across the corridors (not on the first floor): a row of three, in step, somewhere along the middle
+// spike traps across the corridors (not on the first floor): a field of them the corridor's width and four to six tiles
+// deep, all in step, somewhere along the middle: crossing it between two beats takes a quick walk at the right moment or a sprint
 function spikeHalls(A) {
   if (A.floor < 2) return; const W = wkOf(A); A.spikes = A.spikes || [];
   for (const hl of A.halls) {
-    const len = hl.dir === 'h' ? hl.x1 - hl.x0 : hl.y1 - hl.y0; if (len < 6 || !chance(0.35)) continue;
-    const ph = rand(0, 2.6), m = hl.dir === 'h' ? Math.round((hl.x0 + hl.x1) / 2) : Math.round((hl.y0 + hl.y1) / 2);
-    for (let k = 0; k < 3; k++) { const tx = hl.dir === 'h' ? m : hl.x0 + k, ty = hl.dir === 'h' ? hl.y0 + k : m; A.spikes.push({ tx, ty, x: tx * TS + 8, y: ty * TS + 8, tile: W.spike, ph, hit: new Set(), was: 0 }); }
+    const H = hl.dir === 'h', len = H ? hl.x1 - hl.x0 : hl.y1 - hl.y0; if (len < 7 || !chance(0.35)) continue;
+    const D = Math.min(randi(4, 6), len - 3), ph = rand(0, SPIKE_T), m0 = Math.round(((H ? hl.x0 + hl.x1 : hl.y0 + hl.y1) - D + 1) / 2), fc = (m0 + D / 2) * TS;
+    for (let j = 0; j < D; j++) for (let k = 0; k < 3; k++) { const tx = H ? m0 + j : hl.x0 + k, ty = H ? hl.y0 + k : m0 + j; A.spikes.push({ tx, ty, x: tx * TS + 8, y: ty * TS + 8, tile: W.spike, ph, hit: new Set(), was: 0, ax: H ? 'x' : 'y', fc }); }
   }
 }
 
@@ -256,15 +266,18 @@ function worksTick(dt) {
     v.t += dt; if (v.t > 0 && v.t - dt <= 0) { shake(0.3); flashLight(v.blocks[0].x, v.blocks[0].cy, 110, 'gold', 1.2, 0.6); }
     v.blocks.forEach((b, i) => { const u = v.t - i * 0.14; if (u <= 0 || b.f >= 3 && !b.solid) return; const f = Math.min(3, Math.floor(u / 0.12)); if (f > b.f) { b.f = f; debris(b.x, b.cy, 3, ['#5a5450', '#7a726a'], 40, 60, 1.1); if (f === 1) smoke(b.x, b.cy, 2, 'dust', 6, 12, 0.8); } if (f >= 3 && b.solid) { b.solid = false; b.flat = true; } });
   }
-  for (const s of A.spikes || []) { // up: whoever stands over it is stabbed once a beat
-    const f = spikeFrame(s); if (f === 1 && s.was !== 1) {
-      s.hit.clear(); if (G.me && dist(G.me.x, G.me.y, s.x, s.y) < 200) SFX.spike(panOf(s.x));
-      for (const u of G.units) if (!u.dead && !u.fly && !u.under && (u.z || 0) < 4 && Math.abs(u.x - s.x) < 8 && Math.abs(u.y - s.y) < 8 && !s.hit.has(u)) {
-        s.hit.add(u); hurt(u, 9 + A.floor * 1.5, { x: s.x, y: s.y + 6, team: 'trap', def: {} }, { ranged: true, unblockable: true, poise: 25, ky: -40, style: 'line', ang: -Math.PI / 2 });
-      }
+  const stabbed = new Set(); let ring = false;
+  for (const s of A.spikes || []) { // up: whoever stands over it, or steps onto it while it is up, is stabbed (once a beat)
+    const f = spikeFrame(s); if (f === 1 && s.was !== 1) { s.hit.clear(); if (G.me && dist(G.me.x, G.me.y, s.x, s.y) < 200) ring = s; }
+    if (f === 1) for (const u of G.units) if (!u.dead && !u.fly && !u.under && (u.z || 0) < 4 && Math.abs(u.x - s.x) < 8 && Math.abs(u.y - s.y) < 8 && !s.hit.has(u) && !stabbed.has(u)) {
+      // thrown hard off the field along the corridor (harder than a brute's shove): out the nearer end, or back the way he came
+      const X = s.ax === 'x', c = s.fc != null ? s.fc : X ? s.x : s.y, d = (X ? u.x : u.y) - c, v = X ? u.vx : u.vy, sg = Math.abs(d) > 3 ? Math.sign(d) : v ? -Math.sign(v) : 1, K = 480;
+      stabbed.add(u); for (const o of A.spikes) if (o.ph === s.ph) o.hit.add(u); // (one stab a beat from the whole field)
+      hurt(u, 9 + A.floor * 1.5, { x: s.x, y: s.y + 6, team: 'trap', def: {} }, { ranged: true, unblockable: true, poise: 45, kx: X ? sg * K : 0, ky: X ? -30 : sg * K * 0.8, style: 'line', ang: -Math.PI / 2 });
     }
     s.was = f;
   }
+  if (ring) SFX.spike(panOf(ring.x));
 }
 function startDrain(p) {
   p.drain = 1; const [dx, dy] = p.drainAt; SFX.drain(panOf(dx * TS)); SFX.quake(0.8);
@@ -317,7 +330,7 @@ function bridgeAt(x, y) {
   return null;
 }
 // whether a point is down in a drained basin
-function basinAt(x, y) { const A = ARENA; if (!A || !A.basin) return 0; const tx = Math.floor(x / TS), ty = Math.floor(y / TS); return tx >= 0 && ty >= 0 && tx < A.w && ty < A.h ? A.basin[ty * A.w + tx] : 0; }
+function basinAt(x, y) { const A = ARENA; if (!A || !A.basin) return 0; const tx = Math.floor(x / TS), ty = Math.floor(y / TS); return tx >= 0 && ty >= 0 && tx < A.w && ty < A.h ? A.basin[footTile(x, y)] : 0; } // (a wall's open edge goes with the floor beside it)
 // a walker crossing a basin's rim, down into it or up out of it, gives a little hop (a puff of dust where it pushes off)
 function basinHop(u) {
   const b = basinAt(u.x, u.y);
@@ -350,7 +363,7 @@ function drawWorks(c) {
   // a vault's blocks, once sunk level with the floor, lie under everyone (not sorted in with the standing things)
   for (const p of A.props) if (p.flat && !p.dead) drawProp(c, p);
   for (const p of A.pools || []) {
-    const X = p.px0, Y = p.py0, w = p.cv.width, h = p.cv.height;
+    const X = p.px0, Y = p.py0, w = p.cw || p.cv.width, h = p.ch || p.cv.height;
     if (p.level > 0) { // the water, and as it drains, its edge drawing back from the rim
       const ins = Math.round((1 - p.level) * 6); c.globalAlpha = Math.min(1, p.level * 1.6);
       c.drawImage(p.cv, ins, ins, w - ins * 2, h - ins * 2, X + ins, Y + ins, w - ins * 2, h - ins * 2); c.globalAlpha = 1;

@@ -10,7 +10,7 @@ function clipToWalls(x0, y0, x1, y1, r) {
 // breadth-first search over floor tiles; the path is a list of tile centres, start excluded
 function findPath(x0, y0, x1, y1) {
   if (!Number.isFinite(x0 + y0 + x1 + y1)) return null; // no real place to go: no path (it would never end)
-  const A = ARENA, W = A.w, s = Math.floor(y0 / TS) * W + Math.floor(x0 / TS), g = Math.floor(y1 / TS) * W + Math.floor(x1 / TS);
+  const A = ARENA, W = A.w, s = footTile(x0, y0), g = footTile(x1, y1); // (a wall's open edge counts as the floor beside it)
   if (s === g) return []; const from = new Int32Array(W * A.h).fill(-1); from[s] = s; const q = [s];
   const open = i => FLOOR(A.fl[i]);
   for (let qi = 0; qi < q.length; qi++) {
