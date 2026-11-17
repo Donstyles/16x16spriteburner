@@ -206,9 +206,10 @@ const quiltUnder = hero => hero.gamb > 0 || !!(hero.gambLost && hero.gambLost.le
 function drawMail(c, x, y, w, h, hero, hole) { // its broken edge: hard and dark, its shadow on the quilting, links hanging loose off it here and there
   const under = quiltUnder(hero), inset = under ? MAIL_PEEK * QP : 0, ys = Math.round(y / QP) * QP, hy0 = Math.round((hole[1] - ys) / QP), hy1 = hy0 + Math.round(hole[3] / QP);
   const f = clamp((hero.mail || 0) / MAIL.max, 0, 1), shade = (X, Y, e, j) => { if (under && (j < hy0 - 1 || j > hy1)) px2(c, QCOL.line, X + e * QP, Y + j * QP); }; // (its shadow on the quilting, clear of the bar)
+  const onBar = r => r >= hy0 && r < hy1; // (its edge lies over the quilting, never over the health bar)
   drawBand(c, x, y, w - inset, h, hero, hole, mailTex, f, hero.mailT0, 'mailLost', (c, X, Y, e, j) => {
-    px2(c, MCOL.o, X + (e - 1) * QP, Y + j * QP); shade(X, Y, e, j);
-    if (j % 3 === 2) { px2(c, MCOL.link, X + e * QP, Y + j * QP); px2(c, MCOL.link, X + e * QP, Y + (j + 1) * QP); }
+    if (onBar(j)) return; px2(c, MCOL.o, X + (e - 1) * QP, Y + j * QP); shade(X, Y, e, j);
+    if (j % 3 === 2) { px2(c, MCOL.link, X + e * QP, Y + j * QP); if (!onBar(j + 1)) px2(c, MCOL.link, X + e * QP, Y + (j + 1) * QP); }
   }, '#ffffff', under); // (over the gambeson, its end is a broken edge from the start)
 }
 // the portrait's frame of mail; worn over the gambeson the frame is split corner to corner, the mail its lower left
