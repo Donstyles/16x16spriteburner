@@ -213,15 +213,34 @@ function spikeHalls(A) {
   for (const hl of A.halls) {
     const H = hl.dir === 'h', len = H ? hl.x1 - hl.x0 : hl.y1 - hl.y0; if (len < 7 || !chance(0.35)) continue;
     const D = Math.min(randi(4, 6), len - 3), ph = rand(0, SPIKE_T), m0 = Math.round(((H ? hl.x0 + hl.x1 : hl.y0 + hl.y1) - D + 1) / 2), fc = (m0 + D / 2) * TS;
-    for (let j = 0; j < D; j++) for (let k = 0; k < 3; k++) { const tx = H ? m0 + j : hl.x0 + k, ty = H ? hl.y0 + k : m0 + j; A.spikes.push({ tx, ty, x: tx * TS + 8, y: ty * TS + 8, tile: W.spike, ph, hit: new Set(), was: 0, ax: H ? 'x' : 'y', fc }); }
+    for (let j = 0; j < D; j++) for (let k = 0; k < 3; k++) { const tx = H ? m0 + j : hl.x0 + k, ty = H ? hl.y0 + k : m0 + j; A.spikes.push({ tx, ty, x: tx * TS + 8, y: ty * TS + 8, tile: spikeLook(W), ph, hit: new Set(), was: 0, ax: H ? 'x' : 'y', fc }); }
   }
 }
 
+// ---- dead torches and braziers (the sheet's cold sconce and brazier, [30, 2..3] grey and [30, 5..6] brown, or with
+// embers beside them): they give no light until something lights them. The way down has one each side of it, lit as a
+// hero comes near the stairs; a dark room's are lit when its runes are woken. Lit, a torch catches with a whoomp and a
+// spray of sparks, flares bright and settles to burn like any other.
+const litK = o => o.litT === undefined ? 1 : clamp((G.time - o.litT) / 0.3, 0, 1);
+const litFlare = o => o.litT === undefined ? 0 : Math.max(0, 1 - (G.time - o.litT) / 0.7);
+function lightUp(o, brazier) {
+  if (!o.out) return; const A = ARENA; o.out = false; o.litT = G.time; A.lights = A.slit = null; // (what the fixed lights reach, again: 34_sight)
+  const x = o.x, y = brazier ? o.y - 10 : o.y - 4; SFX.fire(panOf(x)); SFX.whoosh(panOf(x));
+  sparks(x, y, 4, brazier ? 16 : 10, 'fire', 90, 90); smoke(x, y - 2, 2, 'dust', 5, 14, 0.8); flashLight(x, y, brazier ? 110 : 80, 'torch', 1.1, 0.6);
+}
+function exitTorches(A) { // (30_arena: one each side of the way down)
+  if (!A.stairs || A.exitLit) return; if (!G.heroes.some(h => alive(h) && dist(h.x, h.y, A.stairs.x, A.stairs.y + 12) < 120)) return;
+  A.exitLit = true; const T = A.torches.filter(t => t.exit).sort((a, b) => a.x - b.x); T.forEach((t, i) => after(i * 0.35, () => { if (ARENA === A) lightUp(t); }));
+}
+
 // ---- running
+// a spike trap is drawn as one spike or, now and then, as a cluster of three (the sheet's two rows under the single one,
+// in the same four frames); it works the same either way
+const spikeLook = W => [W.spike[0], W.spike[1] + pick([0, 0, 0, 1, 2])];
 const SPIKE_T = 2.6; // its beat: down 1.55 s, rising, up, sinking back
 function spikeFrame(s) { const t = (G.time + s.ph) % SPIKE_T; return t < 1.55 ? 0 : t < 1.62 ? 3 : t < 1.69 ? 2 : t < 2.3 ? 1 : t < 2.4 ? 2 : t < 2.48 ? 3 : 0; } // 0 hole, 3 tip, 2 half, 1 up
 function worksTick(dt) {
-  const A = ARENA; if (!A) return; const heroes = G.heroes.filter(h => !h.dead && !h.enter);
+  const A = ARENA; if (!A) return; const heroes = G.heroes.filter(h => !h.dead && !h.enter); exitTorches(A);
   for (const pl of A.plates || []) {
     // The socket is a slab standing proud of the floor (its front face three pixels high), the button raised in it two more
     // until a foot drives it flush. Whoever stands on it stands that much higher (lift: drawn up, the shadow on the slab

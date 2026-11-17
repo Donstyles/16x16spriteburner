@@ -282,6 +282,7 @@ function strikeHits(h, a) {
 function breakProp(p) {
   // (a shrine's chest opens only once its vault does)
   if (p.dead || p.hp > 1e8) return; if (p.kind === 'tchest') { if (p.sealed && !p.sealed.open) { SFX.clang(panOf(p.x)); return; } openChest(p); return; } if (p.kind === 'ore') { hitOre(p); return; }
+  if ((p.th || 1) >= 2 && (p.tw || 1) >= 2 && !p.wetTile && (p.hits = (p.hits || 0) + 1) < 3) { strikeTall(p); return; } // a heap of crates two wide and two high: three blows
   if ((p.th || 1) >= 2 && !p.wetTile && !p.struck) { strikeTall(p); return; } // a tall crate: one piece, two blows
   if (p.kind === 'chest' && !p.open) { openSmall(p); return; } // a small chest: the first blow opens it, the next breaks it
   p.dead = true; p.solid = false;
@@ -305,7 +306,8 @@ function openSmall(p) {
 }
 // a tall crate (the sheet's crates two tiles high) is one thing and takes two blows: the first flashes it white (fading
 // back, as a foe does) and knocks a splinter or two of its own wood off, the whole of it still standing; the second breaks
-// all of it at once
+// all of it at once. A heap of crates two tiles wide and two high takes three: two that flash it and splinter it, the third
+// breaks it
 const POT_SHARDS = ['#a85a32', '#c87848', '#7a3e20', '#e09a68'];
 const isPot = p => p.kind === 'sacks' || (p.kind === 'barrel' && p.tile && p.tile[1] === 8); // (the sheet's pots, and its heap of them)
 function strikeTall(p) {

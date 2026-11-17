@@ -114,16 +114,17 @@ function buildArena(floor) {
   for (const r of rooms) worksAfter(A, r); for (const r of rooms) levelAfter(A, r); spikeHalls(A); corridorWood(A, g); wayArrows(A, g);
   // the stairway we came down, in the start room's north wall; the way down waits shut in the end room's
   { const r = A.start, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 12, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 13, (sx + i) * TS, (r.fy0 + 1) * TS); } }
-  { const r = A.end, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 14, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 15, (sx + i) * TS, (r.fy0 + 1) * TS); } A.stairs = { x: (sx + 1.5) * TS, y: (r.fy0 + 2) * TS + 2, sx, sy: r.fy0, room: r.i }; }
+  { const r = A.end, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 14, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 15, (sx + i) * TS, (r.fy0 + 1) * TS); } A.stairs = { x: (sx + 1.5) * TS, y: (r.fy0 + 2) * TS + 2, sx, sy: r.fy0, room: r.i };
+    for (const tx of [sx - 1, sx + 3]) A.torches.push({ x: tx * TS + 8, y: (r.fy0 + 1) * TS + 9, tx, f: randi(0, 3), out: true, exit: true }); } // a dead torch each side of it, lit as a hero comes near (36_works)
   // the hero comes down the stairway in the start room's north wall and steps out of it into the room
   A.spawn = { x: (A.start.stairX + 1.5) * TS, y: (A.start.fy0 + 2) * TS + 16, from: (A.start.fy0 + 2) * TS - 14 };
   Object.assign(A, { x0: TS, x1: (A.w - 1) * TS, y0: TS, y1: (A.h - 1) * TS });
   return A;
 }
 // what stands about a cellar (sheet tile x, y, its kind, how many tiles tall, how many wide): pots, the two small chests,
-// crates and crate stacks, and the heap of sacks; all of it breaks
+// crates and crate stacks, the heap of sacks, and the heaps of crates two tiles wide and two high; all of it breaks
 const CLUTTER = [[24, 8], [25, 8], [26, 8], [27, 8], [28, 8], [30, 8], [25, 12, 'crate'], [26, 12, 'crate'], [24, 13, 'crate'], [25, 13, 'crate'], [26, 13, 'crate']];
-const STOCK = [[25, 12, 'crate'], [26, 12, 'crate'], [24, 13, 'crate'], [25, 13, 'crate'], [26, 13, 'crate'], [27, 12, 'crate', 2], [28, 12, 'crate', 2], [29, 12, 'crate', 2], [22, 8, 'sacks', 1, 2], [24, 8], [26, 8]].map(t => t[2] ? t : [t[0], t[1], 'barrel']);
+const STOCK = [[25, 12, 'crate'], [26, 12, 'crate'], [24, 13, 'crate'], [25, 13, 'crate'], [26, 13, 'crate'], [27, 12, 'crate', 2], [28, 12, 'crate', 2], [29, 12, 'crate', 2], [22, 8, 'sacks', 1, 2], [24, 8], [26, 8], [24, 14, 'crate', 2, 2], [26, 14, 'crate', 2, 2], [28, 14, 'crate', 2, 2]].map(t => t[2] ? t : [t[0], t[1], 'barrel']);
 // The floor's map lies in one of its small wooden chests (not in the room you come down into, if it can be helped); a floor
 // with none gets one, in a free corner of one of its rooms. Picked up, the whole floor is remembered (53_foes takeItem).
 function mapChest(A) {
@@ -148,7 +149,13 @@ function furnish(A, r, g) {
   if (r.stairX !== undefined) for (let k = -1; k <= 3; k++) used.add(r.stairX + k);
   if (r.sluiceX !== undefined) for (let k = -1; k <= 1; k++) used.add(r.sluiceX + k); // (a sluice's outlet goes there: 37_levels)
   for (let x = r.ix0 + 1; x < r.ix1; x += 4) { const tx = x + (used.has(x) ? 3 : 0); if (tx >= r.ix1 || used.has(tx)) continue; used.add(tx); A.torches.push({ x: tx * TS + 8, y: (r.fy0 + 1) * TS + 9, tx, f: randi(0, 3) }); }
-  for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || used.has(x - 1) || used.has(x + 1) || !chance(0.3)) continue; const b = randi(20, 31); tileAt(g, b, 0, x * TS, r.fy0 * TS); tileAt(g, b, 1, x * TS, (r.fy0 + 1) * TS); used.add(x); }
+  // a banner: one of the twelve tall ones ([20..31, 0..1], the rod low in the upper tile) or one of the eight small ones
+  // ([16..19, 0..1], one tile, the rod at its top; hung so its rod is level with the tall ones' and it hangs as low)
+  for (let x = r.ix0 + 1; x < r.ix1; x++) {
+    if (used.has(x) || used.has(x - 1) || used.has(x + 1) || !chance(0.3)) continue; const b = randi(0, 19);
+    if (b < 12) { tileAt(g, 20 + b, 0, x * TS, r.fy0 * TS); tileAt(g, 20 + b, 1, x * TS, (r.fy0 + 1) * TS); } else tileAt(g, 16 + (b - 12) % 4, (b - 12) >> 2, x * TS, r.fy0 * TS + 11);
+    used.add(x);
+  }
   // between the banners, now and then a barred window or a vent in the brick (grey [16..20, 2..3], brown three rows down);
   // the tall arched windows and the tall vent ([17..18, 2..3], [20, 2..3]) are two tiles high, their tops in the brick above
   const wy = th === THEMES.brown ? 3 : 0, WIN = [[16, 2, 1], [16, 3, 1], [17, 3, 2], [18, 3, 2], [19, 2, 1], [19, 3, 1], [20, 3, 2]];

@@ -216,7 +216,7 @@ function pitPlan(A, g) {
     const k = kind[0] === 't' ? kind.slice(1) : kind; // (rim, corners)
     if (k === 'ledges' && (r.w < 11 || r.h < 8) || k === 'chasm' && (r.w < 9 || r.h < 8) || (k === 'crumble' || k === 'loot') && (r.w < 8 || r.h < 6) || k === 'rim' && (r.w < 7 || r.h < 6) || k === 'spikeway' && (r.w < 10 || r.h < 8) || k === 'corners' && (r.w < 8 || r.h < 7) || r.w * r.h < 48) continue;
     const res = k === 'chasm' ? pitChasm(A, r) : k === 'ledges' ? pitLedges(A, r) : k === 'crumble' || k === 'loot' ? pitCrumble(A, r) : k === 'rim' || k === 'corners' ? pitEdges(A, r, k === 'rim') : k === 'spikeway' ? pitSpikeway(A, r) : pitHoles(A, r); if (!res) continue;
-    if (res.spikes) { const Wk = wkOf(A), ph = rand(0, SPIKE_T); A.spikes = A.spikes || []; for (const [tx, ty] of res.spikes) A.spikes.push({ tx, ty, x: tx * TS + 8, y: ty * TS + 8, tile: Wk.spike, ph, hit: new Set(), was: 0, ax: res.spikeAx, fc: res.spikeC }); }
+    if (res.spikes) { const Wk = wkOf(A), ph = rand(0, SPIKE_T); A.spikes = A.spikes || []; for (const [tx, ty] of res.spikes) A.spikes.push({ tx, ty, x: tx * TS + 8, y: ty * TS + 8, tile: spikeLook(Wk), ph, hit: new Set(), was: 0, ax: res.spikeAx, fc: res.spikeC }); }
     for (const i of res.cells) A.fl[i] = PIT; for (const i of res.cells) pitPaint(A, g, i); A.pitN += res.cells.size;
     r.set = kind; r.pitGuard = res.guard || null; A.pitSets.push(kind);
     for (const i of res.crack || []) { const x = i % A.w, y = (i / A.w) | 0, cv = mkCanvas(TS, TS); cv.getContext('2d').drawImage(g.canvas, x * TS, y * TS, TS, TS, 0, 0, TS, TS); A.crumbles.push({ i, x, y, cv, st: 0, t: 0, ph: rand(TAU), room: r.i, tell: res.tell || 0.5 }); A.crumbleSet.add(i); }
