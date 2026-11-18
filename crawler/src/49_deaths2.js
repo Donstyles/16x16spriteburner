@@ -9,9 +9,10 @@
 // fell (70_render renderLight lights it there, not on him), so he goes out of its light: he and whatever takes him
 // fade as they go into the dark (70_render drawUnit), full in the lamp's light, gone well out of it.
 function darkFade(u) {
-  const h = u.team === 'hero' ? u : u.script ? u.script.h : null; if (!h || !h.dead || !h.lampAt) return 1;
+  const v = u.vanishT === undefined ? 1 : clamp(1 - (G.time - u.vanishT) / 0.6, 0, 1); // (vanishT: taken into the shadows wherever it is, a wall having stopped it short of the dark)
+  const h = u.team === 'hero' ? u : u.script ? u.script.h : null; if (!h || !h.dead || !h.lampAt) return v;
   const R = h.lightR || 78, d = Math.hypot(u.x - h.lampAt.x, u.y - (u.z || 0) - (u.lift || 0) - h.lampAt.y);
-  return clamp(1 - (d - R * 0.55) / (R * 0.6), 0, 1);
+  return Math.min(v, clamp(1 - (d - R * 0.55) / (R * 0.6), 0, 1));
 }
 // the way (of those given, angles) with the longest clear floor ahead of him, no wall and no pit: into the dark
 function darkest(h, dirs) {
@@ -42,7 +43,7 @@ function dragStart(h) {
   D.V = draggersAround(h); D.V.forEach((f, i) => { f.script = { h, tick: dragFoe, slot: i, at: false }; f.act = null; });
 }
 function dragFoe(f, dt) { // round to his feet, an ankle each; then hauling him, walking backwards with each heave; in the dark, at their meal
-  const S = f.script, h = S.h, D = h.death; if (!h.dead || !D || D.kind !== 'drag') { f.script = null; return; }
+  const S = f.script, h = S.h, D = h.death; if (!h.dead || !D || D.kind !== 'drag') { f.script = null; f.vanishT = undefined; return; }
   const L = lieOf(h.spr, h.scale || 1), tx = h.x + D.dir * (L.half + 7 + S.slot * 3), ty = h.y + (S.slot ? -3 : 2);
   if (!S.at) { const d = steer(f, tx, ty, f.def.spd * 1.5, dt, 1.5); f.moving = true; f.face = tx < f.x ? -1 : 1; if (d <= 2.5 && h.deadT > DRAG.lie) { S.at = true; SFX.squelch(panOf(f.x), false); } return; }
   f.x = tx + (D.gone ? randi(-1, 1) : 0); f.y = ty; f.vx = f.vy = 0; f.face = D.dir > 0 ? -1 : 1; f.moving = !!D.heave || !!D.gone;
@@ -60,6 +61,7 @@ function dragTick(h, dt) {
   }
   if (!D.gone && t > 7.5) D.gone = t; // (whatever happens, they have him in the dark by now)
   if (!D.gone) return;
+  if (h.vanishT === undefined && darkFade(h) > 0) { h.vanishT = G.time; for (const f of D.V || []) if (f.vanishT === undefined) f.vanishT = G.time; } // (stopped short of the dark by a wall: the shadows take him there, them with him, before anything comes back)
   if (chance(dt * 6)) SFX.squelch(pan, chance(0.3)); if (chance(dt * 2.5)) SFX.bone(pan, chance(0.4)); if (chance(dt * 4)) SFX.tick(pan); // the sounds of it, out of the dark
   if (bleeds(h) && chance(dt * 3)) for (let j = 0; j < 3; j++) part({ k: 'gore', x: h.x + rand(-4, 4), y: h.y, z: rand(1, 4), vx: rand(-30, 30), vy: rand(-15, 15), vz: rand(20, 60), g: 420, life: 5, s0: 1, col: pick(BLOOD.red), kind: 'red' });
   if (!D.tossed && t > D.gone + 1.4) { // and something comes rolling back into the light
@@ -100,7 +102,7 @@ function skelTick(f, dt) { // stands where he stood, a green glint in its eyes; 
 
 // ---- the bats. Dying with bats about (two or more, or killed by one), more of them come out of the dark to it. Half
 // the time they cover him where he lies in a flapping cloud (the vermin's heap, 48_deaths, but hovering), and drink;
-// out of sight under it he dries to a husk, and when they scatter a grey, shrivelled husk is what lies there. The other
+// out of sight under it he dries to a husk, and when they scatter a bound cadaver, grey and shrivelled, lies there. The other
 // half they gather round him and lift him, and carry him off up into the dark, his blood dripping down out of it; his
 // lamp burns on where he fell, and the last of him is one drop falling into its light.
 const BATD = { back: 6.0 }, BAT_RE = /Bat$/, CARRY = { lie: 0.35, lift: 2.2, rise: 4.2 };
@@ -123,20 +125,6 @@ function batsTick(h, dt) {
   if (t < BATD.back + 0.8 && chance(dt * 9)) SFX.whoosh(pan + rand(-0.2, 0.2)); // the wingbeats
   if (D.heap && t < BATD.back) { if (chance(dt * 6)) SFX.tick(pan); if (chance(dt * 3)) SFX.squelch(pan, false); if (bleeds(h) && chance(dt * 4)) drip(h.x + rand(-5, 5), h.y, rand(1, 4), 'red', rand(-20, 20), rand(-8, 8)); }
   if (p < BATD.back && t >= BATD.back) { shake(0.06); smoke(h.x, h.y, 2, 'dust', 6, 12, 0.6); } // they scatter
-}
-// a husk of him: his frames drained to greys, darker at the edges, shrunk in at the sides here and there; cached
-const HUSKS = {}, HUSK = ['#2a2726', '#47423e', '#68615a', '#8a8279', '#a69e93'];
-function huskOf(spr, src, oy) {
-  const key = spr + (src === IMG.mobs ? ':m' : ':c'); if (HUSKS[key]) return HUSKS[key];
-  const m = MOBS[spr], fw = m[1], fh = m[2], W = fw * 4, cv = mkCanvas(W, fh), g = cv.getContext('2d'); g.drawImage(src, 0, oy, W, fh, 0, 0, W, fh);
-  const d = g.getImageData(0, 0, W, fh).data, o = new Uint8ClampedArray(d), a = (x, y) => x >= 0 && y >= 0 && x < W && y < fh && d[(y * W + x) * 4 + 3] > 0;
-  for (let y = 0; y < fh; y++) for (let x = 0; x < W; x++) {
-    const i = (y * W + x) * 4; if (!d[i + 3]) continue; const side = !a(x - 1, y) || !a(x + 1, y);
-    if (side && a(x, y - 1) && a(x, y + 1) && (x * 31 + y * 17) % 7 < 3) { o[i + 3] = 0; continue; } // (shrunk in)
-    const l = (0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]) / 255, edge = side || !a(x, y - 1) || !a(x, y + 1), c = HUSK[clamp(Math.floor(l * 4.2) - (edge ? 1 : 0), 0, 4)];
-    o[i] = parseInt(c.slice(1, 3), 16); o[i + 1] = parseInt(c.slice(3, 5), 16); o[i + 2] = parseInt(c.slice(5, 7), 16); o[i + 3] = 255;
-  }
-  const OD = g.createImageData(W, fh); OD.data.set(o); g.putImageData(OD, 0, 0); return (HUSKS[key] = cv);
 }
 function carriedPose(t) { return { lie: t > CARRY.lie, dip: t > 0.1 && t <= CARRY.lie ? 2 : 0, jit: 0 }; }
 function carriedStart(h) {

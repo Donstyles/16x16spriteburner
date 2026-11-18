@@ -88,6 +88,8 @@ function drawUnit(c, u) {
   // the sellsword swinging: drawn without his sword, and the sword drawn on its own, behind him when it points behind him
   const Wc = u.team === 'hero' && !ra ? WEAPON[u.spr] : null, pose = Wc ? weaponPose(u) : null, back = pose && (pose.behind || (!pose.front && Math.cos(pose.th) * (u.face < 0 ? -1 : 1) < -0.15));
   if (back) drawWeapon(c, u, pose, Wc, fr, fw, foot, dip, cut);
+  if (u.engorge > 0) drawEngorged(c, u); // (a tick fat with his blood, behind it: 49_deaths3)
+  if (u.carry) drawCarry(c, u); // (what a goblin makes off with, on its back: 49_deaths3)
   c.save(); if (u.z < 0) { c.beginPath(); c.rect(Math.round(u.x) - 40, Math.round(u.y) - 90, 80, 91); c.clip(); } // rising out of the floor (or sinking into it): nothing shows below it, cut on a whole row
   // on whole pixels: drawn at a fraction of one, a frame's edge columns read past it into the next frame on the sheet (a dark pixel by a head)
   c.translate(Math.round(u.x + jit + (dp ? dp.jit : 0) + (u.sway || 0)), Math.round(u.y - u.z - (u.lift || 0))); // (lift: standing on something raised, a plate's slab)
@@ -104,7 +106,7 @@ function drawUnit(c, u) {
   const blit = (img, oy = sy) => { if (!dip) { c.drawImage(img, fr * fw, oy, fw, fh, -fw / 2, -foot - 1, fw, fh); return; }
     c.drawImage(img, fr * fw, oy + cut, fw, fh - cut, -fw / 2, -foot - 1 + cut, fw, fh - cut); c.drawImage(img, fr * fw, oy, fw, cut, -fw / 2, -foot - 1 + dip, fw, cut); };
   const bare = pose || (Wc && u.dropped); // swinging, or his weapon gone from his hand
-  c.globalAlpha = fade; if (B) blitB(B.cv); else if (u.husk) blit(bare ? huskOf(u.spr, Wc.cut, 0) : huskOf(u.spr, IMG.mobs, sy), 0); /* (drained by the bats: 49_deaths2) */ else if (bare) blit(u.headless && HEADLESS[u.spr] ? HEADLESS[u.spr].body : Wc.cut, 0); else blit(IMG.mobs); // (beheaded: 48_deaths)
+  c.globalAlpha = fade; if (B) blitB(B.cv); else if (u.pale && u.dead) blit(bare ? paleOf(u.spr, Wc.cut, 0, u.pale) : paleOf(u.spr, IMG.mobs, sy, u.pale), 0); /* (paling as the ticks drink: 49_deaths3) */ /* (drained by the bats: 49_deaths2) */ else if (bare) blit(u.headless && HEADLESS[u.spr] ? HEADLESS[u.spr].body : Wc.cut, 0); else blit(IMG.mobs); // (beheaded: 48_deaths)
   const a = u.act, warn = u.team === 'foe' && a && ((a.k === 'atk' && a.phase === 'wind') || (a.k === 'aim' && a.t > a.dur - 0.25));
   if (warn) { c.globalAlpha = 0.35 + 0.35 * Math.sin(G.time * 40); if (B) blitB(B.red); else blit(mobsRed()); }
   if (u.flash > 0) { c.globalAlpha = Math.min(1, u.flash * 9); if (B) blitB(B.white); else if (bare) blit(Wc.cutW, 0); else blit(IMG.mobsW); }

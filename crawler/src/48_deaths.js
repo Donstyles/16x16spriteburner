@@ -4,16 +4,18 @@
 // (gore FULL), down a pit (38_pits), or the bleeding out, the plain one. Each kind of death plays for its own length
 // before the screen fades (deathLen: 60_run) and has its own camera (deathCam: 70_render's updateCam), and its own
 // pose (deathPose) and its own beats (deathTick), both in 45_blood.
-const DEATH_LEN = { bleed: 10, burst: 6.5, fall: 5, acid: 8, vermin: 9.5, behead: 10, drag: 11, raised: 9.5, bats: 9.5, carried: 9 };
-const DEATH_NAMES = { bleed: 'BLED OUT', burst: 'BLOWN APART', fall: 'THE LONG FALL', acid: 'DISSOLVED IN ACID', vermin: 'EATEN BY VERMIN', behead: 'BEHEADED', drag: 'DRAGGED INTO THE DARK', raised: 'RAISED', bats: 'DRAINED BY BATS', carried: 'CARRIED OFF' };
+const DEATH_LEN = { bleed: 10, burst: 6.5, fall: 5, acid: 8, vermin: 9.5, behead: 10, drag: 11, raised: 9.5, bats: 9.5, carried: 9, looted: 9, ragdoll: 8, ticks: 10 };
+const DEATH_NAMES = { bleed: 'BLED OUT', burst: 'BLOWN APART', fall: 'THE LONG FALL', acid: 'DISSOLVED IN ACID', vermin: 'EATEN BY VERMIN', behead: 'BEHEADED', drag: 'DRAGGED INTO THE DARK', raised: 'RAISED', bats: 'DRAINED BY BATS', carried: 'CARRIED OFF', looted: 'LOOTED', ragdoll: 'SHAKEN TO PIECES', ticks: 'FED ON' };
 function deathLen() { let L = 0; for (const h of G.heroes) if (h.dead) L = Math.max(L, DEATH_LEN[(h.death && h.death.kind) || 'bleed'] || 8); return L || 7; }
 function deathKind(h, o) {
   if (TEST.on && TEST.forceDeath) return TEST.forceDeath; // (the armour and death room's DIE: 64_testroom)
   if (GORE.level === 2 && o.big) return 'burst';
   if (o.acid) return 'acid';
   if (o.spell === 'soul') return 'raised'; // (a necromancer's soul-fire: 49_deaths2)
-  if (verminBury(h)) return 'vermin';
+  { const s = h.lastSrc, n = ticksAround(h).length; if (n >= 2 && s && TICK_RE.test(s.spr || '')) return 'ticks'; if (verminBury(h)) return 'vermin'; if (n >= 2) return 'ticks'; } // (ticks: 49_deaths3)
   if (batDeath(h)) return chance(0.5) ? 'bats' : 'carried';
+  { const s = h.lastSrc; if (s && s.spr === 'GoblinWolfRider' && !o.ranged) return 'ragdoll'; }
+  if (goblinsAround(h).length >= 2) return 'looted';
   if (draggersAround(h).length) return 'drag';
   const s = h.lastSrc; if (GORE.level === 2 && s && s.team === 'foe' && s.def && s.def.role !== 'archer' && !o.ranged && headless(h.spr) && ((h.lastD || 0) >= 18 || chance(0.25))) return 'behead'; // (a heavy blow, or a quarter of the rest, from a blade at close quarters)
   return 'bleed';
@@ -28,6 +30,7 @@ function deathCam(h) {
   if (D.kind === 'acid') return { x: h.x, y: h.y - 7, z: 1.2 + 0.55 * ease(t / 5), r: 1.6 }; // in close on him as he goes down
   if (D.kind === 'vermin' || D.kind === 'bats') return { x: h.x, y: h.y - 3, z: 1.35 + 0.4 * ease(t / 3), r: 1.8 }; // on the pile
   if (D.kind === 'drag' || D.kind === 'raised' || D.kind === 'carried') return moreCam(h, D, t); // (49_deaths2)
+  if (D.kind === 'looted' || D.kind === 'ragdoll' || D.kind === 'ticks') return moreCam3(h, D, t); // (49_deaths3)
   const lying = t > BLEED.fall; return { x: h.x, y: h.y - (lying ? 3 : 9), z: 1.05 + 0.6 * ease(t / 7), r: 1.4 }; // a slow push in on him: standing, kneeling, then on the floor
 }
 
@@ -128,9 +131,9 @@ function coverGrid(h, draw) {
   c.translate(COVER.w / 2 - Math.round(h.x), COVER.oy - Math.round(h.y)); draw(c);
   const d = c.getImageData(0, 0, COVER.w, COVER.h).data, g = new Uint8Array(COVER.w * COVER.h); for (let i = 0; i < g.length; i++) g[i] = d[i * 4 + 3] > 0 ? 1 : 0; return g;
 }
-function lyingGrid(h, spr, husk = false) { const was = [h.spr, h.deadT, h.hidden, h.husk]; h.spr = spr; h.deadT = Math.max(h.deadT || 0, VERM.lie + 0.01); h.hidden = false; h.husk = husk; const g = coverGrid(h, c => drawUnit(c, h)); [h.spr, h.deadT, h.hidden, h.husk] = was; return g; }
-// what the heap turns him into out of sight: his bones (vermin), or a dried husk of him (the bats: 49_deaths2)
-const heapAfter = h => h.death.kind === 'bats' ? lyingGrid(h, h.spr, true) : lyingGrid(h, 'DecrepitBones');
+function lyingGrid(h, spr) { const was = [h.spr, h.deadT, h.hidden]; h.spr = spr; h.deadT = Math.max(h.deadT || 0, VERM.lie + 0.01); h.hidden = false; const g = coverGrid(h, c => drawUnit(c, h)); [h.spr, h.deadT, h.hidden] = was; return g; }
+// what the heap turns him into out of sight: his bones (vermin), or a dried husk, the bound cadaver (the bats: 49_deaths2)
+const HEAP_AFTER = { vermin: 'DecrepitBones', bats: 'BoundCadaver' }, heapAfter = h => lyingGrid(h, HEAP_AFTER[h.death.kind]);
 // where each goes on him, the biggest first, each where it hides most of what still shows of him lying there (and of
 // his bones), a pixel's margin round him counting a little so one skittering a pixel aside still covers him. Lying, half
 // of him is in front of where he fell, so they stand as far as ten pixels forward of it (oy), and some climb (lz: how
@@ -193,11 +196,11 @@ function feedTick(f, dt) { // (53_foes foeTick: a vermin at its meal)
 // (70_render, just before the frame is drawn) he turns to bones in a frame where the heap in front of him hides every
 // pixel of him and every pixel of the bones, tested as drawn; never otherwise, so never in view
 function verminCover(h) {
-  const t = h.deadT, bats = h.death.kind === 'bats'; if ((bats ? h.husk : h.sprWas) || t < VERM.hide || t >= (bats ? BATD.back : VERM.back) || !h.death.heap) return;
+  const t = h.deadT, bats = h.death.kind === 'bats'; if (h.sprWas || t < VERM.hide || t >= (bats ? BATD.back : VERM.back) || !h.death.heap) return;
   const F = G.foes.filter(f => f.feed && f.feed.h === h && !f.dead && f.y > h.y).sort((a, b) => a.y - b.y); if (!F.length) return;
   const A = coverGrid(h, c => drawUnit(c, h)), B = heapAfter(h), C = coverGrid(h, c => { for (const f of F) drawUnit(c, f); });
   for (let i = 0; i < A.length; i++) if ((A[i] || B[i]) && !C[i]) return;
-  if (bats) h.husk = true; else { h.sprWas = h.spr; h.spr = 'DecrepitBones'; } h.death.boned = t;
+  h.sprWas = h.spr; h.spr = HEAP_AFTER[h.death.kind]; h.death.boned = t;
 }
 function verminTick(h, dt) {
   const t = h.deadT, p = t - dt, at = s => p < s && t >= s, V = h.death.feeders || [], n = V.filter(f => f.feed && f.feed.at && !f.dead).length;

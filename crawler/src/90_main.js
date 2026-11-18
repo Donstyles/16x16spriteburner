@@ -26,7 +26,7 @@ async function boot() {
   await loadAssets(); resize(); addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
   setupInput(); menuBackdrop(); G.mode = 'menu'; MENU.screen = 'title';
   const ld = document.getElementById('loading'); if (ld) ld.hidden = true;
-  window.CR = { G, FX, CAM, Q, SFX, VIEW, MENU, UI, INPUT, KITS, WEAPONS, FOE_TYPES, ARMIES, ARENA: () => ARENA, startRun, startFloor, beginRun, beginCreatureTest, beginWaterTest, beginArmourTest, testDie, beginPuzzleFloor, beginPitFloor, beginShopTest, testNext, nextCreature, togglePause, toWorld, btnLayout, hurt, mkFoe, wakeFoe, foeHits, gaitTick, beginTest, cleanBlood, TEST, WEAPON, fx: { headless, debris, cracks, bloodPaint, splat, breakProp, snore, sweat, dropItem, spritePixels, foeShown, waterSlam, drawUnit, bigSprite, mobs: () => MOBS } };
+  window.CR = { G, FX, CAM, spritePixels, Q, SFX, VIEW, MENU, UI, INPUT, KITS, WEAPONS, FOE_TYPES, ARMIES, ARENA: () => ARENA, startRun, startFloor, beginRun, beginCreatureTest, beginWaterTest, beginArmourTest, testDie, beginPuzzleFloor, beginPitFloor, beginShopTest, testNext, nextCreature, togglePause, toWorld, btnLayout, hurt, mkFoe, wakeFoe, foeHits, gaitTick, beginTest, cleanBlood, TEST, WEAPON, fx: { headless, debris, cracks, bloodPaint, splat, breakProp, snore, sweat, dropItem, spritePixels, foeShown, waterSlam, drawUnit, bigSprite, mobs: () => MOBS } };
   requestAnimationFrame(frame);
 }
 boot().catch(e => { const ld = document.getElementById('loading'); if (ld) ld.textContent = 'Failed to start: ' + e.message; console.error(e); });

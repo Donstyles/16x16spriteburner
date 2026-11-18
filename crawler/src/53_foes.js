@@ -365,7 +365,7 @@ const ITEM = { fish: [0, 0, 12, 10], flask: [16, 0, 6, 11], map: [64, 0, 14, 15,
 // whole one on him again.
 const GAMBESON = { max: 40 };
 function putOnGambeson(h) {
-  h.gamb = GAMBESON.max; h.gambT0 = G.time; h.gambLost = []; SFX.chest(panOf(h.x)); textPop(h.x, h.y, headZ(h) + 2, 'GAMBESON', 'gold', false);
+  h.gamb = GAMBESON.max; h.gambT0 = G.time; h.gambLost = []; h.hadGamb = true; /* (hadGamb: he wore one, for the goblins: 49_deaths3) */ SFX.chest(panOf(h.x)); textPop(h.x, h.y, headZ(h) + 2, 'GAMBESON', 'gold', false);
   pushBanner({ a: 'Gambeson', b: 'QUILTED ARMOUR · TAKES THE FIRST ' + GAMBESON.max + ' DAMAGE', col: 'gold', small: true, life: 2.6 });
   for (let i = 0; i < 12; i++) part({ k: 'glow', x: h.x + rand(-7, 7), y: h.y + rand(-3, 3), z: rand(2, 14), vz: rand(20, 50), drag: 1, life: rand(0.5, 1), s0: rand(1.5, 3), s1: 0, col: 'gold' });
 }
@@ -394,7 +394,7 @@ function clothSpill(h, a, o) {
 // bounce and clink across the floor (46_bits mailRing); when the last of it goes, a burst of them and MAIL BROKEN.
 const MAIL = { max: 60 }, STEEL = ['#e6ebef', '#c9d0d7', '#9aa2ad', '#7e8792', '#5a616c'];
 function putOnMail(h) {
-  h.mail = MAIL.max; h.mailT0 = G.time; h.mailLost = []; SFX.mailOn(panOf(h.x)); textPop(h.x, h.y, headZ(h) + 2, 'CHAINMAIL', 'mail', false);
+  h.mail = MAIL.max; h.mailT0 = G.time; h.mailLost = []; h.hadMail = true; SFX.mailOn(panOf(h.x)); textPop(h.x, h.y, headZ(h) + 2, 'CHAINMAIL', 'mail', false);
   pushBanner({ a: 'Chainmail', b: 'RINGS OF IRON · TAKES THE FIRST ' + MAIL.max + ' DAMAGE' + (h.gamb > 0 ? ' · OVER YOUR GAMBESON' : ''), col: 'gold', small: true, life: 2.6 }); // (worn alone, or over the gambeson)
   for (let i = 0; i < 12; i++) part({ k: 'glow', x: h.x + rand(-7, 7), y: h.y + rand(-3, 3), z: rand(2, 14), vz: rand(20, 50), drag: 1, life: rand(0.5, 1), s0: rand(1.5, 3), s1: 0, col: 'white' });
 }
