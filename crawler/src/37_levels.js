@@ -20,7 +20,7 @@ function levelPlan(A, g) {
   const rooms = A.rooms, adj = r => A.halls.filter(h => h.A === r || h.B === r).map(h => (h.A === r ? h.B : h.A));
   const reach = skip => { const seen = new Set([A.start]), q = [A.start]; while (q.length) { const r = q.shift(); for (const n of adj(r)) if (n !== skip && !seen.has(n)) { seen.add(n); q.push(n); } } return seen; };
   const free = r => r.kind === 'room' && !r.chest && !r.set && !r.sluice, shuffled = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(v => v[1]);
-  A.sets = []; A.plankSet = new Set(); A.noProp = new Set();
+  A.sets = []; A.plankSet = new Set(); A.noProp = new Set(); A.planning = true;
   const tryFlood = () => { for (const r of shuffled(rooms.filter(r => free(r) && !reach(r).has(A.end)))) {
     // the flooded way stands where the way to the stairs runs through it and a side branch leaves it too: you come in
     // on one side, a ledge along the wall takes you round to the branch, and the stairs' side lies across the water.
@@ -32,6 +32,7 @@ function levelPlan(A, g) {
     const host = hosts.sort((a, b) => adj(a).length - adj(b).length || Math.random() - 0.5)[0];
     const far = new Set([...parts.entries()].filter(([, v]) => v === 'far').map(([d]) => d));
     const p = floodedWay(A, r, g, far); if (!p) continue;
+    p.preReach = new Set([...reach(r), ...branches.flatMap(([, v]) => [...v])]); // (what can be reached before it drains: THE SUNKEN BUTTON, 36_works)
     r.set = 'flood'; A.sets.push('flood'); hostSluice(A, host, p);
     return true;
   } return false; };
@@ -46,7 +47,7 @@ function levelPlan(A, g) {
   if (FORCE.set) tryBridge();
   if (FORCE.set || chance(0.45)) for (const r of shuffled(rooms.filter(r => free(r) && r.w >= 12 && r.h >= 8 && r.doors.length >= 2 && beyondHost(A, r)))) if (gauntlet(A, r, g)) { r.set = 'gauntlet'; A.sets.push('gauntlet'); remoteSluice(A, r, r.pool); break; }
   if (FORCE.set || chance(0.4)) for (const r of shuffled(rooms.filter(r => free(r) && r.w >= 11 && r.h >= 7 && beyondHost(A, r)))) if (sentinelPond(A, r, g)) { r.set = 'sentinel'; A.sets.push('sentinel'); remoteSluice(A, r, r.pool); break; }
-  A.musts = musts();
+  A.musts = musts(); A.planning = false;
 }
 // THE DRAWBRIDGE: a chasm across a room the way down runs through (the end room, between its doors and the stairs, or a
 // room on the way), wall to wall and two or three tiles wide, with no way over it. Its bridge (the sheet's wooden one, two
@@ -80,7 +81,7 @@ function drawbridge(A, r, g, near, adj) {
     const lowNear = o.v ? S.has(b * W + o.at - 1) : S.has((o.at - 1) * W + b); // (laid from the near side)
     const br = { drawbridge: true, room: r.i, travel: o.v ? 'ew' : 'ns', wood: pick(['orange', 'green']), cells, len: H, back: !lowNear, laid: 0, going: false, x0: o.v ? o.at : b, x1: o.v ? o.at + H - 1 : b + 1, y0: o.v ? b : o.at, y1: o.v ? b + 1 : o.at + H - 1 };
     br.runes = A.floor >= 2 && chance(0.4); // (laid by a button, or by the runes of a dark storeroom: 36_works)
-    (A.bridges = A.bridges || []).push(br); r.set = 'drawbridge'; r.bridge = br; A.sets.push('drawbridge'); hostSluice(A, host, br);
+    (A.bridges = A.bridges || []).push(br); r.set = 'drawbridge'; r.bridge = br; A.sets.push('drawbridge'); br.preReach = new Set([...near, ...branch]); hostSluice(A, host, br); // (preReach: THE SUNKEN BUTTON, 36_works)
     for (const [x, y] of cells) for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) A.noProp.add((y + dy) * W + x + dx); // (nothing stands where it comes ashore)
     return true;
   }
@@ -90,15 +91,16 @@ function drawbridge(A, r, g, near, adj) {
 // that can only be reached through the water's own room (across the causeway, past the sentinel, round the cistern, or
 // along the flooded way's ledge), so whoever finds it has met the water first. A piece only goes where such a room is.
 const hostOK = A => h => h !== A.start && h.kind !== 'treasure' && h.kind !== 'shop' && !h.chest && !h.set && !h.sluice && !h.pool && !h.shrine && h.w >= 6;
-function beyondHost(A, r) {
+function beyondHost(A, r, within = null) { // (within: only one of these rooms)
   const adj = q => A.halls.filter(h => h.A === q || h.B === q).map(h => (h.A === q ? h.B : h.A));
   if (r === A.start) return null; const near = new Set([A.start]), q = [A.start]; while (q.length) { const a = q.shift(); for (const n of adj(a)) if (n !== r && !near.has(n)) { near.add(n); q.push(n); } }
-  const beyond = A.rooms.filter(h => h !== r && !near.has(h)).filter(hostOK(A)).sort((a, b) => (adj(r).includes(a) ? 1 : 0) - (adj(r).includes(b) ? 1 : 0) || Math.random() - 0.5);
+  const beyond = A.rooms.filter(h => h !== r && !near.has(h) && (!within || within.has(h))).filter(hostOK(A)).sort((a, b) => (adj(r).includes(a) ? 1 : 0) - (adj(r).includes(b) ? 1 : 0) || Math.random() - 0.5);
   return beyond[0] || null;
 }
 function remoteSluice(A, r, p) { const h = beyondHost(A, r); if (!h) return false; hostSluice(A, h, p); return true; }
 function hostSluice(A, host, p) {
   host.sluice = p; p.host = host;
+  if (A.planning && !A.sunkPlanned && !p.runes && host.w >= 12 && host.h >= 8 && chance(0.5)) { host.sunkHost = p; A.sunkPlanned = true; } // (its button sunk in a cistern made of this room: THE SUNKEN BUTTON, 36_works)
   // the outlet in the host's north wall, clear of its doors and stairs (furnish leaves it bare)
   const nd = host.doors.filter(d => d.side === 'N').flatMap(d => d.cells.map(c => c[0])), xs = [];
   for (let x = host.ix0 + 1; x <= host.ix1 - 1; x++) if (!nd.some(c => Math.abs(c - x) <= 3) && !(host.stairX !== undefined && x >= host.stairX - 2 && x <= host.stairX + 4)) xs.push(x);
@@ -201,10 +203,11 @@ function freeSpot(A, r) {
 }
 // ---- after the rooms are furnished: the plates, the outlet, the flooded pillars and the things standing in the water
 function levelAfter(A, r) {
-  const W = wkOf(A), plate = (tx, ty, p, o = {}) => { A.plates = A.plates || []; A.plates.push(Object.assign({ x: tx * TS + 8, y: ty * TS + 8, tx, ty, tile: W.plate, f: 0, down: false, pool: p, room: r.i }, o)); };
+  let sunk = null; const W = wkOf(A), plate = (tx, ty, p, o = {}) => { A.plates = A.plates || []; A.plates.push(Object.assign({ x: tx * TS + 8, y: ty * TS + 8, tx, ty, tile: W.plate, f: 0, down: false, pool: p, room: r.i }, o)); };
   const clear = (tx, ty) => removeIf(A.props, q => Math.abs(q.x - (tx * TS + 8)) < 14 && Math.abs(q.cy - (ty * TS + 10)) < 14);
   // (a drawbridge's room: r.sluice is the bridge, marked drawbridge; a cistern's water has a .bridge of its own, its walkway)
-  if (r.sluice && r.sluice.drawbridge && r.sluice.runes) { const v = { blocks: [], open: false, t: 0, room: r.i, runes: [], bridge: r.sluice, dark: true }; (A.vaults = A.vaults || []).push(v); placeRunes(A, r, v); hideRunes(A, r, v); darkRoom(A, r); } // a drawbridge laid by three hidden runes (36_works)
+  if (r.sluice && r.sunkHost === r.sluice && r.pool && (sunk = r.pool.sunkAt)) plate(sunk[0], sunk[1], r.sluice.drawbridge ? null : r.sluice, { remote: true, bridge: r.sluice.drawbridge ? r.sluice : null, sunken: r.pool }); // its button sunk in this cistern's floor (THE SUNKEN BUTTON, 36_works)
+  else if (r.sluice && r.sluice.drawbridge && r.sluice.runes) { const v = { blocks: [], open: false, t: 0, room: r.i, runes: [], bridge: r.sluice, dark: true }; (A.vaults = A.vaults || []).push(v); placeRunes(A, r, v); hideRunes(A, r, v); darkRoom(A, r); } // a drawbridge laid by three hidden runes (36_works)
   else if (r.sluice && r.sluice.drawbridge) { const [px, py] = freeSpot(A, r) || [r.sluiceX, r.iy0]; if (py === r.iy0) clear(px, py); plate(px, py, null, { remote: true, bridge: r.sluice }); } // a drawbridge's button
   else if (r.sluice) { // the outlet grate in the north wall, the plate before it, or standing free in the room
     const x = r.sluiceX, wy = A.th === THEMES.brown ? 3 : 0; tileAt(A.g, 19, 3 + wy, x * TS, (r.fy0 + 1) * TS);

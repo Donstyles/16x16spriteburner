@@ -24,8 +24,8 @@
 // - spike traps: a row of spikes across a corridor ([0..3, 28] / [5..8, 28]: the hole, then the spike rising), on a beat:
 //   they hurt anyone standing over them as they shoot up, foe or hero alike
 const WK = {
-  grey: { square: [[20, 19], [20, 16]], round: [[16, 19], [16, 16]], deep: [[24, 19], [24, 16]], slatV: [17, 29], slatH: [16, 30], plate: [10, 26], socket: [13, 26], rune: [27, 3], runeOn: [27, 4], block: [10, 28], spike: [0, 28], drain: [18, 4], wetPillar: [1, 16], dryPillar: [24, 2], basin: [54, 56, 62] },
-  brown: { square: [[20, 26], [20, 23]], round: [[16, 26], [16, 23]], deep: [[24, 26], [24, 23]], slatV: [21, 29], slatH: [20, 30], plate: [10, 27], socket: [13, 27], rune: [27, 6], runeOn: [27, 7], block: [10, 29], spike: [5, 28], drain: [18, 7], wetPillar: [1, 19], dryPillar: [24, 5], basin: [64, 54, 44] },
+  grey: { square: [[20, 19], [20, 16]], round: [[16, 19], [16, 16]], deep: [[24, 19], [24, 16]], slatV: [17, 29], slatH: [16, 30], plate: [10, 26], socket: [13, 26], wetSocket: [3, 18], rune: [27, 3], runeOn: [27, 4], block: [10, 28], spike: [0, 28], drain: [18, 4], wetPillar: [1, 16], dryPillar: [24, 2], basin: [54, 56, 62] },
+  brown: { square: [[20, 26], [20, 23]], round: [[16, 26], [16, 23]], deep: [[24, 26], [24, 23]], slatV: [21, 29], slatH: [20, 30], plate: [10, 27], socket: [13, 27], wetSocket: [3, 21], rune: [27, 6], runeOn: [27, 7], block: [10, 29], spike: [5, 28], drain: [18, 7], wetPillar: [1, 19], dryPillar: [24, 5], basin: [64, 54, 44] },
 };
 const wkOf = A => WK[A.th === THEMES.grey ? 'grey' : 'brown'];
 const sheetTile = (g, [tx, ty], x, y, dx = 0, dy = 0) => g.drawImage(IMG.cellar, (tx + dx) * TS, (ty + dy) * TS, TS, TS, x, y, TS, TS);
@@ -85,8 +85,9 @@ function waterBody(A, cells, set, W, dual) {
 
 // ---- building (called from buildArena): before the room is furnished, and after
 function worksBefore(A, r, g) {
+  if (r.sunkHost) { cistern(A, r, g, r.sunkHost.preReach || null); return; } // (a set piece's button to be sunk in it: THE SUNKEN BUTTON)
   if (r.kind !== 'room' || r.chest || r.set || r.sluice) return; // (a set piece's room, or the room with its sluice: 37_levels)
-  if (!A.cistern && r.w >= 12 && r.h >= 8 && beyondHost(A, r) && chance(0.6)) cistern(A, r, g); // (only where its sluice can be beyond it: 37_levels)
+  if (!A.cistern && !A.sunkPlanned && r.w >= 12 && r.h >= 8 && beyondHost(A, r) && chance(0.6)) cistern(A, r, g); // (only where its sluice can be beyond it: 37_levels)
   else if (!A.shrine && r.w >= 12 && r.h >= 8 && chance(0.55)) { A.shrine = r; r.shrine = true; r.dark = A.floor >= 2 && chance(0.5); } // (dark: its runes hidden)
   else if (chance(0.3)) ponds(A, r, g);
 }
@@ -110,12 +111,12 @@ function ponds(A, r, g) {
     const b = waterBody(A, cells, chance(0.7) ? W.round : W.deep, W, true); b.room = r.i; b.still = true; g.drawImage(b.bed, b.px0, b.py0); (A.pools = A.pools || []).push(b);
   }
 }
-function cistern(A, r, g) {
+function cistern(A, r, g, within) { // (within: a sunken button's cistern, its drain only in one of these rooms, or none: on its walkway)
   const W = wkOf(A), x0 = r.ix0 + 2, x1 = r.ix1 - 2, y0 = r.iy0 + 2, y1 = r.iy1 - 2;
   if (x1 - x0 < 3 || y1 - y0 < 2) return;
   const cells = new Set(); for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) cells.add(ty * A.w + tx);
   const p = waterBody(A, cells, W.square, W, false); p.room = r.i; p.store = A.floor >= 3 && r.w >= 14 && r.h >= 9 && chance(0.6); // (THE FLOODED STORE: cisternAfter)
-  A.cistern = r; r.pool = p; (A.pools = A.pools || []).push(p); remoteSluice(A, r, p); // (its sluice in another room: 37_levels)
+  A.cistern = r; r.pool = p; (A.pools = A.pools || []).push(p); if (within === undefined) remoteSluice(A, r, p); else { const h = beyondHost(A, r, within); if (h) hostSluice(A, h, p); } // (its sluice in another room: 37_levels)
   // the bridge: across the way the room's doors face, two tiles wide, over the middle
   const ew = r.doors.some(d => d.side === 'E' || d.side === 'W'), ns = r.doors.some(d => d.side === 'N' || d.side === 'S');
   const horiz = (ew && !ns) || (ew === ns && chance(0.5)) ? p.y1 - p.y0 >= 3 : p.x1 - p.x0 < 4;
@@ -167,13 +168,13 @@ const SUNK = [
 const sunkStone = A => { const d = A.th === THEMES.brown ? 3 : 0, br = d ? 2 : 0; return [
   [[0, 16 + d], [22, 2 + d], 'stone', 1, 2], [[2, 16 + d], [25, 2 + d], 'stone', 1, 2], [[2, 18 + d], [25, 4 + d], 'stone'],
   [[3, 16 + d], [26, 2 + d], 'stone'], [[4, 16 + d], [27, 2 + d], 'stone'], // (not the two small blocks, the button's own stone, nor the two slabs with a socket's dark well: under water they read as a button without its socket, or a socket that lost its button)
-  [[br, 22], [30, 3 + d], 'stone'], [[br + 1, 22], [31, 3 + d], 'stone']]; };
+  [[br + 1, 22], [31, 3 + d], 'stone']]; }; // (the cold brazier with its dead coals; not the empty one, a plain block that reads as a button)
 // n of them about the water, each on open water clear of the bridge, the drain, the pillars and each other
 function sinkThings(A, p, n, kinds) {
   const bc = p.bridge ? p.bridge.cells : [], taken = new Set();
   // (water all round it, the eight tiles about it: never against a rim, a landing, an island or a walkway)
   const wet8 = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (A.fl[(y + j) * A.w + x + i] !== 2) return false; return true; };
-  const open = (x, y) => { const i = y * A.w + x; return p.cells.has(i) && A.fl[i] === 2 && wet8(x, y) && !taken.has(i) && !bc.some(([a, b]) => Math.abs(a - x) <= 1 && Math.abs(b - y) <= 1) && !(x === p.drainAt[0] && y === p.drainAt[1]) &&
+  const open = (x, y) => { const i = y * A.w + x; return p.cells.has(i) && A.fl[i] === 2 && wet8(x, y) && !taken.has(i) && !(p.sunkAt && Math.abs(p.sunkAt[0] - x) <= 1 && Math.abs(p.sunkAt[1] - y) <= 1) && !bc.some(([a, b]) => Math.abs(a - x) <= 1 && Math.abs(b - y) <= 1) && !(x === p.drainAt[0] && y === p.drainAt[1]) &&
     !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 16 && Math.abs(q.cy - (y * TS + 10)) < 20); };
   const all = SUNK.concat(sunkStone(A)), list = kinds || Array.from({ length: n * 2 }, () => pick(all)); let made = 0; // (twice as many to try as are wanted: the big ones often find no room)
   for (const s of list) for (let k = 0; k < 10 && made < n; k++) { // each a few tries for a spot it fits
@@ -192,7 +193,9 @@ function cisternAfter(A, r) {
   const p = r.pool, W = wkOf(A), nearDoor = (tx, ty, m) => r.doors.some(d => d.cells.some(([x, y]) => Math.abs(x - tx) <= m && Math.abs(y - ty) <= m));
   // a pillar or two standing in the water, clear of the bridge (props sort with everyone, so they stand up out of it)
   const bc = p.bridge.cells, nearBridge = (x, y) => bc.some(([a, b]) => Math.abs(a - x) <= 1 && Math.abs(b - y) <= 1);
-  const spots = [[p.x0 + 1, p.y0 + 1], [p.x1 - 1, p.y0 + 1], [p.x0 + 1, p.y1], [p.x1 - 1, p.y1]].filter(([x, y]) => y > p.y0 && !nearBridge(x, y) && !(x === p.drainAt[0] && y === p.drainAt[1]));
+  if (r.sunkHost) p.sunkAt = sunkenSpot(A, p); // (the sunken button's place, kept before anything else goes in the water)
+  const nearSunk = (x, y) => p.sunkAt && Math.abs(p.sunkAt[0] - x) <= 1 && Math.abs(p.sunkAt[1] - y) <= 1;
+  const spots = [[p.x0 + 1, p.y0 + 1], [p.x1 - 1, p.y0 + 1], [p.x0 + 1, p.y1], [p.x1 - 1, p.y1]].filter(([x, y]) => y > p.y0 && !nearBridge(x, y) && !nearSunk(x, y) && !(x === p.drainAt[0] && y === p.drainAt[1]));
   for (const [x, y] of spots.slice(0, randi(1, 2))) A.props.push({ kind: 'wetpillar', tile: W.wetPillar, wetTile: W.wetPillar, dry: W.dryPillar, sunk: p, th: 2, x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 6, solid: true, hp: 1e9, room: r.i });
   sinkThings(A, p, p.store ? randi(8, 12) : randi(2, 4)); // crates, pots, carts, chests, stone standing in the water, to be had once it drains (a flooded store: crowded with them)
   // the drain plate: on the walk round the cistern, clear of the doors and of anything standing there
@@ -373,6 +376,36 @@ function endDrain(p) {
   // in a big one, now and then a fish or two left behind, flopping on the wet stone
   if (p.cells.size >= 40 && chance(0.55)) for (let i = randi(1, 2); i > 0; i--) { const q = pick(s) || p.drainAt; G.drops.push({ k: 'fish', x: q[0] * TS + 8 + rand(-3, 3), y: q[1] * TS + 9, z: 0, vx: 0, vy: 0, vz: 0, t: 0, flop: true }); }
 }
+// THE SUNKEN BUTTON: a set piece's button (the flooded way's sluice, a drawbridge's, a gauntlet's or a sentinel's) on the
+// floor of a cistern, under its water, with a full tile of water between it and every edge and walkway, so it can only be
+// stood on once the cistern is drained. Half the time the room chosen for such a button is big enough to be a cistern, it
+// is made one (37_levels hostSluice, then worksBefore below), its own drain on its walkway or in a room that can be
+// reached before the piece is solved: a chain (drain the cistern, go down into it, press the button, and the other
+// piece gives way) that can never lock anything away.
+// on the cistern's floor with water all round it two tiles out where it can, else one (a full tile of water to every edge,
+// walkway, bridge and island either way), clear of the drain and of whatever stands in the water
+function sunkenSpot(A, p) {
+  const bc = p.bridge ? p.bridge.cells : [], wet = (x, y) => p.cells.has(y * A.w + x) && A.fl[y * A.w + x] === 2;
+  for (const m of [2, 1]) {
+    const ok = [];
+    for (const i of p.cells) {
+      const x = i % A.w, y = (i / A.w) | 0; let all = true;
+      for (let j = -m; j <= m && all; j++) for (let k = -m; k <= m; k++) if (!wet(x + k, y + j)) { all = false; break; }
+      if (!all || bc.some(([a, b]) => Math.abs(a - x) <= 1 && Math.abs(b - y) <= 1) || (Math.abs(x - p.drainAt[0]) <= 1 && Math.abs(y - p.drainAt[1]) <= 1)) continue;
+      if (A.props.some(q => !q.dead && Math.abs(q.x - (x * TS + 8)) < 24 && Math.abs(q.cy - (y * TS + 10)) < 22)) continue;
+      ok.push([x, y]);
+    }
+    if (ok.length) return pick(ok);
+  }
+  return null;
+}
+// the button seen through the water: its stone with the water's blue laid over it (cached per theme)
+const WET_BLOCK = {};
+function wetBlock(Wk) {
+  const k = Wk.block.join(','); if (WET_BLOCK[k]) return WET_BLOCK[k];
+  const cv = mkCanvas(TS, TS), g = cv.getContext('2d'); sheetTile(g, Wk.block, 0, 0, 0, 0); g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(52,104,150,0.5)'; g.fillRect(0, 0, TS, TS);
+  return (WET_BLOCK[k] = cv);
+}
 // what stood in the water is dry now: each turns into its dry twin, water running off it, and can be broken
 function dryOut(p) {
   p.dried = true;
@@ -481,7 +514,8 @@ function drawWorks(c) {
   // a plate: its socket in the floor ([13, 26] / [13, 27]), the stone button standing raised in it, which a foot drives down
   // flush in four frames ([10..13, 28] / [10..13, 29]); the socket is never seen empty
   // (aligned by hand on the Plate Aligner: the socket a pixel up, the button four)
-  { const Wk = wkOf(A); for (const pl of A.plates || []) { sheetTile(c, Wk.socket, pl.x - 8, pl.y - 9); sheetTile(c, Wk.block, pl.x - 8, pl.y - 12, pl.f, 0); } }
+  // (a sunken one, while its water is up: the socket's wet twin, [3, 18] / [3, 21], the button in it seen through the water)
+  { const Wk = wkOf(A); for (const pl of A.plates || []) { if (pl.sunken && !pl.sunken.dried) { sheetTile(c, Wk.wetSocket, pl.x - 8, pl.y - 9); c.drawImage(wetBlock(Wk), pl.x - 8, pl.y - 12); continue; } sheetTile(c, Wk.socket, pl.x - 8, pl.y - 9); sheetTile(c, Wk.block, pl.x - 8, pl.y - 12, pl.f, 0); } }
   for (const rn of A.runes || []) {
     sheetTile(c, rn.on ? rn.lit : rn.tile, rn.x - 8, rn.y - 8);
     if (rn.on) light(rn.x, rn.y, 46 + 4 * Math.sin(G.time * 3 + rn.x), 'gold', 0.55);
