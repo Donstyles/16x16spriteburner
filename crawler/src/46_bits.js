@@ -78,19 +78,20 @@ function mailRing(x, y, z, vx, vy, vz, col, slow = 0) { part({ k: 'ring', x, y, 
 function ringPx(x, y, f) { f(x, y - 1); f(x - 1, y); f(x + 1, y); f(x, y + 1); } // (a ring seen at this size: four pixels round an open middle)
 // a chip: a pixel or two of bone or stone; it bounces once and stays where it stops
 function chip(x, y, z, vx, vy, vz, col, slow = 0) { part({ k: 'chip', x, y, z, vx, vy, vz, life: 6, s0: chance(0.45) ? 2 : 1, col, slow }); }
-// A patch of the gambeson hacked out of it (53_foes clothSpill): one of its quilted diamonds, its torn edge dark (the
-// items' edge, so it reads on any floor), padded out and lit as the quilting on his health bar is (80_hud quiltTex), a
-// big one with its stitching showing inside the edge; heavy with its wadding, it goes only a little way with the blow,
+// A patch of the gambeson hacked out of it (53_foes clothSpill): one of its quilted diamonds, padded out and lit from
+// the top left in the quilting's own shades (80_hud quiltTex), its edge a shade darker than its middle; no outline (as
+// nothing that sprays or drops off a blow has one). Heavy with its wadding, it goes only a little way with the blow,
 // turning over as it flies (face, half-turned, edge-on, its wadded back), drops, bounces once and lies flat where it
-// stops (chipStep). r: its size, three pixels from its middle to its points (four, a big blow's)
+// stops (chipStep). r: its size, two pixels from its middle to its points (three, now and then, a big blow's)
 function patch(x, y, z, vx, vy, vz, r, slow = 0) { part({ k: 'patch', x, y, z, vx, vy, vz, life: 6, o: randi(0, 3), ot: rand(0.05, 0.1), r, slow }); }
 function patchPx(p, f) {
   const x0 = Math.round(p.x), y0 = Math.round(p.y - p.z), r = p.r, o = p.o;
-  if (o === 2) { for (let x = -r; x <= r; x++) f(x0 + x, y0, Math.abs(x) === r ? QCOL.o : QCOL.line); return; } // (edge-on)
+  if (o === 2) { for (let x = -r; x <= r; x++) f(x0 + x, y0, x < 0 ? QCOL.base : QCOL.low); return; } // (edge-on)
   const sy = o === 1 ? 2 : 1; // (half-turned: squashed top to bottom)
   for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) {
     const e = Math.abs(x) + Math.abs(y) * sy; if (e > r) continue;
-    f(x0 + x, y0 + y, e === r ? QCOL.o : r > 3 && e === r - 1 && o !== 3 ? QCOL.line : o === 3 ? QCOL.wad : !x && !y ? QCOL.base : y <= 0 && x <= 0 ? QCOL.hi : y <= 0 ? QCOL.base : x < 0 ? QCOL.low : QCOL.dip);
+    const s = Math.sign(x + y) + 1 + (e === r ? 1 : 0); // (lit from the top left: 0 the brightest; the edge a shade darker)
+    f(x0 + x, y0 + y, o === 3 ? (e === r ? QCOL.thread : QCOL.wad) : [QCOL.hi, QCOL.base, QCOL.low, QCOL.dip][s]);
   }
 }
 function chipStep(p, dt) {

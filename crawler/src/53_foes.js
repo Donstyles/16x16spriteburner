@@ -383,7 +383,7 @@ function gambesonTakes(h, d, o = {}) {
 function clothSpill(h, a, o) {
   const S = SPRAY[o.style] || SPRAY.bite, k = clamp(a / 10, 0.7, 3.5), a0 = o.ang !== undefined ? o.ang : o.kx || o.ky ? Math.atan2(o.ky || 0, o.kx || 0) : rand(TAU);
   const way = () => a0 + (o.sweep || 1) * S.bias + rand(-S.spread, S.spread) * 1.3, z0 = (h.z || 0) + 6;
-  for (let i = 0, n = Math.min(11, Math.round(3 * k)); i < n; i++) { const t = way(), v = rand(S.v[0], S.v[1]) * 0.7; patch(h.x + rand(-2, 2), h.y + rand(-1, 1), z0 + rand(-3, 3), Math.cos(t) * v, Math.sin(t) * v * 0.8, rand(S.up[0], S.up[1]) * 0.6 + 30, a >= 25 && chance(0.4) ? 4 : 3, o.slow); }
+  for (let i = 0, n = Math.min(8, Math.round(2.2 * k)); i < n; i++) { const t = way(), v = rand(S.v[0], S.v[1]) * 0.7; patch(h.x + rand(-2, 2), h.y + rand(-1, 1), z0 + rand(-3, 3), Math.cos(t) * v, Math.sin(t) * v * 0.8, rand(S.up[0], S.up[1]) * 0.6 + 30, a >= 25 && chance(0.4) ? 3 : 2, o.slow); }
   SFX.rip(panOf(h.x), a >= 25);
 }
 // The chainmail (armours, its icon the gambeson's own repainted in steel rings): rings of iron, worn over the gambeson
