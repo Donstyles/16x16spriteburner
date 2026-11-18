@@ -167,7 +167,7 @@ const SUNK = [
 ];
 const sunkStone = A => { const d = A.th === THEMES.brown ? 3 : 0, br = d ? 2 : 0; return [
   [[0, 16 + d], [22, 2 + d], 'stone', 1, 2], [[2, 16 + d], [25, 2 + d], 'stone', 1, 2], [[2, 18 + d], [25, 4 + d], 'stone'],
-  [[3, 16 + d], [26, 2 + d], 'stone'], [[4, 16 + d], [27, 2 + d], 'stone'], // (not the two small blocks, the button's own stone, nor the two slabs with a socket's dark well: under water they read as a button without its socket, or a socket that lost its button)
+  [[3, 16 + d], [26, 2 + d], 'stone'], // (not the two small blocks, the button's own stone, nor the two slabs with a socket's dark well: under water they read as a button without its socket, or a socket that lost its button; nor the plain slab beside them, [4, 16] / [4, 19]: it has no waterline, a floor slab, not a thing standing in the water)
   [[br + 1, 22], [31, 3 + d], 'stone']]; }; // (the cold brazier with its dead coals; not the empty one, a plain block that reads as a button)
 // n of them about the water, each on open water clear of the bridge, the drain, the pillars and each other
 function sinkThings(A, p, n, kinds) {
@@ -399,13 +399,6 @@ function sunkenSpot(A, p) {
   }
   return null;
 }
-// the button seen through the water: its stone with the water's blue laid over it (cached per theme)
-const WET_BLOCK = {};
-function wetBlock(Wk) {
-  const k = Wk.block.join(','); if (WET_BLOCK[k]) return WET_BLOCK[k];
-  const cv = mkCanvas(TS, TS), g = cv.getContext('2d'); sheetTile(g, Wk.block, 0, 0, 0, 0); g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(52,104,150,0.5)'; g.fillRect(0, 0, TS, TS);
-  return (WET_BLOCK[k] = cv);
-}
 // what stood in the water is dry now: each turns into its dry twin, water running off it, and can be broken
 function dryOut(p) {
   p.dried = true;
@@ -514,8 +507,8 @@ function drawWorks(c) {
   // a plate: its socket in the floor ([13, 26] / [13, 27]), the stone button standing raised in it, which a foot drives down
   // flush in four frames ([10..13, 28] / [10..13, 29]); the socket is never seen empty
   // (aligned by hand on the Plate Aligner: the socket a pixel up, the button four)
-  // (a sunken one, while its water is up: the socket's wet twin, [3, 18] / [3, 21], the button in it seen through the water)
-  { const Wk = wkOf(A); for (const pl of A.plates || []) { if (pl.sunken && !pl.sunken.dried) { sheetTile(c, Wk.wetSocket, pl.x - 8, pl.y - 9); c.drawImage(wetBlock(Wk), pl.x - 8, pl.y - 12); continue; } sheetTile(c, Wk.socket, pl.x - 8, pl.y - 9); sheetTile(c, Wk.block, pl.x - 8, pl.y - 12, pl.f, 0); } }
+  // (a sunken one, while its water is up: the socket's wet twin, [3, 18] / [3, 21], the button standing up out of the water, dry)
+  { const Wk = wkOf(A); for (const pl of A.plates || []) { sheetTile(c, pl.sunken && !pl.sunken.dried ? Wk.wetSocket : Wk.socket, pl.x - 8, pl.y - 9); sheetTile(c, Wk.block, pl.x - 8, pl.y - 12, pl.f, 0); } }
   for (const rn of A.runes || []) {
     sheetTile(c, rn.on ? rn.lit : rn.tile, rn.x - 8, rn.y - 8);
     if (rn.on) light(rn.x, rn.y, 46 + 4 * Math.sin(G.time * 3 + rn.x), 'gold', 0.55);
