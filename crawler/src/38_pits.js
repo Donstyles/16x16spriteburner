@@ -276,12 +276,14 @@ function pitsTick(dt) {
     if (u.dead || u.fly || u.under || u.enter || (u.z || 0) > 2) continue;
     if (u.rise > 0) u.rise -= dt;
     if (A.pitN && pitAt(u.x, u.y)) { startFall(u); continue; } // (the floor gave way under it)
-    if (u.team !== 'hero' || !A.pitN) continue;
-    // where he would climb back out: the last place he stood clear of every pit (and of every cracked slab)
-    const i = footTile(u.x, u.y), clear = FLOOR(A.fl[i]) && ![i - 1, i, i + 1].some(j => [j - A.w, j, j + A.w].some(k => A.fl[k] === PIT || A.crumbles.some(c => c.i === k && c.st < 2)));
+    if (u.team !== 'hero') continue;
+    // where he would climb back out: the last place he stood clear of every pit (and of every cracked slab), kept on every
+    // floor (one whose only pits are hidden under loose slabs has none open until one gives way: he climbed out at the
+    // floor's start)
+    const i = footTile(u.x, u.y), clear = FLOOR(A.fl[i]) && ![i - 1, i, i + 1].some(j => [j - A.w, j, j + A.w].some(k => A.fl[k] === PIT || (A.crumbleSet && A.crumbleSet.has(k) && A.crumbles.some(c => c.i === k && c.st < 2))));
     if (clear) u.safe = { x: u.x, y: u.y };
     // pressing at an edge: stones crumble off it
-    const sp = Math.hypot(u.vx, u.vy); if (sp > 12) { const px = u.x + u.vx / sp * 7, py = u.y + u.vy / sp * 5; if (pitAt(px, py) && chance(dt * 5)) { pebbles(px, py, 2); if (chance(0.5)) SFX.tick(panOf(px)); } }
+    const sp = Math.hypot(u.vx, u.vy); if (A.pitN && sp > 12) { const px = u.x + u.vx / sp * 7, py = u.y + u.vy / sp * 5; if (pitAt(px, py) && chance(dt * 5)) { pebbles(px, py, 2); if (chance(0.5)) SFX.tick(panOf(px)); } }
   }
   for (const p of A.peb) { p.t += dt; p.vy += 260 * dt; p.y += p.vy * dt; } removeIf(A.peb, p => p.t >= p.life);
   for (const f of A.fallers) f.t += dt; removeIf(A.fallers, f => f.t >= 0.8);
