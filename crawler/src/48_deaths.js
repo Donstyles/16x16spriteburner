@@ -110,7 +110,7 @@ function acidFizz(c, u, m, fr, bare, Wc, foot, dx) {
 // lies there is his skeleton. He is never taken out of the picture: he lies under them, and turns to bones only in a
 // frame where the heap in front of him hides every pixel of him and every pixel of the bones (verminCover).
 const VERM = { lie: 0.35, hide: 1.5, back: 6.4, bulk: 2.4 }, VERMIN_RE = /Rat$|Beetle|Bedbug|Tick$|Maggot|Ant$|Cockroach|Scarab/;
-const isVermin = f => !f.dead && !f.dying && !f.fall && (f.type === 'skitter' || (VERMIN_RE.test(f.spr) && !/^Ratkin/.test(f.spr)));
+const isVermin = f => !f.dead && !f.dying && !f.fall && !FLYERS.has(f.spr) && (f.type === 'skitter' || (VERMIN_RE.test(f.spr) && !/^Ratkin/.test(f.spr))); // (nothing that flies: the bone legion's bats are its skitters, and are the bats' death)
 function verminAround(h) { return G.foes.filter(f => isVermin(f) && dist(f.x, f.y, h.x, h.y) < 110).sort((a, b) => dist(a.x, a.y, h.x, h.y) - dist(b.x, b.y, h.x, h.y)).slice(0, 8); }
 // enough of them to bury him: three or more, and between them a good deal more body than he has (three rats will do,
 // three ticks will not)
