@@ -134,7 +134,7 @@ function moveActor(u, dt) {
   const gk = u.gaitK === undefined ? 1 : u.gaitK; // a gait's pace (56_gaits): the stumbler's lurch, the crawler's bursts
   if (u.fall) return; // (going down a pit: 38_pits)
   // (a hard knock carries over a pit's edge: while it lasts, a pit does not push back, and once the middle is over it, down it goes)
-  const bk = basinBrake(u, dt); PITPASS = pitKnock(u); tileCollide(u); slideMove(u, (u.vx * gk + u.kx) * dt * bk, (u.vy * gk + u.ky) * dt * bk); const f = Math.exp(-7 * dt); u.kx *= f; u.ky *= f; // (any small push since last frame settled first)
+  const bk = basinBrake(u, dt); PITPASS = pitKnock(u) || (u.team === 'hero' && !!u.penned); /* (penned in by pits: he may step off: 38_pits) */ tileCollide(u); slideMove(u, (u.vx * gk + u.kx) * dt * bk, (u.vy * gk + u.ky) * dt * bk); const f = Math.exp(-7 * dt); u.kx *= f; u.ky *= f; // (any small push since last frame settled first)
   if (u.team === 'foe' && ARENA.shop && inShop(ARENA, u.x, u.y) && !inShop(ARENA, u.gx, u.gy)) { u.x = u.gx; u.y = u.gy; } // (no foe comes into the shop: 39_shop)
   if (!u.fly && !u.under && (u.z || 0) <= 2 && pitAt(u.x, u.y)) { PITPASS = false; startFall(u); return; }
   if (!u.fly && (u.z > 0 || u.vz > 0)) { u.vz -= 560 * dt; u.z += u.vz * dt; if (u.z <= 0) { u.z = 0; u.vz = 0; } }

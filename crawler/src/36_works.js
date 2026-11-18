@@ -258,7 +258,7 @@ function spikeHalls(A) {
   for (const hl of A.halls) {
     const H = hl.dir === 'h', len = H ? hl.x1 - hl.x0 : hl.y1 - hl.y0; if (len < 7 || hl.A.kind === 'shop' || hl.B.kind === 'shop' || !chance(0.35)) continue;
     const D = Math.min(randi(4, 6), len - 3), ph = rand(0, SPIKE_T), m0 = Math.round(((H ? hl.x0 + hl.x1 : hl.y0 + hl.y1) - D + 1) / 2), fc = (m0 + D / 2) * TS;
-    for (let j = 0; j < D; j++) for (let k = 0; k < 3; k++) { const tx = H ? m0 + j : hl.x0 + k, ty = H ? hl.y0 + k : m0 + j; A.spikes.push({ tx, ty, x: tx * TS + 8, y: ty * TS + 8, tile: spikeLook(W), ph, hit: new Set(), was: 0, ax: H ? 'x' : 'y', fc }); }
+    for (let j = 0; j < D; j++) for (let k = 0; k < 6; k++) { const tx = H ? m0 + j : hl.x0 + k, ty = H ? hl.y0 + k : m0 + j; if (k >= 3 && !FLOOR(A.fl[ty * A.w + tx]) && !openAt(tx * TS + 8, ty * TS + 8)) break; /* (wall to wall: an east-west hall walks four wide, its south wall's row too, and a fourth lane left free was a way past) */ A.spikes.push({ tx, ty, x: tx * TS + 8, y: ty * TS + 8, tile: spikeLook(W), ph, hit: new Set(), was: 0, ax: H ? 'x' : 'y', fc }); }
   }
 }
 

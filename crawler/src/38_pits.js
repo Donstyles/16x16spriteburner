@@ -77,6 +77,8 @@ function pitReach(A, r, gone) {
   let all = 0; for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) if (open(y * W + x)) all++;
   return { linked, seen, all };
 }
+// every floor tile of the room still reached from its doors, with these tiles gone (none at all cut off)
+function noIsland(A, r, R, gone) { for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) { const i = y * A.w + x; if (FLOOR(A.fl[i]) && !gone.has(i) && !R.seen.has(i)) return false; } return true; }
 // holes here and there, never against a wall, and cracked slabs round some of them
 function pitHoles(A, r) {
   const keep = doorLanding(A, r), gone = new Set(), n = randi(2, 4), W = A.w; let made = 0;
@@ -85,13 +87,13 @@ function pitHoles(A, r) {
     let cells = []; for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) cells.push(y * W + x);
     if (w * h > 4 && chance(0.6)) { const c = pick([0, w - 1, (h - 1) * w, h * w - 1]); cells = cells.filter((_, k) => k !== c); } // a corner bitten off: an odd shape
     if (cells.some(i => keep.has(i) || gone.has(i) || !FLOOR(A.fl[i]) || [i - 1, i + 1, i - W, i + W, i - W - 1, i - W + 1, i + W - 1, i + W + 1].some(j => gone.has(j)))) continue; // (holes apart)
-    cells.forEach(i => gone.add(i)); const R = pitReach(A, r, gone); if (!R || !R.linked || R.seen.size < R.all * 0.95) { cells.forEach(i => gone.delete(i)); continue; } made++;
+    cells.forEach(i => gone.add(i)); const R = pitReach(A, r, gone); if (!R || !R.linked || !noIsland(A, r, R, gone)) { cells.forEach(i => gone.delete(i)); continue; } made++;
   }
   if (made < 2) return null;
   // the cracked slabs: on the edge of a hole, and even if they all give way the doors stay joined
   const crack = []; for (const i of pitShuffle([...gone])) for (const j of pitShuffle([i - 1, i + 1, i - W, i + W])) {
     if (crack.length >= randi(3, 5) || gone.has(j) || keep.has(j) || crack.includes(j) || !FLOOR(A.fl[j])) continue; const x = j % W, y = (j / W) | 0; if (x < r.ix0 || x > r.ix1 || y < r.iy0 || y > r.iy1) continue;
-    const all = new Set([...gone, ...crack, j]), R = pitReach(A, r, all); if (R && R.linked && R.seen.size >= R.all * 0.95) crack.push(j);
+    const all = new Set([...gone, ...crack, j]), R = pitReach(A, r, all); if (R && R.linked && noIsland(A, r, R, all)) crack.push(j); // (even if they all give way, no floor is cut off: a slab that was the last way to a tile left whoever stood there on an island)
   }
   return { cells: gone, crack };
 }
@@ -242,7 +244,7 @@ function endFall(u) {
   if (u.hp - dmg <= 0 && !(TEST.on && TEST.god)) { // a fall he cannot pay for: he is gone
     Object.assign(u, { dead: true, hp: 0, act: null, stun: 0, deadT: 0, gone: true, dropped: true, death: { kind: 'fall', x: F.x, y: F.y } }); return; // (the long fall: silence, then the impact far below, 48_deaths)
   }
-  const s = u.safe || ARENA.spawn; u.hp = Math.max(1, u.hp - dmg); u.x = s.x; u.y = s.y; u.z = 0; u.vx = u.vy = u.kx = u.ky = 0; u.iframe = 1; u.rise = 1; u.path = null;
+  let s = u.safe || ARENA.spawn; if (penned(ARENA, s)) s = doorLandingNear(ARENA, s) || ARENA.spawn; u.penned = false; /* (never back onto floor cut off from the doors: inside the nearest door) */ u.hp = Math.max(1, u.hp - dmg); u.x = s.x; u.y = s.y; u.z = 0; u.vx = u.vy = u.kx = u.ky = 0; u.iframe = 1; u.rise = 1; u.path = null;
   number(u.x, u.y, headZ(u) + 1, dmg, 'red', false, u); G.hurtFlash = 0.35; shake(0.2); smoke(u.x, u.y, 4, 'dust', 8, 14, 0.8); SFX.stone(panOf(u.x), false);
 }
 // a few stones and crumbs off the edge, down into the dark
@@ -255,6 +257,34 @@ function crackSlabs(x0, y0, x1, y1) {
   for (let k = 0; k <= n; k++) { const x = x0 + (x1 - x0) * k / n, y = y0 + (y1 - y0) * k / n, i = Math.floor(y / TS) * A.w + Math.floor(x / TS); if (!A.crumbleSet.has(i)) continue; const c = A.crumbles.find(c => c.i === i); if (c && c.st === 0) { c.st = 1; c.t = 0; SFX.crumble(panOf(x), 0); } }
 }
 function pitKnock(u) { return !u.fly && !u.under && Math.hypot(u.kx, u.ky) > PIT_KNOCK; }
+// Penned in: the floor he stands on joined to no door of his room (pits all round, loose slabs fallen). No layout should
+// ever do it (38_pits pitHoles noIsland), but should one, he is never stuck for good: he may step off the edge, and the
+// fall puts him back where he last stood clear (50_actors lets him over the edge).
+function doorLandingNear(A, p) { const r = roomAt(p.x, p.y); if (!r) return null; let best = null, bd = 1e9; for (const d of r.doors) { const [x, y] = d.cells[1], [dx, dy] = d.side === 'N' ? [0, 1] : d.side === 'S' ? [0, -1] : d.side === 'W' ? [1, 0] : [-1, 0], q = { x: (x + dx * 2) * TS + 8, y: (y + dy * 2) * TS + 8 }, dd = dist(q.x, q.y, p.x, p.y); if (dd < bd && FLOOR(A.fl[Math.floor(q.y / TS) * A.w + Math.floor(q.x / TS)])) { bd = dd; best = q; } } return best; }
+// Unsupported floor gives way on its own: when a slab drops, any floor next to it that is no longer joined to its room's
+// doors (a slab with nothing but pit north, south, east and west, held only at its corners, or a patch of a few cut off
+// together) cracks and falls a moment later, whoever is on it going down with it. So no one is ever left marooned.
+function unsupported(A, c) {
+  const r = A.rooms[c.room] || roomAt(c.x * TS + 8, c.y * TS + 8); if (!r) return;
+  const doors = new Set(r.doors.flatMap(d => d.cells.map(([x, y]) => y * A.w + x))), inside = i => { const x = i % A.w, y = (i / A.w) | 0; return x >= r.ix0 && x <= r.ix1 && y >= r.iy0 && y <= r.iy1; };
+  for (const s of [c.i - 1, c.i + 1, c.i - A.w, c.i + A.w]) {
+    if (!inside(s) || !FLOOR(A.fl[s]) || A.crumbles.some(q => q.i === s && q.st > 0)) continue;
+    const seen = new Set([s]), q = [s]; let held = false;
+    while (q.length && !held) { const i = q.pop(); if (doors.has(i) || seen.size > 120) { held = true; break; } for (const j of [i - 1, i + 1, i - A.w, i + A.w]) if (!seen.has(j) && FLOOR(A.fl[j]) && (inside(j) || doors.has(j))) { seen.add(j); q.push(j); } }
+    if (held) continue;
+    for (const i of seen) { // cracks, shakes, and goes, one slab a beat after another
+      let q = A.crumbles.find(k => k.i === i); const x = i % A.w, y = (i / A.w) | 0;
+      if (!q) { const cv = mkCanvas(TS, TS), k = groundChunks(A).find(k => x * TS >= k.x && x * TS < k.x + k.w && y * TS >= k.y && y * TS < k.y + k.h); if (k) cv.getContext('2d').drawImage(k.cv, x * TS - k.x, y * TS - k.y, TS, TS, 0, 0, TS, TS); q = { i, x, y, cv, st: 0, t: 0, ph: rand(TAU), room: c.room, tell: 0.3 }; A.crumbles.push(q); A.crumbleSet.add(i); }
+      if (q.st === 0) { q.st = 1; q.t = -rand(0.15, 0.45); SFX.crumble(panOf(x * TS + 8), 0); }
+    }
+  }
+}
+function penned(A, u) {
+  if (!A.pitN) return false; const r = roomAt(u.x, u.y), s = footTile(u.x, u.y); if (!r || !FLOOR(A.fl[s])) return false;
+  const doors = new Set(r.doors.flatMap(d => d.cells.map(([x, y]) => y * A.w + x))), seen = new Set([s]), q = [s];
+  while (q.length) { const i = q.pop(); if (doors.has(i) || seen.size > 80) return false; for (const j of [i - 1, i + 1, i - A.w, i + A.w]) if (!seen.has(j) && FLOOR(A.fl[j])) { seen.add(j); q.push(j); } }
+  return true;
+}
 function pitsTick(dt) {
   const A = ARENA; if (!A || !A.fl) return; if (!A.peb) Object.assign(A, { peb: [], fallers: [], crumbles: A.crumbles || [], pitN: A.pitN || 0 });
   // cracked slabs: still until a hero first comes into their room; then a foot on one sets it shaking, and a moment later
@@ -269,6 +299,7 @@ function pitsTick(dt) {
     if (c.t < CRUMBLE_T) continue; const on = G.units.filter(u => onSlab(u, c.i)); c.st = 2; A.fl[c.i] = PIT; A.pitN++; A.flv = (A.flv || 0) + 1;
     for (const u of on) if (!pitAt(u.x, u.y)) startFall(u); // (one standing behind the wall over it)
     for (const k of groundChunks(A)) { pitPaint(A, k.g, c.i); if (A.fl[c.i + A.w] === PIT) pitPaint(A, k.g, c.i + A.w); }
+    unsupported(A, c); // (what that leaves standing on nothing goes too)
     A.fallers.push({ cv: c.cv, x: c.x * TS, y: c.y * TS, t: 0 }); pebbles(c.x * TS + 8, c.y * TS + 8, 10); smoke(c.x * TS + 8, c.y * TS + 8, 4, 'dust', 8, 16, 0.9); SFX.crumble(panOf(c.x * TS + 8), 1); if (G.me && dist(G.me.x, G.me.y, c.x * TS, c.y * TS) < 160) shake(0.12);
   }
   for (const u of G.units) {
@@ -282,6 +313,7 @@ function pitsTick(dt) {
     // floor's start)
     const i = footTile(u.x, u.y), clear = FLOOR(A.fl[i]) && ![i - 1, i, i + 1].some(j => [j - A.w, j, j + A.w].some(k => A.fl[k] === PIT || (A.crumbleSet && A.crumbleSet.has(k) && A.crumbles.some(c => c.i === k && c.st < 2))));
     if (clear) u.safe = { x: u.x, y: u.y };
+    if ((u.penT = (u.penT || 0) - dt) <= 0) { u.penT = 0.5; const was = u.penned; u.penned = penned(A, u); if (u.penned && !was) textPop(u.x, u.y, headZ(u) + 6, 'NO WAY OUT · STEP OFF', 'red', false); }
     // pressing at an edge: stones crumble off it
     const sp = Math.hypot(u.vx, u.vy); if (A.pitN && sp > 12) { const px = u.x + u.vx / sp * 7, py = u.y + u.vy / sp * 5; if (pitAt(px, py) && chance(dt * 5)) { pebbles(px, py, 2); if (chance(0.5)) SFX.tick(panOf(px)); } }
   }
