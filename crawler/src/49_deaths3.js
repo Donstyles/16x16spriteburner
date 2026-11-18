@@ -3,19 +3,20 @@
 // name and camera; 49_deaths2: the scripted creatures, f.script, and the lamp left where he fell.)
 
 // ---- looted. Dying with goblins about (two or more), he goes down and they crowd round him, rummaging; his things are
-// flung out of him one after another (his weapon, his armours, the floor's map, a flask, his gold in a burst of coins),
-// and each goblin grabs one, in that order, and makes off with it into the dark, slung on its back. What no
-// goblin takes stays on the floor.
+// flung out of him one after another, only what he has on him (his weapon, the armour still on him, the floor's map if
+// he found it, each of his flasks, his gold in a burst of coins), and each goblin grabs one, in that order, and makes off
+// with it into the dark, slung on its back; the goblins left with nothing go off empty-handed. What no goblin takes stays
+// on the floor.
 const LOOT = { lie: 0.5, strip: 1.6, gap: 0.5 }, GOBLIN_RE = /^Goblin(?!WolfRider)/;
 function goblinsAround(h) { return G.foes.filter(f => !f.dead && !f.dying && !f.fall && !f.feed && !f.script && GOBLIN_RE.test(f.spr) && dist(f.x, f.y, h.x, h.y) < 150).sort((a, b) => dist(a.x, a.y, h.x, h.y) - dist(b.x, b.y, h.x, h.y)).slice(0, 6); }
 function lootOf(h) { // (what he has on him, in the order they go)
-  const L = []; if (WEAPON[h.spr] && !h.dropped) L.push('weapon'); if (h.hadMail) L.push('chainmail'); if (h.hadGamb) L.push('gambeson');
-  if ((ARENA && ARENA.mapRead) || TEST.lootMap) L.push('map'); if (h.flasks > 0) L.push('flask'); if (G.gold > 0) L.push('gold'); return L;
+  const L = []; if (WEAPON[h.spr] && !h.dropped) L.push('weapon'); if (h.mail > 0) L.push('chainmail'); if (h.gamb > 0) L.push('gambeson');
+  if (ARENA && ARENA.mapRead) L.push('map'); for (let i = 0; i < (h.flasks || 0); i++) L.push('flask'); if (G.gold > 0) L.push('gold'); return L;
 }
 function lootedPose(t, D) { return { lie: t > LOOT.lie, dip: t > 0.1 && t <= LOOT.lie ? 2 : 0, jit: D && D.jolt > 0 ? (((G.time * 40) | 0) % 2 ? 1 : -1) : 0 }; }
 function lootedStart(h) {
   const D = h.death; D.L = lootOf(h); D.items = []; D.next = 0; h.lampAt = { x: h.x, y: h.y };
-  D.V = goblinsAround(h).slice(0, Math.max(2, D.L.length)); D.V.forEach((f, i) => { const a = i / D.V.length * TAU + rand(-0.3, 0.3); f.script = { h, tick: lootFoe, ox: Math.round(Math.cos(a) * 9), oy: Math.round(Math.sin(a) * 4) + 1, item: null }; f.act = null; });
+  D.V = goblinsAround(h); D.V.forEach((f, i) => { const a = i / D.V.length * TAU + rand(-0.3, 0.3); f.script = { h, tick: lootFoe, ox: Math.round(Math.cos(a) * 9), oy: Math.round(Math.sin(a) * 4) + 1, item: null }; f.act = null; });
 }
 function lootFling(h, k) { // one of his things, flung out of him
   const D = h.death, a = rand(TAU), v = rand(40, 70), pan = panOf(h.x);
@@ -28,6 +29,7 @@ function lootedTick(h, dt) {
   const near = D.V.filter(f => f.script && !f.script.item && f.script.at).length;
   if (t > LOOT.strip && D.next < D.L.length && t > LOOT.strip + D.next * LOOT.gap) { lootFling(h, D.L[D.next]); D.next++; D.jolt = 0.15; }
   for (const it of D.items) if (!it.by) { const f = D.V.find(q => !q.dead && q.script && !q.script.item && q.script.at); if (f) { it.by = f; f.script.item = it; } } // (the next goblin free takes the next thing)
+  if (D.next >= D.L.length && t > LOOT.strip + D.L.length * LOOT.gap + 0.9) for (const f of D.V) { const S = f.script; if (f.dead || !S || S.item) continue; S.item = { k: 'none' }; S.got = true; lootAway(f, h, angTo(h.lampAt.x, h.lampAt.y, f.x, f.y)); } // (nothing left on him: the rest go off empty-handed)
   if (near && t < LOOT.strip + D.L.length * LOOT.gap + 1) { if (chance(dt * 8)) SFX.tick(pan); if (chance(dt * 3)) SFX.squelch(pan, false); } // rummaging
 }
 function lootFoe(f, dt) {
@@ -105,7 +107,14 @@ function ragdollTick(h, dt) {
 // let go and drop off him, bloated, and drag themselves slowly away, and he slumps over.
 const TICKS = { kneel: 0.2, drop: 6.2, slump: 6.6 }, TICK_RE = /Tick$/;
 function ticksAround(h) { return G.foes.filter(f => !f.dead && !f.dying && !f.fall && !f.feed && !f.script && TICK_RE.test(f.spr) && dist(f.x, f.y, h.x, h.y) < 140).sort((a, b) => dist(a.x, a.y, h.x, h.y) - dist(b.x, b.y, h.x, h.y)).slice(0, 6); }
-function ticksPose(t) { return { lie: t > TICKS.slump, dip: t > TICKS.kneel && t <= TICKS.slump ? 2 : 0, jit: t > 1 && t < TICKS.drop && ((G.time * 17) | 0) % 9 === 0 ? 1 : 0 }; }
+// his struggle while they drink: bursts of it, about one a second, each a few rapid lurches side to side and up off his
+// knees, wilder at first and weaker and shorter as he pales; the ticks latched on him go with him (tickFoe)
+function ticksStrug(t) {
+  const dip = t > TICKS.kneel && t <= TICKS.slump ? 2 : 0; if (t < 1 || t >= TICKS.drop) return { x: 0, dip, on: false };
+  const s = clamp(1 - (t - 1) / 5.2, 0.2, 1), on = (t * 1.15) % 1 < 0.12 + 0.3 * s; if (!on) return { x: 0, dip, on };
+  const n = (t * 13) | 0; return { x: (n % 2 ? 1 : -1) * (s > 0.6 && n % 4 < 2 ? 2 : 1), dip: n % 3 === 0 ? 1 : 2, on };
+}
+function ticksPose(t) { const S = ticksStrug(t); return { lie: t > TICKS.slump, dip: S.dip, jit: S.x }; }
 function ticksStart(h) {
   const D = h.death, P = spritePixels(h.spr), top = P.top - P.foot - 1, V = ticksAround(h).slice(0, 4); D.V = V; dropWeapon(h, 0.9);
   // where each one latches: down him (0 his head, 1 his feet), which side, in front of him or behind; on his outline,
@@ -119,7 +128,7 @@ function ticksStart(h) {
 }
 function tickFoe(f, dt) {
   const S = f.script, h = S.h, D = h.death, t = h.deadT || 0; if (!h.dead || !D || D.kind !== 'ticks') { f.script = null; f.engorge = 0; return; }
-  const fs = h.face < 0 ? -1 : 1, kneel = t > TICKS.kneel ? 2 : 0, tx = h.x + S.dx * fs, ty = h.y + S.oy, lz = Math.max(0, S.lz - (S.lz > 2 ? kneel : 0));
+  const fs = h.face < 0 ? -1 : 1, st = ticksStrug(t), tx = h.x + S.dx * fs + st.x, ty = h.y + S.oy, lz = Math.max(0, S.lz - (S.lz > 2 ? st.dip : 0)); // (with him as he struggles)
   if (t >= TICKS.drop) { // full: it lets go, drops, and drags itself away, slow with its load
     if (!S.off) { S.off = true; S.vz = 0; SFX.squelch(panOf(f.x), false); const a = angTo(h.x, h.y, f.x, f.y) + rand(-0.6, 0.6); S.away = { x: f.x + Math.cos(a) * 60, y: f.y + Math.sin(a) * 40 }; }
     if (f.lift > 0) { S.vz -= 400 * dt; S.fl = Math.max(0, (S.fl === undefined ? f.lift : S.fl) + S.vz * dt); f.lift = Math.round(S.fl); if (!f.lift) { SFX.squelch(panOf(f.x), false); if (bleeds(h)) pool(f.x, f.y, 'red', 0.5); } return; }
@@ -134,6 +143,7 @@ function ticksTick(h, dt) {
   const D = h.death, t = h.deadT, p = t - dt, pan = panOf(h.x), latched = D.V.filter(f => f.engorge > 0).length;
   h.pale = t < 1.6 ? 0 : t < 3 ? 1 : t < 4.6 ? 2 : 3; // (paling, step by step)
   if (latched && t < TICKS.drop) { if (chance(dt * 4)) SFX.squelch(pan, false); if (chance(dt * 2)) SFX.tick(pan); }
+  if (ticksStrug(t).on && !ticksStrug(p).on) SFX.stride(pan, 0, false); // (his feet scraping as he struggles)
   const beat = 0.75 + t * 0.12; if (t < TICKS.drop + 1 && (D.hb = (D.hb || 0) - dt) <= 0) { D.hb = beat; SFX.heart(Math.max(0.15, 0.6 - t * 0.07)); } // (his heart, slowing)
   if (p < TICKS.slump && t >= TICKS.slump) { SFX.boom(0.15, pan); smoke(h.x, h.y, 2, 'dust', 6, 12, 0.6); }
 }

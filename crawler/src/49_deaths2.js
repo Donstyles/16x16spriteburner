@@ -30,11 +30,11 @@ function moreCam(h, D, t) {
   return { x: h.x, y: h.y - 9, z: 1.3 + 0.6 * ease((t - 0.3) / 2.7), r: 1.8 }; // in on him as it takes hold
 }
 
-// ---- dragged into the dark. Dying with a carcass feeder or a ghoul about, he goes down; they go round to his feet and
+// ---- dragged into the dark. Dying with a carcass feeder about, he goes down; they go round to his feet and
 // take him by the ankles and haul him off, backwards, in heaves, feet first, into the dark, his blood smeared along the
 // floor behind him, his lamp left burning where he fell. Out of its light, the sounds of it: tearing, crunching, chewing.
 // Then something comes rolling back into the light: his skull.
-const DRAGGERS = /CarcassFeeder|SandGhoul|MutilatedStumbler|GraveRevenant/, DRAG = { lie: 0.5, pull: 1.9, far: 96 };
+const DRAGGERS = /CarcassFeeder/, DRAG = { lie: 0.5, pull: 1.9, far: 96, fed: 9.4, skull: 10.3 }; // (fed: the sounds of it stop; skull: a beat of quiet, then it comes back, near the end)
 function draggersAround(h) { return G.foes.filter(f => !f.dead && !f.dying && !f.fall && !f.feed && !f.script && DRAGGERS.test(f.spr) && dist(f.x, f.y, h.x, h.y) < 140).sort((a, b) => dist(a.x, a.y, h.x, h.y) - dist(b.x, b.y, h.x, h.y)).slice(0, 2); }
 function dragPose(t) { return { lie: t > DRAG.lie, dip: t > 0.1 && t <= DRAG.lie ? 2 : 0, jit: 0 }; }
 function dragStart(h) {
@@ -62,9 +62,11 @@ function dragTick(h, dt) {
   if (!D.gone && t > 7.5) D.gone = t; // (whatever happens, they have him in the dark by now)
   if (!D.gone) return;
   if (h.vanishT === undefined && darkFade(h) > 0) { h.vanishT = G.time; for (const f of D.V || []) if (f.vanishT === undefined) f.vanishT = G.time; } // (stopped short of the dark by a wall: the shadows take him there, them with him, before anything comes back)
-  if (chance(dt * 6)) SFX.squelch(pan, chance(0.3)); if (chance(dt * 2.5)) SFX.bone(pan, chance(0.4)); if (chance(dt * 4)) SFX.tick(pan); // the sounds of it, out of the dark
-  if (bleeds(h) && chance(dt * 3)) for (let j = 0; j < 3; j++) part({ k: 'gore', x: h.x + rand(-4, 4), y: h.y, z: rand(1, 4), vx: rand(-30, 30), vy: rand(-15, 15), vz: rand(20, 60), g: 420, life: 5, s0: 1, col: pick(BLOOD.red), kind: 'red' });
-  if (!D.tossed && t > D.gone + 1.4) { // and something comes rolling back into the light
+  if (t < DRAG.fed) { // the sounds of it, out of the dark, until they are done
+    if (chance(dt * 6)) SFX.squelch(pan, chance(0.3)); if (chance(dt * 2.5)) SFX.bone(pan, chance(0.4)); if (chance(dt * 4)) SFX.tick(pan);
+    if (bleeds(h) && chance(dt * 3)) for (let j = 0; j < 3; j++) part({ k: 'gore', x: h.x + rand(-4, 4), y: h.y, z: rand(1, 4), vx: rand(-30, 30), vy: rand(-15, 15), vz: rand(20, 60), g: 420, life: 5, s0: 1, col: pick(BLOOD.red), kind: 'red' });
+  } else if (t - dt < DRAG.fed) { SFX.bone(pan, true); SFX.squelch(pan, true); } // (a last crunch, then quiet)
+  if (!D.tossed && t > Math.max(DRAG.skull, D.gone + 1.4)) { // and then, at last, something comes rolling back into the light
     D.tossed = true; const a = angTo(h.x, h.y, L.x, L.y), d = dist(h.x, h.y, L.x, L.y); tossBit('skull', h.x, h.y, { tick: true, upright: true, z: 6, up: 55, lie: 99 });
     const r = FX.rocks[FX.rocks.length - 1], v = Math.max(50, (d - 8) / 0.42); r.vx = Math.cos(a) * v; r.vy = Math.sin(a) * v * 0.75; r.bleed = bleeds(h) ? 'red' : null; SFX.toss(pan);
   }

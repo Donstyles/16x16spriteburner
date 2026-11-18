@@ -365,7 +365,7 @@ const ITEM = { fish: [0, 0, 12, 10], flask: [16, 0, 6, 11], map: [64, 0, 14, 15,
 // whole one on him again.
 const GAMBESON = { max: 40 };
 function putOnGambeson(h) {
-  h.gamb = GAMBESON.max; h.gambT0 = G.time; h.gambLost = []; h.hadGamb = true; /* (hadGamb: he wore one, for the goblins: 49_deaths3) */ SFX.chest(panOf(h.x)); textPop(h.x, h.y, headZ(h) + 2, 'GAMBESON', 'gold', false);
+  h.gamb = GAMBESON.max; h.gambT0 = G.time; h.gambLost = []; SFX.chest(panOf(h.x)); textPop(h.x, h.y, headZ(h) + 2, 'GAMBESON', 'gold', false);
   pushBanner({ a: 'Gambeson', b: 'QUILTED ARMOUR · TAKES THE FIRST ' + GAMBESON.max + ' DAMAGE', col: 'gold', small: true, life: 2.6 });
   for (let i = 0; i < 12; i++) part({ k: 'glow', x: h.x + rand(-7, 7), y: h.y + rand(-3, 3), z: rand(2, 14), vz: rand(20, 50), drag: 1, life: rand(0.5, 1), s0: rand(1.5, 3), s1: 0, col: 'gold' });
 }
@@ -378,14 +378,12 @@ function gambesonTakes(h, d, o = {}) {
   return d - a;
 }
 // what a blow on the gambeson spills instead of blood, in about the scarecrow's measure, so it is plain what is
-// happening, but cloth, not straw: strips of its linen, heavy, flung out the way the blow went, tumbling end over end
-// and dropping to lie on the floor (46_bits strip), and feathers from its padding, light, drifting down after them
-// (46_bits feather); the thwack of the blow into the padding and the linen tearing
+// happening, but cloth, not straw: patches hacked out of its quilting, heavy, a diamond each, flung a little way the way
+// the blow went, turning over, dropping and lying where they land (46_bits patch); the blow's meat, muffled by the padding
 function clothSpill(h, a, o) {
   const S = SPRAY[o.style] || SPRAY.bite, k = clamp(a / 10, 0.7, 3.5), a0 = o.ang !== undefined ? o.ang : o.kx || o.ky ? Math.atan2(o.ky || 0, o.kx || 0) : rand(TAU);
   const way = () => a0 + (o.sweep || 1) * S.bias + rand(-S.spread, S.spread) * 1.3, z0 = (h.z || 0) + 6;
-  for (let i = 0, n = Math.min(36, Math.round(9 * k)); i < n; i++) { const t = way(), v = rand(S.v[0], S.v[1]) * 1.05; strip(h.x + rand(-2, 2), h.y + rand(-1, 1), z0 + rand(-3, 4), Math.cos(t) * v, Math.sin(t) * v * 0.8, rand(S.up[0], S.up[1]) + 25, o.slow); }
-  for (let i = 0, n = Math.min(20, Math.round(4 * k)); i < n; i++) { const t = way() + rand(-0.7, 0.7), v = rand(S.v[0], S.v[1]) * 0.45; feather(h.x + rand(-2, 2), h.y + rand(-1, 1), z0 + rand(0, 6), Math.cos(t) * v, Math.sin(t) * v * 0.8, rand(40, 90), o.slow); }
+  for (let i = 0, n = Math.min(11, Math.round(3 * k)); i < n; i++) { const t = way(), v = rand(S.v[0], S.v[1]) * 0.7; patch(h.x + rand(-2, 2), h.y + rand(-1, 1), z0 + rand(-3, 3), Math.cos(t) * v, Math.sin(t) * v * 0.8, rand(S.up[0], S.up[1]) * 0.6 + 30, a >= 25 && chance(0.4) ? 4 : 3, o.slow); }
   SFX.rip(panOf(h.x), a >= 25);
 }
 // The chainmail (armours, its icon the gambeson's own repainted in steel rings): rings of iron, worn over the gambeson
@@ -394,7 +392,7 @@ function clothSpill(h, a, o) {
 // bounce and clink across the floor (46_bits mailRing); when the last of it goes, a burst of them and MAIL BROKEN.
 const MAIL = { max: 60 }, STEEL = ['#e6ebef', '#c9d0d7', '#9aa2ad', '#7e8792', '#5a616c'];
 function putOnMail(h) {
-  h.mail = MAIL.max; h.mailT0 = G.time; h.mailLost = []; h.hadMail = true; SFX.mailOn(panOf(h.x)); textPop(h.x, h.y, headZ(h) + 2, 'CHAINMAIL', 'mail', false);
+  h.mail = MAIL.max; h.mailT0 = G.time; h.mailLost = []; SFX.mailOn(panOf(h.x)); textPop(h.x, h.y, headZ(h) + 2, 'CHAINMAIL', 'mail', false);
   pushBanner({ a: 'Chainmail', b: 'RINGS OF IRON · TAKES THE FIRST ' + MAIL.max + ' DAMAGE' + (h.gamb > 0 ? ' · OVER YOUR GAMBESON' : ''), col: 'gold', small: true, life: 2.6 }); // (worn alone, or over the gambeson)
   for (let i = 0; i < 12; i++) part({ k: 'glow', x: h.x + rand(-7, 7), y: h.y + rand(-3, 3), z: rand(2, 14), vz: rand(20, 50), drag: 1, life: rand(0.5, 1), s0: rand(1.5, 3), s1: 0, col: 'white' });
 }

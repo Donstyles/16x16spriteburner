@@ -63,7 +63,7 @@ function cleanBlood() {
   const A = ARENA; if (!A || !A.clean) return;
   groundChunks(A).forEach((k, i) => { k.g.save(); k.g.setTransform(1, 0, 0, 1, 0, 0); k.g.globalCompositeOperation = 'copy'; k.g.drawImage(A.clean[i], 0, 0); k.g.restore(); });
   for (const p of A.pools || []) if (p.bridge && p.bridge.g) { const B = p.bridge; B.g.save(); B.g.setTransform(1, 0, 0, 1, 0, 0); B.g.clearRect(0, 0, B.w, B.h); B.g.restore(); }
-  if (BMAP.a) { BMAP.a.fill(0); BMAP.k.fill(0); } BTR.length = 0; FX.rocks.length = 0; FX.wet.length = 0; removeIf(FX.P, p => p.k === 'gore' || p.k === 'hay' || p.k === 'strip' || p.k === 'feather' || p.k === 'ring' || p.k === 'chip' || p.k === 'water' || p.k === 'pdust');
+  if (BMAP.a) { BMAP.a.fill(0); BMAP.k.fill(0); } BTR.length = 0; FX.rocks.length = 0; FX.wet.length = 0; removeIf(FX.P, p => p.k === 'gore' || p.k === 'hay' || p.k === 'patch' || p.k === 'ring' || p.k === 'chip' || p.k === 'water' || p.k === 'pdust');
   for (const h of G.heroes) { h.gore = 0; h.fpN = 0; }
   SFX.whoosh(0); const h = G.me; if (h) textPop(h.x, h.y, headZ(h) + 4, 'CLEANED', 'white', false);
 }
@@ -191,8 +191,8 @@ function testDie() {
   if (kind === 'drag') near('CarcassFeeder', 'skitter', 2, 26, 40);
   if (kind === 'bats' || kind === 'carried') near('VampireBat', 'skitter', 3, 30, 50);
   if (kind === 'raised') { const [n] = near('AdeptNecromancer', 'archer', 1, 60, 80); more = { spell: 'soul', caster: n }; }
-  let by = null; TEST.lootMap = false;
-  if (kind === 'looted') { near('GoblinFighter', 'grunt', 2, 24, 40); near('GoblinArcher', 'archer', 2, 30, 46); near('GoblinFanatic', 'flanker', 2, 30, 46); G.gold = Math.max(G.gold, 30); h.flasks = Math.max(h.flasks, 1); TEST.lootMap = true; h.hadGamb = h.hadMail = true; } // (something of everything on him, for the goblins: 49_deaths3)
+  let by = null;
+  if (kind === 'looted') { near('GoblinFighter', 'grunt', 2, 24, 40); near('GoblinArcher', 'archer', 2, 30, 46); near('GoblinFanatic', 'flanker', 2, 30, 46); } // (they take only what he has on him: 49_deaths3)
   if (kind === 'ragdoll') { [by] = near('GoblinWolfRider', 'brute', 1, 12, 16); }
   if (kind === 'ticks') { near('FamishedTick', 'skitter', 3, 24, 40); near('EngorgedTick', 'skitter', 1, 24, 40); }
   const f = by || G.foes.filter(q => !q.dead).sort((a, b) => dist(a.x, a.y, h.x, h.y) - dist(b.x, b.y, h.x, h.y))[0], src = f || { x: h.x + 20, y: h.y, team: 'foe', def: {} }, a = angTo(src.x, src.y, h.x, h.y);

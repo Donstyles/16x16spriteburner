@@ -4,7 +4,7 @@
 // (gore FULL), down a pit (38_pits), or the bleeding out, the plain one. Each kind of death plays for its own length
 // before the screen fades (deathLen: 60_run) and has its own camera (deathCam: 70_render's updateCam), and its own
 // pose (deathPose) and its own beats (deathTick), both in 45_blood.
-const DEATH_LEN = { bleed: 10, burst: 6.5, fall: 5, acid: 8, vermin: 9.5, behead: 10, drag: 11, raised: 9.5, bats: 9.5, carried: 9, looted: 9, ragdoll: 8, ticks: 10 };
+const DEATH_LEN = { bleed: 10, burst: 6.5, fall: 5, acid: 8, vermin: 9.5, behead: 10, drag: 12.5, raised: 9.5, bats: 9.5, carried: 9, looted: 9, ragdoll: 8, ticks: 10 };
 const DEATH_NAMES = { bleed: 'BLED OUT', burst: 'BLOWN APART', fall: 'THE LONG FALL', acid: 'DISSOLVED IN ACID', vermin: 'EATEN BY VERMIN', behead: 'BEHEADED', drag: 'DRAGGED INTO THE DARK', raised: 'RAISED', bats: 'DRAINED BY BATS', carried: 'CARRIED OFF', looted: 'LOOTED', ragdoll: 'SHAKEN TO PIECES', ticks: 'FED ON' };
 function deathLen() { let L = 0; for (const h of G.heroes) if (h.dead) L = Math.max(L, DEATH_LEN[(h.death && h.death.kind) || 'bleed'] || 8); return L || 7; }
 function deathKind(h, o) {
@@ -17,7 +17,7 @@ function deathKind(h, o) {
   { const s = h.lastSrc; if (s && s.spr === 'GoblinWolfRider' && !o.ranged) return 'ragdoll'; }
   if (goblinsAround(h).length >= 2) return 'looted';
   if (draggersAround(h).length) return 'drag';
-  const s = h.lastSrc; if (GORE.level === 2 && s && s.team === 'foe' && s.def && s.def.role !== 'archer' && !o.ranged && headless(h.spr) && ((h.lastD || 0) >= 18 || chance(0.25))) return 'behead'; // (a heavy blow, or a quarter of the rest, from a blade at close quarters)
+  const s = h.lastSrc; if (GORE.level === 2 && s && s.team === 'foe' && !o.ranged && headless(h.spr) && chance(1 / 3)) return 'behead'; // (any melee kill that is no other death: a third of them; the rest, and every arrow, bolt and sling stone, bleed out)
   return 'bleed';
 }
 const ease = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
@@ -110,7 +110,8 @@ function acidFizz(c, u, m, fr, bare, Wc, foot, dx) {
 // lies there is his skeleton. He is never taken out of the picture: he lies under them, and turns to bones only in a
 // frame where the heap in front of him hides every pixel of him and every pixel of the bones (verminCover).
 const VERM = { lie: 0.35, hide: 1.5, back: 6.4, bulk: 2.4 }, VERMIN_RE = /Rat$|Beetle|Bedbug|Tick$|Maggot|Ant$|Cockroach|Scarab/;
-const isVermin = f => !f.dead && !f.dying && !f.fall && !FLYERS.has(f.spr) && (f.type === 'skitter' || (VERMIN_RE.test(f.spr) && !/^Ratkin/.test(f.spr))); // (nothing that flies: the bone legion's bats are its skitters, and are the bats' death)
+const NOT_VERMIN = /^Ratkin|Wyvern|Demonling|Scamp/; // (the ratkin are folk; the pygmy wyverns and the demons' little ones do not heap him, for now)
+const isVermin = f => !f.dead && !f.dying && !f.fall && !FLYERS.has(f.spr) && !NOT_VERMIN.test(f.spr) && (f.type === 'skitter' || VERMIN_RE.test(f.spr)); // (nothing that flies: the bone legion's bats are its skitters, and are the bats' death)
 function verminAround(h) { return G.foes.filter(f => isVermin(f) && dist(f.x, f.y, h.x, h.y) < 110).sort((a, b) => dist(a.x, a.y, h.x, h.y) - dist(b.x, b.y, h.x, h.y)).slice(0, 8); }
 // enough of them to bury him: three or more, and between them a good deal more body than he has (three rats will do,
 // three ticks will not)

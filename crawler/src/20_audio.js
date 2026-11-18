@@ -136,11 +136,17 @@ const SFX = {
   // struck metal has, and gone at once): never a held tone
   clink(f, g, pan, t0) { this.noise(this.white, rand(0.012, 0.026), 'bandpass', f, f * rand(0.98, 1.02), rand(9, 15), g, pan, t0, 0.0004); },
   tink(f, g, pan, t0) { this.tone('sine', f, f * 0.995, rand(0.014, 0.028), g, pan, t0, 0.0005); this.tone('sine', f * 2.76, f * 2.74, 0.012, g * 0.45, pan, t0, 0.0005); },
+  // a blow on armour: the meat of it first, the same body blow as on him bare (hit), deader the more padding it goes
+  // through (muff: how far the thud's top is cut), then what the armour adds over it
+  armourThud(pan, big, muff) { this.noise(this.brown, big ? 0.17 : 0.13, 'lowpass', muff, 180, 0.8, big ? 0.62 : 0.52, pan); this.tone('sine', 140, 52, big ? 0.15 : 0.12, big ? 0.5 : 0.42, pan); },
+  // the mail struck: the thud, the iron taking it (a short hard chank, two partials off each other as struck metal
+  // has), then the chain rattling after it, small links jingling against each other, quick and uneven, settling
   chink(pan = 0, big = false) {
-    if (!this.ok('chink', 0.05)) return; const n = big ? 24 : 15, span = big ? 0.24 : 0.15;
-    this.noise(this.white, big ? 0.05 : 0.04, 'bandpass', 820, 620, 1.2, big ? 0.2 : 0.15, pan, 0, 0.001);
-    for (let i = 0; i < n; i++) { const u = i / n, t0 = 0.008 + Math.pow(u, 1.4) * span + rand(0, 0.006); this.clink(rand(4200, 9000), rand(0.09, 0.17) * (1 - u * 0.6), pan + rand(-0.15, 0.15), t0); } // (loud enough: a narrow band lets little through)
-    for (let i = 0; i < (big ? 4 : 2); i++) this.tink(rand(3200, 5200), rand(0.012, 0.022), pan + rand(-0.1, 0.1), rand(0.004, 0.05));
+    if (!this.ok('chink', 0.05)) return; this.armourThud(pan, big, 1000);
+    this.noise(this.white, 0.03, 'bandpass', 2300, 2100, 4, big ? 0.22 : 0.17, pan, 0.002, 0.0008);
+    this.tone('triangle', 1870, 1840, 0.07, 0.05, pan, 0.002, 0.0008); this.tone('sine', 2930, 2900, 0.05, 0.03, pan, 0.002, 0.0008);
+    const n = big ? 14 : 9, span = big ? 0.26 : 0.18;
+    for (let i = 0; i < n; i++) { const u = i / n, t0 = 0.03 + Math.pow(u, 1.3) * span + rand(0, 0.012); this.clink(rand(2600, 5600), rand(0.07, 0.12) * (1 - u * 0.7), pan + rand(-0.12, 0.12), t0); }
   },
   // the chainmail put on: shrugged into, a long shiver of rings that swells and settles, and its weight coming down on
   // his shoulders at the end
@@ -150,12 +156,12 @@ const SFX = {
     for (let i = 0; i < 3; i++) this.tink(rand(3000, 4800), 0.012, pan + rand(-0.2, 0.2), rand(0.1, 0.45));
     this.noise(this.white, 0.07, 'bandpass', 640, 480, 1, 0.13, pan, span + 0.02, 0.003);
   },
-  // the gambeson hacked: the blow's dull thwack into the padding (short, a firm middle, nothing low or sliding, which
-  // would read as something else), then the linen tearing, a quick crisp zip of high dry bursts, the threads parting
+  // the gambeson struck: the thud, deadened by the padding, and the quilting slapped (a flat, dry thwap); a big blow
+  // also gives a seam, a few short coarse tears (nothing high or sliding: that read as something else)
   rip(pan = 0, big = false) {
-    if (!this.ok('rip', 0.05)) return; const n = big ? 20 : 12, dur = big ? 0.2 : 0.12;
-    this.noise(this.white, big ? 0.06 : 0.045, 'bandpass', 1150, 950, 1.3, big ? 0.24 : 0.18, pan, 0, 0.001);
-    for (let i = 0; i < n; i++) { const f = rand(3200, 5200); this.noise(this.white, rand(0.004, 0.008), 'highpass', f, f, 0.9, rand(0.045, 0.08) * (1 - i / n * 0.6), pan + rand(-0.1, 0.1), 0.025 + i / n * dur + rand(0, 0.004), 0.0008); }
+    if (!this.ok('rip', 0.05)) return; this.armourThud(pan, big, 750);
+    this.noise(this.white, 0.05, 'bandpass', 700, 620, 1.4, big ? 0.22 : 0.16, pan, 0, 0.001);
+    if (big) for (let i = 0; i < 6; i++) this.noise(this.white, rand(0.008, 0.014), 'bandpass', rand(1800, 2600), 1800, 1.2, 0.05, pan, 0.03 + i * 0.012, 0.001);
   },
   hay(pan = 0, big = false) {
     if (!this.ok('hay', 0.05)) return;
