@@ -156,6 +156,8 @@ const SFX = {
     for (let i = 0; i < 3; i++) this.tink(rand(3000, 4800), 0.012, pan + rand(-0.2, 0.2), rand(0.1, 0.45));
     this.noise(this.white, 0.07, 'bandpass', 640, 480, 1, 0.13, pan, span + 0.02, 0.003);
   },
+  // fingers snapped: one dry, sharp click, very short, high up, and the faint thud of the palm under it
+  snap(pan = 0) { if (!this.ok('snap', 0.1)) return; this.noise(this.white, 0.014, 'bandpass', 2900, 2600, 2.5, 0.5, pan, 0, 0.0006); this.noise(this.brown, 0.03, 'lowpass', 600, 200, 0.7, 0.12, pan, 0.002, 0.001); },
   // a goblin's cackle: quick high warbling yelps, falling, five or six of them, nasal (a square wave, thin)
   cackle(pan = 0) { if (!this.ok('cackle', 0.8)) return; for (let i = 0; i < 6; i++) { const f = 900 - i * 70 + rand(-30, 30); this.tone('square', f, f * 0.72, 0.07, 0.035, pan, i * 0.095, 0.004); this.tone('triangle', f * 1.5, f * 1.1, 0.05, 0.03, pan, i * 0.095 + 0.01, 0.003); } },
   // the gambeson struck: the thud, deadened by the padding, and the quilting slapped (a flat, dry thwap); a big blow

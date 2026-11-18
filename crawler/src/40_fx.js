@@ -216,6 +216,7 @@ function drawWorldParts(ctx) { // normal blending: smoke, rubble, pixel shards (
     else if (k === 'chip') { ctx.globalAlpha = 1; ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y - p.z), p.s0, 1); }
     else if (k === 'ring') { ctx.globalAlpha = 1; ctx.fillStyle = p.col; ringPx(Math.round(p.x), Math.round(p.y - p.z), (a, b) => ctx.fillRect(a, b, 1, 1)); } // (broken mail: 46_bits)
     else if (k === 'hay') { ctx.globalAlpha = 1; ctx.fillStyle = p.col; hayPx(p, (a, b) => ctx.fillRect(a, b, 1, 1)); }
+    else if (k === 'vflame') { const u = p.t / p.life, s = u < 0.45 ? 2 : 1; ctx.globalAlpha = 1; ctx.fillStyle = u < 0.07 ? '#f4dcff' : u < 0.4 ? '#b060f0' : u < 0.7 ? '#8a34d6' : '#4c1878'; ctx.fillRect(Math.round(p.x + Math.sin(p.t * 22 + p.ph) * 1.2), Math.round(p.y - p.z), s, s + 1); } // (violet pixel flame: 49_deaths3 hexFlame)
     else if (k === 'patch') { ctx.globalAlpha = 1; patchPx(p, (a, b, col) => { ctx.fillStyle = col; ctx.fillRect(a, b, 1, 1); }); } // (the gambeson's quilted patches: 46_bits)
     else if (k === 'drop') { const left = p.life - p.t; ctx.globalAlpha = left < 0.25 ? left / 0.25 : 1; ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y - p.z), 1, 1); } // one whole pixel, never smeared
     else if (k === 'debris' || k === 'pix') { const left = p.life - p.t; ctx.globalAlpha = left < 0.4 ? left / 0.4 : 1; ctx.fillStyle = p.col; const s = p.s0; ctx.fillRect(p.x - s / 2, p.y - p.z - s / 2, s, s * (k === 'debris' ? 0.75 : 1)); }
