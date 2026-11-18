@@ -19,7 +19,7 @@ const FORCE = { set: false }; // the puzzle floor (kit screen): every set piece 
 function levelPlan(A, g) {
   const rooms = A.rooms, adj = r => A.halls.filter(h => h.A === r || h.B === r).map(h => (h.A === r ? h.B : h.A));
   const reach = skip => { const seen = new Set([A.start]), q = [A.start]; while (q.length) { const r = q.shift(); for (const n of adj(r)) if (n !== skip && !seen.has(n)) { seen.add(n); q.push(n); } } return seen; };
-  const free = r => r.kind === 'room' && !r.chest && !r.set && !r.sluice, shuffled = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(v => v[1]);
+  const free = r => r.kind === 'room' && !r.chest && !r.set && !r.sluice && !r.shape, shuffled = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(v => v[1]);
   A.sets = []; A.plankSet = new Set(); A.noProp = new Set(); A.planning = true;
   const tryFlood = () => { for (const r of shuffled(rooms.filter(r => free(r) && !reach(r).has(A.end)))) {
     // the flooded way stands where the way to the stairs runs through it and a side branch leaves it too: you come in
@@ -36,7 +36,7 @@ function levelPlan(A, g) {
     r.set = 'flood'; A.sets.push('flood'); hostSluice(A, host, p);
     return true;
   } return false; };
-  const tryBridge = () => { for (const r of shuffled(rooms.filter(r => (r === A.end || free(r) && !reach(r).has(A.end)) && r.w >= 9 && r.h >= 7))) if (drawbridge(A, r, g, reach(r), adj)) return true; return false; };
+  const tryBridge = () => { for (const r of shuffled(rooms.filter(r => (r === A.end && !r.shape || free(r) && !reach(r).has(A.end)) && r.w >= 9 && r.h >= 7))) if (drawbridge(A, r, g, reach(r), adj)) return true; return false; };
   // THE PUZZLES THAT STAND IN THE WAY: from the second floor every floor has one between you and the stairs, from the
   // third two (a flooded way, a drawbridge, one of each if they fit); the first floor may have a flooded way or not.
   // A floor that cannot take them is laid out again (30_arena buildArena).
@@ -100,10 +100,10 @@ function beyondHost(A, r, within = null) { // (within: only one of these rooms)
 function remoteSluice(A, r, p) { const h = beyondHost(A, r); if (!h) return false; hostSluice(A, h, p); return true; }
 function hostSluice(A, host, p) {
   host.sluice = p; p.host = host;
-  if (A.planning && !A.sunkPlanned && !p.runes && host.w >= 12 && host.h >= 8 && chance(0.5)) { host.sunkHost = p; A.sunkPlanned = true; } // (its button sunk in a cistern made of this room: THE SUNKEN BUTTON, 36_works)
+  if (A.planning && !A.sunkPlanned && !p.runes && !host.shape && host.w >= 12 && host.h >= 8 && chance(0.5)) { host.sunkHost = p; A.sunkPlanned = true; } // (its button sunk in a cistern made of this room: THE SUNKEN BUTTON, 36_works)
   // the outlet in the host's north wall, clear of its doors and stairs (furnish leaves it bare)
   const nd = host.doors.filter(d => d.side === 'N').flatMap(d => d.cells.map(c => c[0])), xs = [];
-  for (let x = host.ix0 + 1; x <= host.ix1 - 1; x++) if (!nd.some(c => Math.abs(c - x) <= 3) && !(host.stairX !== undefined && x >= host.stairX - 2 && x <= host.stairX + 4)) xs.push(x);
+  for (let x = host.ix0 + 1; x <= host.ix1 - 1; x++) if (faceAt(A, x, host.fy0 + 1) && !nd.some(c => Math.abs(c - x) <= 3) && !(host.stairX !== undefined && x >= host.stairX - 2 && x <= host.stairX + 4)) xs.push(x);
   host.sluiceX = xs.length ? pick(xs) : host.ix0 + 1;
 }
 // the bed, the grate in it, and what a drained body needs (where its whirl turns, where its coins lie)

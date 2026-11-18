@@ -94,7 +94,7 @@ const GROUPS = [
 function populateRoom(A, r, f) {
   const area = r.w * r.h; let budget = (3.5 + f * 1.4) * clamp(area / 150, 0.6, 1.4) * (r.kind === 'end' ? 1.6 : 1);
   const out = [], spots = [], cost = g => g.reduce((a, t) => a + FOE_TYPES[t].cost, 0);
-  const ok = (x, y) => !blockAt(x, y) && !(A.crumbleSet && A.crumbleSet.has(Math.floor(y / TS) * A.w + Math.floor(x / TS))) && !A.props.some(p => !p.dead && dist(p.x, p.cy, x, y) < p.r + 8) && !r.doors.some(d => d.cells.some(([cx, cy]) => dist(cx * TS + 8, cy * TS + 8, x, y) < 40)) && !spots.some(s => dist(s.x, s.y, x, y) < 12);
+  const ok = (x, y) => !blockAt(x, y) && FLOOR(A.fl[Math.floor(y / TS) * A.w + Math.floor(x / TS)]) && !(A.crumbleSet && A.crumbleSet.has(Math.floor(y / TS) * A.w + Math.floor(x / TS))) && !A.props.some(p => !p.dead && dist(p.x, p.cy, x, y) < p.r + 8) && !r.doors.some(d => d.cells.some(([cx, cy]) => dist(cx * TS + 8, cy * TS + 8, x, y) < 40)) && !spots.some(s => dist(s.x, s.y, x, y) < 12);
   let guard = 0; while (budget > 1.5 && guard++ < 30) {
     const has = t => !A.army || ARMIES[A.army][t].length; // only groups the army can field
     // an army with the mutilated stumblers often sends them as a horde: four to six of them, awake and milling about

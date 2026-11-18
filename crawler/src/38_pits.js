@@ -57,7 +57,7 @@ function pitMend(A, g, x0, y0, x1, y1) {
 
 // ---- building
 const pitShuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = randi(0, i); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-const pitRoomOK = (A, r) => r.kind === 'room' && !r.chest && !r.set && !r.sluice && !r.pool && !r.shrine;
+const pitRoomOK = (A, r) => r.kind === 'room' && !r.chest && !r.set && !r.sluice && !r.pool && !r.shrine && !r.shape;
 // the door cells and the floor just inside each door (two tiles deep), which always stay
 function doorLanding(A, r, deep = 2) {
   const keep = new Set();
@@ -214,7 +214,7 @@ function pitPlan(A, g) {
     : [chance(0.5) && pick(['chasm', 'ledges', 'spikeway']), chance(0.4) && 'holes', chance(0.3) && 'crumble', chance(0.35) && pick(['rim', 'corners'])].filter(Boolean);
   // the treasure room's: cracked slabs ('loot'), pit corners or the pit rim ('t' + kind)
   const tk = FORCE_PITS.on ? 'loot' : chance(A.floor < 2 ? 0.3 : 0.45) ? pick(['loot', 'loot', 'trim', 'tcorners']) : null; if (tk) kinds.push(tk);
-  for (const kind of kinds) for (const r of pitShuffle(A.rooms.filter(r => kind === 'loot' || kind[0] === 't' ? (r.kind === 'treasure' || r.chest) && !r.set && !r.sluice && !r.pool && !r.shrine : pitRoomOK(A, r)))) {
+  for (const kind of kinds) for (const r of pitShuffle(A.rooms.filter(r => kind === 'loot' || kind[0] === 't' ? (r.kind === 'treasure' || r.chest) && !r.set && !r.sluice && !r.pool && !r.shrine && !r.shape : pitRoomOK(A, r)))) {
     const k = kind[0] === 't' ? kind.slice(1) : kind; // (rim, corners)
     if (k === 'ledges' && (r.w < 11 || r.h < 8) || k === 'chasm' && (r.w < 9 || r.h < 8) || (k === 'crumble' || k === 'loot') && (r.w < 8 || r.h < 6) || k === 'rim' && (r.w < 7 || r.h < 6) || k === 'spikeway' && (r.w < 10 || r.h < 8) || k === 'corners' && (r.w < 8 || r.h < 7) || r.w * r.h < 48) continue;
     const res = k === 'chasm' ? pitChasm(A, r) : k === 'ledges' ? pitLedges(A, r) : k === 'crumble' || k === 'loot' ? pitCrumble(A, r) : k === 'rim' || k === 'corners' ? pitEdges(A, r, k === 'rim') : k === 'spikeway' ? pitSpikeway(A, r) : pitHoles(A, r); if (!res) continue;

@@ -7,7 +7,7 @@ const TEST_KINDS = { corner: ['brute', 'archer', 'flanker', 'brute'], wall: ['gr
 function beginTest(kit) {
   beginRun(kit); TEST.on = true; TEST.mode = 'blood'; TEST.god = false; const A = ARENA, h = G.me;
   // the roomiest room that still fits in the lamp's reach from its middle
-  const rooms = A.rooms.filter(r => r.w <= 14 && r.h <= 10 && !r.pool && !r.shrine && !r.set), r = (rooms.length ? rooms : A.rooms).reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a));
+  const rooms = A.rooms.filter(r => r.w <= 14 && r.h <= 10 && !r.pool && !r.shrine && !r.set && !r.shape), r = (rooms.length ? rooms : A.rooms).reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a));
   G.foes.length = 0; G.units = G.heroes.slice(); A.name = 'BLOOD TEST ROOM';
   const cx = Math.round((r.ix0 + r.ix1) / 2), cy = Math.round((r.iy0 + r.iy1) / 2), at = (tx, ty) => ({ x: (tx + 0.5) * TS, y: (ty + 0.5) * TS + 3 });
   const spots = [[r.ix0, r.iy0], [r.ix1, r.iy0], [r.ix0, r.iy1], [r.ix1, r.iy1]].map(([x, y], i) => ({ ...at(x, y), type: TEST_KINDS.corner[i] }))
