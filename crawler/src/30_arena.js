@@ -208,7 +208,15 @@ function groundChunks(A) {
     const w = Math.min(CHUNK, A.pw - x), h = Math.min(CHUNK, A.ph - y), cv = mkCanvas(w, h), g = cv.getContext('2d');
     g.imageSmoothingEnabled = false; g.drawImage(A.ground, x, y, w, h, 0, 0, w, h); g.setTransform(1, 0, 0, 1, -x, -y); A.chunks.push({ x, y, w, h, cv, g });
   }
-  A.ground = A.g = null; if (A.keepClean) keepClean(A); return A.chunks;
+  A.lum = groundSeen(A.ground); A.ground = A.g = null; if (A.keepClean) keepClean(A); return A.chunks;
+}
+// which pixels of the floor's picture are drawn at all (stone, floor, a wall's face): not the black rock, which is no
+// picture, only the dark behind it, nor what a wall's top covers (that is the ceiling, drawn over it). Blood and acid are
+// painted only where it is drawn (45_blood onStone), or they show up as spots in the black
+function groundSeen(cv) {
+  const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, m = new Uint8Array(cv.width * cv.height);
+  for (let i = 0, j = 0; j < m.length; i += 4, j++) m[j] = d[i + 3] > 0 && d[i] + d[i + 1] + d[i + 2] > 12 ? 1 : 0;
+  return m;
 }
 // fn paints in map coordinates into every square the box touches
 function groundPaint(x0, y0, x1, y1, fn) { const A = ARENA; if (!A) return; for (const k of groundChunks(A)) if (x1 >= k.x && x0 < k.x + k.w && y1 >= k.y && y0 < k.y + k.h) { fn(k.g); pitMend(A, k.g, x0, y0, x1, y1); } bridgePaint(x0, y0, x1, y1, fn); } // (no mark stays on a pit: 38_pits) // (and on a bridge's slats: 36_works)

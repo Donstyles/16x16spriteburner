@@ -24,7 +24,8 @@ function bmap() {
   const A = ARENA; if (BMAP.A !== A) { BMAP.A = A; BMAP.w = Math.ceil(A.w * TS / 4); const n = BMAP.w * Math.ceil(A.h * TS / 4); BMAP.a = new Uint8Array(n); BMAP.k = new Uint8Array(n); BTR.length = 0; }
   return BMAP;
 }
-function bloodMark(x, y, amt, kind) { if (!ARENA) return; const M = bmap(), i = Math.floor(y / 4) * M.w + Math.floor(x / 4); if (i < 0 || i >= M.a.length) return; M.a[i] = Math.min(255, M.a[i] + amt); M.k[i] = Math.max(0, BK.indexOf(kind)); }
+const onStone = (x, y) => { const A = ARENA; if (!A || !A.lum) return true; x = Math.floor(x); y = Math.floor(y); return x >= 0 && y >= 0 && x < A.pw && y < A.ph && A.lum[y * A.pw + x] === 1; }; // (drawn ground there: 30_arena groundSeen)
+function bloodMark(x, y, amt, kind) { if (!ARENA || !onStone(x, y)) return; const M = bmap(), i = Math.floor(y / 4) * M.w + Math.floor(x / 4); if (i < 0 || i >= M.a.length) return; M.a[i] = Math.min(255, M.a[i] + amt); M.k[i] = Math.max(0, BK.indexOf(kind)); }
 function bloodAt(x, y) { if (!ARENA) return [0, 'red']; const M = bmap(), i = Math.floor(y / 4) * M.w + Math.floor(x / 4); return i < 0 || i >= M.a.length ? [0, 'red'] : [M.a[i], BK[M.k[i]]]; }
 // a pool: soft overlapping blotches (as the floor blood has always been), a darker one or two where it is deep
 function pool(x, y, kind, size) {
@@ -66,7 +67,7 @@ function goreStep(p, dt) {
 }
 function goreLand(x, y, p) {
   // (into water, open or between a bridge's slats: a ring on it and a little red haze in it instead)
-  if (!ARENA) return; if (ARENA.pitN && pitAt(x, y)) return; /* (down the pit, no mark) */ if (overWater(x, y)) { plip(x, y); bloodCloud(x, y, p.col, p.s0 === 2 ? 0.6 : 0.2); return; } const r = p.s0 === 2 ? rand(1.2, 2) : rand(0.6, 1.2), a = rand(0.45, 0.8); // a small soft blotch where it lands
+  if (!ARENA) return; if (ARENA.pitN && pitAt(x, y)) return; /* (down the pit, no mark) */ if (!onStone(x, y)) return; /* (in the black rock, or under a wall's top: no mark) */ if (overWater(x, y)) { plip(x, y); bloodCloud(x, y, p.col, p.s0 === 2 ? 0.6 : 0.2); return; } const r = p.s0 === 2 ? rand(1.2, 2) : rand(0.6, 1.2), a = rand(0.45, 0.8); // a small soft blotch where it lands
   groundPaint(x - 3, y - 3, x + 3, y + 3, g => { g.globalAlpha = a; g.fillStyle = p.col; g.beginPath(); g.ellipse(x, y, r, r * 0.75, 0, 0, TAU); g.fill(); g.globalAlpha = 1; });
   bloodMark(x, y, p.s0 === 2 ? 5 : 2, p.kind);
 }
@@ -77,11 +78,12 @@ function goreLand(x, y, p) {
 // in a small blotch.
 const BTR = []; // the runs going now
 function wallSplash(x, y, p) {
+  if (!onStone(x, y)) return; // (not on any drawn stone: nothing to splash on)
   const r = p.s0 === 2 ? rand(1.2, 1.9) : rand(0.7, 1.2), a = rand(0.5, 0.85), sat = chance(0.4) ? [x + rand(-2, 2), y + rand(-2, 1), r * 0.5] : null;
   groundPaint(x - 4, y - 4, x + 4, y + 4, g => { g.fillStyle = p.col; g.globalAlpha = a; g.beginPath(); g.ellipse(x + 0.5, y + 0.5, r * 0.85, r * 1.15, 0, 0, TAU); g.fill(); if (sat) { g.globalAlpha = a * 0.7; g.beginPath(); g.ellipse(sat[0], sat[1], sat[2], sat[2] * 1.2, 0, 0, TAU); g.fill(); } g.globalAlpha = 1; });
 }
 function bloodRun(x, y, end, p, on, T) {
-  if (end - y < 2 || !chance(p.s0 === 2 ? 0.9 : 0.45)) return;
+  if (end - y < 2 || !onStone(x, y) || !chance(p.s0 === 2 ? 0.9 : 0.45)) return;
   const near = BTR.find(t => Math.abs(t.x0 - x) <= 1.5 && t.y < end && Math.abs(t.y - y) < 8); if (near) { near.len = Math.min(near.len + 2, near.end - near.y0); return; } // it feeds that run
   if (BTR.length >= 120) return; const len = Math.max(2, Math.round((end - y) * rand(0.55, 1)));
   BTR.push({ x0: x, x, y0: y, y, end, len, k: 0, col: p.col, w: p.s0 === 2 ? 1 : 0.75, T: T * rand(0.85, 1.15), next: G.time + rand(0.2, 0.5), on });
@@ -96,11 +98,16 @@ function goreWall(p, ny) {
     wallSplash(x, y, p); bloodRun(x, y + 1, yb - 1, p, null, rand(5, 7)); return;
   }
   if (side && p.z > 1 && p.z < 30) { // the rim of a side wall (the tileset draws its dark edge 4 px past where the stone stops you)
-    const east = p.vx > 0, rim = east ? Math.floor(x0 / TS) * TS + 4 : Math.floor(p.x / TS) * TS - 5, x = rim + (east ? -randi(0, 2) : randi(0, 2)), gy = Math.round(p.y);
+    const east = p.vx > 0, dir = east ? 1 : -1, gy = Math.round(p.y);
     // only where the wall runs beside the floor: struck high near the wall's end, the splash moves down onto it
     // (a wall's end is drawn a few px inside its tile)
     const on = yy => solidAt(x0, yy - 4) && solidAt(x0, yy) && !solidAt(p.x, yy); let y = Math.round(p.y - p.z); while (y < gy && !on(y)) y++;
     if (!on(y)) { goreLand(p.x, p.y, p); return; }
+    // on the wall's drawn edge, found from where the stone stops him (a room's wall draws it a few px past that; a
+    // corridor's stops him elsewhere in its tile, and a fixed place in the tile put the splash deep in the black rock)
+    let xe = Math.round(p.x); for (let k = 0; k < 20 && !solidAt(xe + dir, p.y); k++) xe += dir;
+    let x = null; for (let k = 4; k >= 1 && x === null; k--) if (onStone(xe + dir * k, y)) x = xe + dir * k;
+    if (x === null) { goreLand(p.x, p.y, p); return; } // (no drawn stone there: it falls at the wall's foot)
     wallSplash(x, y, p); bloodRun(x, y + 1, gy, p, on, rand(3.5, 5)); bloodMark(x, gy, 2, p.kind); return;
   }
   if (p.vy > 0 && solidAt(p.x, ny) && !solidAt(p.x, p.y)) { // the south wall's edge: a splash against it
@@ -114,7 +121,7 @@ function updateBlood() {
     if (G.time < t.next) continue;
     t.y++; t.k++; if (t.on && !t.on(t.y)) { t.done = true; continue; } // a run stops where its wall does
     if (chance(0.12)) t.x = t.x0 + (t.x === t.x0 ? (chance(0.5) ? 0.5 : -0.5) : 0); // it wanders a little
-    const thin = Math.max(0.35, 1 - t.k / (t.len + 4)) * t.w, { x, y, col } = t;
+    const thin = Math.max(0.35, 1 - t.k / (t.len + 4)) * t.w, { x, y, col } = t; if (!onStone(x, y)) { t.done = true; continue; } // (off the drawn stone: it stops)
     groundPaint(x - 2, y - 2, x + 3, y + 3, g => { g.globalAlpha = 0.3 + 0.3 * thin; g.fillStyle = col; g.beginPath(); g.ellipse(x + 0.5, y + 0.5, 0.45 + 0.5 * thin, 0.9, 0, 0, TAU); g.fill(); g.globalAlpha = 1; });
     // quicker at first, slowing as it thins: the steps add up to its T seconds
     t.next = G.time + t.T / t.len * (0.4 + 1.2 * t.k / t.len) * rand(0.7, 1.3);
