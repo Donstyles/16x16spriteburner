@@ -109,6 +109,7 @@ function drawUnit(c, u) {
   c.globalAlpha = fade; if (B) blitB(B.cv); else if (u.pale && u.dead) blit(bare ? paleOf(u.spr, Wc.cut, 0, u.pale) : paleOf(u.spr, IMG.mobs, sy, u.pale), 0); /* (paling as the ticks drink: 49_deaths3) */ /* (drained by the bats: 49_deaths2) */ else if (bare) blit(u.headless && HEADLESS[u.spr] ? HEADLESS[u.spr].body : Wc.cut, 0); else blit(IMG.mobs); // (beheaded: 48_deaths)
   const a = u.act, warn = u.team === 'foe' && a && ((a.k === 'atk' && a.phase === 'wind') || (a.k === 'aim' && a.t > a.dur - 0.25));
   if (warn) { c.globalAlpha = 0.35 + 0.35 * Math.sin(G.time * 40); if (B) blitB(B.red); else blit(mobsRed()); }
+  if (u.arrows && u.arrows.length && !B) drawStuck(c, u, dip, cut, foot); // (the arrows in him, in his own pixels: 47_arrows)
   if (u.flash > 0) { c.globalAlpha = Math.min(1, u.flash * 9); if (B) blitB(B.white); else if (bare) blit(Wc.cutW, 0); else blit(IMG.mobsW); }
   c.restore(); c.globalAlpha = 1;
   if (dp && u.death && u.death.kind === 'acid') acidFizz(c, u, m, fr, bare, Wc, foot, jit + dp.jit + (u.sway || 0)); // (his waterline eaten away: 48_deaths)
@@ -245,8 +246,8 @@ function render() {
   for (const p of ARENA.props) if (!p.dead && !p.flat && propSplit(p)) drawPropPart(c, p, true); // (the columns' plinths, under everyone)
   for (const h of G.heroes) if (h.dead && h.death && (h.death.kind === 'vermin' || h.death.kind === 'bats')) verminCover(h); // (to bones only in a frame the heap hides him wholly: 48_deaths)
   const list = []; for (const u of G.units) list.push([u.y, 0, u]); if (ARENA.shop) { list.push([ARENA.shop.keeper.y, 0, ARENA.shop.keeper]); } for (const p of ARENA.props) if (!p.dead && !p.flat) { const S = propSplit(p); list.push([S ? S.mid : p.y, 1, p]); } // (the shopkeeper, his wares on the counter: 39_shop)
-  for (const d of G.drops) list.push([d.y, 2, d]); for (const p of G.proj) list.push([p.y, 3, p]); for (const r of FX.rocks) list.push([r.y, 4, r]); list.sort((a, b) => a[0] - b[0]);
-  for (const [, k, o] of list) if (k === 0) { if (o.fall) drawFalling(c, o); else if (!(o.rise > 0 && ((G.time * 18) | 0) % 2)) drawUnit(c, o); } else if (k === 1) { if (propSplit(o)) drawPropPart(c, o, false); else drawProp(c, o); } else if (k === 2) drawDrop(c, o); else if (k === 3) drawProj(c, o); else drawRock(c, o);
+  for (const d of G.drops) list.push([d.y, 2, d]); for (const p of G.proj) list.push([p.y, 3, p]); for (const r of FX.rocks) list.push([r.y, 4, r]); for (const w of ARENA.warrows || []) list.push([w.y, 5, w]); list.sort((a, b) => a[0] - b[0]);
+  for (const [, k, o] of list) if (k === 0) { if (o.fall) drawFalling(c, o); else if (!(o.rise > 0 && ((G.time * 18) | 0) % 2)) drawUnit(c, o); } else if (k === 1) { if (propSplit(o)) drawPropPart(c, o, false); else drawProp(c, o); } else if (k === 2) drawDrop(c, o); else if (k === 3) drawProj(c, o); else if (k === 5) drawWallArrow(c, o); else drawRock(c, o);
   if (ARENA.shop) for (const w of ARENA.shop.wares) drawWare(c, w); // (his wares, over everyone: they never hide behind a customer, 39_shop)
   for (const h of G.heroes) if (h.shown) drawShown(c, h);
   drawWorldParts(c); drawCeil(c, ox, oy, bw, bh); // the tops of the south, east and west walls, at the ceiling, over everything in the room

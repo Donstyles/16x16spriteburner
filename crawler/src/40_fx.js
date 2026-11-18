@@ -103,7 +103,7 @@ function updateFx(dt) {
     const p = P[i]; p.t += dt; if (p.t >= p.life) { P[i] = P[P.length - 1]; P.pop(); continue; }
     if (p.k === 'gore') { goreStep(p, dt); continue; }
     if (p.k === 'hay') { hayStep(p, dt); continue; }
-    if (p.k === 'chip' || p.k === 'ring' || p.k === 'patch') { chipStep(p, dt); continue; }
+    if (p.k === 'chip' || p.k === 'ring' || p.k === 'patch' || p.k === 'arrowbit') { chipStep(p, dt); continue; }
     if (p.k === 'water') { waterStep(p, dt); continue; }
     if (p.k === 'pdust') { dustStep(p, dt); continue; }
     if (p.on) { const u = p.on; if (u.dead || (u.act && u.act.k === 'roll')) { p.on = null; p.g = 320; } else { p.row += p.rate * dt; placeDrop(p, u); if (p.row >= p.rowEnd) { p.on = null; p.g = 320; const out = p.side * (u.face < 0 ? -1 : 1); p.vx = (u.vx || 0) * 0.4 + out * rand(4, 10); p.vy = (u.vy || 0) * 0.4 + rand(2, 6); } continue; } } // a drop still running down the hero's head
@@ -216,6 +216,7 @@ function drawWorldParts(ctx) { // normal blending: smoke, rubble, pixel shards (
     else if (k === 'chip') { ctx.globalAlpha = 1; ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y - p.z), p.s0, 1); }
     else if (k === 'ring') { ctx.globalAlpha = 1; ctx.fillStyle = p.col; ringPx(Math.round(p.x), Math.round(p.y - p.z), (a, b) => ctx.fillRect(a, b, 1, 1)); } // (broken mail: 46_bits)
     else if (k === 'hay') { ctx.globalAlpha = 1; ctx.fillStyle = p.col; hayPx(p, (a, b) => ctx.fillRect(a, b, 1, 1)); }
+    else if (k === 'arrowbit') { const cx = Math.cos(p.a), cy = Math.sin(p.a) * 0.6; ctx.globalAlpha = 1; for (let i = 0; i < 6; i++) { ctx.fillStyle = i === 0 ? ARROW_COL.head : i >= 4 ? ARROW_COL.fletch : ARROW_COL.shaft; ctx.fillRect(Math.round(p.x + cx * (2.5 - i)), Math.round(p.y - p.z + cy * (2.5 - i)), 1, 1); } } // (an arrow falling: 47_arrows)
     else if (k === 'vflame') { const u = p.t / p.life, s = u < 0.45 ? 2 : 1; ctx.globalAlpha = 1; ctx.fillStyle = u < 0.07 ? '#f4dcff' : u < 0.4 ? '#b060f0' : u < 0.7 ? '#8a34d6' : '#4c1878'; ctx.fillRect(Math.round(p.x + Math.sin(p.t * 22 + p.ph) * 1.2), Math.round(p.y - p.z), s, s + 1); } // (violet pixel flame: 49_deaths3 hexFlame)
     else if (k === 'patch') { ctx.globalAlpha = 1; patchPx(p, (a, b, col) => { ctx.fillStyle = col; ctx.fillRect(a, b, 1, 1); }); } // (the gambeson's quilted patches: 46_bits)
     else if (k === 'drop') { const left = p.life - p.t; ctx.globalAlpha = left < 0.25 ? left / 0.25 : 1; ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y - p.z), 1, 1); } // one whole pixel, never smeared

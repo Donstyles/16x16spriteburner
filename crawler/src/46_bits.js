@@ -78,30 +78,39 @@ function mailRing(x, y, z, vx, vy, vz, col, slow = 0) { part({ k: 'ring', x, y, 
 function ringPx(x, y, f) { f(x, y - 1); f(x - 1, y); f(x + 1, y); f(x, y + 1); } // (a ring seen at this size: four pixels round an open middle)
 // a chip: a pixel or two of bone or stone; it bounces once and stays where it stops
 function chip(x, y, z, vx, vy, vz, col, slow = 0) { part({ k: 'chip', x, y, z, vx, vy, vz, life: 6, s0: chance(0.45) ? 2 : 1, col, slow }); }
-// A patch of the gambeson hacked out of it (53_foes clothSpill): one of its quilted diamonds, padded out and lit from
+// A patch of the gambeson hacked out of it (53_foes clothSpill): a small torn piece of its quilting, padded and lit from
 // the top left in the quilting's own shades (80_hud quiltTex), its edge a shade darker than its middle; no outline (as
-// nothing that sprays or drops off a blow has one). Heavy with its wadding, it goes only a little way with the blow,
-// turning over as it flies (face, half-turned, edge-on, its wadded back), drops, bounces once and lies flat where it
-// stops (chipStep). r: its size, two pixels from its middle to its points (three, now and then, a big blow's)
-function patch(x, y, z, vx, vy, vz, r, slow = 0) { part({ k: 'patch', x, y, z, vx, vy, vz, life: 6, o: randi(0, 3), ot: rand(0.05, 0.1), r, slow }); }
+// nothing that sprays or drops off a blow has one). Each its own shape, never quite square to the floor: a little
+// diamond, a square, a skewed or a lopsided scrap, with a corner or two torn off; mostly three or four pixels across.
+// Heavy with its wadding, it goes only a little way with the blow, turning over as it flies (face, half-turned, edge-on,
+// its wadded back), drops, bounces once and lies flat where it stops (chipStep).
+function patchShape(big) {
+  const k = randi(0, 3), P = [];
+  if (k === 0) { const r = big && chance(0.5) ? 2 : 1; for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (Math.abs(x) + Math.abs(y) <= r) P.push([x, y]); } // a little diamond
+  else { const w = randi(2, big ? 4 : 3), h = randi(2, 3), sh = k === 2 ? (chance(0.5) ? 1 : -1) : 0; // a square, a skewed scrap, a lopsided one
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) P.push([x - (w >> 1) + (sh ? Math.round(sh * (y - h / 2) * 0.7) : 0), y - (h >> 1)]);
+    if (k === 3) P.push([w - (w >> 1), randi(-1, 0)]); }
+  for (let n = randi(0, P.length > 5 ? 2 : 1); n > 0 && P.length > 3; n--) P.splice(randi(0, P.length - 1), 1); // (torn: a pixel or two gone)
+  const at = new Set(P.map(([x, y]) => x + ',' + y)), edge = ([x, y]) => !at.has((x - 1) + ',' + y) || !at.has((x + 1) + ',' + y) || !at.has(x + ',' + (y - 1)) || !at.has(x + ',' + (y + 1));
+  return P.map(q => [q[0], q[1], Math.sign(q[0] + q[1]) + 1 + (edge(q) ? 1 : 0)]); // [x, y, shade]: 0 the brightest
+}
+function patch(x, y, z, vx, vy, vz, big, slow = 0) { part({ k: 'patch', x, y, z, vx, vy, vz, life: 6, o: randi(0, 3), ot: rand(0.05, 0.1), shape: patchShape(big), slow }); }
 function patchPx(p, f) {
-  const x0 = Math.round(p.x), y0 = Math.round(p.y - p.z), r = p.r, o = p.o;
-  if (o === 2) { for (let x = -r; x <= r; x++) f(x0 + x, y0, x < 0 ? QCOL.base : QCOL.low); return; } // (edge-on)
-  const sy = o === 1 ? 2 : 1; // (half-turned: squashed top to bottom)
-  for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) {
-    const e = Math.abs(x) + Math.abs(y) * sy; if (e > r) continue;
-    const s = Math.sign(x + y) + 1 + (e === r ? 1 : 0); // (lit from the top left: 0 the brightest; the edge a shade darker)
-    f(x0 + x, y0 + y, o === 3 ? (e === r ? QCOL.thread : QCOL.wad) : [QCOL.hi, QCOL.base, QCOL.low, QCOL.dip][s]);
-  }
+  const x0 = Math.round(p.x), y0 = Math.round(p.y - p.z), o = p.o, S = p.shape;
+  if (o === 2) { const xs = S.map(q => q[0]), a = Math.min(...xs), b = Math.max(...xs); for (let x = a; x <= b; x++) f(x0 + x, y0, x < 0 ? QCOL.base : QCOL.low); return; } // (edge-on)
+  const seen = new Set(); for (const [x, y, sh] of S) { const yy = o === 1 ? Math.round(y / 2) : y, key = x + ',' + yy; if (o === 1 && seen.has(key)) continue; seen.add(key); // (half-turned: squashed top to bottom)
+    f(x0 + x, y0 + yy, o === 3 ? (sh >= 2 ? QCOL.thread : QCOL.wad) : [QCOL.hi, QCOL.base, QCOL.low, QCOL.dip][sh]); }
 }
 function chipStep(p, dt) {
   if (p.slow > G.time) dt *= 0.15;
+  if (p.k === 'arrowbit' && p.z > 0) p.a += p.va * dt; // (an arrow turning as it falls)
   if (p.k === 'patch' && p.z > 0 && (p.ot -= dt) <= 0) { p.ot = rand(0.05, 0.1); p.o = (p.o + 1) % 4; } // (turning over as it flies)
   const nx = p.x + p.vx * dt, ny = p.y + p.vy * dt;
   if (solidAt(nx, p.y)) p.vx = -p.vx * 0.4; else p.x = nx; if (solidAt(p.x, ny)) p.vy = -p.vy * 0.4; else p.y = ny;
   p.vz -= 420 * dt; p.z += p.vz * dt;
   if (p.z <= 0) {
-    if (p.vz < -45) { p.z = 0; p.vz = -p.vz * 0.35; p.vx *= 0.5; p.vy *= 0.5; if (p.k === 'ring' && chance(0.35)) SFX.tick(panOf(p.x)); return; }
+    if (p.vz < -45) { p.z = 0; p.vz = -p.vz * 0.35; p.vx *= 0.5; p.vy *= 0.5; if ((p.k === 'ring' && chance(0.35)) || p.k === 'arrowbit') SFX.tick(panOf(p.x)); return; }
+    if (p.k === 'arrowbit') { floorArrow(p.x, p.y, p.a); p.t = p.life; return; } // (it lies where it stops: 47_arrows)
     if (ARENA) { const x = Math.round(p.x), y = Math.round(p.y); groundPaint(x - 4, y - 4, x + 5, y + 4, g => { g.globalAlpha = 0.8; g.fillStyle = p.col; if (p.k === 'ring') ringPx(x, y, (a, b) => g.fillRect(a, b, 1, 1)); else if (p.k === 'patch') { if (p.o === 1 || p.o === 2) p.o = 0; g.globalAlpha = 1; patchPx(p, (a, b, col) => { g.fillStyle = col; g.fillRect(a, b, 1, 1); }); } /* (it lies flat, face up or its back up) */ else g.fillRect(x, y, p.s0, 1); g.globalAlpha = 1; }); }
     p.t = p.life;
   }

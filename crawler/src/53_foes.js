@@ -336,7 +336,7 @@ function updateProj(dt) {
     if ((p.spell || p.k === 'flask') && spellStep(p, dt)) continue;
     p.life -= dt; const ox = p.x, oy = p.y; p.x += p.vx * dt; p.y += p.vy * dt;
     if (p.team === 'foe' && ARENA.shop && inShop(ARENA, p.x, p.y)) { p.dead = true; sparks(ox, oy, p.z || 6, 4, 'gold', 50, 40); continue; } // (an arrow comes no further than the shop's door: 39_shop)
-    const pl = pillarAt(p.x, p.y, p.z); if (solidAt(p.x, p.y) || p.life <= 0 || pl) { p.dead = true; if (p.spell) { p.x = ox; p.y = oy; spellEnd(p); } else sparks(ox, oy, p.z, 3, 'white', 60, 40); if (pl) SFX.clang(panOf(p.x)); continue; }
+    const pl = pillarAt(p.x, p.y, p.z); if (solidAt(p.x, p.y) || p.life <= 0 || pl) { p.dead = true; if (p.spell) { p.x = ox; p.y = oy; spellEnd(p); } else if (p.k === 'arrow') { if (p.life <= 0 && !pl && !solidAt(p.x, p.y)) arrowDrop(ox, oy, p.z || 7, Math.atan2(p.vy, p.vx), p.vx * 0.2, p.vy * 0.2); else wallArrow(ox, oy, p.z || 7, Math.atan2(p.vy, p.vx)); } else sparks(ox, oy, p.z, 3, 'white', 60, 40); if (pl && p.k !== 'arrow') SFX.clang(panOf(p.x)); continue; } // (an arrow stays in the wall or the pillar it meets, or drops at the end of its flight: 47_arrows)
     const foes = p.team === 'foe' ? G.heroes : G.foes;
     for (const u of foes) {
       if (u.dead || dist(u.x, u.y, p.x, p.y) > u.r + p.r + 2) continue;
@@ -347,7 +347,7 @@ function updateProj(dt) {
         sparks(p.x, p.y, 7, 12, 'gold', 160, 80); SFX.clang(panOf(p.x)); textPop(u.x, u.y, headZ(u) + 3, 'DEFLECTED', 'gold', false); freeze(u, 0.06); break;
       }
       const from = { x: p.x - p.vx * 0.2, y: p.y - p.vy * 0.2, team: p.team, def: {} };
-      hurt(u, p.dmg, u.team === 'hero' ? from : p.src, { ranged: true, poise: 12, kx: p.vx * 0.3, ky: p.vy * 0.3, ang: Math.atan2(p.vy, p.vx), style: 'jet', spell: p.spell ? p.k : undefined, caster: p.src }); if (p.spell) spellHit(p, u); p.dead = true; break;
+      const was = p.k === 'arrow' && u.team === 'hero' ? { hp: u.hp, gamb: u.gamb || 0, mail: u.mail || 0, dead: u.dead } : null; hurt(u, p.dmg, u.team === 'hero' ? from : p.src, { ranged: true, poise: 12, kx: p.vx * 0.3, ky: p.vy * 0.3, ang: Math.atan2(p.vy, p.vx), style: 'jet', spell: p.spell ? p.k : undefined, caster: p.src }); if (p.spell) spellHit(p, u); if (was) arrowHit(u, p, was); /* (it stays in him: 47_arrows) */ p.dead = true; break;
     }
   }
   removeIf(G.proj, p => p.dead);
@@ -383,7 +383,7 @@ function gambesonTakes(h, d, o = {}) {
 function clothSpill(h, a, o) {
   const S = SPRAY[o.style] || SPRAY.bite, k = clamp(a / 10, 0.7, 3.5), a0 = o.ang !== undefined ? o.ang : o.kx || o.ky ? Math.atan2(o.ky || 0, o.kx || 0) : rand(TAU);
   const way = () => a0 + (o.sweep || 1) * S.bias + rand(-S.spread, S.spread) * 1.3, z0 = (h.z || 0) + 6;
-  for (let i = 0, n = Math.min(8, Math.round(2.2 * k)); i < n; i++) { const t = way(), v = rand(S.v[0], S.v[1]) * 0.7; patch(h.x + rand(-2, 2), h.y + rand(-1, 1), z0 + rand(-3, 3), Math.cos(t) * v, Math.sin(t) * v * 0.8, rand(S.up[0], S.up[1]) * 0.6 + 30, a >= 25 && chance(0.4) ? 3 : 2, o.slow); }
+  for (let i = 0, n = Math.min(8, Math.round(2.2 * k)); i < n; i++) { const t = way(), v = rand(S.v[0], S.v[1]) * 0.7; patch(h.x + rand(-2, 2), h.y + rand(-1, 1), z0 + rand(-3, 3), Math.cos(t) * v, Math.sin(t) * v * 0.8, rand(S.up[0], S.up[1]) * 0.6 + 30, a >= 25, o.slow); }
   SFX.rip(panOf(h.x), a >= 25);
 }
 // The chainmail (armours, its icon the gambeson's own repainted in steel rings): rings of iron, worn over the gambeson

@@ -162,7 +162,7 @@ function enterTick(h) { h.vx = 0; h.vy = 26; h.moving = true; h.dir = Math.PI / 
 function heroTick(h, dt) {
   const I = h.inp; if (h.dead) { h.deadT += dt; deathTick(h, dt); I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }
   if (h.enter) { enterTick(h); I.atkP = I.atkR = I.dodgeP = I.itemP = false; return; }
-  if (h.iframe > 0) h.iframe -= dt; if (h.riposteT > 0) h.riposteT -= dt; curseTick(h, dt); if (h.comboT > 0) h.comboT -= dt;
+  if (h.iframe > 0) h.iframe -= dt; if (h.riposteT > 0) h.riposteT -= dt; curseTick(h, dt); arrowsTick(h, dt); if (h.comboT > 0) h.comboT -= dt;
   if (h.poiseT > 0) h.poiseT -= dt; else h.poise = h.maxPoise; if (h.poiseGuard > 0) h.poiseGuard -= dt;
   if (h.dipT > 0) h.dipT -= dt; if (h.huff) pant(h, dt);
   if (h.stamT > 0) h.stamT -= dt; else if (!(h.act && h.act.k !== 'charge')) h.stam = Math.min(h.maxStam, h.stam + (h.blocking ? 16 : 58) * (h.curseT > 0 ? 0.33 : 1) * dt);
@@ -221,7 +221,7 @@ function startMove(h, mv, want) {
 function startRoll(h, want) {
   const K = KITS[h.kit], dir = want !== null ? want : h.dir + Math.PI, len = 46 * (K.roll || 1), dur = 0.34;
   spendStam(h, 20, 0.6); h.blocking = false; h.sprint = false; h.iframe = 0.26; if (h.gore) h.gore = Math.max(0, h.gore - 0.6); // a roll wipes some blood off the blade
-  h.act = { k: 'roll', t: 0, dur, dir, spd: len / dur * 1.45 }; if (want !== null) faceTo(h, dir);
+  h.act = { k: 'roll', t: 0, dur, dir, spd: len / dur * 1.45 }; if (want !== null) faceTo(h, dir); if (h.arrows && h.arrows.length) arrowsOut(h, randi(1, 2)); // (a roll knocks one or two out: 47_arrows)
   smoke(h.x, h.y, 3, 'dust', 7, 26, 0.6); SFX.whoosh(panOf(h.x));
 }
 function actTick(h, a, dt, I, want) {
@@ -234,7 +234,7 @@ function actTick(h, a, dt, I, want) {
   }
   if (a.k === 'drink') {
     h.vx = damp(h.vx, I.mx * h.def.spd * 0.35, 10, dt); h.vy = damp(h.vy, I.my * h.def.spd * 0.35, 10, dt); h.moving = !!(I.mx || I.my);
-    if (!a.done && a.t >= 0.55) { a.done = true; h.flasks--; const g = Math.min(h.maxHp - h.hp, Math.round(h.maxHp * 0.45)); h.hp += g; number(h.x, h.y, headZ(h) + 1, '+' + g, 'heal', true); healGlow(h.x, h.y); SFX.heal(); }
+    if (!a.done && a.t >= 0.55) { a.done = true; h.flasks--; const g = Math.min(h.maxHp - h.hp, Math.round(h.maxHp * 0.45)); h.hp += g; number(h.x, h.y, headZ(h) + 1, '+' + g, 'heal', true); healGlow(h.x, h.y); SFX.heal(); if (h.arrows && h.arrows.length) arrowsOut(h, h.arrows.length); } // (and the arrows in him pulled out: 47_arrows)
     if (a.t >= a.dur) h.act = null; return;
   }
   if (a.k === 'charge') {
