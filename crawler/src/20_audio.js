@@ -156,6 +156,8 @@ const SFX = {
     for (let i = 0; i < 3; i++) this.tink(rand(3000, 4800), 0.012, pan + rand(-0.2, 0.2), rand(0.1, 0.45));
     this.noise(this.white, 0.07, 'bandpass', 640, 480, 1, 0.13, pan, span + 0.02, 0.003);
   },
+  // a goblin's cackle: quick high warbling yelps, falling, five or six of them, nasal (a square wave, thin)
+  cackle(pan = 0) { if (!this.ok('cackle', 0.8)) return; for (let i = 0; i < 6; i++) { const f = 900 - i * 70 + rand(-30, 30); this.tone('square', f, f * 0.72, 0.07, 0.035, pan, i * 0.095, 0.004); this.tone('triangle', f * 1.5, f * 1.1, 0.05, 0.03, pan, i * 0.095 + 0.01, 0.003); } },
   // the gambeson struck: the thud, deadened by the padding, and the quilting slapped (a flat, dry thwap); a big blow
   // also gives a seam, a few short coarse tears (nothing high or sliding: that read as something else)
   rip(pan = 0, big = false) {

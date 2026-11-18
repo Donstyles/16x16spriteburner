@@ -180,7 +180,7 @@ function digTestPit(A, r) {
   TEST.pit = { x: (tx + 1) * TS, y: (ty + 1) * TS }; if (A.clean) keepClean(A); // (CLEAN wipes back to the floor with the pit in it)
 }
 // DIE: he dies the next death on the list, at once (the fall: he is walked into the pit with nothing left to pay for it)
-const TEST_DEATHS = ['bleed', 'fall', 'burst', 'acid', 'vermin', 'vermin3', 'behead', 'drag', 'raised', 'bats', 'carried', 'looted', 'ragdoll', 'ticks'];
+const TEST_DEATHS = ['bleed', 'fall', 'burst', 'acid', 'vermin', 'vermin3', 'behead', 'drag', 'raised', 'bats', 'carried', 'looted', 'ragdoll', 'ticks', 'hexed'];
 const testDeathName = k => k === 'vermin3' ? 'EATEN BY THREE RATS' : DEATH_NAMES[k]; // (vermin3: the fewest that can bury him)
 function testDie() {
   const h = G.me; if (!TEST.on || TEST.mode !== 'armour' || !h || h.dead || h.fall) return;
@@ -194,6 +194,7 @@ function testDie() {
   let by = null;
   if (kind === 'looted') { near('GoblinFighter', 'grunt', 2, 24, 40); near('GoblinArcher', 'archer', 2, 30, 46); near('GoblinFanatic', 'flanker', 2, 30, 46); } // (they take only what he has on him: 49_deaths3)
   if (kind === 'ragdoll') { [by] = near('GoblinWolfRider', 'brute', 1, 12, 16); }
+  if (kind === 'hexed') { [by] = near('GoblinOccultist', 'archer', 1, 50, 70); more = { spell: 'hex', caster: by }; }
   if (kind === 'ticks') { near('FamishedTick', 'skitter', 3, 24, 40); near('EngorgedTick', 'skitter', 1, 24, 40); }
   const f = by || G.foes.filter(q => !q.dead).sort((a, b) => dist(a.x, a.y, h.x, h.y) - dist(b.x, b.y, h.x, h.y))[0], src = f || { x: h.x + 20, y: h.y, team: 'foe', def: {} }, a = angTo(src.x, src.y, h.x, h.y);
   if (kind === 'vermin3') for (const [i, sp] of ['GiantRat', 'GiantRat', 'MonstrousRat'].entries()) { const b = i / 3 * TAU + rand(-0.4, 0.4), x = h.x + Math.cos(b) * 34, y = h.y + Math.sin(b) * 22, v = mkFoe('skitter', 1, x, y, sp); Object.assign(v, { aware: true, state: 'fight', tgt: h, ctest: TEST.gen }); v.def.gold = [0, 0]; G.foes.push(v); G.units.push(v); smoke(x, y, 2, 'dust', 6, 12, 0.5); } // (three rats and no more)

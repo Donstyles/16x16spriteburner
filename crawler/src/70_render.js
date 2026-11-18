@@ -113,6 +113,7 @@ function drawUnit(c, u) {
   c.restore(); c.globalAlpha = 1;
   if (dp && u.death && u.death.kind === 'acid') acidFizz(c, u, m, fr, bare, Wc, foot, jit + dp.jit + (u.sway || 0)); // (his waterline eaten away: 48_deaths)
   if (pose && !back) drawWeapon(c, u, pose, Wc, fr, fw, foot, dip, cut);
+  if (u.team === 'hero' && u.death && u.death.kind === 'hexed') drawThreads(c, u); // (the hex's threads on him: 49_deaths3)
   if (u.team === 'foe' && u.hp < u.maxHp && !u.dead && !u.dying && !u.fall) { const w = 10 * sc, x = u.x - w / 2, y = u.y - u.z + 3; c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(x - 0.5, y - 0.5, w + 1, 2.5); c.fillStyle = u.stun > 0 ? '#ffd24a' : '#e8443a'; c.fillRect(x, y, w * clamp(u.hp / u.maxHp, 0, 1), 1.5); }
   if (u.team === 'hero' && u.blocking) { const a0 = u.dir; c.strokeStyle = u.blockT < PARRY_WINDOW ? '#ffd860' : '#d8d0c0'; c.lineWidth = 1.5; c.beginPath(); c.ellipse(u.x, u.y + GUARD.dy, GUARD.r, GUARD.r * GUARD.k, 0, a0 - GUARD.half, a0 + GUARD.half); c.stroke(); }
 }

@@ -170,5 +170,62 @@ function paleOf(spr, src, oy, stage) {
 function moreCam3(h, D, t) {
   if (D.kind === 'looted') { const L = h.lampAt || h; return { x: L.x, y: L.y - 4, z: 1.15 + 0.15 * ease(t / 4), r: 1.5 }; } // (back a little, to see them make off)
   if (D.kind === 'ragdoll') return { x: h.x, y: h.y - 6 - (h.z || 0) * 0.5, z: 1.5, r: 3 };
+  if (D.kind === 'hexed') { const O = D.occ && !D.occ.dead ? D.occ : h, k = O === h ? 0 : 0.3; return { x: h.x + (O.x - h.x) * k, y: h.y - 8 + (O.y - h.y) * k, z: 1.45, r: 2 }; } // (on him, the occultist in the frame)
   return { x: h.x, y: h.y - 8, z: 1.45 + 0.45 * ease(t / 5), r: 1.6 }; // (the ticks: in close)
+}
+
+// ---- danced to death. Killed by a goblin occultist's hex, he does not fall: it seizes him, he trembles up onto his
+// toes, and violet threads run from the occultist's raised hand to his head and his hands. It works him like a puppet:
+// a jig, jerked up off his feet and dropped, flung this way and that, his knees buckling as he lands; then it walks him
+// to itself, stiff, on his toes, and makes him kneel before it. Then the threads yank him up, there is a crack (his
+// neck), the threads are gone in a violet flash and he drops in a heap at its feet; it cackles. If it dies first, the
+// threads go with it and he drops where he is. (The threads: 70_render drawUnit, after him.)
+const HEXD = { seize: 0.8, dance: 4.8, walk: 6.4, yank: 6.6, snap: 6.85 }, HEX_BEAT = 0.32;
+function hexedPose(t, D) { return { lie: !!(D && D.down), dip: D && D.dip || 0, jit: D && D.jit || 0 }; }
+function hexedStart(h, o) {
+  const D = h.death, f = o.caster || h.lastSrc; D.occ = f && !f.dead && f.spr === 'GoblinOccultist' ? f : null; h.lampAt = null;
+  if (D.occ) { D.occ.script = { h, tick: occultFoe }; D.occ.act = null; }
+  dropWeapon(h, 0.6); glows(h.x, h.y, 10, 12, 'arcane', 50, 3, 0.8); SFX.hex(panOf(h.x));
+}
+function occultFoe(f, dt) { // it stands, its hand up, working him; at the end it cackles, hopping
+  const S = f.script, h = S.h, D = h.death; if (!h.dead || !D || D.kind !== 'hexed' || h.deadT > DEATH_LEN.hexed) { f.script = null; return; }
+  f.vx = f.vy = 0; f.moving = false; f.face = h.x < f.x ? -1 : 1;
+  if (chance(dt * 5) && !D.snapped) part({ k: 'glow', x: f.x + f.face * 3, y: f.y, z: headZ(f) + 3, vz: rand(4, 12), life: rand(0.3, 0.5), s0: 1.6, s1: 0, col: 'arcane', a0: 0.9, a1: 0 });
+  if (D.snapped && h.deadT > HEXD.snap + 0.3 && h.deadT < HEXD.snap + 2.2 && !(f.z > 0) && (S.hopT = (S.hopT || 0) - dt) <= 0) { S.hopT = 0.35; f.vz = 70; }
+}
+const hexAnchor = D => D.occ && !D.occ.dead ? { x: D.occ.x + (D.occ.face < 0 ? -1 : 1) * 3, y: D.occ.y - headZ(D.occ) - 3 } : null;
+function hexedTick(h, dt) {
+  const D = h.death, t = h.deadT, p = t - dt, pan = panOf(h.x), O = D.occ && !D.occ.dead ? D.occ : null; D.jit = 0; D.dip = 0;
+  if (!D.snapped && !O && t > 0.2) { D.snapped = true; D.cut = true; } // (it died: the threads go with it)
+  if (!D.snapped) {
+    if (t < HEXD.seize) { h.z = t > 0.3 ? 1 : 0; D.jit = ((G.time * 30) | 0) % 2 ? 1 : -1; } // seized, trembling up onto his toes
+    else if (t < HEXD.dance) { // the jig
+      const k = Math.floor((t - HEXD.seize) / HEX_BEAT), u = (t - HEXD.seize) / HEX_BEAT - k, H = [5, 2, 7, 3, 6, 1, 8, 4, 6, 2, 7, 3, 5][k % 13];
+      h.z = Math.round(1 + H * Math.max(0, 1 - Math.pow(2 * u - 1, 2))); D.dip = u > 0.85 ? 1 : 0; D.jit = u < 0.15 ? (k % 2 ? 1 : -1) : 0;
+      if (Math.floor((p - HEXD.seize) / HEX_BEAT) !== k) { if (k % 2 || H > 5) h.face = -h.face; SFX.tick(pan); if (k > 0) SFX.stride(pan, 0, false); }
+    } else if (t < HEXD.yank) { // walked to it, stiff, on his toes; made to kneel
+      if (O) { const fs = O.face < 0 ? -1 : 1, tx = O.x + fs * 13, ty = O.y + 1, d = dist(h.x, h.y, tx, ty);
+        if (d > 1.5 && t < HEXD.walk) { const v = Math.min(70, d / Math.max(0.2, HEXD.walk - t)) * dt; slideMove(h, (tx - h.x) / d * v, (ty - h.y) / d * v); h.face = -fs; if (Math.floor(t * 5) !== Math.floor(p * 5)) SFX.stride(pan, 0, false); }
+      }
+      h.z = t < HEXD.walk ? 1 + (((t * 5) | 0) % 2) : 0; D.dip = t >= HEXD.walk ? 2 : 0;
+    } else { // yanked up by the threads
+      h.z = Math.round(Math.min(10, (t - HEXD.yank) / (HEXD.snap - HEXD.yank) * 10)); D.jit = ((G.time * 40) | 0) % 2;
+      if (t >= HEXD.snap) { D.snapped = true; SFX.crack(pan); SFX.bone(pan, true); shake(0.12); const A = hexAnchor(D); for (const q of [A, { x: h.x, y: h.y - h.z - 10 }]) if (q) glows(q.x, q.y, 0, 12, 'arcane', 60, 3, 0.6); if (O) cackle(O); }
+    }
+    h.vz = 0; return;
+  }
+  if (!D.down) { D.vz = (D.vz || 0) - 520 * dt; h.z = Math.max(0, h.z + D.vz * dt); h.vz = 0; if (h.z <= 0) { D.down = true; h.z = 0; SFX.boom(0.18, pan); smoke(h.x, h.y, 2, 'dust', 6, 12, 0.6); } } // (he drops in a heap)
+}
+function cackle(f) { SFX.cackle(panOf(f.x)); textPop(f.x, f.y, headZ(f) + 6, 'HEHEHE', 'curse', false); }
+// (70_render drawUnit, after him) the hex's threads, from the occultist's hand to his head and his hands: thin violet
+// lines with a glint running along them, toward him
+function drawThreads(c, u) {
+  const D = u.death; if (D.snapped || u.deadT < 0.5) return; const A = hexAnchor(D); if (!A) return;
+  const top = Math.round(u.y - headZ(u)), mid = Math.round(u.y - u.z - 7 + (D.dip || 0)), x = Math.round(u.x + (D.jit || 0));
+  c.globalAlpha = 0.85;
+  for (const [ex, ey] of [[x, top], [x - 5, mid], [x + 5, mid]]) {
+    const n = Math.max(Math.abs(ex - A.x), Math.abs(ey - A.y)) | 0; if (!n) continue;
+    for (let i = 0; i <= n; i++) { const g = ((i - G.time * 50) % 9 + 9) % 9; c.fillStyle = g < 1 ? '#f0d0ff' : g < 3 ? '#c070ff' : '#7a30b0'; c.fillRect(Math.round(A.x + (ex - A.x) * i / n), Math.round(A.y + (ey - A.y) * i / n), 1, 1); }
+  }
+  c.globalAlpha = 1;
 }
