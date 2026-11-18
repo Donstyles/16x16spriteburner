@@ -59,7 +59,7 @@ function drawMinimap(c, xr, y0) {
     for (let i = 0; i < A.w * A.h; i++) { if (!A.mem[i]) continue; const v = A.fl[i], f = v === 1 || v === 3, w = v === 2, pt = v === PIT, o = i * 4; d[o] = pt ? 16 : w ? 52 : f ? 118 : 58; d[o + 1] = pt ? 14 : w ? 96 : f ? 104 : 50; d[o + 2] = pt ? 20 : w ? 150 : f ? 92 : 46; d[o + 3] = f || w || pt ? 230 : 200; } // water blue
     x.putImageData(id, 0, 0); MINI = { A, n: A.memN + (A.flv || 0) * 1e6, cv };
   }
-  const s = clamp(Math.min(VIEW.w, VIEW.h) / 430, 0.85, 1.3) * 1.5, w = A.w * s, h = A.h * s, x0 = Math.round(xr - w);
+  const s = Math.min(clamp(Math.min(VIEW.w, VIEW.h) / 430, 0.85, 1.3) * 1.5, 170 / A.w), w = A.w * s, h = A.h * s, x0 = Math.round(xr - w); // (no wider than 170 px, however big the floor)
   c.globalAlpha = 0.85; c.fillStyle = 'rgba(8,7,10,0.6)'; c.fillRect(x0 - 4, y0 - 4, w + 8, h + 8);
   c.imageSmoothingEnabled = false; c.drawImage(MINI.cv, x0, y0, w, h);
   // where the party came down (dark violet), and the way down once the floor's map is read (yellow: 53_foes)

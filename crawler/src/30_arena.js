@@ -30,15 +30,24 @@ function buildArena(floor) {
   return A;
 }
 function buildArena1(floor) {
-  const th = floor % 2 ? THEMES.brown : THEMES.grey, GW = floor <= 2 ? 3 : 4, GH = 3;
-  const N = Math.min(GW * GH - 1, 5 + Math.min(4, Math.floor((floor + 1) / 2)));
+  const th = floor % 2 ? THEMES.brown : THEMES.grey, GW = 5, GH = 4; // (longer floors: nine rooms on the first, one more every second floor down, up to fourteen)
+  const N = Math.min(GW * GH - 1, 9 + Math.min(5, Math.floor(floor / 2)));
   // ---- the room graph: grown outward from the start cell, then a loop or two so not every floor is a single line
   const key = (x, y) => y * GW + x, cells = new Map(), edges = [];
-  const s0 = [randi(0, GW - 1), randi(0, GH - 1)]; cells.set(key(...s0), s0);
   const nb = ([x, y]) => [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]].filter(([a, b]) => a >= 0 && b >= 0 && a < GW && b < GH);
+  // the way down first: a winding path through the grid, about two thirds of the rooms long, so a floor takes a while to
+  // cross; then the rest hung off it as side rooms
+  const L = Math.min(N - 2, Math.round(N * 0.65)); let path = [];
+  for (let t = 0; t < 300 && path.length < L; t++) {
+    const st = [randi(0, GW - 1), randi(0, GH - 1)], seen = new Set([key(...st)]); path = [st];
+    while (path.length < L) { const o = nb(path[path.length - 1]).filter(c => !seen.has(key(...c))); if (!o.length) break; const n = pick(o); seen.add(key(...n)); path.push(n); }
+  }
+  const s0 = path[0]; for (let i = 0; i < path.length; i++) { cells.set(key(...path[i]), path[i]); if (i) edges.push([key(...path[i - 1]), key(...path[i])]); }
   let guard = 0; while (cells.size < N && guard++ < 500) { const c = pick([...cells.values()]), n = pick(nb(c)); if (cells.has(key(...n))) continue; cells.set(key(...n), n); edges.push([key(...c), key(...n)]); }
   const has = (a, b) => edges.some(e => (e[0] === a && e[1] === b) || (e[0] === b && e[1] === a));
-  let loops = 0; for (const c of cells.values()) for (const n of nb(c)) { const a = key(...c), b = key(...n); if (a < b && cells.has(b) && !has(a, b) && loops < 2 && chance(0.3)) { edges.push([a, b]); loops++; } }
+  // a loop or two, but none that cuts the way down short
+  const way = () => { const d = new Map([[key(...s0), 0]]), q = [key(...s0)]; while (q.length) { const k = q.shift(); for (const e of edges) { const n = e[0] === k ? e[1] : e[1] === k ? e[0] : -1; if (n >= 0 && !d.has(n)) { d.set(n, d.get(k) + 1); q.push(n); } } } return d.get(key(...path[path.length - 1])); };
+  let loops = 0; const W0 = way(); for (const c of cells.values()) for (const n of nb(c)) { const a = key(...c), b = key(...n); if (a < b && cells.has(b) && !has(a, b) && loops < 3 && chance(0.3)) { edges.push([a, b]); if (way() < W0) edges.pop(); else loops++; } }
   // the end room is the one farthest from the start
   const adj = k => edges.filter(e => e[0] === k || e[1] === k).map(e => e[0] === k ? e[1] : e[0]);
   const far = new Map([[key(...s0), 0]]), q = [key(...s0)]; while (q.length) { const k = q.shift(); for (const n of adj(k)) if (!far.has(n)) { far.set(n, far.get(k) + 1); q.push(n); } }
