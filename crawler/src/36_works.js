@@ -150,8 +150,9 @@ function cistern(A, r, g) {
 // crates whole and smashed (the wide ones too), the crate stacks two high, the eight mine carts, the heap of pots and the
 // three heaps of crates two wide and two high; and in stone, for the floor's own stone ([0..4, 16..18] grey, three rows
 // down brown, dry twins [22..27, 2..4] / [.., 5..7]): the square column, the statue on its pedestal, the low blocks, the
-// slabs and the cold braziers ([0..3, 22]). Stone stays stone when the water goes (it never breaks). Only the rune slabs
-// are left out: they are the shrines' (a carved slab under water that does nothing would only mislead).
+// slabs and the cold braziers ([0..3, 22]). Stone stays stone when the water goes (it never breaks). Left out: the rune
+// slabs (the shrines'), and whatever looks like a socket button's parts (a carved slab, a button stone or an empty socket
+// under water that does nothing would only mislead).
 // [wet tile, dry tile, kind, tiles wide, tiles tall]
 const SUNK = [
   [[7, 16], [24, 8], 'barrel'], [[8, 16], [25, 8], 'barrel'], [[9, 16], [26, 8], 'barrel'], [[10, 16], [27, 8], 'barrel'],
@@ -164,8 +165,8 @@ const SUNK = [
   [[5, 22], [22, 8], 'sacks', 2], [[7, 22], [24, 14], 'crate', 2, 2], [[9, 22], [26, 14], 'crate', 2, 2], [[11, 22], [28, 14], 'crate', 2, 2],
 ];
 const sunkStone = A => { const d = A.th === THEMES.brown ? 3 : 0, br = d ? 2 : 0; return [
-  [[0, 16 + d], [22, 2 + d], 'stone', 1, 2], [[2, 16 + d], [25, 2 + d], 'stone', 1, 2], [[0, 18 + d], [22, 4 + d], 'stone'], [[1, 18 + d], [24, 4 + d], 'stone'], [[2, 18 + d], [25, 4 + d], 'stone'],
-  [[3, 16 + d], [26, 2 + d], 'stone'], [[3, 17 + d], [26, 3 + d], 'stone'], [[3, 18 + d], [26, 4 + d], 'stone'], [[4, 16 + d], [27, 2 + d], 'stone'],
+  [[0, 16 + d], [22, 2 + d], 'stone', 1, 2], [[2, 16 + d], [25, 2 + d], 'stone', 1, 2], [[2, 18 + d], [25, 4 + d], 'stone'],
+  [[3, 16 + d], [26, 2 + d], 'stone'], [[4, 16 + d], [27, 2 + d], 'stone'], // (not the two small blocks, the button's own stone, nor the two slabs with a socket's dark well: under water they read as a button without its socket, or a socket that lost its button)
   [[br, 22], [30, 3 + d], 'stone'], [[br + 1, 22], [31, 3 + d], 'stone']]; };
 // n of them about the water, each on open water clear of the bridge, the drain, the pillars and each other
 function sinkThings(A, p, n, kinds) {

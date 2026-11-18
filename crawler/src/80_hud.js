@@ -1,8 +1,8 @@
 // ===================== HUD: health, stamina, flasks, gold, the floor, banners =====================
 const F_DISP = '"Grenze Gotisch", "Palatino Linotype", Palatino, "Book Antiqua", serif', F_HUD = 'Teko, "Arial Narrow", "Avenir Next Condensed", sans-serif';
 const NUMCOL = { red: '#ff5a46', white: '#ffffff', gold: '#ffd860', heal: '#7cff9c', curse: '#d9a0ff', acid: '#e8f02c', cloth: '#ecdcae', mail: '#d6dde4' }; // acid: a sour yellow, well clear of the mint of healing
-// The new lettering, on trial (TYPE.on; off unless switched on, on the title screen or in the pause menu; kept on this
-// device), round three: two faces and no more, and a third for the numbers. Grenze Gotisch keeps every heading (the menus' titles, the kit names, the
+// The new lettering (TYPE.on), approved and always on; the classic lettering (Teko throughout) stays here as a backup:
+// TYPE.on false draws exactly as before. Round three: two faces and no more, and a third for the numbers. Grenze Gotisch keeps every heading (the menus' titles, the kit names, the
 // floor cards, the banners); every other word and number (the buttons, the HUD, the floating numbers, the hints, the kit
 // cards, what the shopkeeper says) is set in Cinzel, carved Roman capitals, bold enough to read small (the HUD's, outlined,
 // in its heaviest weight). The numbers (the floating ones, health, gold, prices) are Cellar Numerals: Grenze Black, the
@@ -15,8 +15,7 @@ const F_TALK = 'Teko, "Arial Narrow", sans-serif'; // what the shopkeeper says (
 const F_SUB = 'Teko, "Avenir Next Condensed", "Arial Narrow", sans-serif'; // the lines under a floor's card and a banner (Teko)
 const F_NUM = 'Teko, "Arial Narrow", "Avenir Next Condensed", "Helvetica Neue", sans-serif'; // numbers: the floating ones, health, gold, prices (Teko as the HUD)
 const F_PIRATA = '"Pirata One", "Grenze Gotisch", serif', F_CINZEL = 'Cinzel, "Trajan Pro", "Times New Roman", serif';
-const TYPE = { on: false, shadow: false, menu: false, last: null }; // (menu: a menu or the pause screen is being drawn)
-try { TYPE.on = localStorage.getItem('cr2-type') === '1'; } catch (e) { /* storage blocked: off */ }
+const TYPE = { on: true, shadow: false, menu: false, last: null }; // (menu: a menu or the pause screen is being drawn; on: false for the classic lettering, the backup)
 const TYPE_FACES = ['400 30px "Pirata One"', '700 16px Cinzel', '800 16px Cinzel', '900 16px "Cellar Numerals"'];
 let numFace = null; // (Cellar Numerals ships inside the page: added to the document's fonts the first time it is wanted)
 function loadTypeFaces() { if (!numFace && window.FontFace && document.fonts) { try { numFace = new window.FontFace('Cellar Numerals', `url(${(window.__ASSETS && window.__ASSETS.numerals) || 'assets/fonts/cellar-numerals.ttf'})`, { weight: '900' }); document.fonts.add(numFace); } catch (e) { numFace = false; } }

@@ -38,7 +38,6 @@ function drawMenu(c) {
     font(c, 500, clamp(big / 22, 14, 22), F_HUD); spaced(c, 'A DUNGEON CRAWL', W / 2, H * 0.36 + clamp(big / 12, 26, 44), 5, '#c8a870', 'center');
     const bw = Math.min(260, W * 0.4), bh = clamp(big / 9, 40, 54); btn(c, W / 2 - bw / 2, H * 0.6, bw, bh, 'DESCEND', () => { MENU.screen = 'kits'; });
     font(c, 500, 14, F_HUD); spaced(c, (G.best ? 'DEEPEST FLOOR ' + G.best + '   ·   ' : '') + 'SOLO FOR NOW  ·  CO-OP RETURNS IN A LATER BUILD', W / 2, H * 0.6 + bh + 30, 2, 'rgba(240,224,192,0.6)', 'center');
-    btn(c, 14 + VIEW.safe.l, H - 14 - VIEW.safe.b - 30, 190, 30, 'LETTERING: ' + (TYPE.on ? 'NEW (TRIAL)' : 'CLASSIC'), () => setType(!TYPE.on), { size: 14, col: TYPE.on ? '#ffd860' : '#a8987e' });
     font(c, 500, 12, F_HUD); c.globalAlpha = 0.55; spaced(c, 'VERSION ' + BUILD.toUpperCase(), W - 14 - VIEW.safe.r, H - 12, 2, '#a8987e', 'right'); c.globalAlpha = 1;
   } else if (MENU.screen === 'kits') {
     font(c, 900, clamp(big / 9, 26, 46), F_DISP); label(c, 'Choose your kit', W / 2, H * 0.15, '#f8ecd6', { align: 'center' });
@@ -76,6 +75,6 @@ function drawPause(c) {
   font(c, 900, clamp(big / 8, 30, 56), F_DISP); label(c, 'Paused', W / 2, H * 0.24, '#f8ecd6', { align: 'center' });
   font(c, 500, 14, F_HUD);
   ['TAP ATTACK TO STRIKE, HOLD IT TO CHARGE A HEAVY BLOW', 'ROLL THROUGH BLOWS · HOLD BLOCK, OR RAISE IT JUST AS A BLOW LANDS TO PARRY', 'HIT SLEEPING OR UNAWARE FOES FOR A SNEAK ATTACK · RED MARKS SHOW WHERE A BLOW WILL LAND', 'KEYS: WASD · J ATTACK · SPACE ROLL · SHIFT BLOCK · F FLASK · ESC MENU'].forEach((L, i) => spaced(c, L, W / 2, H * 0.36 + i * 20, 1.5, 'rgba(240,224,192,0.8)', 'center'));
-  const bw = Math.min(220, W * 0.32), bh = 42; btn(c, W / 2 - bw - 8, H * 0.66 - 46, bw, 34, 'GORE: ' + GORE_NAMES[GORE.level], () => setGore((GORE.level + 2) % 3), { size: 15 }); btn(c, W / 2 + 8, H * 0.66 - 46, bw, 34, 'LETTERING: ' + (TYPE.on ? 'NEW (TRIAL)' : 'CLASSIC'), () => setType(!TYPE.on), { size: 15, col: TYPE.on ? '#ffd860' : undefined }); btn(c, W / 2 - bw - 8, H * 0.66, bw, bh, 'RESUME', togglePause); btn(c, W / 2 + 8, H * 0.66, bw, bh, 'ABANDON RUN', abandonRun, { col: '#e8907a' });
+  const bw = Math.min(220, W * 0.32), bh = 42; btn(c, W / 2 - bw / 2, H * 0.66 - 46, bw, 34, 'GORE: ' + GORE_NAMES[GORE.level], () => setGore((GORE.level + 2) % 3), { size: 15 }); btn(c, W / 2 - bw - 8, H * 0.66, bw, bh, 'RESUME', togglePause); btn(c, W / 2 + 8, H * 0.66, bw, bh, 'ABANDON RUN', abandonRun, { col: '#e8907a' });
   if (MENU.update) btn(c, W / 2 - bw - 8, H * 0.66 + bh + 12, bw * 2 + 16, 38, 'NEW VERSION READY  ·  UPDATE NOW (ENDS THIS RUN)', () => location.reload(), { col: '#ffb860', size: 17, on: true });
 }

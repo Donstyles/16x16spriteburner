@@ -186,16 +186,30 @@ function sentinelPond(A, r, g) {
   }
   return false;
 }
+// a remote button's place, half the time: standing free in its room, on bare floor two tiles in from the walls, clear of
+// the doors, the stairs, spikes and anything standing there (null: before the outlet grate in the north wall, as before)
+function freeSpot(A, r) {
+  if (!chance(0.5)) return null; const ok = [];
+  for (let y = r.iy0 + 2; y <= r.iy1 - 2; y++) for (let x = r.ix0 + 2; x <= r.ix1 - 2; x++) {
+    if (!FLOOR(A.fl[y * A.w + x]) || r.doors.some(d => d.cells.some(([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 4))) continue;
+    if (r.stairX !== undefined && x >= r.stairX - 1 && x <= r.stairX + 3 && y <= r.iy0 + 2) continue;
+    if ((A.spikes || []).some(s => Math.abs(s.tx - x) <= 1 && Math.abs(s.ty - y) <= 1) || (A.plates || []).some(p => Math.abs(p.tx - x) <= 2 && Math.abs(p.ty - y) <= 2)) continue;
+    if (A.props.some(q => !q.dead && Math.abs(q.x - (x * TS + 8)) < 24 && Math.abs(q.cy - (y * TS + 10)) < 22)) continue;
+    ok.push([x, y]);
+  }
+  return ok.length ? pick(ok) : null;
+}
 // ---- after the rooms are furnished: the plates, the outlet, the flooded pillars and the things standing in the water
 function levelAfter(A, r) {
   const W = wkOf(A), plate = (tx, ty, p, o = {}) => { A.plates = A.plates || []; A.plates.push(Object.assign({ x: tx * TS + 8, y: ty * TS + 8, tx, ty, tile: W.plate, f: 0, down: false, pool: p, room: r.i }, o)); };
   const clear = (tx, ty) => removeIf(A.props, q => Math.abs(q.x - (tx * TS + 8)) < 14 && Math.abs(q.cy - (ty * TS + 10)) < 14);
   // (a drawbridge's room: r.sluice is the bridge, marked drawbridge; a cistern's water has a .bridge of its own, its walkway)
   if (r.sluice && r.sluice.drawbridge && r.sluice.runes) { const v = { blocks: [], open: false, t: 0, room: r.i, runes: [], bridge: r.sluice, dark: true }; (A.vaults = A.vaults || []).push(v); placeRunes(A, r, v); hideRunes(A, r, v); darkRoom(A, r); } // a drawbridge laid by three hidden runes (36_works)
-  else if (r.sluice && r.sluice.drawbridge) { const x = r.sluiceX; clear(x, r.iy0); plate(x, r.iy0, null, { remote: true, bridge: r.sluice }); } // a drawbridge's button
-  else if (r.sluice) { // the outlet grate in the north wall, the plate before it
-    const x = r.sluiceX, wy = A.th === THEMES.brown ? 3 : 0; tileAt(A.g, 19, 3 + wy, x * TS, (r.fy0 + 1) * TS); clear(x, r.iy0);
-    plate(x, r.iy0, r.sluice, { remote: true, outlet: { x: x * TS + 8, y: (r.fy0 + 1) * TS + 11 } });
+  else if (r.sluice && r.sluice.drawbridge) { const [px, py] = freeSpot(A, r) || [r.sluiceX, r.iy0]; if (py === r.iy0) clear(px, py); plate(px, py, null, { remote: true, bridge: r.sluice }); } // a drawbridge's button
+  else if (r.sluice) { // the outlet grate in the north wall, the plate before it, or standing free in the room
+    const x = r.sluiceX, wy = A.th === THEMES.brown ? 3 : 0; tileAt(A.g, 19, 3 + wy, x * TS, (r.fy0 + 1) * TS);
+    const [px, py] = freeSpot(A, r) || [x, r.iy0]; if (py === r.iy0) clear(px, py);
+    plate(px, py, r.sluice, { remote: true, outlet: { x: x * TS + 8, y: (r.fy0 + 1) * TS + 11 } });
   }
   if (r.set === 'flood') sinkThings(A, r.pool, randi(2, 3));
   if (r.set === 'gauntlet') {
