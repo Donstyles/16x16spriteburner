@@ -23,6 +23,7 @@ function setupInput() {
     for (const t of e.changedTouches) {
       const [x, y] = screenPt(t);
       if (G.mode !== 'play' || UI.paused) { uiTap(x, y); continue; }
+      if (DEATH_PICK.open && TEST.on) { pickTap(x, y); continue; } if (pickHit(x, y)) { DEATH_PICK.open = true; continue; } // (the death picker: 64_testroom)
       const b = btnAt(x, y);
       if (b) { TOUCHES.set(t.identifier, { k: 'btn', b }); press(b); }
       else if (x < VIEW.w * 0.5 && !INPUT.stick) { INPUT.stick = { id: t.identifier, bx: x, by: y, x, y, vx: 0, vy: 0 }; TOUCHES.set(t.identifier, { k: 'stick' }); }
@@ -40,7 +41,7 @@ function setupInput() {
     if (e.code === 'KeyJ' || e.code === 'KeyZ') press('atk'); else if (e.code === 'Space' || e.code === 'KeyK') { press('dodge'); e.preventDefault(); } else if (e.code === 'KeyF' || e.code === 'KeyE') press('flask'); else if (e.code === 'Escape') togglePause();
   });
   addEventListener('keyup', e => { INPUT.keys.delete(e.code); if (e.code === 'KeyJ' || e.code === 'KeyZ') release('atk'); if (e.code === 'Space' || e.code === 'KeyK') release('dodge'); });
-  c.addEventListener('mousedown', e => { if (INPUT.touch) return; SFX.init && SFX.init(); const [x, y] = screenPt(e); if (G.mode !== 'play' || UI.paused) { uiTap(x, y); return; } if (dist(x, y, btnLayout().menu.x, btnLayout().menu.y) < 30) { togglePause(); return; } if (TEST.on && dist(x, y, btnLayout().clean.x, btnLayout().clean.y) < 30) { cleanBlood(); return; } if (btnLayout().next && dist(x, y, btnLayout().next.x, btnLayout().next.y) < 30) { testNext(); return; } for (const k of ['die', 'foes', 'hit']) { const b = btnLayout()[k]; if (b && dist(x, y, b.x, b.y) < 30) { press(k); release(k); return; } } if (e.button === 0) { INPUT.mouse.l = true; press('atk'); } if (e.button === 2) INPUT.mouse.r = true; INPUT.mouse.t = performance.now(); });
+  c.addEventListener('mousedown', e => { if (INPUT.touch) return; SFX.init && SFX.init(); const [x, y] = screenPt(e); if (G.mode !== 'play' || UI.paused) { uiTap(x, y); return; } if (DEATH_PICK.open && TEST.on) { pickTap(x, y); return; } if (pickHit(x, y)) { DEATH_PICK.open = true; return; } if (dist(x, y, btnLayout().menu.x, btnLayout().menu.y) < 30) { togglePause(); return; } if (TEST.on && dist(x, y, btnLayout().clean.x, btnLayout().clean.y) < 30) { cleanBlood(); return; } if (btnLayout().next && dist(x, y, btnLayout().next.x, btnLayout().next.y) < 30) { testNext(); return; } for (const k of ['die', 'foes', 'hit']) { const b = btnLayout()[k]; if (b && dist(x, y, b.x, b.y) < 30) { press(k); release(k); return; } } if (e.button === 0) { INPUT.mouse.l = true; press('atk'); } if (e.button === 2) INPUT.mouse.r = true; INPUT.mouse.t = performance.now(); });
   addEventListener('mouseup', e => { if (INPUT.touch) return; if (e.button === 0 && INPUT.mouse.l) { INPUT.mouse.l = false; release('atk'); } if (e.button === 2) INPUT.mouse.r = false; });
   c.addEventListener('mousemove', e => { if (INPUT.touch) return; const [x, y] = screenPt(e); INPUT.mouse.x = x; INPUT.mouse.y = y; INPUT.mouse.t = performance.now(); });
   c.addEventListener('contextmenu', e => e.preventDefault());
@@ -84,7 +85,8 @@ function drawControls(c) {
   if (L.next) { roundBtn(c, L.next, TEST.mode === 'water' ? 'REFILL' : 'NEXT', INPUT.btn.next, '#9ad0e8'); c.globalAlpha = 0.85; font(c, 600, 12, F_HUD); spaced(c, TEST.label || '', VIEW.w / 2, L.next.y + L.next.r + 14, 2, '#f0e0c0', 'center'); c.globalAlpha = 1; } // the creature test room's next lot, and what is on now
   if (L.hit) roundBtn(c, L.hit, 'HIT', INPUT.btn.hit, '#e8c07a'); // (a blow out of nowhere: 64_testroom)
   if (L.foes) { roundBtn(c, L.foes, 'FOES', INPUT.btn.foes, '#9ad0e8', 0, TEST.calm); if (TEST.calm) { c.globalAlpha = 0.8; c.strokeStyle = '#e8907a'; c.lineWidth = 2; c.beginPath(); c.moveTo(L.foes.x - L.foes.r * 0.6, L.foes.y + L.foes.r * 0.6); c.lineTo(L.foes.x + L.foes.r * 0.6, L.foes.y - L.foes.r * 0.6); c.stroke(); c.globalAlpha = 1; } } // (the armour room's foes, on or off: 64_testroom)
-  if (L.die) { roundBtn(c, L.die, 'DIE', INPUT.btn.die, '#e8907a'); c.globalAlpha = 0.85; font(c, 600, 12, F_HUD); spaced(c, 'DIE: ' + testDeathName(TEST_DEATHS[TEST.di % TEST_DEATHS.length]), VIEW.w / 2, L.next.y + L.next.r + 30, 2, '#e8907a', 'center'); c.globalAlpha = 1; } // (the armour and death room's next death)
+  if (L.die) { roundBtn(c, L.die, h && h.dead ? 'SKIP' : 'DIE', INPUT.btn.die, '#e8907a'); c.globalAlpha = 0.85; font(c, 600, 12, F_HUD); spaced(c, 'DIE: ' + testDeathName(TEST_DEATHS[TEST.di % TEST_DEATHS.length]) + '  \u25BE', VIEW.w / 2, L.next.y + L.next.r + 30, 2, '#e8907a', 'center'); c.globalAlpha = 1; } // (the armour and death room's next death; tap the name for the list of them all, 64_testroom)
+  if (DEATH_PICK.open && TEST.on) drawPicker(c); // (the death picker, over the room: 64_testroom)
   // menu, top right (every device)
   const m = L.menu; c.globalAlpha = 0.8; c.fillStyle = 'rgba(10,8,12,0.55)'; c.beginPath(); c.arc(m.x, m.y, m.r, 0, TAU); c.fill(); c.fillStyle = '#e8dcc0'; for (let i = -1; i <= 1; i++) c.fillRect(m.x - m.r * 0.45, m.y + i * m.r * 0.32 - 1, m.r * 0.9, 2); c.globalAlpha = 1;
 }

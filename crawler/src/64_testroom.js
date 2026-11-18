@@ -183,7 +183,8 @@ function digTestPit(A, r) {
 const TEST_DEATHS = ['bleed', 'fall', 'burst', 'acid', 'vermin', 'vermin3', 'behead', 'drag', 'raised', 'bats', 'carried', 'looted', 'ragdoll', 'ticks', 'hexed'];
 const testDeathName = k => k === 'vermin3' ? 'EATEN BY THREE RATS' : DEATH_NAMES[k]; // (vermin3: the fewest that can bury him)
 function testDie() {
-  const h = G.me; if (!TEST.on || TEST.mode !== 'armour' || !h || h.dead || h.fall) return;
+  const h = G.me; if (!TEST.on || TEST.mode !== 'armour' || !h) return;
+  if (h.dead) { if (G.phase === 'dead') armourRevive(); return; } if (h.fall) return; // (pressed while a death plays: SKIP, the rest of it)
   const kind = TEST_DEATHS[TEST.di % TEST_DEATHS.length]; TEST.di++; TEST.gen++; TEST.waiting = false; /* (gen: a lot of foes on its way is called off) */ h.gamb = 0; h.mail = 0; h.iframe = 0; h.blocking = false; h.act = null;
   if (kind === 'fall') { h.hp = 1; h.x = TEST.pit.x; h.y = TEST.pit.y; return; }
   const near = (spr, type, n, r0, r1) => { const out = []; for (let i = 0; i < n; i++) { const p = spotNear(h, r0, r1), v = mkFoe(type, 1, p.x, p.y, spr); Object.assign(v, { aware: true, state: 'fight', tgt: h, ctest: TEST.gen }); v.def.gold = [0, 0]; G.foes.push(v); G.units.push(v); smoke(p.x, p.y, 2, 'dust', 6, 12, 0.5); out.push(v); } return out; }; // (brought on for the death: 49_deaths2)
@@ -215,4 +216,31 @@ function armourRevive() {
   Object.assign(h, { dead: false, gone: false, dropped: false, deadT: 0, death: null, sway: 0, fall: null, hidden: false, headless: false, lampAt: null, pale: 0, vanishT: undefined, hp: h.maxHp, stam: h.maxStam, flasks: h.maxFlasks, x: TEST.home.x, y: TEST.home.y, vx: 0, vy: 0, kx: 0, ky: 0, z: 0, act: null, blocking: false, iframe: 1.2, curseT: 0, acidT: 0, gore: 0 });
   G.phase = 'play'; G.phaseT = 0; G.fade = 0; G.banner = null; G.bq.length = 0; G.summary = null; G.hurtFlash = 0;
   putOnGambeson(h); G.banner = null; G.bq.length = 0; textPop(h.x, h.y, headZ(h) + 6, 'AGAIN', 'white', true); SFX.whoosh(0); armourFoes(1.2);
+}
+
+// The death picker: the death's name under the buttons opens a list of them all, three across, the next one lit; one
+// tapped is died at once (and DIE goes on down the list from there); a tap anywhere else closes it. Picked while a death
+// plays, that one is cut short first.
+const DEATH_PICK = { open: false };
+function pickLabelY() { const L = btnLayout(); return L.next ? L.next.y + L.next.r + 30 : 0; }
+function pickHit(x, y) { if (!TEST.on || TEST.mode !== 'armour') return false; const ly = pickLabelY(); return Math.abs(x - VIEW.w / 2) < 170 && y > ly - 20 && y < ly + 10; }
+function pickLayout() {
+  const n = TEST_DEATHS.length, cols = 3, rows = Math.ceil(n / cols), cw = Math.min(210, (VIEW.w - 60) / cols), ch = Math.min(36, (VIEW.h - 110) / rows);
+  return { cols, rows, cw, ch, x0: VIEW.w / 2 - cw * cols / 2, y0: VIEW.h / 2 - ch * rows / 2 + 12 };
+}
+function pickTap(x, y) {
+  const P = pickLayout(), c = Math.floor((x - P.x0) / P.cw), r = Math.floor((y - P.y0) / P.ch), i = r * P.cols + c; DEATH_PICK.open = false;
+  if (x < P.x0 || y < P.y0 || c >= P.cols || r >= P.rows || i >= TEST_DEATHS.length) return;
+  if (G.me && G.me.dead && G.phase === 'dead') armourRevive(); TEST.di = i; testDie();
+}
+function drawPicker(c) {
+  const P = pickLayout(), n = TEST_DEATHS.length, next = TEST.di % n;
+  c.globalAlpha = 0.72; c.fillStyle = '#0a080c'; c.fillRect(0, 0, VIEW.w, VIEW.h); c.globalAlpha = 1;
+  font(c, 600, 14, F_HUD); spaced(c, 'PICK A DEATH', VIEW.w / 2, P.y0 - 14, 3, '#e8907a', 'center');
+  for (let i = 0; i < n; i++) {
+    const x = P.x0 + (i % P.cols) * P.cw, y = P.y0 + Math.floor(i / P.cols) * P.ch, on = i === next;
+    c.fillStyle = on ? 'rgba(90,40,30,0.85)' : 'rgba(30,24,28,0.85)'; c.fillRect(x + 3, y + 3, P.cw - 6, P.ch - 6);
+    c.strokeStyle = on ? '#e8907a' : 'rgba(232,144,122,0.35)'; c.lineWidth = 1; c.strokeRect(x + 3.5, y + 3.5, P.cw - 7, P.ch - 7);
+    font(c, 600, 12, F_HUD); label(c, testDeathName(TEST_DEATHS[i]), x + P.cw / 2, y + P.ch / 2 + 4, on ? '#ffe0d0' : '#f0e0c0', { align: 'center', max: P.cw - 16 });
+  }
 }
