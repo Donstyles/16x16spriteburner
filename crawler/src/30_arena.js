@@ -15,6 +15,19 @@ const FORCE_SHOP = { on: false }; // (the shop test: 39_shop)
 // face and the dark line under it) stay under the units. That trim goes on a layer of its own, which only keeps the glows
 // off the top of the wall, as the ceiling does.
 const CEIL_N = { '6,0': [[0, 0, 16, 11]] };
+// which wall piece stands on a tile of rock, from the floor round it ([tx, ty, mirrored] of the sheet, or null)
+function wallPiece(isF, x, y) {
+  if (isF(x, y)) return null; const face = (a, b) => !isF(a, b) && isF(a, b + 1), O = (a, b) => isF(a, b) || face(a, b);
+  if (face(x, y)) { const lf = isF(x - 1, y), rf = isF(x + 1, y); return rf && !lf ? [3, 3, false] : lf && !rf ? [3, 3, true] : [6, 1, false]; } // the brick face; where floor runs past its end, the block's end piece
+  const n = O(x, y - 1), e = O(x + 1, y), s = O(x, y + 1), w = O(x - 1, y);
+  if (n && e) return [3, 0, false]; if (n && w) return [3, 0, true]; // a corner of rock jutting into the floor
+  if (s && e) return [3, 2, false]; if (s && w) return [3, 2, true];
+  if (s) return [6, 0, false]; if (n) return [6, 3, false];
+  if (e) return [5, face(x + 1, y) ? 1 : 2, false]; if (w) return [7, face(x - 1, y) ? 1 : 2, false]; // side walls; beside a brick face the rim runs down past it
+  if (O(x + 1, y + 1)) return [5, 0, false]; if (O(x - 1, y + 1)) return [7, 0, false]; // the inside corners of a room
+  if (O(x + 1, y - 1)) return [5, 3, false]; if (O(x - 1, y - 1)) return [7, 3, false];
+  return null;
+}
 function tileAt(g, tx, ty, dx, dy) { g.drawImage(IMG.cellar, tx * TS, ty * TS, TS, TS, dx, dy, TS, TS); }
 // A floor that cannot take the puzzles its depth asks for (37_levels levelPlan) is laid out again, a few times at most.
 // It looks for some variety too: two puzzles of different kinds where it can, and the flooded way as often as the
@@ -24,8 +37,8 @@ function buildArena(floor) {
   let A = null; const wantFlood = chance(0.5);
   for (let k = 0; k < 40; k++) { // (the one built last is ARENA: the one handed back)
     A = buildArena1(floor); if (!A.need) return A; if (A.musts < A.need) continue;
-    const kinds = new Set(A.sets.filter(s => s === 'flood' || s === 'drawbridge'));
-    if (k >= 8 || (A.need >= 2 ? kinds.size >= 2 : kinds.has(wantFlood ? 'flood' : 'drawbridge'))) return A;
+    const kinds = new Set(A.sets.filter(s => MUST_KINDS.has(s)));
+    if (k >= 8 || (A.need >= 2 ? kinds.size >= 2 : kinds.has(wantFlood ? 'flood' : 'drawbridge') || [...kinds].some(s => s !== 'flood' && s !== 'drawbridge'))) return A;
   }
   return A;
 }
@@ -112,19 +125,7 @@ function buildArena1(floor) {
     const R = m.map(([mx, my, mw, mh]) => [x * TS + (flip ? TS - mx - mw : mx), y * TS + my, mw, mh]);
     cng.save(); cng.beginPath(); for (const [rx, ry, rw, rh] of R) cng.rect(rx, ry, rw, rh); cng.clip(); put(cng, tx, ty, x, y, flip); cng.restore();
   };
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    if (isF(x, y)) continue;
-    if (face(x, y)) { // the brick face; where floor runs past its end, the block's end piece
-      const lf = isF(x - 1, y), rf = isF(x + 1, y); if (rf && !lf) T(3, 3, x, y); else if (lf && !rf) T(3, 3, x, y, true); else T(6, 1, x, y); continue;
-    }
-    const n = O(x, y - 1), e = O(x + 1, y), s = O(x, y + 1), w = O(x - 1, y);
-    if (n && e) T(3, 0, x, y); else if (n && w) T(3, 0, x, y, true); // a corner of rock jutting into the floor
-    else if (s && e) T(3, 2, x, y); else if (s && w) T(3, 2, x, y, true);
-    else if (s) T(6, 0, x, y); else if (n) T(6, 3, x, y);
-    else if (e) T(5, face(x + 1, y) ? 1 : 2, x, y); else if (w) T(7, face(x - 1, y) ? 1 : 2, x, y); // side walls; beside a brick face the rim runs down past it
-    else if (O(x + 1, y + 1)) T(5, 0, x, y); else if (O(x - 1, y + 1)) T(7, 0, x, y); // the inside corners of a room
-    else if (O(x + 1, y - 1)) T(5, 3, x, y); else if (O(x - 1, y - 1)) T(7, 3, x, y);
-  }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const P = wallPiece(isF, x, y); if (P) T(P[0], P[1], x, y, P[2]); }
   const A = ARENA = { w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilN: cn, fl, wt, wf, rooms, halls, props: [], torches: [], name: floorName(floor), floor };
   paintCeil(A, cg, cv); // the painted trim, as drawn on the ground: the ceiling over everyone (31_walls)
   A.doors = rooms.flatMap(r => r.doors.map(d => Object.assign(d, { room: r.i, k: 0 })));
@@ -139,7 +140,7 @@ function buildArena1(floor) {
   for (const r of rooms) worksBefore(A, r, g); // a cistern, a rune shrine (36_works)
   for (const r of rooms) { furnish(A, r, g); shapeAfter(A, r); } // (what stands in the alcoves: 33_shapes)
   mapChest(A); // (the floor's map, in one of its small chests)
-  for (const r of rooms) worksAfter(A, r); for (const r of rooms) levelAfter(A, r); spikeHalls(A); corridorWood(A, g); wayArrows(A, g);
+  for (const r of rooms) worksAfter(A, r); for (const r of rooms) levelAfter(A, r); for (const r of rooms) puzzleAfter(A, r); spikeHalls(A); corridorWood(A, g); wayArrows(A, g);
   // the stairway we came down, in the start room's north wall; the way down waits shut in the end room's
   { const r = A.start, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 12, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 13, (sx + i) * TS, (r.fy0 + 1) * TS); } }
   { const r = A.end, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 14, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 15, (sx + i) * TS, (r.fy0 + 1) * TS); } A.stairs = { x: (sx + 1.5) * TS, y: (r.fy0 + 2) * TS + 2, sx, sy: r.fy0, room: r.i };
@@ -178,6 +179,7 @@ function furnish(A, r, g) {
   for (const d of r.doors) if (d.side === 'N') for (const [x] of d.cells) for (let k = -2; k <= 2; k++) used.add(x + k);
   if (r.stairX !== undefined) for (let k = -1; k <= 3; k++) used.add(r.stairX + k);
   if (r.sluiceX !== undefined) for (let k = -1; k <= 1; k++) used.add(r.sluiceX + k); // (a sluice's outlet goes there: 37_levels)
+  if (r.crackX !== undefined) for (let k = -1; k <= 3; k++) used.add(r.crackX + k); // (a cracked wall: 41_puzzles)
   for (let x = r.ix0 + 1; x < r.ix1; x += 4) { const tx = x + (used.has(x) ? 3 : 0); if (tx >= r.ix1 || used.has(tx) || !faceAt(A, tx, r.fy0 + 1)) continue; used.add(tx); A.torches.push({ x: tx * TS + 8, y: (r.fy0 + 1) * TS + 9, tx, f: randi(0, 3) }); }
   // a banner: one of the twelve tall ones ([20..31, 0..1], the rod low in the upper tile) or one of the eight small ones
   // ([16..19, 0..1], one tile, the rod at its top; hung so its rod is level with the tall ones' and it hangs as low)

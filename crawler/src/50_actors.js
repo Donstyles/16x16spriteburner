@@ -113,6 +113,7 @@ function propFoot(p) {
   if (p.kind === 'pillar') return { x0: p.x - 6, x1: p.x + 6, y0: p.y - 17, y1: p.y - 7 };
   if (p.kind === 'wetpillar') return { x0: p.x - 6, x1: p.x + 6, y0: p.y - 10, y1: p.y };
   if (p.kind === 'counter') { const w = (p.tw || 1) * 8; return { x0: p.x - w, x1: p.x + w, y0: p.y - 12, y1: p.y + 1 }; } // (the shop's counter: solid end to end, 39_shop)
+  if (p.push) return { x0: p.x - 7, x1: p.x + 7, y0: p.y - 13, y1: p.y + 1 }; // (a stone block to push: square, so whoever pushes it is not turned aside round it, 41_puzzles)
   if (p.kind === 'tchest') return { x0: p.x - 7, x1: p.x + 7, y0: p.y - 6, y1: p.y + 1 }; // (a treasure chest, its lid's edge 11 above its foot line: from the north, feet go a pixel or two in behind it)
   return null;
 }

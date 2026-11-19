@@ -19,7 +19,7 @@ const FORCE = { set: false }; // the puzzle floor (kit screen): every set piece 
 function levelPlan(A, g) {
   const rooms = A.rooms, adj = r => A.halls.filter(h => h.A === r || h.B === r).map(h => (h.A === r ? h.B : h.A));
   const reach = skip => { const seen = new Set([A.start]), q = [A.start]; while (q.length) { const r = q.shift(); for (const n of adj(r)) if (n !== skip && !seen.has(n)) { seen.add(n); q.push(n); } } return seen; };
-  const free = r => r.kind === 'room' && !r.chest && !r.set && !r.sluice && !r.shape, shuffled = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(v => v[1]);
+  const free = r => r.kind === 'room' && !r.chest && !r.set && !r.sluice && !r.shape && !r.puz, shuffled = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(v => v[1]);
   A.sets = []; A.plankSet = new Set(); A.noProp = new Set(); A.planning = true;
   const tryFlood = () => { for (const r of shuffled(rooms.filter(r => free(r) && !reach(r).has(A.end)))) {
     // the flooded way stands where the way to the stairs runs through it and a side branch leaves it too: you come in
@@ -41,12 +41,15 @@ function levelPlan(A, g) {
   // third two (a flooded way, a drawbridge, one of each if they fit); the first floor may have a flooded way or not.
   // A floor that cannot take them is laid out again (30_arena buildArena).
   A.need = FORCE.set ? 0 : A.floor >= 3 ? 2 : A.floor === 2 ? 1 : 0;
-  const musts = () => A.sets.filter(s => s === 'flood' || s === 'drawbridge').length;
-  if (A.need) for (let k = 0; k < 3 && musts() < A.need; k++) { const order = A.sets.includes('flood') ? [tryBridge, tryFlood] : A.sets.includes('drawbridge') ? [tryFlood, tryBridge] : chance(0.5) ? [tryFlood, tryBridge] : [tryBridge, tryFlood]; if (!order[0]()) order[1](); }
+  const musts = () => A.sets.filter(s => MUST_KINDS.has(s)).length;
+  if (A.need) for (let k = 0; k < 4 && musts() < A.need; k++) {
+    if ((PUZ.force || chance(0.5)) && puzzleTry(A, g)) continue; /* (the portcullis, the echoing runes, the weight, the gap, the spike gate: 41_puzzles) */ const order = A.sets.includes('flood') ? [tryBridge, tryFlood] : A.sets.includes('drawbridge') ? [tryFlood, tryBridge] : chance(0.5) ? [tryFlood, tryBridge] : [tryBridge, tryFlood]; if (!order[0]()) order[1](); }
   else if (FORCE.set || chance(0.55)) tryFlood();
   if (FORCE.set) tryBridge();
   if (FORCE.set || chance(0.45)) for (const r of shuffled(rooms.filter(r => free(r) && r.w >= 12 && r.h >= 8 && r.doors.length >= 2 && beyondHost(A, r)))) if (gauntlet(A, r, g)) { r.set = 'gauntlet'; A.sets.push('gauntlet'); remoteSluice(A, r, r.pool); break; }
   if (FORCE.set || chance(0.4)) for (const r of shuffled(rooms.filter(r => free(r) && r.w >= 11 && r.h >= 7 && beyondHost(A, r)))) if (sentinelPond(A, r, g)) { r.set = 'sentinel'; A.sets.push('sentinel'); remoteSluice(A, r, r.pool); break; }
+  if (A.floor >= 4 && chance(0.4)) puzzleTry(A, g); // (deeper down, now and then one more)
+  secretPlan(A); // (cracked walls with niches behind them: 41_puzzles)
   A.musts = musts(); A.planning = false;
 }
 // THE DRAWBRIDGE: a chasm across a room the way down runs through (the end room, between its doors and the stairs, or a
@@ -90,7 +93,7 @@ function drawbridge(A, r, g, near, adj) {
 // Every body of water that drains has its sluice in another room, and the order is in the layout: the sluice is in a room
 // that can only be reached through the water's own room (across the causeway, past the sentinel, round the cistern, or
 // along the flooded way's ledge), so whoever finds it has met the water first. A piece only goes where such a room is.
-const hostOK = A => h => h !== A.start && h.kind !== 'treasure' && h.kind !== 'shop' && !h.chest && !h.set && !h.sluice && !h.pool && !h.shrine && h.w >= 6;
+const hostOK = A => h => h !== A.start && h.kind !== 'treasure' && h.kind !== 'shop' && !h.chest && !h.set && !h.sluice && !h.pool && !h.shrine && !h.puz && h.w >= 6;
 function beyondHost(A, r, within = null) { // (within: only one of these rooms)
   const adj = q => A.halls.filter(h => h.A === q || h.B === q).map(h => (h.A === q ? h.B : h.A));
   if (r === A.start) return null; const near = new Set([A.start]), q = [A.start]; while (q.length) { const a = q.shift(); for (const n of adj(a)) if (n !== r && !near.has(n)) { near.add(n); q.push(n); } }
@@ -331,7 +334,7 @@ function bridgeCine(C, dt) {
   if (skip || (C.endT !== undefined && C.t - C.endT > 1.1)) { G.cine = null; G.eyes = null; }
 }
 function cineTick(dt) {
-  const C = G.cine; C.t += dt; if (C.bridge) { bridgeCine(C, dt); return; } const p = C.pool;
+  const C = G.cine; C.t += dt; if (C.bridge) { bridgeCine(C, dt); return; } if (C.gate) { gateCine(C, dt); return; } const p = C.pool;
   if (C.t > 0.8 && !p.drain) startDrain(p);
   worksTick(dt); updateSight(dt); updateProj(0);
   for (const f of G.foes) if (f.drowned) foeTick(f, dt); // (the drowned settle where they lie)

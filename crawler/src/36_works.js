@@ -260,7 +260,7 @@ function lightRoom(A, ri) { // round the room, one after another
 function spikeHalls(A) {
   if (A.floor < 2) return; const W = wkOf(A); A.spikes = A.spikes || [];
   for (const hl of A.halls) {
-    const H = hl.dir === 'h', len = H ? hl.x1 - hl.x0 : hl.y1 - hl.y0; if (len < 7 || hl.A.kind === 'shop' || hl.B.kind === 'shop' || !chance(0.35)) continue;
+    const H = hl.dir === 'h', len = H ? hl.x1 - hl.x0 : hl.y1 - hl.y0; if (len < 7 || hl.spikeGate || hl.A.kind === 'shop' || hl.B.kind === 'shop' || !chance(0.35)) continue;
     const D = Math.min(randi(4, 6), len - 3), ph = rand(0, SPIKE_T), m0 = Math.round(((H ? hl.x0 + hl.x1 : hl.y0 + hl.y1) - D + 1) / 2), fc = (m0 + D / 2) * TS;
     for (let j = 0; j < D; j++) for (let k = 0; k < 6; k++) { const tx = H ? m0 + j : hl.x0 + k, ty = H ? hl.y0 + k : m0 + j; if (k >= 3 && !FLOOR(A.fl[ty * A.w + tx]) && !openAt(tx * TS + 8, ty * TS + 8)) break; /* (wall to wall: an east-west hall walks four wide, its south wall's row too, and a fourth lane left free was a way past) */ A.spikes.push({ tx, ty, x: tx * TS + 8, y: ty * TS + 8, tile: spikeLook(W), ph, hit: new Set(), was: 0, ax: H ? 'x' : 'y', fc }); }
   }
@@ -287,10 +287,11 @@ function exitTorches(A) { // (30_arena: one each side of the way down)
 // in the same four frames); it works the same either way
 const spikeLook = W => [W.spike[0], W.spike[1] + pick([0, 0, 0, 1, 2])];
 const SPIKE_T = 2.6; // its beat: down 1.55 s, rising, up, sinking back
-function spikeFrame(s) { const t = (G.time + s.ph) % SPIKE_T; return t < 1.55 ? 0 : t < 1.62 ? 3 : t < 1.69 ? 2 : t < 2.3 ? 1 : t < 2.4 ? 2 : t < 2.48 ? 3 : 0; } // 0 hole, 3 tip, 2 half, 1 up
+function spikeFrame(s) { if (s.gate) return spikeGateFrame(s.gate); const t = (G.time + s.ph) % SPIKE_T; return t < 1.55 ? 0 : t < 1.62 ? 3 : t < 1.69 ? 2 : t < 2.3 ? 1 : t < 2.4 ? 2 : t < 2.48 ? 3 : 0; } // 0 hole, 3 tip, 2 half, 1 up
 function worksTick(dt) {
   const A = ARENA; if (!A) return; const heroes = G.heroes.filter(h => !h.dead && !h.enter); exitTorches(A); shopTick(A, dt);
   for (const pl of A.plates || []) {
+    if (pl.hidden) continue; // (behind a cracked wall: 41_puzzles)
     // The socket is a slab standing proud of the floor (its front face three pixels high), the button raised in it two more
     // until a foot drives it flush. Whoever stands on it stands that much higher (lift: drawn up, the shadow on the slab
     // with them). A hero coming at it stops short, crouches a beat and hops up, pressed or not; on the way up he is drawn
@@ -315,8 +316,11 @@ function worksTick(dt) {
       else if (h.platHop === pl && h.brake <= 0 && h.z <= 0.5 && Math.hypot(ex, ey) > 12) h.platHop = null;
     }
     // (pressed once he has landed on it)
+    // (a weight plate: down only while someone stands on it or a block weighs it down; a spike gate's: down while its
+    // spikes are; 41_puzzles)
+    if (pl.hold || pl.timer) { const on = heroes.some(h => h.onPlat === pl && h.z <= 0.5), w = pl.hold ? on || pushOn(pl) : pl.timer.downT > 0 || on; if (pl.timer && on && !(pl.timer.downT > 0)) { pl.timer.downT = SPIKEGATE.t; SFX.spike(panOf(pl.timer.spikes[0].x)); } if (w !== pl.down) { pl.down = w; pl.t = 0; SFX.stone(panOf(pl.x), w); if (w) shake(0.04); } pl.t = (pl.t || 0) + dt; pl.f = pl.down ? Math.min(3, Math.floor(pl.t / 0.06)) : Math.max(0, 3 - Math.floor(pl.t / 0.06)); if (pl.hold && pl.gate) pl.gate.held = pl.down; continue; }
     if (!pl.down && heroes.some(h => h.onPlat === pl && h.z <= 0.5)) { pl.down = true; pl.t = 0; SFX.stone(panOf(pl.x), true); shake(0.05); }
-    if (pl.down) { pl.t += dt; pl.f = Math.min(3, Math.floor(pl.t / 0.06)); if (pl.pool && !pl.pool.drain && pl.t > 0.35) { if (pl.remote) startCine(pl); else startDrain(pl.pool); } if (pl.bridge && !pl.bridge.going && pl.t > 0.35) startBridgeCine(pl); } // (a drawbridge's: 37_levels)
+    if (pl.down) { pl.t += dt; pl.f = Math.min(3, Math.floor(pl.t / 0.06)); if (pl.pool && !pl.pool.drain && pl.t > 0.35) { if (pl.remote) startCine(pl); else startDrain(pl.pool); } if (pl.bridge && !pl.bridge.going && pl.t > 0.35) startBridgeCine(pl); if (pl.gate && !pl.gate.going && pl.t > 0.35) startGateCine(pl, pl.gate); } // (a drawbridge's: 37_levels)
   }
   for (const p of A.pools || []) if (p.drain === 1) {
     p.level = Math.max(0, p.level - dt / (p.rate || 3.4)); const [dx, dy] = p.drainAt, cx = dx * TS + 8, cy = dy * TS + 8;
@@ -360,6 +364,7 @@ function worksTick(dt) {
     s.was = f;
   }
   if (rising) SFX.spike(panOf(rising.x));
+  puzzlesTick(dt); // (gates, stone blocks, echoing runes, spike gates: 41_puzzles)
 }
 function startDrain(p) {
   p.drain = 1; const [dx, dy] = p.drainAt; SFX.drain(panOf(dx * TS)); SFX.quake(0.8);
@@ -508,12 +513,13 @@ function drawWorks(c) {
   // flush in four frames ([10..13, 28] / [10..13, 29]); the socket is never seen empty
   // (aligned by hand on the Plate Aligner: the socket a pixel up, the button four)
   // (a sunken one, while its water is up: the socket's wet twin, [3, 18] / [3, 21], the button standing up out of the water, dry)
-  { const Wk = wkOf(A); for (const pl of A.plates || []) { sheetTile(c, pl.sunken && !pl.sunken.dried ? Wk.wetSocket : Wk.socket, pl.x - 8, pl.y - 9); sheetTile(c, Wk.block, pl.x - 8, pl.y - 12, pl.f, 0); } }
+  { const Wk = wkOf(A); for (const pl of A.plates || []) { if (pl.hidden) continue; sheetTile(c, pl.sunken && !pl.sunken.dried ? Wk.wetSocket : Wk.socket, pl.x - 8, pl.y - 9); sheetTile(c, Wk.block, pl.x - 8, pl.y - 12, pl.f, 0); } }
   for (const rn of A.runes || []) {
     sheetTile(c, rn.on ? rn.lit : rn.tile, rn.x - 8, rn.y - 8);
     if (rn.on) light(rn.x, rn.y, 46 + 4 * Math.sin(G.time * 3 + rn.x), 'gold', 0.55);
   }
   for (const s of A.spikes || []) sheetTile(c, s.tile, s.x - 8, s.y - 8, spikeFrame(s), 0);
+  drawPuzzles(c); // (the echoing runes: 41_puzzles)
 }
 function drawWorksGlow(c) { // the lit runes glow in the dark; just woken, a column of light stands on one
   const A = ARENA; if (!A) return;

@@ -279,9 +279,10 @@ function strikeHits(h, a) {
     hurt(f, W.dmg * mv.dm, h, { ...o, crit, poise: mv.poise * (crit > 1 ? 1.5 : 1), kx: Math.cos(ka) * mv.push, ky: Math.sin(ka) * mv.push * 0.8, ang: ka, style: styleOf(h, mv), sweep: (mv.sweep || 1) * (h.face < 0 ? -1 : 1) });
     sparks(f.x, f.y, 8 * f.scale, 6, crit > 1 ? 'gold' : 'white', 120, 70, ka, 1.6); const big = mv.dm >= 2 || crit > 1; freeze(f, big ? 0.12 : 0.07); freeze(h, big ? 0.06 : 0.025); if (crit > 1) { kick(0.04); flashLight(f.x, f.y, 50, 'gold', 1, 0.2); }
   }
-  for (const p of ARENA.props) if (!p.dead && p.hp < 1e8 && !a.hit.has(p) && hitsShape(src, { x: p.x, y: p.cy, r: p.r }, mv, a.dir)) { a.hit.add(p); breakProp(p); }
+  for (const p of ARENA.props) if (!p.dead && p.hp < 1e8 && !a.hit.has(p) && hitsShape(src, { x: p.x, y: p.cy, r: p.r }, mv, a.dir)) { a.hit.add(p); breakProp(p, mv); }
 }
-function breakProp(p) {
+function breakProp(p, mv) {
+  if (p.kind === 'crack') { hitCrack(p, mv && mv.dm >= 2 ? 3 : 1); return; } // (a cracked wall: a heavy blow breaks it at once, 41_puzzles)
   // (a shrine's chest opens only once its vault does)
   if (p.dead || p.hp > 1e8) return; if (p.kind === 'tchest') { if (p.sealed && !p.sealed.open) { SFX.clang(panOf(p.x)); return; } openChest(p); return; } if (p.kind === 'ore') { hitOre(p); return; }
   if ((p.th || 1) >= 2 && (p.tw || 1) >= 2 && !p.wetTile && (p.hits = (p.hits || 0) + 1) < 3) { strikeTall(p); return; } // a heap of crates two wide and two high: three blows
@@ -301,7 +302,8 @@ function breakProp(p) {
 // it stands there open and empty, and the next blow splinters it
 function openSmall(p) {
   p.open = true; p.tile = [p.tile[0] + 1, p.tile[1]]; SFX.chest(panOf(p.x)); SFX.wood(panOf(p.x));
-  const loot = [], n = randi(6, 14), coins = Math.min(n, 4); for (let i = 0; i < coins; i++) loot.push(Math.ceil(n / coins));
+  const loot = [], n = p.rich ? randi(22, 36) : randi(6, 14), coins = Math.min(n, p.rich ? 6 : 4); for (let i = 0; i < coins; i++) loot.push(Math.ceil(n / coins));
+  if (p.rich && chance(0.5)) loot.splice(randi(0, loot.length), 0, chance(0.5) ? 'fish' : 'flask'); // (a hidden niche's: 41_puzzles)
   if (chance(0.03)) loot.splice(randi(0, loot.length), 0, 'flask'); if (p.map) loot.splice(randi(0, loot.length), 0, 'map'); // (one small chest on each floor holds its map: 30_arena mapChest)
   loot.forEach((k, i) => spill(p, k, i, loot.length));
   debris(p.x, p.cy - 6, 4, ['#6a4a2a', '#8a6638', '#4a3018', '#a07848'], 60, 90, 1.1); smoke(p.x, p.cy - 5, 1, 'dust', 6, 14, 0.7);
