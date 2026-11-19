@@ -262,7 +262,8 @@ function corridorWood(A, g) {
   const junkAt = (x, y) => { if (spiky(x, y) || A.props.some(q => !q.dead && Math.abs(q.x - (x * TS + 8)) < 14 && Math.abs(q.cy - (y * TS + 10)) < 14)) return; put('crate', pick(FURN.junk), x, y); };
   for (const hl of A.halls) {
     // its own floor: across the door cells' rows (or columns), from a tile past the one wall to a tile short of the other
-    if (hl.A.kind === 'shop' || hl.B.kind === 'shop') continue; // (the way to the shop is kept clear)
+    if (hl.A.kind === 'shop' || hl.B.kind === 'shop' || hl.bent) continue; // (the way to the shop is kept clear; a bent corridor too)
+    if (hl.wide) { hallColumns(A, hl); continue; } // (a gallery: columns down its middle)
     const h = hl.dir === 'h', a0 = h ? hl.x0 + 1 : hl.y0 + 1, a1 = h ? hl.x1 - 1 : hl.B.fy0 - 1, len = a1 - a0 + 1; if (len < 3) continue;
     const at = (k, lane) => (h ? [k, hl.y0 + lane] : [hl.x0 + lane, k]);
     const roll = Math.random();

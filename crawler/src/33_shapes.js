@@ -15,7 +15,9 @@
 const SHAPES = { force: null }; // (a test: this shape on every room that can take one)
 const SHAPE_KINDS = ['hall', 'ring', 'cuts', 'alcoves', 'spurs', 'serpent'];
 function shapeRooms(rooms, fl, W, H, floor) {
+  for (const r of rooms) if (r.great) { greatHall(r, fl, W, H); r.shape = 'great'; } // (THE GREAT HALL: 30_arena)
   for (const r of rooms) {
+    if (r.great) continue;
     if (r.kind !== 'room' && r.kind !== 'end') continue;
     if (!SHAPES.force && !chance(clamp(0.32 + floor * 0.04, 0.32, 0.6))) continue;
     const kinds = SHAPES.force ? [SHAPES.force] : pitShuffle(r.kind === 'end' ? ['hall', 'ring'] : SHAPE_KINDS.slice());
@@ -103,6 +105,20 @@ function shapeRoom(r, k, fl, W, H) {
   }
   return false;
 }
+// THE GREAT HALL's colonnade: blocks of wall two tiles wide in two rows down its length (a long hall), or two columns
+// down a nave, every five or six tiles; any that would stand in a door's way is left out
+function greatHall(r, fl, W, H) {
+  const keep = landingKeep(r, W), bh = chance(0.5) ? 2 : 3, step = randi(5, 6);
+  for (let t = 0; t < 12; t++) {
+    const rock = new Set(), add = (x0, y0, w, h) => { const c = []; for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) c.push(y * W + x); if (c.some(i => keep.has(i))) return; for (const i of c) rock.add(i); };
+    if (r.great === 'h') { // two rows with a nave between them, or (no room for two) one row down the middle
+      const h2 = t < 6 ? bh : 2, yt = r.iy0 + (r.kind === 'end' ? 3 : 2) + (t % 2), yb = r.iy0 + r.iy1 - yt - h2 + 1, two = yb - (yt + h2) >= 2, ym = Math.max(r.iy0 + (r.kind === 'end' ? 4 : 3), Math.round((r.iy0 + r.iy1 - h2 + 1) / 2));
+      for (let x = r.ix0 + 3 + randi(0, 1); x + 1 <= r.ix1 - 3; x += step) { if (two) { add(x, yt, 2, h2); add(x, yb, 2, h2); } else add(x, ym, 2, h2); }
+    }
+    else { const xl = r.ix0 + 2 + randi(0, 1), xr = r.ix0 + r.ix1 - xl - 1; if (xr - (xl + 2) < 3) return; for (let y = r.iy0 + (r.kind === 'end' ? 4 : 3); y + bh - 1 <= r.iy1 - 3; y += step) { add(xl, y, 2, bh); add(xr, y, 2, bh); } }
+    if (rock.size && shapeOK(r, rock, new Set(), fl, W, keep)) { for (const i of rock) fl[i] = 0; r.rock = rock; return; }
+  }
+}
 // whether a north wall's brick face stands at (x, y): rock with floor right under it (torches, banners and windows hang
 // only there)
 function faceAt(A, x, y) { return x >= 0 && y >= 0 && y + 1 < A.h && A.fl[y * A.w + x] === 0 && FLOOR(A.fl[(y + 1) * A.w + x]); }
@@ -119,4 +135,9 @@ function shapeAfter(A, r) {
     else put('chest', mx, my, { tile: [pick([28, 30]), 8], th: 1, hp: 40, nook: true });
     if (a.side === 'N') for (const tx of what === 'statue' || what === 'column' ? [a.x, a.x + 2] : [mx]) A.torches.push({ x: tx * TS + 8, y: (a.y - 1) * TS + 9, tx, f: randi(0, 3), room: r.i }); // (either side of a statue or a column)
   }
+}
+// THE GALLERY: a corridor twice as wide between its doorways, columns down its middle every three tiles
+function hallColumns(A, hl) {
+  const P = A.th.pillar[randi(0, 1)], H = hl.dir === 'h', a0 = (H ? hl.x0 : hl.y0) + 3, a1 = (H ? hl.x1 : hl.y1) - 3;
+  for (let k = a0; k <= a1; k += 3) { const tx = H ? k : hl.x0 + 1, ty = H ? hl.y0 + 1 : k; if (!FLOOR(A.fl[ty * A.w + tx]) || A.props.some(q => !q.dead && Math.abs(q.x - (tx * TS + 8)) < 16 && Math.abs(q.y - (ty * TS + 14)) < 16)) continue; A.props.push({ kind: 'pillar', tile: P, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 6, solid: true, hp: 1e9, hall: true }); }
 }

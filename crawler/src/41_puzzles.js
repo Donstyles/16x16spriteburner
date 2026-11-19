@@ -130,7 +130,7 @@ function tryGap(A, g) {
 function trySpikeGate(A) {
   if (A.floor < 2 && !PUZ.force) return false; const W = A.w;
   for (const h of pitShuffle(critHalls(A))) {
-    const H = h.dir === 'h', len = H ? h.x1 - h.x0 : h.y1 - h.y0; if (len < 6) continue;
+    const H = h.dir === 'h', len = H ? h.x1 - h.x0 : h.y1 - h.y0; if (len < 6 || h.bent || h.wide) continue;
     const near = puzReach(A, h, false), X = near.has(h.A) ? h.A : h.B; if (!puzRoomOK(X) || X.shape) continue;
     const d = X.doors.find(q => q.hall === h); if (!d) continue; const [dx, dy] = d.cells[1];
     // the plate: as far from the corridor's door as the room allows (seven tiles at least), on bare floor

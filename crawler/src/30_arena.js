@@ -9,6 +9,7 @@ const FLOOR_NAMES = ['THE ROOT CELLAR', 'THE SALT VAULT', 'THE DROWNED STORES', 
 let ARENA = null;
 const CW = 24, CH = 17; // one grid cell, in tiles
 const FORCE_SHOP = { on: false }; // (the shop test: 39_shop)
+const GREAT = { force: false }; // (a test: a great hall on every floor)
 // The tops of the south, east and west walls are at the ceiling: nothing in the room passes over them, so their painted
 // trim is drawn into a ceiling layer over everything else (31_walls).
 // A north wall is behind whoever stands at its foot: its brick face and the trim along its top (the light top, its south
@@ -72,29 +73,52 @@ function buildArena1(floor) {
   const treasK = lv.length ? pick(lv) : -1; // a dead end off the way, when there is one, holds the treasure
   // ---- rooms inside their cells; every room covers its cell's centre so the corridors can run straight
   const W = GW * CW, H = GH * CH, fl = new Uint8Array(W * H), rooms = [], byKey = new Map();
+  const kindOf = k => k === key(...s0) ? 'start' : k === endK ? 'end' : k === treasK ? 'treasure' : k === shopK ? 'shop' : 'room';
+  // THE GREAT HALL (from the second floor, now and then; two from the sixth): two neighbouring cells of the grid made one
+  // room, thirty to thirty-six tiles long, or a nave twenty-four to twenty-eight tall; the end room may be one
+  const great = new Map(); if (floor >= 2 || GREAT.force) {
+    const want = GREAT.force ? 1 : floor >= 6 ? 2 : 1, used = new Set(), ok = k => kindOf(k) === 'room' || kindOf(k) === 'end';
+    for (const [a, b] of pitShuffle(edges.slice())) { if (great.size >= want) break; if (!ok(a) || !ok(b) || used.has(a) || used.has(b)) continue; const ca = cells.get(a), cb = cells.get(b); if (ca[1] !== cb[1] && !chance(0.35)) continue; if (!GREAT.force && !chance(0.45)) continue; const [f, s] = ca[0] + ca[1] * 100 < cb[0] + cb[1] * 100 ? [a, b] : [b, a]; great.set(f, s); used.add(a); used.add(b); }
+  }
+  const second = new Set(great.values());
   for (const [k, [gx, gy]] of cells) {
-    const kind = k === key(...s0) ? 'start' : k === endK ? 'end' : k === treasK ? 'treasure' : k === shopK ? 'shop' : 'room';
-    const big = kind === 'end', w = big ? randi(18, 20) : kind === 'start' ? randi(13, 14) : kind === 'treasure' ? randi(10, 12) : kind === 'shop' ? 9 : randi(12, 18), h = big ? randi(10, 12) : kind === 'start' || kind === 'treasure' ? randi(7, 8) : kind === 'shop' ? 7 : randi(7, 11);
-    const X0 = gx * CW, Y0 = gy * CH, cx = X0 + CW / 2, cy = Y0 + 9;
-    const ix0 = randi(Math.max(X0 + 2, cx + 3 - w), Math.min(cx - 2, X0 + CW - 2 - w)), iy0 = kind === 'shop' ? cy - 4 : randi(Math.max(Y0 + 3, cy + 3 - h), Math.min(cy - 2, Y0 + CH - 2 - h)); // (a shop: its side doors come in below its counter)
+    if (second.has(k)) continue; const k2 = great.get(k), kind = k2 !== undefined && kindOf(k2) === 'end' ? 'end' : kindOf(k);
+    const big = kind === 'end'; let w = big ? randi(18, 20) : kind === 'start' ? randi(13, 14) : kind === 'treasure' ? randi(10, 12) : kind === 'shop' ? 9 : randi(12, 18), h = big ? randi(10, 12) : kind === 'start' || kind === 'treasure' ? randi(7, 8) : kind === 'shop' ? 7 : randi(7, 11);
+    const X0 = gx * CW, Y0 = gy * CH; let cx = X0 + CW / 2, cy = Y0 + 9, ix0, iy0, hz = null;
+    if (k2 !== undefined) { // (across two cells: it covers both their middles, so the corridors still run straight)
+      hz = cells.get(k2)[1] === gy;
+      if (hz) { w = randi(30, 36); h = randi(10, 12); ix0 = randi(Math.max(X0 + 2, cx + CW + 3 - w), Math.min(cx - 2, X0 + 2 * CW - 2 - w)); iy0 = randi(Math.max(Y0 + 3, cy + 3 - h), Math.min(cy - 2, Y0 + CH - 2 - h)); }
+      else { w = randi(13, 18); h = randi(24, 28); ix0 = randi(Math.max(X0 + 2, cx + 3 - w), Math.min(cx - 2, X0 + CW - 2 - w)); iy0 = randi(Math.max(Y0 + 3, cy + CH + 3 - h), Math.min(cy - 2, Y0 + 2 * CH - 2 - h)); }
+      cx = Math.round(ix0 + (w - 1) / 2); cy = Math.round(iy0 + (h - 1) / 2);
+    } else { ix0 = randi(Math.max(X0 + 2, cx + 3 - w), Math.min(cx - 2, X0 + CW - 2 - w)); iy0 = kind === 'shop' ? cy - 4 : randi(Math.max(Y0 + 3, cy + 3 - h), Math.min(cy - 2, Y0 + CH - 2 - h)); } // (a shop: its side doors come in below its counter)
     const r = { i: rooms.length, k, gx, gy, kind, cx, cy, ix0, iy0, ix1: ix0 + w - 1, iy1: iy0 + h - 1, fx0: ix0 - 1, fx1: ix0 + w, fy0: iy0 - 2, fy1: iy0 + h, w, h, doors: [] };
+    if (k2 !== undefined) { r.great = hz ? 'h' : 'v'; byKey.set(k2, r); }
     r.px0 = r.fx0 * TS; r.py0 = r.fy0 * TS; r.px1 = (r.fx1 + 1) * TS; r.py1 = (r.fy1 + 1) * TS;
     r.b = { x0: ix0 * TS + 5, x1: (r.ix1 + 1) * TS - 5, y0: iy0 * TS + 4, y1: (r.iy1 + 1) * TS - 3 };
     rooms.push(r); byKey.set(k, r);
     for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) fl[y * W + x] = 1;
   }
-  // ---- corridors: floor through both walls, the corridor's own walls between the rooms
-  const halls = [];
+  // ---- corridors: floor through both walls, the corridor's own walls between the rooms. Each runs along the middle line of
+  // the cells it joins. Now and then one jogs aside halfway (THE BENT CORRIDOR: it comes into the far room three or four
+  // tiles off its middle), or is twice as wide between its doorways (THE GALLERY, columns down its middle)
+  const halls = [], carve = (x0, y0, x1, y1) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) fl[y * W + x] = 1; };
   for (const [a, b] of edges) {
-    let A = byKey.get(a), B = byKey.get(b); if (A.gx > B.gx || A.gy > B.gy) [A, B] = [B, A];
-    if (A.gy === B.gy) { // side by side
-      const y0 = A.cy - 1, x0 = A.fx1, x1 = B.fx0; for (let y = y0; y <= y0 + 2; y++) for (let x = x0; x <= x1; x++) fl[y * W + x] = 1;
-      const hl = { dir: 'h', A, B, x0, x1, y0, px0: x0 * TS, py0: (y0 - 2) * TS, px1: (x1 + 1) * TS, py1: (y0 + 4) * TS }; halls.push(hl);
-      A.doors.push({ side: 'E', cells: [[A.fx1, y0], [A.fx1, y0 + 1], [A.fx1, y0 + 2]], hall: hl }); B.doors.push({ side: 'W', cells: [[B.fx0, y0], [B.fx0, y0 + 1], [B.fx0, y0 + 2]], hall: hl });
+    let A = byKey.get(a), B = byKey.get(b), ca = cells.get(a), cb = cells.get(b); if (A === B) continue; if (ca[0] > cb[0] || ca[1] > cb[1]) { [A, B] = [B, A]; [ca, cb] = [cb, ca]; }
+    const odd = A.kind === 'shop' || B.kind === 'shop', roll = Math.random(), sh = pick([-4, -3, 3, 4]);
+    if (ca[1] === cb[1]) { // side by side
+      const y0 = ca[1] * CH + 9 - 1, x0 = A.fx1, x1 = B.fx0, yb = y0 + sh, xm = x0 + Math.floor((x1 - x0) / 2);
+      const bent = !odd && roll < 0.22 && x1 - x0 >= 7 && yb >= B.iy0 && yb + 2 <= B.iy1, wide = !odd && !bent && roll < 0.42 && x1 - x0 >= 6;
+      if (bent) { carve(x0, y0, xm + 1, y0 + 2); carve(xm - 1, Math.min(y0, yb), xm + 1, Math.max(y0, yb) + 2); carve(xm - 1, yb, x1, yb + 2); }
+      else { carve(x0, y0, x1, y0 + 2); if (wide) carve(x0 + 2, y0 - 1, x1 - 2, y0 + 3); }
+      const y1 = bent ? yb : y0, hl = { dir: 'h', A, B, x0, x1, y0, bent, wide, xm, yb: y1, px0: x0 * TS, py0: (Math.min(y0, y1) - 2) * TS, px1: (x1 + 1) * TS, py1: (Math.max(y0, y1) + 4) * TS }; halls.push(hl);
+      A.doors.push({ side: 'E', cells: [[A.fx1, y0], [A.fx1, y0 + 1], [A.fx1, y0 + 2]], hall: hl }); B.doors.push({ side: 'W', cells: [[B.fx0, y1], [B.fx0, y1 + 1], [B.fx0, y1 + 2]], hall: hl });
     } else { // one above the other
-      const x0 = A.cx - 1, y0 = A.fy1, y1 = B.fy0 + 1; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x0 + 2; x++) fl[y * W + x] = 1;
-      const hl = { dir: 'v', A, B, x0, y0, y1, px0: (x0 - 1) * TS, py0: y0 * TS, px1: (x0 + 4) * TS, py1: (y1 + 1) * TS }; halls.push(hl);
-      A.doors.push({ side: 'S', cells: [[x0, A.fy1], [x0 + 1, A.fy1], [x0 + 2, A.fy1]], hall: hl }); B.doors.push({ side: 'N', cells: [[x0, B.fy0 + 1], [x0 + 1, B.fy0 + 1], [x0 + 2, B.fy0 + 1]], hall: hl });
+      const x0 = ca[0] * CW + CW / 2 - 1, y0 = A.fy1, y1 = B.fy0 + 1, xb = x0 + sh, ym = y0 + Math.floor((y1 - y0) / 2);
+      const bent = !odd && roll < 0.22 && y1 - y0 >= 8 && xb >= B.ix0 + 1 && xb + 2 <= B.ix1 - 1 && B.kind !== 'end', wide = !odd && !bent && roll < 0.42 && y1 - y0 >= 7;
+      if (bent) { carve(x0, y0, x0 + 2, ym + 1); carve(Math.min(x0, xb), ym - 1, Math.max(x0, xb) + 2, ym + 1); carve(xb, ym - 1, xb + 2, y1); }
+      else { carve(x0, y0, x0 + 2, y1); if (wide) carve(x0 - 1, y0 + 2, x0 + 3, y1 - 2); }
+      const x1 = bent ? xb : x0, hl = { dir: 'v', A, B, x0, y0, y1, bent, wide, ym, xb: x1, px0: (Math.min(x0, x1) - 1) * TS, py0: y0 * TS, px1: (Math.max(x0, x1) + 4) * TS, py1: (y1 + 1) * TS }; halls.push(hl);
+      A.doors.push({ side: 'S', cells: [[x0, A.fy1], [x0 + 1, A.fy1], [x0 + 2, A.fy1]], hall: hl }); B.doors.push({ side: 'N', cells: [[x1, B.fy0 + 1], [x1 + 1, B.fy0 + 1], [x1 + 2, B.fy0 + 1]], hall: hl });
     }
   }
   shapeRooms(rooms, fl, W, H, floor); // pillared halls, rings, cut corners, alcoves, spurs (33_shapes)
@@ -180,7 +204,7 @@ function furnish(A, r, g) {
   if (r.stairX !== undefined) for (let k = -1; k <= 3; k++) used.add(r.stairX + k);
   if (r.sluiceX !== undefined) for (let k = -1; k <= 1; k++) used.add(r.sluiceX + k); // (a sluice's outlet goes there: 37_levels)
   if (r.crackX !== undefined) for (let k = -1; k <= 3; k++) used.add(r.crackX + k); // (a cracked wall: 41_puzzles)
-  for (let x = r.ix0 + 1; x < r.ix1; x += 4) { const tx = x + (used.has(x) ? 3 : 0); if (tx >= r.ix1 || used.has(tx) || !faceAt(A, tx, r.fy0 + 1)) continue; used.add(tx); A.torches.push({ x: tx * TS + 8, y: (r.fy0 + 1) * TS + 9, tx, f: randi(0, 3) }); }
+  for (let x = r.ix0 + 1; x < r.ix1; x += r.great === 'h' ? 5 : 4) { const tx = x + (used.has(x) ? 3 : 0); if (tx >= r.ix1 || used.has(tx) || !faceAt(A, tx, r.fy0 + 1)) continue; used.add(tx); A.torches.push({ x: tx * TS + 8, y: (r.fy0 + 1) * TS + 9, tx, f: randi(0, 3) }); }
   // a banner: one of the twelve tall ones ([20..31, 0..1], the rod low in the upper tile) or one of the eight small ones
   // ([16..19, 0..1], one tile, the rod at its top; hung so its rod is level with the tall ones' and it hangs as low)
   for (let x = r.ix0 + 1; x < r.ix1; x++) {
