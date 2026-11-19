@@ -7,7 +7,7 @@
 //   another, each with its note: that is the order. Step on them in it and the gate opens; a wrong one and they all go
 //   dark with a dull knock, and the order is shown again.
 // - THE COLD BRAZIERS: the room before the gate is dark, and three or four braziers stand cold about it. Stand by one a
-//   moment (it smokes as it catches) and it lights; it burns twenty seconds, sputtering at the end, then goes out. All of
+//   while (a second, and it starts to smoke; more than two, and it catches) and it lights; it burns thirty seconds, sputtering at the end, then goes out. All of
 //   them burning at once and the gate opens.
 // - THE WEIGHT: the gate stands open only while its plate (in the room before it, well away from the door) is pressed.
 //   Stand on it and the gate rises; step off and it slams. A stone block stands in the room: push it onto the plate.
@@ -212,9 +212,10 @@ function echoTick(A, e, dt, heroes) {
     }
   }
 }
-// ---- THE COLD BRAZIERS
+// ---- THE COLD BRAZIERS (smoke: how long a hero stands by one before it smokes; catch: before it lights)
+const FIRES = { smoke: 1.0, catch: 2.4 };
 function placeFires(A, r, g) {
-  const n = A.floor >= 4 ? 4 : 3, f = { braziers: [], gate: g, burn: 20, room: r.i }; darkRoom(A, r); r.dark = true;
+  const n = A.floor >= 4 ? 4 : 3, f = { braziers: [], gate: g, burn: 30, room: r.i }; darkRoom(A, r); r.dark = true;
   for (const p of A.props) if (p.kind === 'brazier' && p.room === r.i && !p.dead) { p.out = true; f.braziers.push(p); }
   const cands = []; for (let y = r.iy0 + 1; y <= r.iy1 - 1; y++) for (let x = r.ix0 + 1; x <= r.ix1 - 1; x++) { if (!FLOOR(A.fl[y * A.w + x]) || r.doors.some(d => d.cells.some(([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 4)) || A.props.some(q => !q.dead && Math.abs(q.x - (x * TS + 8)) < 20 && Math.abs(q.cy - (y * TS + 10)) < 18)) continue; cands.push([x, y]); }
   while (f.braziers.length < n && cands.length) { const far = cands.filter(([x, y]) => f.braziers.every(q => Math.hypot(q.x - (x * TS + 8), q.y - (y * TS + 14)) >= 80)), [x, y] = pick(far.length ? far : cands); const p = { kind: 'brazier', x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i, f: randi(0, 3), out: true, ember: false }; A.props.push(p); f.braziers.push(p); removeIf(cands, ([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 4); }
@@ -224,7 +225,7 @@ function firesTick(A, f, dt, heroes) {
   if (f.solved) return; let lit = 0;
   for (const p of f.braziers) {
     if (p.out) { // a hero standing by it: it smokes, then catches
-      if (heroes.some(h => Math.abs(h.x - p.x) < 15 && Math.abs(h.y - p.cy) < 13)) { p.kindle = (p.kindle || 0) + dt; if (chance(dt * 12)) smoke(p.x, p.y - 12, 1, 'dust', 4, 8, 0.6, 10); if (p.kindle > 0.6) { lightUp(p, true); p.burnT = f.burn; p.kindle = 0; } } else p.kindle = 0;
+      if (heroes.some(h => Math.abs(h.x - p.x) < 15 && Math.abs(h.y - p.cy) < 13)) { p.kindle = (p.kindle || 0) + dt; if (p.kindle > FIRES.smoke && chance(dt * (6 + 14 * (p.kindle - FIRES.smoke)))) smoke(p.x, p.y - 12, 1, 'dust', 4, 8, 0.6, 10); if (p.kindle > FIRES.catch) { lightUp(p, true); p.burnT = f.burn; p.kindle = 0; } } else p.kindle = 0; // (it takes a while: nobody lights one by brushing past it)
       continue;
     }
     p.burnT -= dt; lit++;
