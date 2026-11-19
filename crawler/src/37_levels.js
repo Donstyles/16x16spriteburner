@@ -28,7 +28,7 @@ function levelPlan(A, g) {
     const parts = new Map(); // each door's side of the room: the start's, the stairs', or a branch (by the room it leads to)
     for (const d of r.doors) { const n = d.hall.A === r ? d.hall.B : d.hall.A; const seen = new Set([n]), q = [n]; while (q.length) { const a = q.shift(); for (const m of adj(a)) if (m !== r && !seen.has(m)) { seen.add(m); q.push(m); } } parts.set(d, seen.has(A.start) ? 'near' : seen.has(A.end) ? 'far' : seen); }
     const branches = [...parts.entries()].filter(([, v]) => v instanceof Set); if (!branches.length) continue;
-    const hosts = branches.flatMap(([, v]) => [...v]).filter(hostOK(A)); if (!hosts.length) continue;
+    const GF = gateFree(A), hosts = branches.flatMap(([, v]) => [...v]).filter(hostOK(A)).filter(h => !GF || GF.has(h)); if (!hosts.length) continue; // (never behind a gate: 41_puzzles)
     const host = hosts.sort((a, b) => adj(a).length - adj(b).length || Math.random() - 0.5)[0];
     const far = new Set([...parts.entries()].filter(([, v]) => v === 'far').map(([d]) => d));
     const p = floodedWay(A, r, g, far); if (!p) continue;
@@ -46,7 +46,7 @@ function levelPlan(A, g) {
     if ((PUZ.force || chance(0.5)) && puzzleTry(A, g)) continue; /* (the portcullis, the echoing runes, the weight, the gap, the spike gate: 41_puzzles) */ const order = A.sets.includes('flood') ? [tryBridge, tryFlood] : A.sets.includes('drawbridge') ? [tryFlood, tryBridge] : chance(0.5) ? [tryFlood, tryBridge] : [tryBridge, tryFlood]; if (!order[0]()) order[1](); }
   else if (FORCE.set || chance(ARCH.cur.water ? 0.9 : 0.55)) tryFlood();
   if (FORCE.set) tryBridge();
-  if (FORCE.set || chance(0.45)) for (const r of shuffled(rooms.filter(r => free(r) && r.w >= 12 && r.h >= 8 && r.doors.length >= 2 && beyondHost(A, r)))) if (gauntlet(A, r, g)) { r.set = 'gauntlet'; A.sets.push('gauntlet'); remoteSluice(A, r, r.pool); break; }
+  if (FORCE.set || chance(0.45)) for (const r of shuffled(rooms.filter(r => free(r) && !r.offDoor && r.w >= 12 && r.h >= 8 && r.doors.length >= 2 && beyondHost(A, r)))) if (gauntlet(A, r, g)) { r.set = 'gauntlet'; A.sets.push('gauntlet'); remoteSluice(A, r, r.pool); break; }
   if (FORCE.set || chance(0.4)) for (const r of shuffled(rooms.filter(r => free(r) && r.w >= 11 && r.h >= 7 && beyondHost(A, r)))) if (sentinelPond(A, r, g)) { r.set = 'sentinel'; A.sets.push('sentinel'); remoteSluice(A, r, r.pool); break; }
   if (A.floor >= 4 && chance(0.4)) puzzleTry(A, g); // (deeper down, now and then one more)
   for (let i = 0; i < (ARCH.cur.puzzles || 0); i++) puzzleTry(A, g); // (THE LOCKED WAYS: 35_themes)
@@ -79,7 +79,7 @@ function drawbridge(A, r, g, near, adj) {
     const bs = []; for (let b = (o.v ? r.iy0 : r.ix0) + 1; b <= (o.v ? r.iy1 : r.ix1) - 2; b++) bs.push(b); const b = pitShuffle(bs).find(ends); if (b === undefined) continue;
     // the button's room: off a door of this room on the near side (a branch beyond it), else any room on this side
     const branch = new Set(); for (const d of r.doors) { if (near.has(other(d)) || !d.cells.some(([x, y]) => S.has(y * W + x))) continue; const seen = new Set([other(d)]), st = [other(d)]; while (st.length) { const a = st.pop(); for (const n of adj(a)) if (n !== r && !seen.has(n)) { seen.add(n); st.push(n); } } seen.forEach(h => branch.add(h)); }
-    const ok = hostOK(A), hosts = [...branch].filter(ok), host = (hosts.length ? hosts : [...near].filter(ok)).sort((a, c) => adj(a).length - adj(c).length || Math.random() - 0.5)[0]; if (!host) continue;
+    const GF = gateFree(A), ok = h => hostOK(A)(h) && (!GF || GF.has(h)), hosts = [...branch].filter(ok), host = (hosts.length ? hosts : [...near].filter(ok)).sort((a, c) => adj(a).length - adj(c).length || Math.random() - 0.5)[0]; if (!host) continue;
     for (const i of band) A.fl[i] = PIT; for (const i of band) pitPaint(A, g, i); A.pitN = (A.pitN || 0) + band.size;
     const cells = []; for (let k = 0; k < H; k++) for (const s of [b, b + 1]) cells.push(o.v ? [o.at + k, s] : [s, o.at + k]);
     const lowNear = o.v ? S.has(b * W + o.at - 1) : S.has((o.at - 1) * W + b); // (laid from the near side)

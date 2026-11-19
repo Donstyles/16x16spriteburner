@@ -32,6 +32,9 @@ function puzReach(A, cut, free) { // rooms reachable from the start without the 
   while (q.length) { const r = q.shift(); for (const h of A.halls) { if (h === cut || (h.A !== r && h.B !== r) || (free && (h.gate || h.spikeGate))) continue; const n = h.A === r ? h.B : h.A; if (seen.has(n) || barrier(n)) continue; seen.add(n); q.push(n); } }
   return seen;
 }
+// what can be reached before any gate is opened (a set piece's sluice or button is never put behind one: 37_levels), or
+// null while the floor has no gates
+const gateFree = A => A.gates && A.gates.length ? puzReach(A, null, true) : null;
 // the corridors the way down must pass through (none of them is part of a loop)
 function critHalls(A) { return A.halls.filter(h => h.A.kind !== 'shop' && h.B.kind !== 'shop' && !h.gate && !h.spikeGate && !puzReach(A, h, false).has(A.end)); }
 const puzRoomOK = r => r && r.kind !== 'shop' && r.kind !== 'end' && !r.set && !r.pool && !r.shrine && !r.puz && !r.sluice && !r.chest;

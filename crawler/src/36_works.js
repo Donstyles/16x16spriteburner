@@ -86,10 +86,10 @@ function waterBody(A, cells, set, W, dual) {
 // ---- building (called from buildArena): before the room is furnished, and after
 function worksBefore(A, r, g) {
   if (r.sunkHost) { cistern(A, r, g, r.sunkHost.preReach || null); return; } // (a set piece's button to be sunk in it: THE SUNKEN BUTTON)
-  if (r.kind !== 'room' || r.chest || r.set || r.sluice || r.shape) return; // (a set piece's room, or the room with its sluice: 37_levels)
+  if (r.kind !== 'room' || r.chest || r.set || r.sluice || r.shape || r.puz) return; // (nor a puzzle's room: 41_puzzles) // (a set piece's room, or the room with its sluice: 37_levels)
   if (!A.cistern && !A.sunkPlanned && r.w >= 12 && r.h >= 8 && beyondHost(A, r) && chance(ARCH.cur.water ? 0.95 : 0.6)) cistern(A, r, g); // (THE WATERWORKS: 35_themes) // (only where its sluice can be beyond it: 37_levels)
   else if (!A.shrine && r.w >= 12 && r.h >= 8 && chance(0.55)) { A.shrine = r; r.shrine = true; r.dark = A.floor >= 2 && chance(0.5); } // (dark: its runes hidden)
-  else if (chance(ARCH.cur.water ? 0.7 : 0.3)) ponds(A, r, g);
+  else if (!r.offDoor && chance(ARCH.cur.water ? 0.7 : 0.3)) ponds(A, r, g); // (the ponds keep clear of the corridors' cross: a bent corridor's door is off it, 30_arena)
 }
 function worksAfter(A, r) {
   if (r.pool && !r.set) cisternAfter(A, r);

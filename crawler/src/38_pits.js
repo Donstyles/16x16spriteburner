@@ -57,7 +57,7 @@ function pitMend(A, g, x0, y0, x1, y1) {
 
 // ---- building
 const pitShuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = randi(0, i); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-const pitRoomOK = (A, r) => r.kind === 'room' && !r.chest && !r.set && !r.sluice && !r.pool && !r.shrine && !r.shape;
+const pitRoomOK = (A, r) => r.kind === 'room' && !r.chest && !r.set && !r.sluice && !r.pool && !r.shrine && !r.shape && !r.puz;
 // the door cells and the floor just inside each door (two tiles deep), which always stay
 function doorLanding(A, r, deep = 2) {
   const keep = new Set();
