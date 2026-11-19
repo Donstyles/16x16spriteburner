@@ -114,9 +114,9 @@ function buildArena1(floor) {
       A.doors.push({ side: 'E', cells: [[A.fx1, y0], [A.fx1, y0 + 1], [A.fx1, y0 + 2]], hall: hl }); B.doors.push({ side: 'W', cells: [[B.fx0, y1], [B.fx0, y1 + 1], [B.fx0, y1 + 2]], hall: hl });
     } else { // one above the other
       const x0 = ca[0] * CW + CW / 2 - 1, y0 = A.fy1, y1 = B.fy0 + 1, xb = x0 + sh, ym = y0 + Math.floor((y1 - y0) / 2);
-      const bent = !odd && roll < 0.22 && y1 - y0 >= 8 && xb >= B.ix0 + 1 && xb + 2 <= B.ix1 - 1 && B.kind !== 'end', wide = !odd && !bent && roll < 0.42 && y1 - y0 >= 7;
+      const bent = !odd && roll < 0.22 && y1 - y0 >= 8 && xb >= B.ix0 + 1 && xb + 2 <= B.ix1 - 1 && B.kind !== 'end', wide = !odd && !bent && roll < 0.42 && y1 - y0 >= 9;
       if (bent) { carve(x0, y0, x0 + 2, ym + 1); carve(Math.min(x0, xb), ym - 1, Math.max(x0, xb) + 2, ym + 1); carve(xb, ym - 1, xb + 2, y1); B.offDoor = true; }
-      else { carve(x0, y0, x0 + 2, y1); if (wide) carve(x0 - 1, y0 + 2, x0 + 3, y1 - 2); }
+      else { carve(x0, y0, x0 + 2, y1); if (wide) carve(x0 - 1, y0 + 3, x0 + 3, y1 - 3); } // (three rows of wall at each end, as between any two rooms: a wall one tile thick has no piece in the sheet)
       const x1 = bent ? xb : x0, hl = { dir: 'v', A, B, x0, y0, y1, bent, wide, ym, xb: x1, px0: (Math.min(x0, x1) - 1) * TS, py0: y0 * TS, px1: (Math.max(x0, x1) + 4) * TS, py1: (y1 + 1) * TS }; halls.push(hl);
       A.doors.push({ side: 'S', cells: [[x0, A.fy1], [x0 + 1, A.fy1], [x0 + 2, A.fy1]], hall: hl }); B.doors.push({ side: 'N', cells: [[x1, B.fy0 + 1], [x1 + 1, B.fy0 + 1], [x1 + 2, B.fy0 + 1]], hall: hl });
     }

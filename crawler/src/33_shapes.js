@@ -1,7 +1,7 @@
 // ===================== the rooms' shapes =====================
 // Every room is first cut out of the rock as a rectangle (30_arena). Some are then given a shape of their own before the
 // walls are painted, so the walls round it are drawn from the sheet's pieces like any other (30_arena):
-// - THE PILLARED HALL: blocks of wall standing free in the room, two tiles wide and two or three tall, in a pair, a four
+// - THE PILLARED HALL: blocks of wall standing free in the room, two tiles wide and three tall, in a pair, a four
 //   or two rows of three, mirrored about the room's middle.
 // - THE RING: one great block of wall in the middle (three to six wide, three or four tall); the room is a walk round it.
 // - CUT CORNERS: a corner or two of the rock left standing in the room (an L, a T, a Z), or all four (a cross).
@@ -53,7 +53,7 @@ function shapeRoom(r, k, fl, W, H) {
   for (let t = 0; t < 30; t++) {
     const rock = new Set(), open = new Set(), alc = [];
     if (k === 'hall') { // blocks two tiles wide, mirrored about the middle
-      const bw = 2, bh = chance(0.5) ? 2 : 3, top = r.iy0 + (r.kind === 'end' ? 3 : 2), lay = pick(['pair', 'four', 'rows']);
+      const bw = 2, bh = 3, top = r.iy0 + (r.kind === 'end' ? 3 : 2), lay = pick(['pair', 'four', 'rows']);
       const hi = Math.floor((r.ix0 + r.ix1) / 2) - 2 - bw; if (hi < r.ix0 + 2) return false; const xl = randi(r.ix0 + 2, hi), xr = r.ix0 + r.ix1 - xl - bw + 1; if (xr - (xl + bw) < 2) continue;
       const xs = lay === 'rows' ? [xl, Math.round((r.ix0 + r.ix1 - bw + 1) / 2), xr] : [xl, xr]; if (lay === 'rows' && (xs[1] - (xl + bw) < 2 || xr - (xs[1] + bw) < 2)) continue;
       let ys; if (lay === 'pair') ys = [Math.round((r.iy0 + r.iy1 - bh + 1) / 2)]; else { const yt = randi(top, top + 1), yb = r.iy0 + r.iy1 - yt - bh + 1; if (yb - (yt + bh) < 2) continue; ys = [yt, yb]; }
@@ -108,11 +108,11 @@ function shapeRoom(r, k, fl, W, H) {
 // THE GREAT HALL's colonnade: blocks of wall two tiles wide in two rows down its length (a long hall), or two columns
 // down a nave, every five or six tiles; any that would stand in a door's way is left out
 function greatHall(r, fl, W, H) {
-  const keep = landingKeep(r, W), bh = chance(0.5) ? 2 : 3, step = randi(5, 6);
+  const keep = landingKeep(r, W), bh = 3, step = randi(5, 6);
   for (let t = 0; t < 12; t++) {
     const rock = new Set(), add = (x0, y0, w, h) => { const c = []; for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) c.push(y * W + x); if (c.some(i => keep.has(i))) return; for (const i of c) rock.add(i); };
     if (r.great === 'h') { // two rows with a nave between them, or (no room for two) one row down the middle
-      const h2 = t < 6 ? bh : 2, yt = r.iy0 + (r.kind === 'end' ? 3 : 2) + (t % 2), yb = r.iy0 + r.iy1 - yt - h2 + 1, two = yb - (yt + h2) >= 2, ym = Math.max(r.iy0 + (r.kind === 'end' ? 4 : 3), Math.round((r.iy0 + r.iy1 - h2 + 1) / 2));
+      const h2 = bh, yt = r.iy0 + (r.kind === 'end' ? 3 : 2) + (t % 2), yb = r.iy0 + r.iy1 - yt - h2 + 1, two = yb - (yt + h2) >= 2, ym = Math.max(r.iy0 + (r.kind === 'end' ? 4 : 3), Math.round((r.iy0 + r.iy1 - h2 + 1) / 2));
       for (let x = r.ix0 + 3 + randi(0, 1); x + 1 <= r.ix1 - 3; x += step) { if (two) { add(x, yt, 2, h2); add(x, yb, 2, h2); } else add(x, ym, 2, h2); }
     }
     else { const xl = r.ix0 + 2 + randi(0, 1), xr = r.ix0 + r.ix1 - xl - 1; if (xr - (xl + 2) < 3) return; for (let y = r.iy0 + (r.kind === 'end' ? 4 : 3); y + bh - 1 <= r.iy1 - 3; y += step) { add(xl, y, 2, bh); add(xr, y, 2, bh); } }
