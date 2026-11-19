@@ -19,7 +19,7 @@ function shapeRooms(rooms, fl, W, H, floor) {
   for (const r of rooms) {
     if (r.great) continue;
     if (r.kind !== 'room' && r.kind !== 'end') continue;
-    if (!SHAPES.force && !chance(clamp(0.32 + floor * 0.04, 0.32, 0.6))) continue;
+    if (!SHAPES.force && !chance(clamp((0.32 + floor * 0.04) * (ARCH.cur.shape || 1), 0.32, 0.8))) continue; // (more on THE HALLS OF STONE: 35_themes)
     const kinds = SHAPES.force ? [SHAPES.force] : pitShuffle(r.kind === 'end' ? ['hall', 'ring'] : SHAPE_KINDS.slice());
     for (const k of kinds) if (shapeRoom(r, k, fl, W, H)) { r.shape = k; break; }
   }

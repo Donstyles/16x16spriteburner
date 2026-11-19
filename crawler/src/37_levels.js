@@ -44,11 +44,12 @@ function levelPlan(A, g) {
   const musts = () => A.sets.filter(s => MUST_KINDS.has(s)).length;
   if (A.need) for (let k = 0; k < 4 && musts() < A.need; k++) {
     if ((PUZ.force || chance(0.5)) && puzzleTry(A, g)) continue; /* (the portcullis, the echoing runes, the weight, the gap, the spike gate: 41_puzzles) */ const order = A.sets.includes('flood') ? [tryBridge, tryFlood] : A.sets.includes('drawbridge') ? [tryFlood, tryBridge] : chance(0.5) ? [tryFlood, tryBridge] : [tryBridge, tryFlood]; if (!order[0]()) order[1](); }
-  else if (FORCE.set || chance(0.55)) tryFlood();
+  else if (FORCE.set || chance(ARCH.cur.water ? 0.9 : 0.55)) tryFlood();
   if (FORCE.set) tryBridge();
   if (FORCE.set || chance(0.45)) for (const r of shuffled(rooms.filter(r => free(r) && r.w >= 12 && r.h >= 8 && r.doors.length >= 2 && beyondHost(A, r)))) if (gauntlet(A, r, g)) { r.set = 'gauntlet'; A.sets.push('gauntlet'); remoteSluice(A, r, r.pool); break; }
   if (FORCE.set || chance(0.4)) for (const r of shuffled(rooms.filter(r => free(r) && r.w >= 11 && r.h >= 7 && beyondHost(A, r)))) if (sentinelPond(A, r, g)) { r.set = 'sentinel'; A.sets.push('sentinel'); remoteSluice(A, r, r.pool); break; }
   if (A.floor >= 4 && chance(0.4)) puzzleTry(A, g); // (deeper down, now and then one more)
+  for (let i = 0; i < (ARCH.cur.puzzles || 0); i++) puzzleTry(A, g); // (THE LOCKED WAYS: 35_themes)
   secretPlan(A); // (cracked walls with niches behind them: 41_puzzles)
   A.musts = musts(); A.planning = false;
 }

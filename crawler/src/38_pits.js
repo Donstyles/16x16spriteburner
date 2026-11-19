@@ -212,6 +212,7 @@ function pitPlan(A, g) {
   A.pitSets = []; A.crumbles = []; A.crumbleSet = new Set(); A.live = new Set(); A.pitN = A.pitN || 0; A.plankSet = A.plankSet || new Set(); A.peb = []; A.fallers = []; // (a drawbridge's chasm is already dug: 37_levels)
   const kinds = FORCE_PITS.on ? ['spikeway', 'ledges', 'chasm', 'crumble', 'rim', 'corners', 'holes'] : A.floor < 2 ? [chance(0.35) && 'holes', chance(0.25) && 'crumble', chance(0.25) && 'corners'].filter(Boolean)
     : [chance(0.5) && pick(['chasm', 'ledges', 'spikeway']), chance(0.4) && 'holes', chance(0.3) && 'crumble', chance(0.35) && pick(['rim', 'corners'])].filter(Boolean);
+  if (ARCH.cur.pits && A.floor >= 2) for (let i = 0; i < ARCH.cur.pits; i++) kinds.push(pick(['chasm', 'ledges', 'holes', 'crumble', 'rim', 'corners', 'spikeway'])); // (THE BROKEN FLOORS: 35_themes)
   // the treasure room's: cracked slabs ('loot'), pit corners or the pit rim ('t' + kind)
   const tk = FORCE_PITS.on ? 'loot' : chance(A.floor < 2 ? 0.3 : 0.45) ? pick(['loot', 'loot', 'trim', 'tcorners']) : null; if (tk) kinds.push(tk);
   for (const kind of kinds) for (const r of pitShuffle(A.rooms.filter(r => kind === 'loot' || kind[0] === 't' ? (r.kind === 'treasure' || r.chest) && !r.set && !r.sluice && !r.pool && !r.shrine && !r.shape : pitRoomOK(A, r)))) {

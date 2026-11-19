@@ -6,6 +6,9 @@
 // - THE ECHOING RUNES: the gate's room before it holds three or four rune plates. Coming in, they light one after
 //   another, each with its note: that is the order. Step on them in it and the gate opens; a wrong one and they all go
 //   dark with a dull knock, and the order is shown again.
+// - THE COLD BRAZIERS: the room before the gate is dark, and three or four braziers stand cold about it. Stand by one a
+//   moment (it smokes as it catches) and it lights; it burns twenty seconds, sputtering at the end, then goes out. All of
+//   them burning at once and the gate opens.
 // - THE WEIGHT: the gate stands open only while its plate (in the room before it, well away from the door) is pressed.
 //   Stand on it and the gate rises; step off and it slams. A stone block stands in the room: push it onto the plate.
 // - THE GAP: a cleft in the floor a tile wide (two, deeper down) across a room the way runs through, wall to wall, and
@@ -20,7 +23,7 @@
 // where it cannot help slides back to where it stood once nobody is in its room.
 const PUZ = { force: null }; // (a test: this one kind, wherever it fits)
 const MUST_KINDS = new Set(['flood', 'drawbridge', 'gate', 'gap', 'spikegate']);
-const PUZ_NAMES = { gate: 'THE PORTCULLIS', echo: 'THE ECHOING RUNES', weight: 'THE WEIGHT', gap: 'THE GAP', spikegate: 'THE SPIKE GATE', crack: 'THE CRACKED WALL', lever: 'THE HIDDEN LEVER' };
+const PUZ_NAMES = { gate: 'THE PORTCULLIS', echo: 'THE ECHOING RUNES', fires: 'THE COLD BRAZIERS', weight: 'THE WEIGHT', gap: 'THE GAP', spikegate: 'THE SPIKE GATE', crack: 'THE CRACKED WALL', lever: 'THE HIDDEN LEVER' };
 const SPIKEGATE = { t: 7 };
 // ---- the room graph
 const puzAdj = (A, r) => A.halls.filter(h => h.A === r || h.B === r).map(h => (h.A === r ? h.B : h.A));
@@ -34,7 +37,7 @@ function critHalls(A) { return A.halls.filter(h => h.A.kind !== 'shop' && h.B.ki
 const puzRoomOK = r => r && r.kind !== 'shop' && r.kind !== 'end' && !r.set && !r.pool && !r.shrine && !r.puz && !r.sluice && !r.chest;
 // ---- planning (37_levels levelPlan): one of the puzzles that stand in the way, wherever it fits
 function puzzleTry(A, g) {
-  const T = { gate: () => tryGate(A, 'lever'), echo: () => tryGate(A, 'echo'), weight: () => tryGate(A, 'weight'), gap: () => tryGap(A, g), spikegate: () => trySpikeGate(A) };
+  const T = { gate: () => tryGate(A, 'lever'), echo: () => tryGate(A, 'echo'), fires: () => tryGate(A, 'fires'), weight: () => tryGate(A, 'weight'), gap: () => tryGap(A, g), spikegate: () => trySpikeGate(A) };
   const used = A.puzUsed = A.puzUsed || new Set(), ks = PUZ.force && T[PUZ.force] ? [PUZ.force] : pitShuffle(Object.keys(T)).sort((a, b) => used.has(a) - used.has(b)); // (a kind not yet on this floor first)
   for (const k of ks) if (T[k]()) { used.add(k); return true; } return false;
 }
@@ -43,7 +46,7 @@ function tryGate(A, how) {
     const near = puzReach(A, h, false), X = near.has(h.A) ? h.A : h.B; // (X: the room before the gate)
     let host = null;
     if (how === 'lever') host = pitShuffle([...puzReach(A, h, true)].filter(hostOK(A)).filter(r => r !== X || chance(0.3)))[0];
-    else host = puzRoomOK(X) && !X.shape && X.w >= 10 && X.h >= 7 && (how === 'echo' || X !== A.start) ? X : null;
+    else host = puzRoomOK(X) && !X.shape && X.w >= 10 && X.h >= 7 && (how !== 'weight' || X !== A.start) ? X : null;
     if (!host) continue;
     const g = makeGate(A, h, near); if (!g) continue;
     g.how = how; host.puz = how; host.gateOf = g; g.host = host; A.sets.push('gate'); (A.puzNames = A.puzNames || []).push(PUZ_NAMES[how === 'lever' ? 'gate' : how]);
@@ -147,7 +150,7 @@ function trySpikeGate(A) {
 function spikeGateFrame(sg) { const t = sg.downT; return t <= 0 ? 1 : t > 1.1 ? 0 : (((t * 8) | 0) % 2 ? 3 : 0); } // (up; down; the tips peeking up the last second)
 // ---- THE CRACKED WALL: a niche behind a stretch of cracked north wall (a secret; now and then a gate's hidden button)
 function secretPlan(A) {
-  const W = A.w, want = A.floor >= 3 ? randi(1, 2) : 1; let n = 0;
+  const W = A.w, want = (A.floor >= 3 ? randi(1, 2) : 1) + (ARCH.cur.secrets || 0); let n = 0;
   for (const r of pitShuffle(A.rooms.filter(q => q.kind !== 'shop' && !q.set && !q.pool && !q.crack))) {
     if (n >= want) break; if (!PUZ.force && !chance(0.5)) continue;
     const nd = r.doors.filter(d => d.side === 'N').flatMap(d => d.cells.map(c => c[0])), used = x => nd.some(c => c >= x - 3 && c <= x + 5) || (r.stairX !== undefined && x + 3 >= r.stairX - 1 && x <= r.stairX + 4) || (r.sluiceX !== undefined && Math.abs(r.sluiceX - x - 1) <= 3);
@@ -176,6 +179,7 @@ function puzzleAfter(A, r) {
     else { plate(Math.round((r.ix0 + r.ix1) / 2), r.iy1 - 1, { hold: true, gate: g }); block(Math.round((r.ix0 + r.ix1) / 2), r.iy0 + 2); }
   }
   if (r.gateOf && r.puz === 'echo') placeEcho(A, r, r.gateOf);
+  if (r.gateOf && r.puz === 'fires') placeFires(A, r, r.gateOf);
   if (r.gap) { for (const i of r.gap.lanes) clear(i % W, (i / W) | 0, 16); for (const [x, y] of r.gap.blocks) { const b = block(x, y); b.fill = true; } }
   if (r.spikeGate) { const sg = r.spikeGate; plate(sg.at[0], sg.at[1], { timer: sg }); }
   if (r.crack) { const c = r.crack; A.props.push({ kind: 'crack', crack: c, x: (c.x + 1.5) * TS, y: (c.y + 1) * TS + 15, cy: (c.y + 1) * TS + 12, r: 18, solid: false, hp: 3, room: r.i }); }
@@ -204,6 +208,27 @@ function echoTick(A, e, dt, heroes) {
       for (const q of e.runes) q.on = false; e.step = 0; SFX.clang(panOf(rn.x)); SFX.stone(panOf(rn.x), false); shake(0.06); smoke(rn.x, rn.y, 2, 'dust', 6, 10, 0.6); e.play = { i: 0, t: -1.1 };
     }
   }
+}
+// ---- THE COLD BRAZIERS
+function placeFires(A, r, g) {
+  const n = A.floor >= 4 ? 4 : 3, f = { braziers: [], gate: g, burn: 20, room: r.i }; darkRoom(A, r); r.dark = true;
+  for (const p of A.props) if (p.kind === 'brazier' && p.room === r.i && !p.dead) { p.out = true; f.braziers.push(p); }
+  const cands = []; for (let y = r.iy0 + 1; y <= r.iy1 - 1; y++) for (let x = r.ix0 + 1; x <= r.ix1 - 1; x++) { if (!FLOOR(A.fl[y * A.w + x]) || r.doors.some(d => d.cells.some(([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 4)) || A.props.some(q => !q.dead && Math.abs(q.x - (x * TS + 8)) < 20 && Math.abs(q.cy - (y * TS + 10)) < 18)) continue; cands.push([x, y]); }
+  while (f.braziers.length < n && cands.length) { const far = cands.filter(([x, y]) => f.braziers.every(q => Math.hypot(q.x - (x * TS + 8), q.y - (y * TS + 14)) >= 80)), [x, y] = pick(far.length ? far : cands); const p = { kind: 'brazier', x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i, f: randi(0, 3), out: true, ember: false }; A.props.push(p); f.braziers.push(p); removeIf(cands, ([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 4); }
+  for (const p of f.braziers) { p.ember = false; p.fire = f; } A.lights = A.slit = null; (A.fires = A.fires || []).push(f);
+}
+function firesTick(A, f, dt, heroes) {
+  if (f.solved) return; let lit = 0;
+  for (const p of f.braziers) {
+    if (p.out) { // a hero standing by it: it smokes, then catches
+      if (heroes.some(h => Math.abs(h.x - p.x) < 15 && Math.abs(h.y - p.cy) < 13)) { p.kindle = (p.kindle || 0) + dt; if (chance(dt * 12)) smoke(p.x, p.y - 12, 1, 'dust', 4, 8, 0.6, 10); if (p.kindle > 0.6) { lightUp(p, true); p.burnT = f.burn; p.kindle = 0; } } else p.kindle = 0;
+      continue;
+    }
+    p.burnT -= dt; lit++;
+    if (p.burnT < 4 && chance(dt * 6)) { smoke(p.x, p.y - 12, 1, 'dust', 4, 8, 0.5, 8); if (chance(0.3)) SFX.sizzle(panOf(p.x)); } // (sputtering)
+    if (p.burnT <= 0) { p.out = true; p.ember = true; A.lights = A.slit = null; smoke(p.x, p.y - 10, 4, 'dust', 6, 12, 1); SFX.sizzle(panOf(p.x)); lit--; }
+  }
+  if (lit === f.braziers.length) { f.solved = true; const gx = gatePos(f.gate); for (const q of f.braziers) { q.burnT = 1e9; FX.beams.push({ x0: q.x, y0: q.y - 12, x1: gx[0], y1: gx[1], w: 1.4, col: 'fire', life: 1, t: 0, steady: true, cap: true }); } const p0 = f.braziers[0]; after(0.9, () => { if (ARENA === A) startGateCine(p0, f.gate); }); }
 }
 // ---- the stone blocks: walk into one a moment and it slides a tile the way you push it
 function pushTick(A, dt, heroes) {
@@ -283,7 +308,7 @@ function drawCrack(c, p) {
 // ---- every frame (36_works worksTick)
 function puzzlesTick(dt) {
   const A = ARENA; if (!A) return; const heroes = G.heroes.filter(h => !h.dead && !h.enter);
-  gatesTick(A, dt); pushTick(A, dt, heroes); for (const e of A.echoes || []) echoTick(A, e, dt, heroes);
+  gatesTick(A, dt); pushTick(A, dt, heroes); for (const e of A.echoes || []) echoTick(A, e, dt, heroes); for (const f of A.fires || []) firesTick(A, f, dt, heroes);
   for (const sg of A.spikeGates || []) {
     const was = sg.downT; if (sg.downT > 0) { sg.downT = Math.max(0, sg.downT - dt); const left = sg.downT; if ((sg.tkT = (sg.tkT || 0) - dt) <= 0) { sg.tkT = left > 3 ? 0.5 : left > 1.2 ? 0.25 : 0.12; SFX.tick(panOf(sg.spikes[0].x)); } }
     if (was > 0 && sg.downT <= 0) for (const s of sg.spikes) s.hit.clear();

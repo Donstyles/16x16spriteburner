@@ -35,7 +35,7 @@ function tileAt(g, tx, ty, dx, dy) { g.drawImage(IMG.cellar, tx * TS, ty * TS, T
 // drawbridge where one is asked for (it takes a room with a side branch, so it fits less often); after eight tries any
 // layout that has its puzzles will do.
 function buildArena(floor) {
-  let A = null; const wantFlood = chance(0.5);
+  let A = null; const wantFlood = chance(0.5); ARCH.cur = pickArch(floor); // (what the floor is like: 35_themes)
   for (let k = 0; k < 40; k++) { // (the one built last is ARENA: the one handed back)
     A = buildArena1(floor); if (!A.need) return A; if (A.musts < A.need) continue;
     const kinds = new Set(A.sets.filter(s => MUST_KINDS.has(s)));
@@ -78,7 +78,7 @@ function buildArena1(floor) {
   // room, thirty to thirty-six tiles long, or a nave twenty-four to twenty-eight tall; the end room may be one
   const great = new Map(); if (floor >= 2 || GREAT.force) {
     const want = GREAT.force ? 1 : floor >= 6 ? 2 : 1, used = new Set(), ok = k => kindOf(k) === 'room' || kindOf(k) === 'end';
-    for (const [a, b] of pitShuffle(edges.slice())) { if (great.size >= want) break; if (!ok(a) || !ok(b) || used.has(a) || used.has(b)) continue; const ca = cells.get(a), cb = cells.get(b); if (ca[1] !== cb[1] && !chance(0.35)) continue; if (!GREAT.force && !chance(0.45)) continue; const [f, s] = ca[0] + ca[1] * 100 < cb[0] + cb[1] * 100 ? [a, b] : [b, a]; great.set(f, s); used.add(a); used.add(b); }
+    for (const [a, b] of pitShuffle(edges.slice())) { if (great.size >= want) break; if (!ok(a) || !ok(b) || used.has(a) || used.has(b)) continue; const ca = cells.get(a), cb = cells.get(b); if (ca[1] !== cb[1] && !chance(0.35)) continue; if (!GREAT.force && !chance(Math.min(0.9, 0.45 * (ARCH.cur.great || 1)))) continue; const [f, s] = ca[0] + ca[1] * 100 < cb[0] + cb[1] * 100 ? [a, b] : [b, a]; great.set(f, s); used.add(a); used.add(b); }
   }
   const second = new Set(great.values());
   for (const [k, [gx, gy]] of cells) {
@@ -150,7 +150,7 @@ function buildArena1(floor) {
     cng.save(); cng.beginPath(); for (const [rx, ry, rw, rh] of R) cng.rect(rx, ry, rw, rh); cng.clip(); put(cng, tx, ty, x, y, flip); cng.restore();
   };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const P = wallPiece(isF, x, y); if (P) T(P[0], P[1], x, y, P[2]); }
-  const A = ARENA = { w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilN: cn, fl, wt, wf, rooms, halls, props: [], torches: [], name: floorName(floor), floor };
+  const A = ARENA = { arch: ARCH.cur, w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilN: cn, fl, wt, wf, rooms, halls, props: [], torches: [], name: floorName(floor), floor };
   paintCeil(A, cg, cv); // the painted trim, as drawn on the ground: the ceiling over everyone (31_walls)
   A.doors = rooms.flatMap(r => r.doors.map(d => Object.assign(d, { room: r.i, k: 0 })));
   A.start = rooms.find(r => r.kind === 'start'); A.end = rooms.find(r => r.kind === 'end');
@@ -219,6 +219,7 @@ function furnish(A, r, g) {
   const prop = (kind, tx, ty, o = {}) => { if (A.noProp && A.noProp.has(Math.floor(ty) * A.w + Math.floor(tx)) || !FLOOR(A.fl[Math.floor(ty) * A.w + Math.floor(tx)]) || !FLOOR(A.fl[Math.floor(ty) * A.w + Math.ceil(tx)]) || A.crumbleSet && (A.crumbleSet.has(Math.floor(ty) * A.w + Math.floor(tx)) || A.crumbleSet.has(Math.floor(ty) * A.w + Math.ceil(tx)))) return; A.props.push(Object.assign({ kind, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o)); }; // (never in water, nor on a cracked slab: 38_pits)
   const free = (x, y, d = 10) => !A.props.some(p => Math.abs(p.x - x) < d && Math.abs(p.y - y) < d);
   if (r.w * r.h >= 100) for (const [tx, ty] of [[r.ix0 + 1, r.iy1 - 1], [r.ix1 - 1, r.iy0 + 1]]) if (!nearDoor(tx, ty)) prop('brazier', tx, ty, { f: randi(0, 3) });
+  if (themeRoom(A, r, prop, nearDoor)) { lightless(A, r); return; } // (a warehouse, a pottery, a cart shed, a statue gallery: 35_themes)
   const corner = (cx, cy) => { for (let i = 0; i < randi(1, 3); i++) { const tx = clamp(cx + randi(-1, 1), r.ix0, r.ix1), ty = clamp(cy + randi(-1, 1), r.iy0, r.iy1); if (nearDoor(tx, ty) || !free(tx * TS + 8, ty * TS + 14)) continue; const t = pick(CLUTTER); prop(t[2] || (t[0] >= 28 && t[1] === 8 ? 'chest' : 'barrel'), tx, ty, { tile: [t[0], t[1]], th: t[3] || 1, hp: 40 }); } };
   corner(r.ix0, r.iy0); corner(r.ix1, r.iy0); corner(r.ix0, r.iy1); corner(r.ix1, r.iy1);
   if (r.kind === 'room' && !r.pool && !r.shrine && !r.set && chance(0.3)) for (let x = r.ix0 + 1; x < r.ix1; x++) { // a storeroom: stock along its north wall
@@ -230,9 +231,12 @@ function furnish(A, r, g) {
   }
   if (r.kind === 'treasure' || r.chest) { const at = chestSpot(r); prop('tchest', at[0], at[1], { tier: chestTier(A.floor), hp: 1, r: 6, open: false }); } // its treasure chest
   if ((r.kind === 'room' || r.kind === 'end') && !r.pool && !r.shrine && !r.set && !r.shape) {
-    if (r.w >= 15 && r.h >= 9 && chance(0.7)) { const P = th.pillar[randi(0, 1)]; for (const [fx, fy] of chance(0.5) ? [[0.27, 0.4], [0.73, 0.4], [0.27, 0.78], [0.73, 0.78]] : [[0.3, 0.55], [0.7, 0.55]]) { const tx = Math.round(r.ix0 + fx * (r.w - 1)), ty = Math.max(r.iy0 + 3, Math.round(r.iy0 + fy * (r.h - 1))); if (!nearDoor(tx, ty, 2)) prop('pillar', tx, ty, { tile: P, r: 6 }); } }
+    if (r.w >= 15 && r.h >= 9 && chance(0.7) && !r.great) { const P = th.pillar[randi(0, 1)]; for (const [fx, fy] of chance(0.5) ? [[0.27, 0.4], [0.73, 0.4], [0.27, 0.78], [0.73, 0.78]] : [[0.3, 0.55], [0.7, 0.55]]) { const tx = Math.round(r.ix0 + fx * (r.w - 1)), ty = Math.max(r.iy0 + 3, Math.round(r.iy0 + fy * (r.h - 1))); if (!nearDoor(tx, ty, 2)) prop('pillar', tx, ty, { tile: P, r: 6 }); } }
   }
+  lightless(A, r);
 }
+// (THE LIGHTLESS: half its rooms dark; deeper down, now and then one anyway: 35_themes)
+function lightless(A, r) { if (r.kind === 'room' && !r.set && !r.shrine && !r.dark && chance(ARCH.cur.dark || (A.floor >= 3 ? 0.08 : 0))) { r.dark = true; darkRoom(A, r); } }
 function inArena(x, y) { return ARENA && x > ARENA.x0 - 4 && x < ARENA.x1 + 4 && y > ARENA.y0 - 8 && y < ARENA.y1 + 4 && !solidAt(x, y); }
 function nearestSolid(x, y, r) { for (const p of ARENA.props) if (p.solid && !p.dead && dist(x, y, p.x, p.cy) < r + p.r) return p; return null; }
 // walls and shut doors
