@@ -191,7 +191,8 @@ function drawLids(c) { const A = ARENA; if (!A || !A.lids) return; for (const L 
 // In the crypt a skeleton cut down falls into a heap of its bones, and in the dark the heap pulls itself together again:
 // some seconds after, it rattles, shudders and stands up, whole. A heap in light stays down (a candle, a light niche, a
 // brazier: litAt) for as long as the light lasts; a heavy blow, or two blows on the heap, scatters it for good, and a
-// skeleton finished with a heavy blow never makes one. What it carried it dropped the first time only.
+// skeleton finished with a heavy blow never makes one. What it carried it dropped the first time only. While a
+// necromancer lives within a few rooms' reach, the heaps near it rise twice as fast, and in light as well: kill it first.
 const HEAP_T = 6, HEAP_RATTLE = 1.1;
 function boneHeap(u, src) {
   const A = ARENA; if (!A || A.th.sheet !== 'crypt' || u.def.blood !== 'bone' || u.raisedBy || u.dummy || u.fall) return;
@@ -202,8 +203,9 @@ function heapsTick(dt) {
   const A = ARENA; if (!A || !A.heaps || G.cine) return;
   for (const q of A.heaps) {
     if (q.gone) continue;
-    if (q.t < HEAP_T && litAt(A, q.x, q.y)) continue; // (in light it lies still)
-    const was = q.t; q.t += dt;
+    const necro = G.foes.some(f => !f.dead && f.spr === 'AdeptNecromancer' && dist(f.x, f.y, q.x, q.y) < 170); // (the necromancer's hold: below)
+    if (!necro && q.t < HEAP_T && litAt(A, q.x, q.y)) continue; // (in light it lies still)
+    const was = q.t; q.t += dt * (necro ? 2 : 1);
     if (was < HEAP_T && q.t >= HEAP_T) SFX.clatter(panOf(q.x));
     if (q.t >= HEAP_T + HEAP_RATTLE) { // it stands up
       q.gone = true; const h = G.me, u = mkFoe(q.type, G.floor, q.x, q.y, q.spr);
@@ -306,7 +308,11 @@ function shadeTick(f, dt) {
   if (inLamp && faced && lineOfSight(h.x, h.y - 4, f.x, f.y - 4)) { // seen: it cannot move
     if (!f.frozen && d < 70) { SFX.hex(panOf(f.x), true); shake(0.05); } f.frozen = true; f.vx = f.vy = 0; return;
   }
+  if (f.frozen && d < 90) SFX.whisper(clamp((f.x - h.x) / 120, -0.9, 0.9), true); // (turned from it: it is coming)
   f.frozen = false; let tx = h.x, ty = h.y, spd = 78;
+  if ((f.snuffT = (f.snuffT || 3) - dt) <= 0) { // it puts the candles out ahead of it, one at a time, so the dark spreads
+    f.snuffT = 4.5; const c = (A.candles || []).filter(k => k.lit && !k.torch && Math.hypot(k.x - f.x, k.yb - f.y) < 46).sort((a, b) => Math.hypot(a.x - f.x, a.yb - f.y) - Math.hypot(b.x - f.x, b.yb - f.y))[0]; if (c) snuff(c);
+  }
   if (f.backT > 0) { f.backT -= dt; const a = angTo(h.x, h.y, f.x, f.y); tx = f.x + Math.cos(a) * 40; ty = f.y + Math.sin(a) * 40; spd = 60; }
   else if (d < 16 && f.cdT <= 0) { // it claws, and draws back
     f.cdT = 1.5; f.backT = 1.1; hurt(h, 20 * (f.dmgMul || 1), f, { kx: (h.x - f.x) * 6, ky: (h.y - f.y) * 6, ang: angTo(f.x, f.y, h.x, h.y), style: 'claw' }); SFX.rip(panOf(h.x), true); return;
