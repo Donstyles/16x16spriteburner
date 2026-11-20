@@ -236,7 +236,7 @@ function furnish(A, r, g) {
   lightless(A, r);
 }
 // (THE LIGHTLESS: half its rooms dark; deeper down, now and then one anyway: 35_themes)
-function lightless(A, r) { if (r.kind === 'room' && !r.set && !r.shrine && !r.dark && chance(ARCH.cur.dark || (A.floor >= 3 ? 0.08 : 0))) { r.dark = true; darkRoom(A, r); } }
+function lightless(A, r) { if (r.kind === 'room' && !r.set && !r.shrine && !r.dark && chance(ARCH.cur.dark || (A.floor >= 3 ? 0.08 : 0))) { r.dark = true; darkRoom(A, r, false); } } // (it stays dark: its braziers empty)
 function inArena(x, y) { return ARENA && x > ARENA.x0 - 4 && x < ARENA.x1 + 4 && y > ARENA.y0 - 8 && y < ARENA.y1 + 4 && !solidAt(x, y); }
 function nearestSolid(x, y, r) { for (const p of ARENA.props) if (p.solid && !p.dead && dist(x, y, p.x, p.cy) < r + p.r) return p; return null; }
 // walls and shut doors

@@ -219,7 +219,7 @@ function placeFires(A, r, g) {
   for (const p of A.props) if (p.kind === 'brazier' && p.room === r.i && !p.dead) { p.out = true; f.braziers.push(p); }
   const cands = []; for (let y = r.iy0 + 1; y <= r.iy1 - 1; y++) for (let x = r.ix0 + 1; x <= r.ix1 - 1; x++) { if (!FLOOR(A.fl[y * A.w + x]) || r.doors.some(d => d.cells.some(([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 4)) || A.props.some(q => !q.dead && Math.abs(q.x - (x * TS + 8)) < 20 && Math.abs(q.cy - (y * TS + 10)) < 18)) continue; cands.push([x, y]); }
   while (f.braziers.length < n && cands.length) { const far = cands.filter(([x, y]) => f.braziers.every(q => Math.hypot(q.x - (x * TS + 8), q.y - (y * TS + 14)) >= 80)), [x, y] = pick(far.length ? far : cands); const p = { kind: 'brazier', x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i, f: randi(0, 3), out: true, ember: false }; A.props.push(p); f.braziers.push(p); removeIf(cands, ([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 4); }
-  for (const p of f.braziers) { p.ember = false; p.fire = f; } A.lights = A.slit = null; (A.fires = A.fires || []).push(f);
+  for (const p of f.braziers) { p.ember = true; p.fire = f; } /* (the coals in it: a brazier that can be lit, 36_works darkRoom) */ A.lights = A.slit = null; (A.fires = A.fires || []).push(f);
 }
 function firesTick(A, f, dt, heroes) {
   if (f.solved) return; let lit = 0;
