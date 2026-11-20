@@ -122,6 +122,10 @@ function greatHall(r, fl, W, H) {
 }
 // whether a north wall's brick face stands at (x, y): rock with floor right under it (torches, banners and windows hang
 // only there)
+// a stretch of plain north wall at x: its bricks the sheet's plain face [6, 1] and its top the plain wall top [6, 0], not
+// a face's end or a corner beside an alcove, a cut corner or a doorway (a window, a banner or a torch hung there would
+// run over the corner)
+function plainWall(A, x, y) { return faceAt(A, x, y) && A.wt[y * A.w + x] === 6 * 64 + 1 + 1 && A.wt[(y - 1) * A.w + x] === 6 * 64 + 0 + 1; }
 function faceAt(A, x, y) { return x >= 0 && y >= 0 && y + 1 < A.h && A.fl[y * A.w + x] === 0 && FLOOR(A.fl[(y + 1) * A.w + x]); }
 // what stands in the alcoves (after the room is furnished): a statue on its pedestal, a burning brazier, a small chest, a
 // column; a torch on the back wall of a north niche
