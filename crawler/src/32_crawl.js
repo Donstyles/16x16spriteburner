@@ -29,13 +29,14 @@ function lineOfSight(x0, y0, x1, y1) {
   for (let i = 1; i < n; i++) if (solidAt(lerp(x0, x1, i / n), lerp(y0, y1, i / n))) return false;
   return true;
 }
-// blast doors in the north walls (frames from the door sheet, shut to open); a portcullis seen edge-on in the side walls
+// blast doors in the north walls (frames from the door sheet, shut to open: each door one of the sheet's three motifs, door and
+// strut in the floor's colour, grey or brown); a portcullis seen edge-on in the side walls
 function drawDoors(c) {
   const A = ARENA; if (!A.doors) return; const th = A.th;
   for (const d of A.doors) {
     if (d.k <= 0.02) continue; const k = d.k;
     if (d.side === 'N' || d.side === 'S') {
-      const col = 1 + Math.round((1 - k) * 3);
+      const col = 1 + Math.round((1 - k) * 3) + (d.motif || 0); // (its motif: the cross, the chevron or the emblem, in the floor's colour)
       if (d.side === 'S') continue; // (a south doorway's blast door is drawn among the units: drawSouthDoor)
       for (const [x, y] of d.cells) { c.drawImage(IMG.doors, col * TS, th.door * TS, TS, TS, x * TS, (y - 1) * TS, TS, TS); c.drawImage(IMG.doors, col * TS, (th.door + 1) * TS, TS, TS, x * TS, y * TS, TS, TS); }
     } else {
@@ -54,14 +55,14 @@ function drawDoors(c) {
 // underside). It is drawn among the units by depth, the depth of the wall's face where it meets the floor: whoever walks
 // through the doorway passes under it, whoever stands in the room in front of the wall stays in front of it.
 const STRUTS = d => d.side === 'N' ? [(d.cells[0][1] + 1) * TS, 6, d] : null;
-function drawStrut(c, d) { const th = ARENA.th; for (const [x, y] of d.cells) c.drawImage(IMG.doors, 4 * TS, th.door * TS, TS, 11, x * TS, (y - 1) * TS, TS, 11); }
+function drawStrut(c, d) { const th = ARENA.th; for (const [x, y] of d.cells) c.drawImage(IMG.doors, (4 + (d.motif || 0)) * TS, th.door * TS, TS, 11, x * TS, (y - 1) * TS, TS, 11); }
 // a blast door in a south doorway: the same frames (we see its south face, as with a north wall's), hung from the top of
 // the south wall, where its strut runs, and reaching down over the doorway and the corridor's first row; drawn among the
 // units by the depth of its foot, so whoever is in the corridor in front of it stands in front of it
-function drawSouthDoor(c, d) { const th = ARENA.th, col = 1 + Math.round((1 - d.k) * 3); for (const [x, y] of d.cells) { c.drawImage(IMG.doors, col * TS, th.door * TS, TS, TS, x * TS, y * TS - 3, TS, TS); c.drawImage(IMG.doors, col * TS, (th.door + 1) * TS, TS, TS, x * TS, (y + 1) * TS - 3, TS, TS); } }
+function drawSouthDoor(c, d) { const th = ARENA.th, col = 1 + Math.round((1 - d.k) * 3) + (d.motif || 0); for (const [x, y] of d.cells) { c.drawImage(IMG.doors, col * TS, th.door * TS, TS, TS, x * TS, y * TS - 3, TS, TS); c.drawImage(IMG.doors, col * TS, (th.door + 1) * TS, TS, TS, x * TS, (y + 1) * TS - 3, TS, TS); } }
 // now and then a south doorway (which has no door) has a strut across it too: the same bar (the sheet has none seen from
 // behind), along the top of the south wall at the ceiling, over everyone passing under it (drawn with the ceiling)
-function drawSouthStruts(c) { const A = ARENA; if (!A.doors) return; for (const d of A.doors) if (d.side === 'S' && d.strut) for (const [x, y] of d.cells) c.drawImage(IMG.doors, 4 * TS, A.th.door * TS + 3, TS, 8, x * TS, y * TS, TS, 8); }
+function drawSouthStruts(c) { const A = ARENA; if (!A.doors) return; for (const d of A.doors) if (d.side === 'S' && d.strut) for (const [x, y] of d.cells) c.drawImage(IMG.doors, (4 + (d.motif || 0)) * TS, A.th.door * TS + 3, TS, 8, x * TS, y * TS, TS, 8); }
 // the map in the corner: every tile the party has seen, where it came down, the way down once the map is read, every hero
 let MINI = null;
 function drawMinimap(c, xr, y0) {

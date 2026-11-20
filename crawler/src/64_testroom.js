@@ -57,7 +57,7 @@ function shutDoor(A, d) {
     for (let x = x0; x <= x1; x++) { const c = mkCanvas(TS, TS), q = c.getContext('2d'); tileAt(q, 10, fr, 0, 0); q.drawImage(IMG.cellar, 6 * TS, (3 + th.fy) * TS, TS, TS, 0, 0, TS, TS); for (const [rx, ry, rw, rh] of paintOf(6, 3, 0).tr) cg.drawImage(c, rx, ry, rw, rh, x * TS + rx, y * TS + ry, rw, rh); }
     return;
   }
-  for (const [x, y] of d.cells) groundPaint(x * TS, (y - 1) * TS, x * TS + TS, (y + 1) * TS, g => { g.drawImage(IMG.doors, TS, th.door * TS, TS, TS, x * TS, (y - 1) * TS, TS, TS); g.drawImage(IMG.doors, TS, (th.door + 1) * TS, TS, TS, x * TS, y * TS, TS, TS); });
+  for (const [x, y] of d.cells) groundPaint(x * TS, (y - 1) * TS, x * TS + TS, (y + 1) * TS, g => { const cx = (1 + (d.motif || 0)) * TS; g.drawImage(IMG.doors, cx, th.door * TS, TS, TS, x * TS, (y - 1) * TS, TS, TS); g.drawImage(IMG.doors, cx, (th.door + 1) * TS, TS, TS, x * TS, y * TS, TS, TS); });
 }
 // the clean floor, kept when the room is made, to wipe back to
 function keepClean(A) { A.clean = A.chunks.map(k => { const c = mkCanvas(k.w, k.h); c.getContext('2d').drawImage(k.cv, 0, 0); return c; }); }

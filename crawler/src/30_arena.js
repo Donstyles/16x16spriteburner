@@ -153,7 +153,7 @@ function buildArena1(floor) {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const P = wallPiece(isF, x, y); if (P) T(P[0], P[1], x, y, P[2]); }
   const A = ARENA = { arch: ARCH.cur, w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilN: cn, fl, wt, wf, rooms, halls, props: [], torches: [], name: floorName(floor), floor };
   paintCeil(A, cg, cv); // the painted trim, as drawn on the ground: the ceiling over everyone (31_walls)
-  A.doors = rooms.flatMap(r => r.doors.map(d => Object.assign(d, { room: r.i, k: 0, strut: d.side === 'S' && chance(0.16) }))); // (strut: a south doorway's, now and then: 32_crawl)
+  A.doors = rooms.flatMap(r => r.doors.map(d => Object.assign(d, { room: r.i, k: 0, strut: d.side === 'S' && chance(0.16), motif: pick([0, 5, 10]) }))); // (strut: a south doorway's, now and then: 32_crawl)
   A.start = rooms.find(r => r.kind === 'start'); A.end = rooms.find(r => r.kind === 'end');
   // ---- furnishing (the stairways' places first, so no torch or banner hangs on them)
   // three free tiles of north wall, clear of any doorway by a tile, as near the middle as they come
