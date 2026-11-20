@@ -92,19 +92,29 @@ function ossuary(A, r, g, P) {
 // own candles (44_candles); the urns' niches have none
 const NICHE_Y = -6, LIGHT_NICHE = [7 * 16, 6 * 16, 16, 16, [8 * 16, 7 * 16]];
 function cryptWall(A, r, g, used) {
-  const c2 = r.ix0 + r.ix1, y = r.fy0 + 1, gy = (r.fy0 + 2) * TS + 3, NICHE = { skulls: [[6, 6], [8, 6], [9, 6], [7, 7]], urns: [[9, 7], [10, 7], [11, 6]] };
+  const c2 = r.ix0 + r.ix1, y = r.fy0 + 1;
   let k = 0;
   for (let x = Math.floor(c2 / 2); x > r.ix0; x -= 2, k++) {
     const m = c2 - x, both = x === m ? [x] : [x, m]; if (both.some(xx => used.has(xx) || !plainWall(A, xx, y))) continue;
     const role = k % 2 === 0 ? 'light' : ['skulls', 'urns', 'chains'][(k >> 1) % 3];
-    for (const xx of both) {
-      used.add(xx); const nx = xx * TS, ny = y * TS + NICHE_Y;
-      if (role === 'light') { const S = candleSrc(...LIGHT_NICHE); g.drawImage(S.cv, nx, ny); A.torches.push({ x: nx + 8, y: y * TS + 9, tx: xx, f: (xx * 3) % 4, candles: addCandles(A, S, nx, ny, gy, 720, { wall: true, torch: true }) }); }
-      else if (role === 'chains') cryptAt(g, 9 + (k >> 1) % 3, 2, nx, y * TS - 8);
-      else { const L = NICHE[role], t = L[(k >> 1) % L.length], S = candleSrc(t[0] * TS, t[1] * TS, TS, TS); g.drawImage(S.cv, nx, ny); const cs = addCandles(A, S, nx, ny, gy, 450, { wall: true }); if (role === 'skulls') (r.niches = r.niches || []).push({ nx, ny, candles: cs }); }
-    }
+    for (const xx of both) { used.add(xx); cryptNiche(A, r, g, xx, y, role, k); }
   }
 }
+// one niche at x on the wall face row y: a light niche, skulls, urns or chains
+function cryptNiche(A, r, g, xx, y, role, k) {
+  const NICHE = { skulls: [[6, 6], [8, 6], [9, 6], [7, 7]], urns: [[9, 7], [10, 7], [11, 6]] }, nx = xx * TS, ny = y * TS + NICHE_Y, gy = (y + 1) * TS + 3;
+  if (role === 'light') { const S = candleSrc(...LIGHT_NICHE); g.drawImage(S.cv, nx, ny); A.torches.push({ x: nx + 8, y: y * TS + 9, tx: xx, f: (xx * 3) % 4, room: r.i, candles: addCandles(A, S, nx, ny, gy, 720, { wall: true, torch: true }) }); }
+  else if (role === 'chains') cryptAt(g, 9 + (k >> 1) % 3, 2, nx, y * TS - 8);
+  else { const L = NICHE[role], t = L[(k >> 1) % L.length], S = candleSrc(t[0] * TS, t[1] * TS, TS, TS); g.drawImage(S.cv, nx, ny); const cs = addCandles(A, S, nx, ny, gy, 450, { wall: true }); if (role === 'skulls' && y === r.fy0 + 1) (r.niches = r.niches || []).push({ nx, ny, candles: cs }); }
+}
+// the face of a block of wall standing in a room: niches mirrored about its middle, a light niche at the middle and every
+// second tile out from it, niches of the dead between
+function cryptFace(A, r, g, f) {
+  const W = A.w, n = f.length, mid = (n - 1) / 2;
+  f.forEach((c, i) => { const x = c % W, y = (c / W) | 0, d = Math.round(Math.abs(i - mid)); cryptNiche(A, r, g, x, y, d % 2 === 0 ? 'light' : 'skulls', d); });
+}
+// the crypt's floor spikes: rows of bone shards in three heights (sheet 9..10, 4..5), by the frame (3 tip, 2 half, 1 up)
+const BONE_SHARDS = { 3: [[9, 4], [9, 4]], 2: [[10, 4], [11, 4]], 1: [[10, 5], [9, 5]] };
 
 // ===================== the restless dead =====================
 // A tomb's candles keep its dead asleep: while one still burns, the lid stays on. When the last goes out (burnt down, or
