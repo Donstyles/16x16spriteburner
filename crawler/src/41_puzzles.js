@@ -198,6 +198,10 @@ function puzzleAfter(A, r) {
   if (r.gap) { for (const i of r.gap.lanes) clear(i % W, (i / W) | 0, 16); for (const [x, y] of r.gap.blocks) { const b = block(x, y); b.fill = true; } }
   if (r.spikeGate) { const sg = r.spikeGate; plate(sg.at[0], sg.at[1], { timer: sg }); }
   if (r.crack) { const c = r.crack; A.props.push({ kind: 'crack', crack: c, x: (c.x + 1.5) * TS, y: (c.y + 1) * TS + 15, cy: (c.y + 1) * TS + 12, r: 18, solid: false, hp: 3, room: r.i }); }
+  // half the time, tall stock stands right in front of it: crate stacks two high along the cracks, so the wall is
+  // half hidden and must be cleared before it can be struck (it all breaks)
+  if (r.crack && chance(0.5)) { const c = r.crack, y = c.y + 2, TALL = [[27, 12, 'crate'], [28, 12, 'crate'], [29, 12, 'crate']];
+    for (let x = c.x; x <= c.x + 2; x++) { if (!FLOOR(A.fl[y * W + x]) || (A.plates || []).some(q => q.tx === x && q.ty === y) || (A.runes || []).some(q => q.tx === x && q.ty === y)) continue; removeIf(A.props, q => q.kind !== 'crack' && Math.abs(q.x - (x * TS + 8)) < 14 && Math.abs(q.cy - (y * TS + 10)) < 14); const t = pick(TALL); A.props.push({ kind: t[2], tile: [t[0], t[1]], th: 2, tw: 1, x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 5, solid: true, hp: 40, room: r.i, screen: c }); } }
 }
 // ---- THE ECHOING RUNES
 function placeEcho(A, r, g) {
