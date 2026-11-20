@@ -227,8 +227,8 @@ function cisternAfter(A, r) {
   const ring = [];
   for (let x = p.x0 - 1; x <= p.x1 + 1; x++) ring.push([x, p.y0 - 1], [x, p.y1 + 1]);
   for (let y = p.y0; y <= p.y1; y++) ring.push([p.x0 - 1, y], [p.x1 + 1, y]);
-  const ok = ([x, y]) => !nearDoor(x, y, 2) && !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 14 && Math.abs(q.cy - (y * TS + 10)) < 12) && FLOOR(A.fl[y * A.w + x]);
-  const at = pick(ring.filter(ok)) || ring.find(([x, y]) => FLOOR(A.fl[y * A.w + x]));
+  const ok = ([x, y]) => !nearDoor(x, y, 2) && !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 14 && Math.abs(q.cy - (y * TS + 10)) < 12) && A.fl[y * A.w + x] === 1; // (plain floor: never on the bridge's end)
+  const at = pick(ring.filter(ok)) || ring.find(([x, y]) => A.fl[y * A.w + x] === 1) || ring.find(([x, y]) => FLOOR(A.fl[y * A.w + x]));
   p.localAt = at; const c = r.crack && r.crack.holds === 'drain' ? r.crack : null; // (the water test room puts its plate at localAt: 64_testroom)
   if (!p.host && c) { A.plates = A.plates || []; A.plates.push({ x: (c.x + 1) * TS + 8, y: c.y * TS + 8, tx: c.x + 1, ty: c.y, tile: W.plate, f: 0, down: false, pool: p, room: r.i, hidden: true }); } // (no room beyond took its drain: it is sealed in a niche behind a cracked wall in this room, THE HIDDEN DRAIN; never out on the walk)
 }

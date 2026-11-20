@@ -200,10 +200,10 @@ function sentinelPond(A, r, g) {
 }
 // a remote button's place, half the time: standing free in its room, on bare floor two tiles in from the walls, clear of
 // the doors, the stairs, spikes and anything standing there (null: before the outlet grate in the north wall, as before)
-function freeSpot(A, r) {
+function freeSpot(A, r) { // (on plain floor: never on a bridge, a button is not set in planks or slats)
   if (!chance(0.5)) return null; const ok = [];
   for (let y = r.iy0 + 2; y <= r.iy1 - 2; y++) for (let x = r.ix0 + 2; x <= r.ix1 - 2; x++) {
-    if (!FLOOR(A.fl[y * A.w + x]) || r.doors.some(d => d.cells.some(([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 4))) continue;
+    if (A.fl[y * A.w + x] !== 1 || r.doors.some(d => d.cells.some(([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 4))) continue;
     if (r.stairX !== undefined && x >= r.stairX - 1 && x <= r.stairX + 3 && y <= r.iy0 + 2) continue;
     if ((A.spikes || []).some(s => Math.abs(s.tx - x) <= 1 && Math.abs(s.ty - y) <= 1) || (A.plates || []).some(p => Math.abs(p.tx - x) <= 2 && Math.abs(p.ty - y) <= 2)) continue;
     if (A.props.some(q => !q.dead && Math.abs(q.x - (x * TS + 8)) < 24 && Math.abs(q.cy - (y * TS + 10)) < 22)) continue;
