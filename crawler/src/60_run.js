@@ -15,7 +15,7 @@ function startRun(kit) {
   G.mode = 'play';
 }
 function startFloor() {
-  TEST.on = false;
+  TEST.on = false; GAL.on = false; // (a gallery floor's buttons go with it: 65_gallery)
   buildArena(G.floor); initSight(ARENA); G.proj = []; G.hz = []; G.drops = []; G.sched = []; for (const k in FX) FX[k].length = 0;
   const A = ARENA, sp = A.spawn;
   G.heroes.forEach((h, i) => { h.x = sp.x + (i - (G.heroes.length - 1) / 2) * 16; h.y = sp.from; h.enter = { y1: sp.y + i * 4 }; h.z = 0; h.vx = h.vy = h.kx = h.ky = 0; h.act = null; h.stun = 0; h.iframe = 0; h.dir = -Math.PI / 2; h.path = null; h.inBasin = undefined; h.fall = null; h.rise = 0; h.onPlat = h.platHop = null; h.lift = 0; h.safe = { x: sp.x, y: sp.y }; });

@@ -32,6 +32,9 @@ const GALLERY = [
   ['BROKEN FLOORS', 'arch', 'pits', 'MORE PITS THAN USUAL', '#a8d8b0'],
   ['LOCKED WAYS', 'arch', 'locks', 'MORE PUZZLES, MORE CRACKED WALLS', '#a8d8b0'],
 ];
+// (on a gallery floor: PREV and NEXT at the top step through them all, its name and number under them; 61_input)
+const GAL = { on: false, i: 0, kit: null };
+function galleryStep(d) { const n = GALLERY.length; beginGallery(GAL.kit, ((GAL.i + d) % n + n) % n); }
 function beginGallery(kit, i) {
   const [label, kind, what, line] = GALLERY[i]; beginRun(kit); G.floor = kind === 'puz' || kind === 'crack' ? 4 : chance(0.5) ? 3 : 4; let at = null; // (brown or grey; the puzzles at their fullest on the fourth)
   const room = r => { const W = ARENA.w, cx = Math.round((r.ix0 + r.ix1) / 2); for (let d = 0; d < 12; d++) for (const y of [r.iy1 - d, r.iy1 - d + 1]) for (const x of [cx, cx - d, cx + d]) if (y >= r.iy0 && y <= r.iy1 && FLOOR(ARENA.fl[y * W + x])) return [x * TS + 8, y * TS + 10]; return [(cx + 0.5) * TS, (r.iy1 + 0.5) * TS]; };
@@ -54,6 +57,7 @@ function beginGallery(kit, i) {
   // a quiet floor to look round: no foes, the hero right there
   for (const f of G.foes) f.dead = true; G.foes.length = 0; G.units = G.heroes.slice();
   const h = G.me; if (at) { h.x = at[0]; h.y = at[1]; h.enter = null; } CAM.x = h.x; CAM.y = h.y; G.fade = 0.6;
+  Object.assign(GAL, { on: true, i, kit });
   G.card = { t: 0, life: 4.5, a: 'NIGHT GALLERY', b: label, c: line, d: kind === 'arch' ? (ARENA.arch.name || '') + ' · NO FOES' : 'NO FOES · THE STAIRS LEAD ON AS EVER' };
 }
 // the gallery's screen: a grid of buttons, three columns (63_menu)

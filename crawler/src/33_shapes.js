@@ -3,7 +3,8 @@
 // walls are painted, so the walls round it are drawn from the sheet's pieces like any other (30_arena):
 // - THE PILLARED HALL: blocks of wall standing free in the room, two tiles wide and three tall, in a pair, a four
 //   or two rows of three, mirrored about the room's middle.
-// - THE RING: one great block of wall in the middle (three to six wide, three or four tall); the room is a walk round it.
+// - THE RING: one great block of wall in the middle, square: three or four wide and a tile taller (its top, drawn north of
+//   where it stands, is then as deep as it is wide; its bricks are the extra row); the room is a walk round it.
 // - CUT CORNERS: a corner or two of the rock left standing in the room (an L, a T, a Z), or all four (a cross).
 // - ALCOVES: niches let into the north wall (or a side wall without a door), with something standing in them: a statue on
 //   its pedestal, a burning brazier, a small chest, a column.
@@ -60,7 +61,7 @@ function shapeRoom(r, k, fl, W, H) {
       if (ys[0] < top || ys[ys.length - 1] + bh - 1 > r.iy1 - 2) continue;
       for (const x of xs) for (const y of ys) rect(rock, x, y, bw, bh);
     } else if (k === 'ring') { // one great block in the middle, a walk round it
-      if (r.w - 8 < 3 || r.h - 5 < 3) return false; const bw = randi(3, Math.min(6, r.w - 8)), bh = randi(3, Math.min(4, r.h - 5));
+      const top = r.kind === 'end' ? 3 : 2, ws = [3, 4].filter(b => b <= r.w - 8 && b + 1 <= r.h - top - 2); if (!ws.length) return false; const bw = pick(ws), bh = bw + 1; // (a tile taller than wide: its top, drawn north of where it stands, then reads square)
       const x0 = Math.round((r.ix0 + r.ix1 - bw + 1) / 2) + randi(-1, 1), y0 = Math.max(r.iy0 + (r.kind === 'end' ? 3 : 2), Math.round((r.iy0 + r.iy1 - bh + 1) / 2));
       if (x0 - r.ix0 < 3 || r.ix1 - (x0 + bw - 1) < 3 || r.iy1 - (y0 + bh - 1) < 2) continue; rect(rock, x0, y0, bw, bh);
     } else if (k === 'cuts') { // corners of rock left standing
