@@ -489,12 +489,29 @@ function basinHop(u) {
 }
 // the top of the north wall face a point is on in a drained basin (the first basin row's top seven pixels), or null
 function basinFace(x, y) { const A = ARENA; if (!A || !A.basin) return null; const W = A.w, tx = Math.floor(x / TS), ty = Math.floor(y / TS); if (tx < 0 || ty < 1 || tx >= W || ty >= A.h) return null; return A.basin[ty * W + tx] && !A.basin[(ty - 1) * W + tx] && y - ty * TS < 8 ? ty * TS : null; }
-// a hop over a rim carries him over it, however slowly he came at it (a walker creeping up would otherwise land on the face)
-function basinLeap(u) { const sp = Math.hypot(u.vx, u.vy); let dx = 0, dy = u.hopDir === 'up' ? -1 : 1; if (sp > 1) { dx = u.vx / sp; dy = u.vy / sp; } const L = 70 - Math.min(50, sp * 0.6); u.kx += dx * L; u.ky += dy * L; }
+// a hop over a rim lands him clear of it, however slowly he came at it: where he will come down is worked out as he
+// pushes off (two pixels past the edge he crosses; over the north wall's face, off its foot onto the bed or over its top
+// onto the floor), and while he is in the air he is carried there evenly, so he never lands on the face nor snaps at the end
+const hopZone = (x, y) => basinFace(x, y) !== null ? 1 : basinAt(x, y) ? 2 : 0; // (0 floor, 1 the north wall's face, 2 the bed)
+function basinLeap(u) {
+  const sx = Math.abs(u.vx) > Math.abs(u.vy) + 0.01, dir = sx ? (Math.sign(u.vx) || 1) : (Math.sign(u.vy) || (u.hopDir === 'up' ? -1 : 1)), ax = sx ? 'x' : 'y';
+  const at = k => sx ? hopZone(u.x + k, u.y) : hopZone(u.x, u.y + k), z0 = at(0); let k = 0;
+  while (Math.abs(k) < 20 && at(k) === z0) k += dir; if (Math.abs(k) >= 20) return; // (the edge he is crossing)
+  if (at(k) === 1) while (Math.abs(k) < 30 && at(k) === 1) k += dir; // (the face: on past it, to its foot or its top)
+  u.hopTo = [ax, (sx ? u.x : u.y) + k + dir * 2, dir];
+}
+// in the air, the rest of the way to where the hop lands, spread over the time left before he comes down
+function hopCarry(u, dt) {
+  const T = u.hopTo; if (!T) return; if (u.z <= 0 && !(u.vz > 0)) { u.hopTo = null; return; }
+  const [ax, to, dir] = T, cur = ax === 'x' ? u.x : u.y, need = to - cur; if (need * dir <= 0) return;
+  const left = Math.max(dt, (u.vz + Math.sqrt(Math.max(0, u.vz * u.vz + 2 * 560 * u.z))) / 560), mv = need * Math.min(1, dt / left);
+  if (ax === 'x') u.x += mv; else u.y += mv;
+}
 function hopNow(u) { u.vz = u.hopV || 70; u.z = 0.01; u.hopT = G.time; u.hopV = 0; u.brakeK = 0; smoke(u.x, u.y, 2, 'dust', 4, 8, 0.5); }
 // Coming up to the rim, a walker checks for a moment (a fifth of its pace for a beat) and then hops, so the hop is seen
 // over the edge and not after it, however fast it was going. The answer scales this frame's move.
 function basinBrake(u, dt) {
+  hopCarry(u, dt);
   if (u.brake > 0) { u.brake -= dt; const k = u.brakeK || 0.2; if (u.brake <= 0) { const bc = u.basinCheck; if (bc) { u.basinCheck = false; u.hopFor = G.time; } hopNow(u); if (bc) basinLeap(u); } return k; } // (a plate's stop and hop too: 36_works plates)
   const A = ARENA; if (!A || !A.basin || u.fly || u.under || u.dead || u.enter) return 1;
   const gk = u.gaitK === undefined ? 1 : u.gaitK, vx = u.vx * gk + u.kx, vy = u.vy * gk + u.ky, sp = Math.hypot(vx, vy); if (sp < 2) return 1; // (however slowly he comes at the rim)
