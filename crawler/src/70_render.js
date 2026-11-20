@@ -260,7 +260,7 @@ function render() {
   for (const [, k, o] of list) if (k === 0) { if (o.fall) drawFalling(c, o); else if (!(o.rise > 0 && ((G.time * 18) | 0) % 2)) drawUnit(c, o); } else if (k === 1) { if (propSplit(o)) drawPropPart(c, o, false); else drawProp(c, o); } else if (k === 2) drawDrop(c, o); else if (k === 3) drawProj(c, o); else if (k === 5) drawWallArrow(c, o); else if (k === 6) drawStrut(c, o); else drawRock(c, o);
   if (ARENA.shop) for (const w of ARENA.shop.wares) drawWare(c, w); // (his wares, over everyone: they never hide behind a customer, 39_shop)
   for (const h of G.heroes) if (h.shown) drawShown(c, h);
-  drawWorldParts(c); drawCeil(c, ox, oy, bw, bh); // the tops of the south, east and west walls, at the ceiling, over everything in the room
+  drawWorldParts(c); drawCeil(c, ox, oy, bw, bh); drawSouthStruts(c); // the tops of the south, east and west walls, at the ceiling, over everything in the room (and a south doorway's strut: 32_crawl)
   renderLight();
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'multiply'; c.drawImage(lc, 0, 0);
   fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.globalCompositeOperation = 'source-over'; fctx.globalAlpha = 1; fctx.clearRect(0, 0, bw, bh); fctx.globalCompositeOperation = 'lighter'; fctx.imageSmoothingEnabled = false; X(fctx);

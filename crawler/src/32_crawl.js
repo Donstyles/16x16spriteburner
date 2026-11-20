@@ -55,6 +55,9 @@ function drawDoors(c) {
 // through the doorway passes under it, whoever stands in the room in front of the wall stays in front of it.
 const STRUTS = d => d.side === 'N' ? [(d.cells[0][1] + 1) * TS, 6, d] : null;
 function drawStrut(c, d) { const th = ARENA.th; for (const [x, y] of d.cells) c.drawImage(IMG.doors, 4 * TS, th.door * TS, TS, 11, x * TS, (y - 1) * TS, TS, 11); }
+// now and then a south doorway (which has no door) has a strut across it too: the same bar (the sheet has none seen from
+// behind), along the top of the south wall at the ceiling, over everyone passing under it (drawn with the ceiling)
+function drawSouthStruts(c) { const A = ARENA; if (!A.doors) return; for (const d of A.doors) if (d.side === 'S' && d.strut) for (const [x, y] of d.cells) c.drawImage(IMG.doors, 4 * TS, A.th.door * TS + 3, TS, 8, x * TS, y * TS, TS, 8); }
 // the map in the corner: every tile the party has seen, where it came down, the way down once the map is read, every hero
 let MINI = null;
 function drawMinimap(c, xr, y0) {
