@@ -145,14 +145,18 @@ function floodedWay(A, r, g, far) {
     const a1 = arc(i0, i1), a2 = arc(i1, i0), ok1 = !a1.some(bad), ok2 = !a2.some(bad), path = ok1 && (!ok2 || a1.length <= a2.length) ? a1 : ok2 ? a2 : null;
     if (!path) return null; for (const [x, y] of path) dry.add(key(x, y));
   }
-  const cells = new Set(); for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) if (!dry.has(key(x, y))) cells.add(key(x, y));
-  // the near side must hold together, and nothing of it may touch the far side's landing
+  const cells = thickWater(new Set(), A.w); for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) if (!dry.has(key(x, y))) cells.add(key(x, y)); thickWater(cells, A.w);
+  // the near side must hold together, and nothing of it may touch the far side's landing (over all the dry floor, a strip
+  // of water too thin to keep having gone dry)
   const start = Ls.find(L => !L.far), seen = new Set([key(...start.cells[0])]), q = [key(...start.cells[0])];
-  while (q.length) { const c = q.pop(); for (const j of [c + 1, c - 1, c + A.w, c - A.w]) { const x = j % A.w, y = Math.floor(j / A.w); if (x < r.ix0 || x > r.ix1 || y < r.iy0 || y > r.iy1 || !dry.has(j) || seen.has(j)) continue; seen.add(j); q.push(j); } }
+  while (q.length) { const c = q.pop(); for (const j of [c + 1, c - 1, c + A.w, c - A.w]) { const x = j % A.w, y = Math.floor(j / A.w); if (x < r.ix0 || x > r.ix1 || y < r.iy0 || y > r.iy1 || cells.has(j) || seen.has(j)) continue; seen.add(j); q.push(j); } }
   if (Ls.some(L => !L.far && !L.cells.some(([x, y]) => seen.has(key(x, y)))) || farCells.some(([x, y]) => seen.has(key(x, y)))) return null;
   if (cells.size < 30) return null;
   const p = waterSet(A, r, cells, g, wkOf(A).square, false); p.flooded = true; p.rate = 2.6; r.pool = p; r.ledge = [...dry]; return p;
 }
+// water no thinner than two tiles either way: a single row or column of it goes dry instead (a strip of water one tile
+// across reads as nothing, and leaves no room for the hop down into it and the hop up out of it, drained)
+function thickWater(cells, W) { for (let changed = true; changed;) { changed = false; for (const i of [...cells]) if ((!cells.has(i - W) && !cells.has(i + W)) || (!cells.has(i - 1) && !cells.has(i + 1))) { cells.delete(i); changed = true; } } return cells; }
 function gauntlet(A, r, g) {
   const ns = r.doors.find(d => d.side === 'N' || d.side === 'S'), ew = r.doors.find(d => d.side === 'E' || d.side === 'W');
   const vx = ns ? Math.min(...ns.cells.map(c => c[0])) : Math.round((r.ix0 + r.ix1) / 2) - 1, hy = ew ? Math.min(...ew.cells.map(c => c[1])) : Math.round((r.iy0 + r.iy1) / 2) - 1;
@@ -164,13 +168,15 @@ function gauntlet(A, r, g) {
   const near = (x, y, m) => { for (let dy = -m; dy <= m; dy++) for (let dx = -m; dx <= m; dx++) if (way.has((y + dy) * A.w + x + dx)) return true; return false; };
   // islands: two tiles square, two tiles of water at least between them and the causeway, archers on them
   const isl = [], taken = new Set(), want = clamp(1 + Math.floor(A.floor / 2), 1, 3), cands = [];
-  for (let y = r.iy0 + 1; y <= r.iy1 - 2; y++) for (let x = r.ix0 + 1; x <= r.ix1 - 2; x++) { const d = Math.min(...[...way].map(i => Math.max(Math.abs(i % A.w - x - 0.5), Math.abs(Math.floor(i / A.w) - y - 0.5)))); if (!near(x, y, 3) && !near(x + 1, y + 1, 3) && !near(x + 1, y, 3) && !near(x, y + 1, 3) && d <= 7) cands.push([x, y, d]); } // (two tiles of water at least between: out of reach of a spear)
+  for (let y = r.iy0 + 2; y <= r.iy1 - 3; y++) for (let x = r.ix0 + 2; x <= r.ix1 - 3; x++) { const d = Math.min(...[...way].map(i => Math.max(Math.abs(i % A.w - x - 0.5), Math.abs(Math.floor(i / A.w) - y - 0.5)))); if (!near(x, y, 3) && !near(x + 1, y + 1, 3) && !near(x + 1, y, 3) && !near(x, y + 1, 3) && d <= 7) cands.push([x, y, d]); } // (two tiles of water at least between: out of reach of a spear)
   for (const [x, y] of cands.sort(() => Math.random() - 0.5)) {
     if (isl.length >= want) break; if ([[0, 0], [1, 0], [0, 1], [1, 1]].some(([a, b]) => { for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (taken.has((y + b + dy) * A.w + x + a + dx)) return true; return false; })) continue;
     isl.push([x, y]); for (const [a, b] of [[0, 0], [1, 0], [0, 1], [1, 1]]) taken.add((y + b) * A.w + x + a);
   }
   if (!isl.length) return false;
   const cells = new Set(); for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) { const i = y * A.w + x; if (!way.has(i) && !taken.has(i)) cells.add(i); }
+  thickWater(cells, A.w); // (and the islands still two tiles of water clear of any dry floor)
+  for (const t of taken) for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const j = t + dy * A.w + dx, x = j % A.w, y = Math.floor(j / A.w); if (x >= r.ix0 && x <= r.ix1 && y >= r.iy0 && y <= r.iy1 && !taken.has(j) && !cells.has(j)) return false; }
   if (cells.size < 30) return false;
   const p = waterSet(A, r, cells, g, wkOf(A).square, false); p.gauntlet = true; r.pool = p; r.islands = isl; r.way = way; r.wayAt = [vx + 1, hy + 1]; return true;
 }
