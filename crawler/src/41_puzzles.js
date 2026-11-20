@@ -68,7 +68,7 @@ function tryGate(A, how) {
 function echoCine(C, dt) {
   const e = C.echo, P = e.play, gap = e.song ? 0.85 : 0.9, h = G.me; updateSight(dt); updateProj(0); P.t += dt;
   for (const rn of e.runes) rn.flash = Math.max(0, rn.flash - dt);
-  const spot = rn => rn.hidden ? { x: (rn.niche.x + 1.5) * TS, y: (rn.niche.y + 1) * TS + 8 } : { x: rn.x, y: rn.y - 4 };
+  const spot = rn => rn.hidden ? null : { x: rn.x, y: rn.y - 4 }; // (a rune still sealed in its wall: the camera does not give the secret away, it holds where it is while that note sounds)
   if (!e.song) { const nx = P.i < e.order.length ? spot(e.runes[e.order[P.i]]) : h ? { x: h.x, y: h.y - 8 } : null; if (nx) { C.x = nx.x; C.y = nx.y; } } // (the next to light; at the end, back)
   else if (h) { C.x = h.x; C.y = h.y - 8; }
   while (P.i < e.order.length && P.t >= P.i * gap) {
