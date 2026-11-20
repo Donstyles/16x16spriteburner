@@ -466,23 +466,34 @@ function bridgeAt(x, y) {
 }
 // whether a point is down in a drained basin
 function basinAt(x, y) { const A = ARENA; if (!A || !A.basin) return 0; const tx = Math.floor(x / TS), ty = Math.floor(y / TS); return tx >= 0 && ty >= 0 && tx < A.w && ty < A.h ? A.basin[footTile(x, y)] : 0; } // (a wall's open edge goes with the floor beside it)
-// a walker crossing a basin's rim, down into it or up out of it, gives a little hop (a puff of dust where it pushes off)
+// a walker crossing a basin's rim, down into it or up out of it, hops (a puff of dust where it pushes off): up out of it a
+// high one, the face being twice as tall as it was (the water three pixels deep: the submerged face above), down into it
+// a lower one. Every crossing gets its own whole hop: one made just before the rim (the check, below) counts for it; one
+// crossed while still in the air from the last waits till he lands (the check holds him back so that is rare)
+const HOP_UP = 105, HOP_DOWN = 72;
 function basinHop(u) {
+  if (u.hopQ && u.hopQ.length && u.z <= 0 && !(u.vz > 0)) { u.hopV = u.hopQ.shift(); hopNow(u); }
   const b = basinAt(u.x, u.y);
-  if (u.inBasin !== undefined && b !== u.inBasin && !u.fly && !u.under && !u.dead && u.z <= 0.5 && !(u.hopT && G.time - u.hopT < 0.4)) hopNow(u);
+  if (u.inBasin !== undefined && b !== u.inBasin && !u.fly && !u.under && !u.dead) {
+    if (u.hopFor && G.time - u.hopFor < 0.6) u.hopFor = 0; // (the hop made at the check was for this crossing)
+    else if (u.z > 0.5 || u.vz > 0) (u.hopQ = u.hopQ || []).push(b ? HOP_DOWN : HOP_UP);
+    else { u.hopV = b ? HOP_DOWN : HOP_UP; hopNow(u); }
+  }
   u.inBasin = b;
 }
 function hopNow(u) { u.vz = u.hopV || 70; u.z = 0.01; u.hopT = G.time; u.hopV = 0; u.brakeK = 0; smoke(u.x, u.y, 2, 'dust', 4, 8, 0.5); }
 // Coming up to the rim, a walker checks for a moment (a fifth of its pace for a beat) and then hops, so the hop is seen
 // over the edge and not after it, however fast it was going. The answer scales this frame's move.
 function basinBrake(u, dt) {
-  if (u.brake > 0) { u.brake -= dt; const k = u.brakeK || 0.2; if (u.brake <= 0) hopNow(u); return k; } // (a plate's stop and hop too: 36_works plates)
+  if (u.brake > 0) { u.brake -= dt; const k = u.brakeK || 0.2; if (u.brake <= 0) { if (u.basinCheck) { u.basinCheck = false; u.hopFor = G.time; } hopNow(u); } return k; } // (a plate's stop and hop too: 36_works plates)
   const A = ARENA; if (!A || !A.basin || u.fly || u.under || u.dead || u.enter) return 1;
-  if (u.z > 0.5 || (u.hopCool || 0) > G.time) return 1;
   const gk = u.gaitK === undefined ? 1 : u.gaitK, vx = u.vx * gk + u.kx, vy = u.vy * gk + u.ky, sp = Math.hypot(vx, vy); if (sp < 20) return 1;
-  const ahead = clamp(sp * 0.1, 3, 10), ax = u.x + vx / sp * ahead, ay = u.y + vy / sp * ahead;
-  if (basinAt(ax, ay) === basinAt(u.x, u.y) || !FLOOR(A.fl[Math.floor(ay / TS) * A.w + Math.floor(ax / TS)])) return 1;
-  u.brake = 0.08; u.hopCool = G.time + 0.45; return 0.2;
+  const ahead = clamp(sp * 0.1, 3, 10), ax = u.x + vx / sp * ahead, ay = u.y + vy / sp * ahead, here = basinAt(u.x, u.y);
+  if (basinAt(ax, ay) === here || !FLOOR(A.fl[Math.floor(ay / TS) * A.w + Math.floor(ax / TS)])) return 1;
+  if (((u.z > 0.5 || u.vz > 0) && !(u.hopFor && G.time - u.hopFor < 0.6)) || (u.hopQ && u.hopQ.length)) return 0.15; // (still in the air from the last hop, the one for the rim behind him: held back till he lands, so each is seen whole)
+  if (u.hopFor && G.time - u.hopFor < 0.6) return 1; // (the hop for this rim is under way: on over it)
+  if ((u.hopCool || 0) > G.time) return 1;
+  const up = !!here; u.brake = up ? 0.12 : 0.06; u.hopV = up ? HOP_UP : HOP_DOWN; u.basinCheck = true; u.hopCool = G.time + 0.3; return 0.2; // (a crouch before the climb out)
 }
 // a drop landing in full water: a ring on the water instead of a mark on the floor
 function wetAt(x, y) { const A = ARENA; if (!A || !A.fl) return false; const tx = Math.floor(x / TS), ty = Math.floor(y / TS); return tx >= 0 && ty >= 0 && tx < A.w && ty < A.h && A.fl[ty * A.w + tx] === 2; }
