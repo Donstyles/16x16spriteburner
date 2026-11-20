@@ -57,18 +57,18 @@ function waterBody(A, cells, set, W, dual) {
     const P = n === 4 ? [[ox + 1, oy + 1]] : n === 1 ? [br ? [ox, oy] : bl ? [ox + 2, oy] : tr ? [ox, oy + 2] : [ox + 2, oy + 2]]
       : n === 3 ? [!tl ? [ix + 2, iy + 2] : !tr ? [ix, iy + 2] : !bl ? [ix + 2, iy] : [ix, iy]]
       : bl && br ? [[ox + 1, oy]] : tl && tr ? [[ox + 1, oy + 2]] : tr && br ? [[ox, oy + 1]] : tl && bl ? [[ox + 2, oy + 1]] : tl && br ? [[ox + 2, oy + 2], [ox, oy]] : [[ox, oy + 2], [ox + 2, oy]];
-    for (const [tx, ty] of P) g.drawImage(IMG.cellar, tx * TS, ty * TS, TS, TS, vx * TS - 8 - px0, vy * TS - 8 - py0, TS, TS);
+    for (const [tx, ty] of P) g.drawImage(IMG.pool, tx * TS, ty * TS, TS, TS, vx * TS - 8 - px0, vy * TS - 8 - py0, TS, TS);
   }
   else for (const i of cells) {
     const x = i % A.w, y = (i / A.w) | 0;
     for (let qy = 0; qy < 2; qy++) for (let qx = 0; qx < 2; qx++) {
       const sx = qx ? 1 : -1, sy = qy ? 1 : -1, h = wet(x + sx, y), v = wet(x, y + sy), d = wet(x + sx, y + sy);
       const [tx, ty] = !h && !v ? [ox + (qx ? 2 : 0), oy + (qy ? 2 : 0)] : h && !v ? [ox + 1, oy + (qy ? 2 : 0)] : !h && v ? [ox + (qx ? 2 : 0), oy + 1] : !d ? [ix + (qx ? 0 : 2), iy + (qy ? 0 : 2)] : [ox + 1, oy + 1];
-      g.drawImage(IMG.cellar, tx * TS + qx * H, ty * TS + qy * H, H, H, x * TS - px0 + qx * H, y * TS - py0 + qy * H, H, H);
+      g.drawImage(IMG.pool, tx * TS + qx * H, ty * TS + qy * H, H, H, x * TS - px0 + qx * H, y * TS - py0 + qy * H, H, H);
     }
     if (swAt(x, y + 1)) for (let qx = 0; qx < 2; qx++) { // the wall's top four rows: open water, or the side rim running on down
       const [tx, ty] = wet(x + (qx ? 1 : -1), y + 1) ? [ox + 1, oy + 1] : [ox + (qx ? 2 : 0), oy + 1];
-      g.drawImage(IMG.cellar, tx * TS + qx * H, ty * TS, H, 4, x * TS - px0 + qx * H, (y + 1) * TS - py0, H, 4);
+      g.drawImage(IMG.pool, tx * TS + qx * H, ty * TS, H, 4, x * TS - px0 + qx * H, (y + 1) * TS - py0, H, 4);
     }
   }
   // THE SUBMERGED FACE. The water is three pixels deep (the props' waterline), so every face standing in it that faces
@@ -106,7 +106,28 @@ function waterBody(A, cells, set, W, dual) {
   for (let j = 0; j < cls.length; j++) { const o = j * 4, s = sub ? sub[j] : 0; if (!d1[o + 3]) continue; cls[j] = s === 4 ? 4 : s ? 3 : d1[o + 2] >= d1[o] + 30 ? 4 : d1[o] + d1[o + 1] + d1[o + 2] >= 300 ? 1 : 2; }
   for (const i of cells) A.fl[i] = 2;
   const cw = (x1 - x0 + 1) * TS + (dual ? TS : 0), ch = (y1 - y0 + 1) * TS + (dual ? TS : [...cells].some(i => swAt(i % A.w, ((i / A.w) | 0) + 1)) ? 4 : 0); // (what is drawn of it)
+  if (A.liq) liquify(cv, LIQUIDS[A.liq]); // (the crypt's: once all of the above has been read off the blue)
   return { cells, x0, y0, x1, y1, px0, py0, cv, bed, cls, cw, ch, level: 1, drain: 0 };
+}
+
+// The crypt's pools hold no water: blood, the black blood of its dead, or the green rot of the undead, one of them to a
+// floor (ARENA.liq). Everything about a pool is read off its blue art as before; then its blue is laid over in the
+// liquid's own shades by lightness (the water's eight blues, darkest to lightest, to eight of these), and its glints,
+// its whirl over the drain, the drops thrown up, the rings and the wet it leaves take the liquid's colours (liq, below).
+const LIQUIDS = {
+  blood: { pal: ['#2a0608', '#3c0a0d', '#4c0e11', '#5c1215', '#6e171a', '#821d1f', '#962526', '#b03432'], drops: ['#a8302f', '#821d1f', '#c8484a', '#6e171a'], glint: '255,176,164', wet: '92,12,14' },
+  black: { pal: ['#08070a', '#0e0c11', '#141118', '#1a161f', '#211c27', '#28222f', '#302938', '#3e3648'], drops: ['#28222f', '#1a161f', '#3e3648', '#141118'], glint: '176,168,198', wet: '6,4,8' },
+  rot: { pal: ['#0a1208', '#0f1a0b', '#14220e', '#1a2c12', '#213716', '#29431b', '#335220', '#426428'], drops: ['#426428', '#29431b', '#5a7a34', '#213716'], glint: '178,214,128', wet: '20,40,12' },
+};
+for (const k in LIQUIDS) LIQUIDS[k].rgb = LIQUIDS[k].pal.map(h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)));
+const liq = () => (ARENA && ARENA.liq ? LIQUIDS[ARENA.liq] : null);
+IMG.cellarLiq = {};
+function liquidSheet(k) { const c = mkCanvas(IMG.cellarCrypt.width, IMG.cellarCrypt.height); c.getContext('2d').drawImage(IMG.cellarCrypt, 0, 0); liquify(c, LIQUIDS[k]); return c; }
+function liquify(cv, L) {
+  const g = cv.getContext('2d'), id = g.getImageData(0, 0, cv.width, cv.height), d = id.data;
+  for (let i = 0; i < d.length; i += 4) { if (!d[i + 3] || d[i + 2] < d[i] + 30) continue;
+    const t = Math.max(0, Math.min(1, (0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2] - 83) / 42)), c = L.rgb[Math.round(t * 7)]; d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; }
+  g.putImageData(id, 0, 0);
 }
 
 // ---- building (called from buildArena): before the room is furnished, and after
@@ -626,10 +647,10 @@ function drawWorks(c) {
       // light on the water: a few glints drifting and winking
       for (let i = 0; i < Math.round(w * h / 300); i++) {
         const sd = (i * 7919 + p.x0 * 31) % 997, gx = X + 3 + ((sd * 13 + G.time * (6 + sd % 5)) % (w - 6)), gy = Y + 7 + (sd * 29) % (h - 10), on = Math.sin(G.time * (1.3 + sd % 3) + sd) > 0.55;
-        if (on && p.level > 0.4 && wetAt(gx, gy)) { c.fillStyle = 'rgba(214,236,255,0.75)'; c.fillRect(Math.round(gx), Math.round(gy), 2, 1); }
+        if (on && p.level > 0.4 && wetAt(gx, gy)) { c.fillStyle = `rgba(${liq() ? liq().glint : '214,236,255'},0.75)`; c.fillRect(Math.round(gx), Math.round(gy), 2, 1); }
       }
       if (p.drain === 1) { // the whirl over the drain
-        const [dx, dy] = p.drainAt, cx = dx * TS + 8, cy = dy * TS + 8; c.fillStyle = 'rgba(230,244,255,0.85)';
+        const [dx, dy] = p.drainAt, cx = dx * TS + 8, cy = dy * TS + 8; c.fillStyle = `rgba(${liq() ? liq().glint : '230,244,255'},0.85)`;
         for (let k = 0; k < 14; k++) { const a = G.time * 7 + k * 0.55, rr = (2 + k * 1.1) * (0.4 + p.level * 0.6); c.fillRect(Math.round(cx + Math.cos(a) * rr), Math.round(cy + Math.sin(a) * rr * 0.6), 1, 1); }
       }
     }
@@ -655,7 +676,7 @@ function drawWorks(c) {
     if (p.bridge.art) c.drawImage(p.bridge.art, p.bridge.bx0, p.bridge.by0); else for (const [x, y] of bc) sheetTile(c, p.bridge.horiz ? W.slatH : W.slatV, x * TS, y * TS);
     if (p.bridge.cv) c.drawImage(p.bridge.cv, p.bridge.bx0, p.bridge.by0); // blood on its slats
   }
-  for (const q of A.plips || []) { q.t += 1 / 60; const u = q.t / 0.5; if (u >= 1) continue; c.strokeStyle = `rgba(220,240,255,${0.7 * (1 - u)})`; c.lineWidth = 1; c.beginPath(); c.ellipse(q.x, q.y, 1 + u * 4, (1 + u * 4) * 0.6, 0, 0, TAU); c.stroke(); }
+  for (const q of A.plips || []) { q.t += 1 / 60; const u = q.t / 0.5; if (u >= 1) continue; c.strokeStyle = `rgba(${liq() ? liq().glint : '220,240,255'},${0.7 * (1 - u)})`; c.lineWidth = 1; c.beginPath(); c.ellipse(q.x, q.y, 1 + u * 4, (1 + u * 4) * 0.6, 0, 0, TAU); c.stroke(); }
   if (A.plips) removeIf(A.plips, q => q.t >= 0.5);
   if (A.clouds) { for (const q of A.clouds) q.t += 1 / 60; removeIf(A.clouds, q => q.t >= q.life); }
   // a plate: its socket in the floor ([13, 26] / [13, 27]), the stone button standing raised in it, which a foot drives down

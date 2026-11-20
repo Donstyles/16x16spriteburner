@@ -21,7 +21,7 @@ const twig = (u, ang, o = {}) => tossBit(pick(['twig', 'twig', 'bark']), u.x, u.
 
 // --- water
 // a drop of water in flight: it lands as a wet spot (and splashes a little), or wets the foot of a wall it strikes
-function water(x, y, z, vx, vy, vz, slow = 0) { part({ k: 'water', x, y, z, vx, vy, vz, g: 420, life: 4, s0: chance(0.35) ? 2 : 1, col: pick(WATER), slow }); }
+function water(x, y, z, vx, vy, vz, slow = 0) { part({ k: 'water', x, y, z, vx, vy, vz, g: 420, life: 4, s0: chance(0.35) ? 2 : 1, col: pick(liq() ? liq().drops : WATER), slow }); } // (a crypt pool's: its liquid's, 36_works)
 function waterStep(p, dt) {
   if (p.slow > G.time) dt *= 0.15;
   const nx = p.x + p.vx * dt, ny = p.y + p.vy * dt;

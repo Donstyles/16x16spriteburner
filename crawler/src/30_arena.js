@@ -25,7 +25,9 @@ const FLOOR_NAMES = ['THE ROOT CELLAR', 'THE SALT VAULT', 'THE DROWNED STORES', 
 let ARENA = null;
 // the sheets a floor draws the cellar's own pieces from (props, doors, water, pits, the walls the crypt has none of): the
 // crypt's floors take them recoloured in its stone (tools/crypt_recolor.py), so nothing carried over shows the cellar's colours
-function themeSheets(th) { const c = th.sheet === 'crypt'; IMG.cellar = c ? IMG.cellarCrypt : IMG.cellarBase; IMG.doors = c ? IMG.doorsCrypt : IMG.doorsBase; IMG.ends = c ? IMG.endsCrypt : IMG.endsBase; PIX.cellar = c ? PIX.cellarCrypt : PIX.cellarBase; PIT_BLACK = null; }
+// (IMG.pool: the sheet a pool's pieces are drawn from to be read off their blue, 36_works waterBody; in the crypt, IMG.cellar
+// is that sheet with its water already in the floor's liquid, for the sunken pieces, the wet pillars and the rest)
+function themeSheets(th, liq) { const c = th.sheet === 'crypt'; IMG.pool = c ? IMG.cellarCrypt : IMG.cellarBase; IMG.cellar = c ? (IMG.cellarLiq[liq] || (IMG.cellarLiq[liq] = liquidSheet(liq))) : IMG.cellarBase; IMG.doors = c ? IMG.doorsCrypt : IMG.doorsBase; IMG.ends = c ? IMG.endsCrypt : IMG.endsBase; PIX.cellar = c ? PIX.cellarCrypt : PIX.cellarBase; PIT_BLACK = null; }
 const CW = 24, CH = 17; // one grid cell, in tiles
 const FORCE_SHOP = { on: false }; // (the shop test: 39_shop)
 // a short straight corridor between a room's south doorway and the next room's north doorway: three rows of floor or fewer
@@ -141,7 +143,7 @@ function cryptFloor(g, W, H, near, inRoom, rooms) {
     }
   };
   const earth = (dx, dy, w, h) => { g.fillStyle = '#332919'; g.fillRect(dx, dy, w, h); /* bare earth: a speck of grit now and then */
-    for (let k = 0; k < w * h / 64; k++) if (Math.random() < 0.3) { g.fillStyle = Math.random() < 0.7 ? '#4c3e26' : '#261d1a'; g.fillRect(dx + ((Math.random() * (w - 1)) | 0), dy + ((Math.random() * (h - 1)) | 0), 1, 1); } };
+    for (let k = 0; k < w * h / 32; k++) if (Math.random() < 0.38) { g.fillStyle = Math.random() < 0.7 ? '#4c3e26' : '#261d1a'; g.fillRect(dx + ((Math.random() * (w - 1)) | 0), dy + ((Math.random() * (h - 1)) | 0), 1, 1); } };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (!near(x, y)) continue; const slab = lay[y * W + x], qx = x * 2, qy = y * 2, dx = x * TS, dy = y * TS;
     if (slab) {
@@ -188,7 +190,7 @@ function buildArena(floor) {
   return A;
 }
 function buildArena1(floor) {
-  const th = CRYPT.force ? THEMES.crypt : floor % 2 ? THEMES.brown : THEMES.grey, GW = 5, GH = 4; TH = th; themeSheets(th); // (longer floors: nine rooms on the first, one more every second floor down, up to fourteen)
+  const th = CRYPT.force ? THEMES.crypt : floor % 2 ? THEMES.brown : THEMES.grey, GW = 5, GH = 4; TH = th; const liq = th.sheet === 'crypt' ? pick(['blood', 'black', 'rot']) : null; themeSheets(th, liq); // (longer floors: nine rooms on the first, one more every second floor down, up to fourteen)
   const N = Math.min(GW * GH - 1, 9 + Math.min(5, Math.floor(floor / 2)));
   // ---- the room graph: grown outward from the start cell, then a loop or two so not every floor is a single line
   const key = (x, y) => y * GW + x, cells = new Map(), edges = [];
@@ -337,7 +339,7 @@ function buildArena1(floor) {
     cng.save(); cng.beginPath(); for (const [rx, ry, rw, rh] of R) cng.rect(rx, ry, rw, rh); cng.clip(); put(cng, tx, ty, x, y, flip); cng.restore();
   };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const P = wallPiece(isF, x, y); if (P) T(P[0], P[1], x, y, P[2]); }
-  const A = ARENA = { arch: ARCH.cur, w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilN: cn, fl, wt, wf, rooms, halls, props: [], torches: [], name: floorName(floor), floor };
+  const A = ARENA = { arch: ARCH.cur, w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilN: cn, fl, wt, wf, rooms, halls, props: [], torches: [], name: floorName(floor), floor, liq }; // (liq: what the crypt's pools hold, 36_works LIQUIDS)
   paintCeil(A, cg, cv); // the painted trim, as drawn on the ground: the ceiling over everyone (31_walls)
   for (const i of hidMask) fl[i] = 1;
   for (const h of halls) h.frame = shortHall(h) && chance(0.6);

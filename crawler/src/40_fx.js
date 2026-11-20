@@ -84,8 +84,8 @@ function splat(x, y, col, n = 6, spread = 7) { if (!ARENA) return; const R = [];
 // patch of that size instead of a pixel (water darkens the floor a little, bluish)
 function wetSpot(x, y, life = rand(7, 11), glint = false, r = 0) { if (ARENA && ARENA.pitN && pitAt(x, y)) return; if (ARENA && overWater(x, y)) { if (!glint && !r && chance(0.5)) plip(x, y); return; } FX.wet.push({ x: Math.round(x), y: Math.round(y), t: 0, life, glint, r }); if (FX.wet.length > 900) FX.wet.shift(); }
 function drawWet(c) {
-  for (const w of FX.wet) if (w.r) { const k = Math.min(1, (w.life - w.t) / 4); c.fillStyle = `rgba(34,62,96,${0.17 * k})`; c.beginPath(); c.ellipse(w.x, w.y, w.r, w.r * 0.62, 0, 0, TAU); c.fill(); }
-  for (const w of FX.wet) if (!w.r) { const k = Math.min(1, (w.life - w.t) / 3); c.fillStyle = w.glint ? `rgba(200,232,255,${0.55 * k})` : `rgba(6,10,18,${0.5 * k})`; c.fillRect(w.x, w.y, 1, 1); }
+  for (const w of FX.wet) if (w.r) { const k = Math.min(1, (w.life - w.t) / 4); c.fillStyle = `rgba(${liq() ? liq().wet : '34,62,96'},${(liq() ? 0.3 : 0.17) * k})`; c.beginPath(); c.ellipse(w.x, w.y, w.r, w.r * 0.62, 0, 0, TAU); c.fill(); }
+  for (const w of FX.wet) if (!w.r) { const k = Math.min(1, (w.life - w.t) / 3); c.fillStyle = w.glint ? `rgba(${liq() ? liq().glint : '200,232,255'},${0.55 * k})` : `rgba(${liq() ? liq().wet : '6,10,18'},${0.5 * k})`; c.fillRect(w.x, w.y, 1, 1); }
 }
 // --- floating combat numbers ---
 function number(x, y, z, n, col, big, who = null) { FX.nums.push({ x: x + rand(-4, 4), y, z, vz: rand(50, 80), vx: rand(-12, 12), txt: String(n), col, big, t: 0, life: big ? 1.1 : 0.8, who }); if (FX.nums.length > 90) FX.nums.shift(); }
