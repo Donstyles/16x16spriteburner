@@ -1,9 +1,17 @@
 // ===================== assets: images, silhouettes, pixel maps, glow textures =====================
 const IMG = {}; let MOBS = {};
+// a blast door's bar (every frame's top rows, and the strut alone) has its top edge in the colour of the ceiling trim's edges,
+// not the darker outline: row 3 of the door sheet's grey row (1) and brown row (7)
+function trimEdgeBars(img) {
+  const c = mkCanvas(img.width, img.height), g = c.getContext('2d'); g.drawImage(img, 0, 0);
+  for (const [row, f, t] of [[1, [60, 69, 76], [81, 93, 102]], [7, [76, 67, 52], [102, 90, 70]]]) { const d = g.getImageData(0, row * 16 + 3, img.width, 1), p = d.data; for (let i = 0; i < p.length; i += 4) if (p[i] === f[0] && p[i + 1] === f[1] && p[i + 2] === f[2] && p[i + 3] === 255) { p[i] = t[0]; p[i + 1] = t[1]; p[i + 2] = t[2]; } g.putImageData(d, 0, row * 16 + 3); }
+  return c;
+}
 function loadImage(src) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('image ' + String(src).slice(0, 40))); i.src = src; }); }
 async function loadAssets() {
   const A = window.__ASSETS;
   for (const k of ['cellar', 'mobs', 'doors', 'items', 'ores', 'scrolls', 'ends']) IMG[k] = await loadImage(A ? A[k] : 'assets/' + ({ doors: 'cellar_doors', ends: 'beam_ends' }[k] || k) + '.png'); // (ends: a south strut's two ends where it meets the posts, grey left and right, then brown, as painted in the Item Painter)
+  IMG.doors = trimEdgeBars(IMG.doors);
   MOBS = A ? A.mobsJson : await (await fetch('assets/mobs.json')).json();
   padMobs();
   IMG.mobsW = silhouette(IMG.mobs); IMG.oresW = silhouette(IMG.ores); IMG.cellarW = silhouette(IMG.cellar); PIX.ores = pixelData(IMG.ores); PIX.mobs = pixelData(IMG.mobs); PIX.cellar = pixelData(IMG.cellar); cutWeapons();
