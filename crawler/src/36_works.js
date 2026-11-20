@@ -105,7 +105,7 @@ function waterBody(A, cells, set, W, dual) {
 
 // ---- building (called from buildArena): before the room is furnished, and after
 function worksBefore(A, r, g) {
-  if (r.sunkHost) { cistern(A, r, g, r.sunkHost.preReach || null); return; } // (a set piece's button to be sunk in it: THE SUNKEN BUTTON)
+  if (r.sunkHost) { if (beyondHost(A, r, r.sunkHost.preReach || null)) cistern(A, r, g, r.sunkHost.preReach || null); else r.sunkHost = null; return; } // (a set piece's button to be sunk in it: THE SUNKEN BUTTON; only where the cistern's own drain can be in a room beyond it: never its drain in its own room, the button then standing dry in this room as ever)
   if (r.kind !== 'room' || r.chest || r.set || r.sluice || r.shape || r.puz) return; // (nor a puzzle's room: 41_puzzles) // (a set piece's room, or the room with its sluice: 37_levels)
   if (!A.cistern && !A.sunkPlanned && r.w >= 12 && r.h >= 8 && beyondHost(A, r) && chance(ARCH.cur.water ? 0.95 : 0.6)) cistern(A, r, g); // (THE WATERWORKS: 35_themes) // (only where its sluice can be beyond it: 37_levels)
   else if (!A.shrine && r.w >= 12 && r.h >= 8 && chance(0.55)) { A.shrine = r; r.shrine = true; r.dark = A.floor >= 2 && chance(0.5); if (!r.crack && (PUZ.force === 'rune' || chance(0.5))) crackIn(A, r, 'rune'); } // (dark: its runes hidden; half the time one of them sealed behind a cracked wall: 41_puzzles)
@@ -408,7 +408,7 @@ function endDrain(p) {
 // THE SUNKEN BUTTON: a set piece's button (the flooded way's sluice, a drawbridge's, a gauntlet's or a sentinel's) on the
 // floor of a cistern, under its water, with a full tile of water between it and every edge and walkway, so it can only be
 // stood on once the cistern is drained. Half the time the room chosen for such a button is big enough to be a cistern, it
-// is made one (37_levels hostSluice, then worksBefore below), its own drain on its walkway or in a room that can be
+// is made one (37_levels hostSluice, then worksBefore below), its own drain in a room beyond it that can be
 // reached before the piece is solved: a chain (drain the cistern, go down into it, press the button, and the other
 // piece gives way) that can never lock anything away.
 // on the cistern's floor with water all round it two tiles out where it can, else one (a full tile of water to every edge,
