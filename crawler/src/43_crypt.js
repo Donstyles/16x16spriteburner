@@ -256,3 +256,60 @@ function burstNiche(A, r, n) {
   const spr = A.army === 'rot' ? 'MutilatedStumbler' : 'DecrepitBones'; if (!MOBS[spr]) return;
   const u = mkFoe('grunt', G.floor, x, y, spr); Object.assign(u, { z: 14, vz: 20, room: r.i, face: hash2(n.nx, 3) < 0.5 ? 1 : -1, stun: 0.6 }); G.foes.push(u); G.units.push(u); wakeFoe(u, G.me, 'noise');
 }
+
+// ===================== the Shade =====================
+// One to every crypt floor: a shape darker than the dark, two pale eyes. It waits in the darkest corner of the room
+// farthest from the stairs the hero came down. It never steps into light (a candle, a light niche, a brazier): light
+// burns it, and held in light it comes apart. Inside the hero's lamp, while he faces it, it cannot move at all; the
+// moment he looks away, or the lamp no longer reaches it, it comes on, fast and without a sound, and claws; then it
+// draws back into the dark and comes again. Its eyes show in the dark from far off; its body only in the lamp. So the
+// candles are the hero's only safe ground: every one put out by a careless blow, or burnt down while he lingers, gives
+// it more of the crypt. It can be cut down like anything else, and better, lured into light.
+function cryptShade(A) {
+  const s = A.start, far = A.rooms.filter(r => r.kind === 'room' && !r.set && !r.pool).sort((a, b) => Math.hypot(b.ix0 - s.ix0, b.iy0 - s.iy0) - Math.hypot(a.ix0 - s.ix0, a.iy0 - s.iy0))[0]; if (!far || !MOBS.SkeweringStalker) return;
+  let best = null, bd = -1; // (its spot: the floor tile there farthest from any light)
+  for (let y = far.iy0 + 1; y <= far.iy1 - 1; y++) for (let x = far.ix0 + 1; x <= far.ix1 - 1; x++) {
+    if (A.fl[y * A.w + x] !== 1 || A.props.some(p => !p.dead && p.solid && Math.abs(p.x - (x * TS + 8)) < 14 && Math.abs(p.cy - (y * TS + 10)) < 14)) continue;
+    let d = 1e9; for (const c of A.candles || []) d = Math.min(d, Math.hypot(c.x - x * TS, c.yb - y * TS)); for (const t of A.torches) d = Math.min(d, Math.hypot(t.x - x * TS, t.y + 20 - y * TS)); for (const p of A.props) if (p.kind === 'brazier') d = Math.min(d, Math.hypot(p.x - x * TS, p.y - y * TS));
+    if (d > bd) { bd = d; best = [x, y]; }
+  }
+  if (!best) return;
+  const u = mkFoe('flanker', G.floor, best[0] * TS + 8, best[1] * TS + 10, 'SkeweringStalker');
+  Object.assign(u, { shade: true, room: far.i, maxHp: u.maxHp * 2.4, hp: u.maxHp * 2.4, face: -1, blood: 'black', cdT: 0, backT: 0 }); u.def = Object.assign({}, u.def, { blood: 'sludge' });
+  G.foes.push(u);
+}
+function shadeTick(f, dt) {
+  const A = ARENA, h = G.me; f.cdT -= dt; f.moving = false;
+  if (!h || h.dead) { f.vx = damp(f.vx, 0, 10, dt); f.vy = damp(f.vy, 0, 10, dt); return; }
+  if (litAt(A, f.x, f.y - 4)) { // in light it burns, and flees it
+    f.hp -= 16 * dt; if (Math.random() < dt * 14) smoke(f.x + rand(-4, 4), f.y - rand(4, 18), 1, 'dark', 3, 8, 0.6, 10);
+    if (f.hp <= 0) { kill(f, h); return; } const a = angTo(h.x, h.y, f.x, f.y); f.vx = Math.cos(a) * 60; f.vy = Math.sin(a) * 50; f.moving = true; f.seen = true; return;
+  }
+  const d = dist(f.x, f.y, h.x, h.y), lampR = h.lightR * lampK() * 0.95, inLamp = d < lampR, faced = (f.x - h.x) * (h.face || 1) > -6; // (faced: on the side he is turned to)
+  if (d > 230 && !f.hunting) { f.vx = f.vy = 0; return; } // waiting
+  f.hunting = true;
+  if (inLamp && faced && lineOfSight(h.x, h.y - 4, f.x, f.y - 4)) { // seen: it cannot move
+    if (!f.frozen && d < 70) { SFX.hex(panOf(f.x), true); shake(0.05); } f.frozen = true; f.vx = f.vy = 0; return;
+  }
+  f.frozen = false; let tx = h.x, ty = h.y, spd = 78;
+  if (f.backT > 0) { f.backT -= dt; const a = angTo(h.x, h.y, f.x, f.y); tx = f.x + Math.cos(a) * 40; ty = f.y + Math.sin(a) * 40; spd = 60; }
+  else if (d < 16 && f.cdT <= 0) { // it claws, and draws back
+    f.cdT = 1.5; f.backT = 1.1; hurt(h, 20 * (f.dmgMul || 1), f, { kx: (h.x - f.x) * 6, ky: (h.y - f.y) * 6, ang: angTo(f.x, f.y, h.x, h.y), style: 'claw' }); SFX.rip(panOf(h.x), true); return;
+  }
+  pathTo(f, tx, ty, spd, dt, 6);
+  const nx = f.x + f.vx * 0.12, ny = f.y + f.vy * 0.12; if (litAt(A, nx, ny - 4)) { f.vx = f.vy = 0; f.moving = false; } // (never into light)
+}
+// drawn as its own black shape (the sprite's silhouette), only where the lamp shows it; its eyes in the glow layer
+function drawShade(c, u) {
+  const m = MOBS[u.spr]; if (!m) return; const fw = m[1], fh = m[2], foot = footOf(u.spr), fr = u.moving ? ((u.anim * 9) | 0) % 4 : 0;
+  c.save(); c.translate(Math.round(u.x), Math.round(u.y - (u.z || 0))); if (u.face < 0) c.scale(-1, 1); c.drawImage(IMG.mobsK, fr * fw, m[0], fw, fh, -fw / 2, -foot - 1, fw, fh); c.restore();
+}
+function drawShadeEyes(c) {
+  const h = G.me; if (!h) return;
+  for (const f of G.foes) {
+    if (!f.shade || f.dead) continue; const d = dist(f.x, f.y, h.x, h.y); if (d > 190) continue;
+    const blink = ((G.time * 0.7 + f.x * 0.01) % 4) < 0.12, y = Math.round(f.y - headZ(f) + 1), x = Math.round(f.x);
+    if (blink) continue; c.globalAlpha = Math.min(1, (190 - d) / 80) * (f.frozen ? 1 : 0.85); c.fillStyle = '#e8f0ff'; c.fillRect(x - 2, y, 1, 1); c.fillRect(x + 1, y, 1, 1);
+  }
+  c.globalAlpha = 1;
+}

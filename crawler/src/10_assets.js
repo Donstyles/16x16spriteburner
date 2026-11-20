@@ -26,7 +26,7 @@ async function loadAssets() {
   IMG.mobsW = silhouette(IMG.mobs); IMG.oresW = silhouette(IMG.ores); IMG.cellarW = silhouette(IMG.cellar); PIX.ores = pixelData(IMG.ores); PIX.mobs = pixelData(IMG.mobs); PIX.cellar = pixelData(IMG.cellar); cutWeapons();
   // the cellar's pieces in the crypt's colours (tools/crypt_recolor.py): IMG.cellar, IMG.doors, IMG.ends and PIX.cellar are
   // whichever the floor's theme draws with (30_arena themeSheets)
-  IMG.cellarBase = IMG.cellar; IMG.doorsBase = IMG.doors; IMG.endsBase = IMG.ends; PIX.cellarBase = PIX.cellar; PIX.cellarCrypt = pixelData(IMG.cellarCrypt); IMG.cryptW = silhouette(IMG.crypt); PIX.crypt = pixelData(IMG.crypt);
+  IMG.cellarBase = IMG.cellar; IMG.doorsBase = IMG.doors; IMG.endsBase = IMG.ends; PIX.cellarBase = PIX.cellar; PIX.cellarCrypt = pixelData(IMG.cellarCrypt); IMG.cryptW = silhouette(IMG.crypt); IMG.mobsK = silhouette(IMG.mobs, '#060508'); /* (mobsK: black, the Shade's: 43_crypt) */ PIX.crypt = pixelData(IMG.crypt);
   for (const k in COL) { GLOW[k] = glowTex(COL[k]); }
   SMOKE.grey = smokeTex([70, 66, 72]); SMOKE.dust = smokeTex([122, 100, 78]); SMOKE.dark = smokeTex([22, 18, 24]); SMOKE.green = smokeTex([60, 120, 60]); SMOKE.breath = smokeTex([226, 230, 240]);
   ROCKS.length = 0; for (let i = 0; i < 6; i++) ROCKS.push(rockTex(i));
@@ -41,7 +41,7 @@ function padMobs() {
   for (const k of keys) g.drawImage(IMG.mobs, 0, MOBS[k][0], IMG.mobs.width, MOBS[k][2], 0, pos[k], IMG.mobs.width, MOBS[k][2]);
   const M = {}; for (const k of keys) { M[k] = MOBS[k].slice(); M[k][0] = pos[k]; } MOBS = M; IMG.mobs = c;
 }
-function silhouette(img) { const c = mkCanvas(img.width, img.height), x = c.getContext('2d'); x.drawImage(img, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); return c; }
+function silhouette(img, col = '#fff') { const c = mkCanvas(img.width, img.height), x = c.getContext('2d'); x.drawImage(img, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = col; x.fillRect(0, 0, c.width, c.height); return c; }
 const PIX = {}, PIXCACHE = {};
 function pixelData(img) { const c = mkCanvas(img.width, img.height), x = c.getContext('2d'); x.drawImage(img, 0, 0); return { w: img.width, d: x.getImageData(0, 0, img.width, img.height).data }; }
 // opaque pixels of one sprite frame, relative to its feet (bottom-centre); cached

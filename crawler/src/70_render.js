@@ -77,6 +77,7 @@ function bigSprite(spr, sc) {
   return (BIG[key] = { cv, white: silhouette(cv), red, W, H, ox: -(W >> 1), fx: fr => fr * S + 1, foot: Math.round((foot + 1) * H / fh) });
 }
 function drawUnit(c, u) {
+  if (u.shade) { if (!u.dead && foeShown(u)) drawShade(c, u); return; } // (the crypt's Shade: 43_crypt)
   const m = MOBS[u.spr]; if (!m || u.hidden) return; const fade = darkFade(u); if (fade <= 0.02) return; /* (taken off into the dark: 49_deaths2) */ if (u.team === 'foe' && !foeShown(u)) return; /* (hidden: under the vermin's heap, 48_deaths) */ if (u.under) { drawMound(c, u); return; }
   const sy = m[0], fw = m[1], fh = m[2], foot = footOf(u.spr), sleep = u.state === 'sleep' && !u.aware, dp = u.team === 'hero' && u.dead ? deathPose(u) : null; if (dp && dp.gone) return;
   const creep = u.team === 'hero' && u.moving && u.noise === 0 && !u.act;
@@ -180,7 +181,7 @@ function drawTelegraphs(c) {
 function drawGhosts(c) { for (const g of FX.ghosts) { const m = MOBS[g.spr]; if (!m) continue; const foot = footOf(g.spr), u = g.t / g.life; c.globalAlpha = 0.45 * (1 - u); c.save(); c.translate(Math.round(g.x), Math.round(g.y - g.z)); c.scale(g.face < 0 ? -1 : 1, 1); // (a big creature's ghost from its enlarged frames, never scaled while drawn)
   if (g.sc !== 1) { const B = bigSprite(g.spr, g.sc); c.drawImage(B.white, B.fx(g.fr), 0, B.W, B.H, B.ox, -B.foot, B.W, B.H); } else c.drawImage(IMG.mobsW, g.fr * m[1], m[0], m[1], m[2], -m[1] / 2, -foot - 1, m[1], m[2]); c.restore(); } c.globalAlpha = 1; }
 function drawAuras(c) {
-  drawCandleGlows(c); // (44_candles)
+  drawCandleGlows(c); drawShadeEyes(c); // (44_candles; the Shade's eyes, 43_crypt)
   for (const t of ARENA.torches) { if (t.out || t.candles) continue; const f = 0.8 + 0.2 * noise1(G.time * 9 + t.tx); c.globalAlpha = 0.55 * f * litK(t); c.drawImage(GLOW.torch, t.x - 6, t.y - 13, 12, 12); }
   for (const p of ARENA.props) if (p.kind === 'brazier' && !p.dead && !p.out) { c.globalAlpha = 0.6 * litK(p); c.drawImage(GLOW.torch, p.x - 9, p.y - 22, 18, 16); }
   for (const h of G.heroes) if (!h.dead && h.act && h.act.k === 'charge' && h.act.ready) { c.globalAlpha = 0.5 + 0.2 * Math.sin(G.time * 20); c.drawImage(GLOW.gold, h.x - 10, h.y - 18, 20, 20); }
