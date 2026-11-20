@@ -13,6 +13,16 @@ function btnLayout() {
 }
 function screenPt(e) { return VIEW.rot ? [e.clientY, VIEW.iw - e.clientX] : [e.clientX, e.clientY]; }
 function toWorld(px, py) { const s = CAM.z * (1 + CAM.kick); return [(px - VIEW.w / 2 - SH.x) / s + CAM.x, (py - VIEW.h / 2 - SH.y) / s + CAM.y]; }
+// Android (and any other browser that has the Fullscreen API for a page): the browser's bars go on the first touch's
+// release (a touch's end is what lets a page do that), the screen held in landscape; back again on the next touch if
+// the player swipes them out. An iPhone has no such thing for a page: there the home screen icon plays it full screen
+// (apple-mobile-web-app-capable). Inside a frame that may not (the Claude artifact) it is tried once and left
+let fullNo = false;
+function goFull() {
+  const d = document, el = d.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (fullNo || !req || d.fullscreenElement || d.webkitFullscreenElement) return;
+  try { const p = req.call(el, { navigationUI: 'hide' }); if (p && p.then) p.then(() => { try { const o = screen.orientation; if (o && o.lock) o.lock('landscape').catch(() => {}); } catch (e) { /* (not everywhere) */ } }).catch(() => { fullNo = true; }); } catch (e) { fullNo = true; }
+}
 function btnAt(x, y) { const L = btnLayout(); for (const k in L) { const b = L[k]; if (dist(x, y, b.x, b.y) < b.r * 1.25) return k; } return null; }
 function press(name) { INPUT.btn[name] = true; const I = G.me && G.me.inp; if (!I) return; if (name === 'atk') { I.atkP = true; } if (name === 'dodge') I.dodgeP = true; if (name === 'flask') I.itemP = true; if (name === 'menu') togglePause(); if (name === 'clean') cleanBlood(); if (name === 'next') testNext(); if (name === 'die') testDie(); if (name === 'list') DEATH_PICK.open = true; if (name === 'foes') testFoes(); if (name === 'hit') testHit(); if (name === 'gnext') galleryStep(1); if (name === 'motif') doorMotif(); if (name === 'tone') doorTone(); if (name === 'gprev') galleryStep(-1); }
 function release(name) { INPUT.btn[name] = false; const I = G.me && G.me.inp; if (I && name === 'atk') I.atkR = true; }
@@ -34,7 +44,7 @@ function setupInput() {
     for (const t of e.changedTouches) { const s = INPUT.stick; if (s && s.id === t.identifier) { const [x, y] = screenPt(t), R = 52 * ctrlScale(), dx = x - s.bx, dy = y - s.by, d = Math.hypot(dx, dy); if (d > R) { s.bx = x - dx / d * R; s.by = y - dy / d * R; } s.x = x; s.y = y; const m = Math.min(1, d / R); s.vx = d > 6 ? dx / d * m : 0; s.vy = d > 6 ? dy / d * m : 0; } }
   }, { passive: false });
   const end = e => { e.preventDefault(); for (const t of e.changedTouches) { const T = TOUCHES.get(t.identifier); TOUCHES.delete(t.identifier); if (!T) continue; if (T.k === 'stick') INPUT.stick = null; else release(T.b); } };
-  c.addEventListener('touchend', e => { SFX.init && SFX.init(); end(e); }, { passive: false }); c.addEventListener('touchcancel', end, { passive: false });
+  c.addEventListener('touchend', e => { SFX.init && SFX.init(); goFull(); end(e); }, { passive: false }); c.addEventListener('touchcancel', end, { passive: false });
   addEventListener('keydown', e => {
     if (e.repeat) return; SFX.init && SFX.init(); INPUT.keys.add(e.code);
     if (G.mode !== 'play' || UI.paused) { uiKey(e.code); return; }

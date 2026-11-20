@@ -123,7 +123,7 @@ A running game checks the site for a newer build every minute: the menus reload 
 - **Pixel art at whole pixels.** Anything drawn for the game, HUD included, is drawn in art pixels on a grid and scaled up without smoothing, in colours taken from the sprites it belongs with, never as smooth gradients or hairlines.
 
 ## Run it
-Open `index.html` (it is self-contained), or add the GitHub Pages site to your Home Screen. The sequel is `crawler/index.html`.
+Open `index.html` (it is self-contained), or add the GitHub Pages site to your Home Screen. The sequel is `crawler/index.html`, with a web app manifest of its own (`crawler/manifest.webmanifest`: full screen, landscape), so on Android it installs from the browser's menu (Add to Home screen / Install app) and opens full screen; in a browser tab on Android it goes full screen on the first touch (the Fullscreen API; an iPhone has none for a page, there the Home Screen icon does it).
 
 ## Build
 ```
