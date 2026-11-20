@@ -303,7 +303,7 @@ function lightUp(o, brazier) {
   sparks(x, y, 4, brazier ? 16 : 10, 'fire', 90, 90); smoke(x, y - 2, 2, 'dust', 5, 14, 0.8); flashLight(x, y, brazier ? 110 : 80, 'torch', 1.1, 0.6);
 }
 function exitTorches(A) { // (30_arena: one each side of the way down)
-  if (!A.stairs || A.exitLit) return; if (!G.heroes.some(h => alive(h) && dist(h.x, h.y, A.stairs.x, A.stairs.y + 12) < 120)) return;
+  if (!A.stairs || A.exitLit) return; if (!G.heroes.some(h => alive(h) && dist(h.x, h.y, A.stairs.x, A.stairs.y + 12) < 84)) return; // (about five tiles off)
   A.exitLit = true; const T = A.torches.filter(t => t.exit).sort((a, b) => a.x - b.x); T.forEach((t, i) => after(i * 0.35, () => { if (ARENA === A) lightUp(t); }));
 }
 
