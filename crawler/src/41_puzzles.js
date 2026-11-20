@@ -23,7 +23,7 @@
 // where it cannot help slides back to where it stood once nobody is in its room.
 const PUZ = { force: null }; // (a test: this one kind, wherever it fits)
 const MUST_KINDS = new Set(['flood', 'drawbridge', 'gate', 'gap', 'spikegate']);
-const PUZ_NAMES = { gate: 'THE PORTCULLIS', echo: 'THE ECHOING RUNES', fires: 'THE COLD BRAZIERS', weight: 'THE WEIGHT', gap: 'THE GAP', spikegate: 'THE SPIKE GATE', crack: 'THE CRACKED WALL', lever: 'THE HIDDEN LEVER' };
+const PUZ_NAMES = { rune: 'THE HIDDEN RUNE', gate: 'THE PORTCULLIS', echo: 'THE ECHOING RUNES', fires: 'THE COLD BRAZIERS', weight: 'THE WEIGHT', gap: 'THE GAP', spikegate: 'THE SPIKE GATE', crack: 'THE CRACKED WALL', lever: 'THE HIDDEN LEVER' };
 const SPIKEGATE = { t: 7 };
 // ---- the room graph
 const puzAdj = (A, r) => A.halls.filter(h => h.A === r || h.B === r).map(h => (h.A === r ? h.B : h.A));
@@ -152,18 +152,26 @@ function trySpikeGate(A) {
 }
 function spikeGateFrame(sg) { const t = sg.downT; return t <= 0 ? 1 : t > 1.1 ? 0 : (((t * 8) | 0) % 2 ? 3 : 0); } // (up; down; the tips peeking up the last second)
 // ---- THE CRACKED WALL: a niche behind a stretch of cracked north wall (a secret; now and then a gate's hidden button)
+// (THE HIDDEN RUNE: half the rooms whose runes lay a drawbridge get a cracked wall with one of their three runes sealed
+// behind it, and so do half the rune shrines (36_works); the set is not complete till the wall is broken)
 function secretPlan(A) {
-  const W = A.w, want = (A.floor >= 3 ? randi(1, 2) : 1) + (ARCH.cur.secrets || 0); let n = 0;
+  for (const r of A.rooms) if (r.sluice && r.sluice.runes && !r.crack && (PUZ.force === 'rune' || chance(0.5))) crackIn(A, r, 'rune');
+  const want = (A.floor >= 3 ? randi(1, 2) : 1) + (ARCH.cur.secrets || 0); let n = 0;
   for (const r of pitShuffle(A.rooms.filter(q => q.kind !== 'shop' && !q.set && !q.pool && !q.crack))) {
     if (n >= want) break; if (!PUZ.force && !chance(0.5)) continue;
-    const nd = r.doors.filter(d => d.side === 'N').flatMap(d => d.cells.map(c => c[0])), used = x => nd.some(c => c >= x - 3 && c <= x + 5) || (r.stairX !== undefined && x + 3 >= r.stairX - 1 && x <= r.stairX + 4) || (r.sluiceX !== undefined && Math.abs(r.sluiceX - x - 1) <= 3);
-    for (let t = 0; t < 10; t++) {
-      const x = randi(r.ix0 + 1, r.ix1 - 3), y = r.fy0; if (used(x) || y - 3 < 0) continue;
-      let ok = true; for (let yy = y - 3; yy <= y + 1 && ok; yy++) for (let xx = x - 1; xx <= x + 3; xx++) if (A.fl[yy * W + xx] || (yy === y + 1 && !faceAt(A, xx, yy) && xx >= x && xx <= x + 2)) { ok = false; break; }
-      if (!ok) continue; for (let k = x; k <= x + 2; k++) if (!FLOOR(A.fl[(y + 2) * W + k])) ok = false; if (!ok) continue;
-      r.crack = { x, y, hp: 3, stage: 0, open: false, room: r.i, holds: 'chest' }; r.crackX = x; (A.cracks = A.cracks || []).push(r.crack); n++; break;
-    }
+    if (crackIn(A, r, 'chest')) n++;
   }
+}
+// a cracked stretch of a room's north wall, a niche to be behind it (holds: 'chest', 'lever' or 'rune'); false if none fits
+function crackIn(A, r, holds) {
+  const W = A.w, nd = r.doors.filter(d => d.side === 'N').flatMap(d => d.cells.map(c => c[0])), used = x => nd.some(c => c >= x - 3 && c <= x + 5) || (r.stairX !== undefined && x + 3 >= r.stairX - 1 && x <= r.stairX + 4) || (r.sluiceX !== undefined && Math.abs(r.sluiceX - x - 1) <= 3);
+  for (let t = 0; t < 10; t++) {
+    const x = randi(r.ix0 + 1, r.ix1 - 3), y = r.fy0; if (used(x) || y - 3 < 0) continue;
+    let ok = true; for (let yy = y - 3; yy <= y + 1 && ok; yy++) for (let xx = x - 1; xx <= x + 3; xx++) if (A.fl[yy * W + xx] || (yy === y + 1 && !faceAt(A, xx, yy) && xx >= x && xx <= x + 2)) { ok = false; break; }
+    if (!ok) continue; for (let k = x; k <= x + 2; k++) if (!FLOOR(A.fl[(y + 2) * W + k])) ok = false; if (!ok) continue;
+    r.crack = { x, y, hp: 3, stage: 0, open: false, room: r.i, holds }; r.crackX = x; (A.cracks = A.cracks || []).push(r.crack); return true;
+  }
+  return false;
 }
 // ---- after the rooms are furnished: the plates, the blocks, the runes, the cracked walls' props
 function puzzleAfter(A, r) {
@@ -291,7 +299,8 @@ function openCrack(A, p) {
   repaintTiles(A, c.x - 1, c.y - 3, c.x + 3, c.y + 2);
   const x = (c.x + 1.5) * TS, y = (c.y + 1) * TS + 8; shake(0.25); SFX.quake(0.9); SFX.stone(panOf(x), true);
   for (let i = 0; i < 3; i++) debris(x + rand(-16, 16), y + rand(-6, 6), 14, ['#6e665c', '#8a8076', '#4a443e', '#a69a8c', '#3a342e'], 120, 140, 2); smoke(x, y, 10, 'dust', 12, 26, 1.4);
-  if (c.holds === 'lever') { const pl = (A.plates || []).find(q => q.hidden && q.tx === c.x + 1 && q.ty === c.y); if (pl) pl.hidden = false; textPop(x, y, 26, 'A HIDDEN LEVER', 'gold', true); }
+  if (c.holds === 'rune') { for (const rn of A.runes || []) if (rn.niche === c) rn.hidden = false; textPop(x, y, 26, 'A HIDDEN RUNE', 'gold', true); }
+  else if (c.holds === 'lever') { const pl = (A.plates || []).find(q => q.hidden && q.tx === c.x + 1 && q.ty === c.y); if (pl) pl.hidden = false; textPop(x, y, 26, 'A HIDDEN LEVER', 'gold', true); }
   else { A.props.push({ kind: 'chest', tile: [pick([28, 30]), 8], th: 1, x: (c.x + 1) * TS + 8, y: c.y * TS + 14, cy: c.y * TS + 10, r: 5, solid: true, hp: 40, room: c.room, rich: true }); textPop(x, y, 26, 'A HIDDEN NICHE', 'gold', true); }
   A.lights = A.slit = null;
 }

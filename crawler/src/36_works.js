@@ -88,7 +88,7 @@ function worksBefore(A, r, g) {
   if (r.sunkHost) { cistern(A, r, g, r.sunkHost.preReach || null); return; } // (a set piece's button to be sunk in it: THE SUNKEN BUTTON)
   if (r.kind !== 'room' || r.chest || r.set || r.sluice || r.shape || r.puz) return; // (nor a puzzle's room: 41_puzzles) // (a set piece's room, or the room with its sluice: 37_levels)
   if (!A.cistern && !A.sunkPlanned && r.w >= 12 && r.h >= 8 && beyondHost(A, r) && chance(ARCH.cur.water ? 0.95 : 0.6)) cistern(A, r, g); // (THE WATERWORKS: 35_themes) // (only where its sluice can be beyond it: 37_levels)
-  else if (!A.shrine && r.w >= 12 && r.h >= 8 && chance(0.55)) { A.shrine = r; r.shrine = true; r.dark = A.floor >= 2 && chance(0.5); } // (dark: its runes hidden)
+  else if (!A.shrine && r.w >= 12 && r.h >= 8 && chance(0.55)) { A.shrine = r; r.shrine = true; r.dark = A.floor >= 2 && chance(0.5); if (!r.crack && (PUZ.force === 'rune' || chance(0.5))) crackIn(A, r, 'rune'); } // (dark: its runes hidden; half the time one of them sealed behind a cracked wall: 41_puzzles)
   else if (!r.offDoor && chance(ARCH.cur.water ? 0.7 : 0.3)) ponds(A, r, g); // (the ponds keep clear of the corridors' cross: a bent corridor's door is off it, 30_arena)
 }
 function worksAfter(A, r) {
@@ -226,8 +226,9 @@ function placeRunes(A, r, v, vx, vy) {
     if (vx !== undefined && Math.abs(tx - vx) <= 2 && Math.abs(ty - vy) <= 2 || nearDoor(tx, ty) || A.fl[ty * A.w + tx] !== 1) continue;
     if (A.props.some(q => !q.dead && Math.abs(q.x - (tx * TS + 8)) < 14 && Math.abs(q.cy - (ty * TS + 10)) < 12) || (A.plates || []).some(p => p.tx === tx && p.ty === ty)) continue; cands.push([tx, ty]);
   }
-  A.runes = A.runes || [];
-  for (let i = 0; i < 3 && cands.length; i++) {
+  A.runes = A.runes || []; const nc = r.crack && r.crack.holds === 'rune' && !r.crack.used ? r.crack : null; // (THE HIDDEN RUNE: the third sealed in a niche behind a cracked wall, 41_puzzles)
+  if (nc) { nc.used = true; const x = nc.x + 1, y = nc.y + 1, rn = { tx: x, ty: y, x: x * TS + 8, y: y * TS + 8, tile: [W.rune[0] + 2, W.rune[1]], lit: [W.runeOn[0] + 2, W.runeOn[1]], on: false, t: 0, vault: v, room: r.i, hidden: true, niche: nc }; A.runes.push(rn); v.runes.push(rn); }
+  for (let i = 0; i < (nc ? 2 : 3) && cands.length; i++) {
     const far = cands.filter(([x, y]) => v.runes.every(q => Math.hypot(q.tx - x, q.ty - y) >= 4)), [x, y] = pick(far.length ? far : cands);
     const rn = { tx: x, ty: y, x: x * TS + 8, y: y * TS + 8, tile: [W.rune[0] + i, W.rune[1]], lit: [W.runeOn[0] + i, W.runeOn[1]], on: false, t: 0, vault: v, room: r.i }; A.runes.push(rn); v.runes.push(rn);
     removeIf(cands, ([a, b]) => a === x && b === y);
@@ -238,7 +239,7 @@ function placeRunes(A, r, v, vx, vy) {
 // smash your way to them. The last rune woken, the dead lights catch one after another round the room.
 function hideRunes(A, r, v, vx, vy) {
   const put = (x, y) => { const t = Math.random(), stack = t < 0.25, pot = !stack && t < 0.5; A.props.push({ kind: pot ? 'barrel' : 'crate', tile: pick(stack ? FURN.stack : pot ? FURN.pot : FURN.crate), th: stack ? 2 : 1, x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 5, solid: true, hp: 40, room: r.i }); return A.props[A.props.length - 1]; };
-  for (const rn of v.runes) rn.cover = put(rn.tx, rn.ty); // (a rune under its crate cannot be woken till the crate is smashed)
+  for (const rn of v.runes) if (!rn.hidden) rn.cover = put(rn.tx, rn.ty); // (a rune under its crate cannot be woken till the crate is smashed)
   const nearDoor = (tx, ty) => r.doors.some(d => d.cells.some(([x, y]) => Math.abs(x - tx) <= 2 && Math.abs(y - ty) <= 2)), cands = [];
   for (let ty = r.iy0 + 1; ty <= r.iy1 - 1; ty++) for (let tx = r.ix0 + 1; tx <= r.ix1 - 1; tx++) {
     if (vx !== undefined && Math.abs(tx - vx) <= 2 && Math.abs(ty - vy) <= 2 || nearDoor(tx, ty) || A.fl[ty * A.w + tx] !== 1 || (A.plates || []).some(p => p.tx === tx && p.ty === ty)) continue;
@@ -333,7 +334,7 @@ function worksTick(dt) {
   for (const p of A.pools || []) if (p.drain === 3) { p.level = Math.min(1, p.level + dt / 2); if (p.level >= 1) p.drain = 0; } // (the test room's refill)
   for (const rn of A.runes || []) {
     if (rn.cover && (rn.cover.dead || !A.props.includes(rn.cover))) rn.cover = null; // its crate smashed: the rune lies open
-    if (!rn.on && !rn.cover && heroes.some(h => Math.abs(h.x - rn.x) < 8 && Math.abs(h.y - rn.y) < 7)) {
+    if (!rn.on && !rn.cover && !rn.hidden && heroes.some(h => Math.abs(h.x - rn.x) < 8 && Math.abs(h.y - rn.y) < 7)) {
       // it wakes: a column of gold light shoots up out of it, sparks burst and climb, a ring runs out over the floor, and it
       // sounds its own note (the three rising to a chord); the last one sends a beam from every rune to the vault
       const v = rn.vault, n = v.runes.filter(q => q.on).length; rn.on = true; rn.t = 0; rn.flash = 1;
@@ -517,6 +518,7 @@ function drawWorks(c) {
   // (a sunken one, while its water is up: the socket's wet twin, [3, 18] / [3, 21], the button standing up out of the water, dry)
   { const Wk = wkOf(A); for (const pl of A.plates || []) { if (pl.hidden) continue; sheetTile(c, pl.sunken && !pl.sunken.dried ? Wk.wetSocket : Wk.socket, pl.x - 8, pl.y - 9); sheetTile(c, Wk.block, pl.x - 8, pl.y - 12, pl.f, 0); } }
   for (const rn of A.runes || []) {
+    if (rn.hidden) continue; // (behind a cracked wall: 41_puzzles)
     sheetTile(c, rn.on ? rn.lit : rn.tile, rn.x - 8, rn.y - 8);
     if (rn.on) light(rn.x, rn.y, 46 + 4 * Math.sin(G.time * 3 + rn.x), 'gold', 0.55);
   }
