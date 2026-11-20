@@ -70,9 +70,29 @@ function waterBody(A, cells, set, W, dual) {
       g.drawImage(IMG.cellar, tx * TS + qx * H, ty * TS, H, 4, x * TS - px0 + qx * H, (y + 1) * TS - py0, H, 4);
     }
   }
+  // THE SUBMERGED FACE. The water is three pixels deep (the props' waterline), so every face standing in it that faces
+  // south (a pool's north wall; the south side of a walkway, a landing, an island) runs on three pixels below the
+  // waterline, seen darker through the water. The rounded set has it drawn; the square set gets it here (the first three
+  // rows of water under a face's dark foot). Drained, those rows are the wall's wet foot (the bed, below): a face twice
+  // as tall, the step the hop into the basin goes down. (The rimless deep set has no faces.)
+  const sub = set === W.deep ? null : new Uint8Array(cv.width * cv.height);
+  if (sub) {
+    const cw0 = cv.width, chh = cv.height, id0 = g.getImageData(0, 0, cw0, chh), d0 = id0.data, blue = o => d0[o + 3] && d0[o + 2] >= d0[o] + 30, SUB = [[48, 106, 163], [45, 100, 153], [45, 100, 153]];
+    for (let x = 0; x < cw0; x++) for (let y = 1; y < chh; y++) {
+      const o = (y * cw0 + x) * 4, a = o - cw0 * 4; if (!blue(o) || !d0[a + 3] || blue(a) || d0[a] + d0[a + 1] + d0[a + 2] >= 300) continue; // (under a face's dark foot, not a light rim)
+      for (let k = 0; k < 4 && y + k < chh; k++) { const q = ((y + k) * cw0 + x) * 4; if (!blue(q)) break; sub[(y + k) * cw0 + x] = k + 1; if (k === 3) break; /* (and the bed's row against its foot, for the bed) */ if (d0[q + 2] >= 180) { const f = d0[q + 2] / 204, t = SUB[k]; d0[q] = Math.round(t[0] * f); d0[q + 1] = Math.round(t[1] * f); d0[q + 2] = Math.round(t[2] * f); } }
+    }
+    g.putImageData(id0, 0, 0);
+  }
   const bed = mkCanvas(cv.width, cv.height), bg = bed.getContext('2d'); bg.drawImage(cv, 0, 0);
-  const id = bg.getImageData(0, 0, bed.width, bed.height), dd = id.data, [br, bgc, bb] = W.basin;
+  const id = bg.getImageData(0, 0, bed.width, bed.height), dd = id.data, [br, bgc, bb] = W.basin, BW = bed.width;
   for (let i = 0; i < dd.length; i += 4) {
+    if (sub && sub[i >> 2] === 4) { const r = dd[i], gg = dd[i + 1], b = dd[i + 2], kk = (0.78 + 0.22 * ((r + gg + b) / 3 - 60) / 120) * 0.82; dd[i] = Math.round(br * kk); dd[i + 1] = Math.round(bgc * kk); dd[i + 2] = Math.round(bb * kk); continue; } // (the bed in the crease at the wall's foot)
+    if (sub && sub[i >> 2]) { // the wall's foot, bared: its face's dark foot, darker each row down, a faint tide mark along the top
+      const k = sub[i >> 2], f = i - k * BW * 4, up = f - BW * 4, m = [1.02, 0.97, 0.9][k - 1]; // (the face's two dark rows above: up, then f)
+      if (k === 1) { dd[i] = Math.round((dd[f] + dd[up]) / 2) + 4; dd[i + 1] = Math.round((dd[f + 1] + dd[up + 1]) / 2) + 6; dd[i + 2] = Math.round((dd[f + 2] + dd[up + 2]) / 2); continue; } // (the tide mark)
+      dd[i] = Math.round(dd[f] * m); dd[i + 1] = Math.round(dd[f + 1] * m); dd[i + 2] = Math.round(dd[f + 2] * m); continue;
+    }
     const r = dd[i], gg = dd[i + 1], b = dd[i + 2]; if (dd[i + 3] === 0 || b < r + 30) continue; // the rim and its shadow stay
     const k = 0.78 + 0.22 * ((r + gg + b) / 3 - 60) / 120 + ((i * 2654435761) >>> 28) / 160; // its own speckle, as the water's was
     dd[i] = Math.round(br * k); dd[i + 1] = Math.round(bgc * k); dd[i + 2] = Math.round(bb * k);
@@ -503,9 +523,11 @@ function drawWorks(c) {
     }
     // the bridge over it
     if (!p.bridge) continue; const W = wkOf(A), bc = p.bridge.cells;
-    if (p.level > 0) { // its shadow lies on the water under all of it (dark between the slats and between its two rows) and runs a little out past its south edge
-      const k = Math.min(1, p.level * 1.6); c.fillStyle = `rgba(8,16,34,${0.55 * k})`;
-      for (const [x, y] of bc) { const top = bc.some(([a, b]) => a === x && b === y - 1) ? 0 : 2; c.fillRect(x * TS, y * TS + top, TS, TS - top); if (!bc.some(([a, b]) => a === x && b === y + 1) && A.fl[(y + 1) * A.w + x] === 2) c.fillRect(x * TS, (y + 1) * TS, TS, 3); }
+    { // its shadow, cast straight down: on the water three pixels below it, on the drained bed six (seen that much further
+      // south), dark between the slats and its two rows and out past its south edge; only on the water or the bed
+      const dn = Math.round(3 + 3 * (1 - p.level)); c.save(); c.beginPath(); for (const i of p.cells) c.rect((i % A.w) * TS, Math.floor(i / A.w) * TS, TS, TS); c.clip();
+      c.fillStyle = p.level > 0 ? `rgba(8,16,34,${(0.55 * Math.min(1, p.level * 1.6) + 0.42 * (1 - Math.min(1, p.level * 1.6))).toFixed(3)})` : 'rgba(10,8,6,0.42)';
+      for (const [x, y] of bc) c.fillRect(x * TS, y * TS + dn, TS, TS); c.restore();
     }
     if (p.bridge.art) c.drawImage(p.bridge.art, p.bridge.bx0, p.bridge.by0); else for (const [x, y] of bc) sheetTile(c, p.bridge.horiz ? W.slatH : W.slatV, x * TS, y * TS);
     if (p.bridge.cv) c.drawImage(p.bridge.cv, p.bridge.bx0, p.bridge.by0); // blood on its slats
