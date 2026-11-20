@@ -8,7 +8,7 @@ const THEMES = {
 // THE CATACOMBS (floors 4 to 6, the crypt zone): the grey cellar underneath (its doors, water, props and every system built
 // on its pieces), with the crypt sheet drawn over it. Everything keeps the cellar's piece names (A.wt, the masks' roles);
 // only the drawing turns a cellar piece into the crypt's own (map: the grey cellar's sheet tile, x and y, to the crypt's)
-THEMES.crypt = Object.assign({}, THEMES.grey, { name: 'crypt', sheet: 'crypt', amb: [44, 46, 58], ceilN: { '6,0': [[0, 0, 16, 14]] }, map: {
+THEMES.crypt = Object.assign({}, THEMES.grey, { name: 'crypt', sheet: 'crypt', amb: [44, 46, 58], ceilN: { '6,0': [[0, 0, 16, 8]] }, map: {
   // the walls, as the crypt's room frame (3-5, 2-5) and wall block (0-2, 2-5) draw them
   '6,8': [4, 3], '6,7': [4, 2], '6,10': [4, 5], '5,7': [3, 2], '7,7': [5, 2], '5,8': [3, 3], '7,8': [5, 3], '5,9': [3, 4], '7,9': [5, 4], '5,10': [3, 5], '7,10': [5, 5],
   '3,7': [2, 2], '3,9': [2, 4], '3,10': [2, 5],

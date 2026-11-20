@@ -2,6 +2,15 @@
 const IMG = {}; let MOBS = {};
 // a blast door's bar (every frame's top rows, and the strut alone) has its top edge in the colour of the ceiling trim's edges,
 // not the darker outline: row 3 of the door sheet's grey row (1) and brown row (7)
+// The crypt's north walls stand as tall as the cellar's: on each piece that sits over a wall's face (the top edge, the
+// room's two top corners, a block's corner over its face's end) the trim block is lifted from the lower half of the tile to
+// the upper, and the piece below it in the sheet carries on under it (its first eight rows: two courses of brick, a mortar
+// line last, so the brick below meets it on its own rhythm). 30_arena THEMES.crypt
+function tallCrypt(img) {
+  const c = mkCanvas(img.width, img.height), g = c.getContext('2d'); g.drawImage(img, 0, 0); const T = 16;
+  for (const [tx, ty] of [[4, 2], [3, 2], [5, 2], [2, 4], [0, 4]]) { const x = tx * T, y = ty * T; g.clearRect(x, y, T, T); g.drawImage(img, x, y + 8, T, 8, x, y, T, 8); g.drawImage(img, x, y + T, T, 8, x, y + 8, T, 8); }
+  return c;
+}
 function trimEdgeBars(img) {
   const c = mkCanvas(img.width, img.height), g = c.getContext('2d'); g.drawImage(img, 0, 0);
   for (const [row, f, t] of [[1, [60, 69, 76], [81, 93, 102]], [7, [76, 67, 52], [102, 90, 70]]]) { const d = g.getImageData(0, row * 16 + 3, img.width, 1), p = d.data; for (let i = 0; i < p.length; i += 4) if (p[i] === f[0] && p[i + 1] === f[1] && p[i + 2] === f[2] && p[i + 3] === 255) { p[i] = t[0]; p[i + 1] = t[1]; p[i + 2] = t[2]; } g.putImageData(d, 0, row * 16 + 3); }
@@ -11,7 +20,7 @@ function loadImage(src) { return new Promise((res, rej) => { const i = new Image
 async function loadAssets() {
   const A = window.__ASSETS;
   for (const k of ['cellar', 'mobs', 'doors', 'items', 'ores', 'scrolls', 'ends', 'crypt']) IMG[k] = await loadImage(A ? A[k] : 'assets/' + ({ doors: 'cellar_doors', ends: 'beam_ends' }[k] || k) + '.png'); // (ends: a south strut's two ends where it meets the posts, grey left and right, then brown, as painted in the Item Painter)
-  IMG.doors = trimEdgeBars(IMG.doors);
+  IMG.doors = trimEdgeBars(IMG.doors); IMG.crypt = tallCrypt(IMG.crypt);
   MOBS = A ? A.mobsJson : await (await fetch('assets/mobs.json')).json();
   padMobs();
   IMG.mobsW = silhouette(IMG.mobs); IMG.oresW = silhouette(IMG.ores); IMG.cellarW = silhouette(IMG.cellar); PIX.ores = pixelData(IMG.ores); PIX.mobs = pixelData(IMG.mobs); PIX.cellar = pixelData(IMG.cellar); cutWeapons();
