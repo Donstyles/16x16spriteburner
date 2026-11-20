@@ -348,3 +348,22 @@ function charnelTick(dt) {
   Object.assign(u, { z: -16, room: C.room, ghostT: 2.2, face: x < (C.x0 + 1.5) * TS ? -1 : 1 }); G.foes.push(u); G.units.push(u); wakeFoe(u, h, 'noise'); C.kids.push(u);
   SFX.clatter(panOf(x)); debris(x, y - 4, 5, ['#cfc6b0', '#a49a84', '#332919'], 40, 70, 1); smoke(x, y - 6, 1, 'dust', 4, 10, 0.6);
 }
+
+// ===================== the crypt's sounds =====================
+// Every eight to sixteen seconds, something far off in the dark: a whisper, a groan, stone dragged over stone, a drip,
+// bones settling; in turn, never the same twice running, each from its own side. When the Shade is hunting within a few
+// rooms' reach the whispers come close and quick, from where it is.
+const CRYPT_SOUNDS = ['drip', 'whisper', 'settle', 'scrape', 'drip', 'farGroan'];
+function cryptSounds(dt) {
+  const A = ARENA, h = G.me; if (!A || A.th.sheet !== 'crypt' || !h || h.dead || G.cine) return;
+  const S = G.foes.find(f => f.shade && !f.dead && f.hunting && dist(f.x, f.y, h.x, h.y) < 170);
+  if (S && !S.frozen) { if ((A.whisperT = (A.whisperT || 0) - dt) <= 0) { A.whisperT = 2.6; SFX.whisper(clamp((S.x - h.x) / 120, -0.9, 0.9), true); } }
+  if ((A.soundT = (A.soundT === undefined ? 6 : A.soundT) - dt) > 0) return;
+  const n = A.soundN = (A.soundN || 0) + 1, k = CRYPT_SOUNDS[n % CRYPT_SOUNDS.length], pan = (hash2(n, A.floor) - 0.5) * 1.6;
+  A.soundT = 8 + 8 * hash2(n * 3 + 1, A.floor + 7); if (SFX[k]) SFX[k](pan);
+}
+// a cold brazier anywhere in the crypt lights from the hero's lamp when he stands at it a moment (the charnel pit's too)
+function brazierLamp(dt) {
+  const A = ARENA, h = G.me; if (!A || A.th.sheet !== 'crypt' || !h || h.dead) return;
+  for (const p of A.props) { if (p.kind !== 'brazier' || !p.out || p.dead || p.pitFire) continue; if (dist(h.x, h.y, p.x, p.y) < 20) { p.lightT = (p.lightT || 0) + dt; if (p.lightT > 0.8) lightUp(p, true); } else p.lightT = 0; }
+}

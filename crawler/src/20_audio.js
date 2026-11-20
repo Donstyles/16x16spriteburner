@@ -98,6 +98,12 @@ const SFX = {
   fire(pan = 0) { if (!this.ok('fire', 0.06)) return; this.noise(this.white, 0.35, 'lowpass', 400, 3000, 0.8, 0.35, pan, 0, 0.05); },
   whoosh(pan = 0) { if (!this.ok('whoosh', 0.08)) return; this.noise(this.white, 0.45, 'bandpass', 250, 1800, 1.2, 0.35, pan, 0, 0.12); },
   summon(pan = 0) { if (!this.ok('summon', 0.15)) return; this.noise(this.brown, 0.9, 'bandpass', 150, 900, 2, 0.5, pan, 0, 0.7); this.tone('sawtooth', 52, 48, 0.9, 0.08, pan, 0, 0.6); },
+  // the crypt's own sounds (43_crypt cryptSounds): a whisper, a far groan, stone dragged, a drip, bones settling
+  whisper(pan = 0, near = false) { if (!this.ok('whisper', 0.8)) return; const g = near ? 0.07 : 0.04; this.noise(this.white, 1.7, 'bandpass', 2300, 1500, 6, g, pan, 0, 0.55); this.noise(this.white, 1.2, 'bandpass', 3100, 2400, 9, g * 0.6, -pan * 0.5, 0.35, 0.4); },
+  farGroan(pan = 0) { if (!this.ok('farGroan', 2)) return; this.tone('sawtooth', 74, 52, 2.2, 0.03, pan, 0, 0.6); this.noise(this.brown, 2, 'lowpass', 260, 120, 1, 0.05, pan, 0, 0.5); },
+  scrape(pan = 0) { if (!this.ok('scrape', 2)) return; this.noise(this.brown, 1.4, 'bandpass', 420, 180, 3, 0.07, pan, 0, 0.25); },
+  drip(pan = 0) { if (!this.ok('drip', 0.4)) return; this.tone('sine', 1500, 820, 0.09, 0.05, pan); this.tone('sine', 1100, 700, 0.07, 0.025, pan, 0.11); },
+  settle(pan = 0) { if (!this.ok('settle', 1.5)) return; for (let i = 0; i < 4; i++) this.tone('square', 900 - i * 120, 500 - i * 60, 0.03, 0.018, pan, i * 0.07); },
   puff(pan = 0) { if (!this.ok('puff', 0.05)) return; this.noise(this.white, 0.2, 'bandpass', 1400, 380, 0.9, 0.11, pan, 0, 0.16); }, // (a candle blown out: 44_candles)
   pop(pan = 0) { if (!this.ok('pop', 0.025)) return; this.noise(this.white, 0.12, 'lowpass', 3000, 300, 0.7, 0.35, pan); this.tone('square', 220, 60, 0.1, 0.12, pan); },
   // a coin: a bright two-note clink, a semitone higher for each coin scooped up in quick succession
