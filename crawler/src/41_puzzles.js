@@ -278,8 +278,8 @@ function echoTick(A, e, dt, heroes) {
     if (e.order[e.step] === rn.i) {
       rn.on = true; e.step++; SFX.rune(panOf(rn.x), rn.i, e.step >= e.runes.length); ring(rn.x, rn.y, 26, 'gold', 0.5, 3); flashLight(rn.x, rn.y, 70, 'gold', 1.1, 0.5);
       if (e.step >= e.runes.length) { e.solved = true; const gx = gatePos(e.gate); for (const q of e.runes) FX.beams.push({ x0: q.x, y0: q.y - 2, x1: gx[0], y1: gx[1], w: 1.4, col: 'gold', life: 1, t: 0, steady: true, cap: true }); after(0.9, () => { if (ARENA === A) startGateCine(rn, e.gate); }); }
-    } else { // wrong: its own note, then a dull knock, all dark again, and the order given once more
-      for (const q of e.runes) q.on = false; e.step = 0; rn.flash = 0.35; SFX.rune(panOf(rn.x), rn.i, false); after(0.3, () => { SFX.clang(panOf(rn.x)); SFX.stone(panOf(rn.x), false); shake(0.06); smoke(rn.x, rn.y, 2, 'dust', 6, 10, 0.6); }); e.play = { i: 0, t: -1.4 };
+    } else { // wrong: its own note, then a dull knock, all dark again, and the order given once more (the singing runes: not till the room is come into again)
+      for (const q of e.runes) q.on = false; e.step = 0; rn.flash = 0.35; SFX.rune(panOf(rn.x), rn.i, false); after(0.3, () => { SFX.clang(panOf(rn.x)); SFX.stone(panOf(rn.x), false); shake(0.06); smoke(rn.x, rn.y, 2, 'dust', 6, 10, 0.6); }); if (!e.song) e.play = { i: 0, t: -1.4 };
     }
   }
 }
