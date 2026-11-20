@@ -318,7 +318,7 @@ function exitTorches(A) { // (30_arena: one each side of the way down)
 // of the way down catch, both at once, the view held on it all the while. A floor with nobody in its exit room (a
 // test room's) has it open from the start, its torches lit as a hero comes near as before
 function exitSeal(A) {
-  const s = A.stairs; if (!s || s.seal === null) return; const guards = G.foes.filter(f => f.guard);
+  const s = A.stairs; if (!s || s.seal === null) return; const guards = G.foes.filter(f => f.exitGuard); /* (exitGuard, not guard: that marks a treasure room's guardian, 53_foes chestGuards) */
   if (s.seal === undefined) { s.seal = guards.length ? { k: 1, motif: pick([0, 5, 10]), guards } : null; return; }
   if (s.seal.going) { if (s.seal.wait && !G.cine) { s.seal.wait = false; G.cine = { exit: s, x: s.x, y: s.y - 10, t: 0 }; } return; } const left = s.seal.guards.filter(f => !f.dead && G.foes.includes(f));
   if (left.length) return; if (!s.seal.guards.some(f => f.dead)) { s.seal = null; return; } // (taken off the floor, not slain: a test room's)
