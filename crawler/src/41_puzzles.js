@@ -87,7 +87,8 @@ function makeGate(A, h, near) { // (a corridor running north and south: the gate
 function gateCells(A, g) { const d = g.d, out = d.cells.map(([x, y]) => y * A.w + x); if (d.side === 'N') for (const [x, y] of d.cells) out.push((y - 1) * A.w + x); if (d.side === 'S') for (const [x, y] of d.cells) out.push((y + 1) * A.w + x); return out; }
 // shut, its cells are rock (and a side doorway's row behind the south wall, where it crosses the doorway); open, floor again
 function gateShut(A, g, shut) {
-  const d = g.d; for (const i of gateCells(A, g)) A.fl[i] = shut ? 0 : 1;
+  const d = g.d; for (const i of d.side === 'N' ? d.cells.map(([x, y]) => y * A.w + x) : gateCells(A, g)) A.fl[i] = shut ? 0 : 1; // (a north one: only its doorway's row is solid; the row behind it, under the door's top, can be walked into from the corridor)
+  if (d.side === 'N') { A.gateBox = A.gateBox || new Map(); for (const [x, y] of d.cells) { const i = (y - 1) * A.w + x; if (shut) A.gateBox.set(i, [[x * TS, (y - 1) * TS + 9, (x + 1) * TS, y * TS]]); else A.gateBox.delete(i); } } // (as far in as a south wall lets him: feet up to 8 px under the door's top, his head and shoulders over it)
   if (d.side === 'E' || d.side === 'W') { const x = d.cells[0][0], y = Math.max(...d.cells.map(c => c[1])) + 1, i = y * A.w + x; if (shut) { if (!g.wt) g.wt = [i, A.wt[i]]; A.wt[i] = 0; } else if (g.wt) A.wt[i] = g.wt[1]; }
   g.shut = shut; A.flv = (A.flv || 0) + 1;
 }
@@ -95,18 +96,35 @@ function gateShut(A, g, shut) {
 const gateFoot = g => { const d = g.d; if (d.side === 'N') return d.cells.map(([x, y]) => [x * TS + 8, (y + 1) * TS + 1]); if (d.side === 'S') return d.cells.map(([x, y]) => [x * TS + 8, (y + 2) * TS + S_DROP - 2]); const [x, y] = d.cells[2]; return [[x * TS + 8, (y + 1) * TS + 4]]; };
 const gateTop = g => { const d = g.d; if (d.side === 'N') return d.cells.map(([x, y]) => [x * TS + 8, (y - 1) * TS + 11]); if (d.side === 'S') return d.cells.map(([x, y]) => [x * TS + 8, y * TS + S_DROP + 8]); const [x, y] = d.cells[0]; return [[x * TS + 8, (y - 1) * TS]]; };
 const gatePos = g => { const c = g.d.cells[1]; return [c[0] * TS + 8, c[1] * TS + (g.d.side === 'N' ? 0 : 8)]; };
+// under a gate: within its cells (m: a margin round them)
+function underGate(A, g, u, m) { return gateCells(A, g).some(i => { const x = (i % A.w) * TS, y = Math.floor(i / A.w) * TS; return u.x > x - m && u.x < x + TS + m && u.y > y - m && u.y < y + TS + m; }); }
+// out from under it, along the way through the doorway, to whichever side is nearer (step: how far this frame)
+function shoveOut(A, g, u, step) {
+  const cs = gateCells(A, g), xs = cs.map(i => i % A.w), ys = cs.map(i => Math.floor(i / A.w)), ns = g.d.side === 'N' || g.d.side === 'S';
+  const lo = (ns ? Math.min(...ys) : Math.min(...xs)) * TS - 7, hi = ((ns ? Math.max(...ys) : Math.max(...xs)) + 1) * TS + 7, v = ns ? u.y : u.x, to = v - lo < hi - v ? lo : hi;
+  const nv = to < v ? Math.max(to, v - step) : Math.min(to, v + step); if (ns) { u.y = nv; u.ky = 0; } else { u.x = nv; u.kx = 0; }
+  if (!u.shovedT || G.time - u.shovedT > 0.6) { u.shovedT = G.time; SFX.stone(panOf(u.x), false); debris(u.x, u.y, 3, DUST, 50, 60, 1); }
+}
+// a creature the gate came down on: burst apart (whatever the gore setting allows), its blood or bits out from under the door
+function crushUnder(u) {
+  u.lastBlow = { crush: true }; u.gib = GORE.level === 2 && (bleeds(u) || DRY.has(u.def.blood)); u.dying = null;
+  if (!u.gib && bleeds(u)) pool(u.x, u.y, u.def.blood || 'red', 3 + u.scale);
+  kill(u, null); shake(0.14); SFX.squelch(panOf(u.x));
+}
 function gatesTick(A, dt) {
   for (const g of A.gates || []) {
     if (g.hold) g.target = g.held ? 0 : 1; const was = g.k, [gx, gy] = gatePos(g), pan = panOf(gx);
     if (g.k > g.target) g.k = Math.max(g.target, g.k - dt / 1.3); else if (g.k < g.target) g.k = Math.min(g.target, g.k + dt / 0.3);
     if (g.k < 0.5 && g.shut) gateShut(A, g, false);
-    if (g.k >= 0.5 && !g.shut) { // (it never comes down on anyone: it waits)
-      const cs = gateCells(A, g).map(i => [(i % A.w) * TS, Math.floor(i / A.w) * TS]);
-      if (G.units.some(u => !u.dead && cs.some(([x, y]) => u.x > x - 5 && u.x < x + TS + 5 && u.y > y - 3 && u.y < y + TS + 4))) g.k = 0.49; else gateShut(A, g, true); // (blocks from halfway down; the thud when it is down, below)
-    }
+    // it waits for no one: coming down, it shoves a hero under it out to the nearer side; a creature still under it when
+    // it blocks (halfway down) is held there, and when it hits the floor it is burst apart
+    if (g.k > was && g.k > 0.05) for (const u of G.units) if (!u.dead && !u.fall && u.team === 'hero' && underGate(A, g, u, 5)) shoveOut(A, g, u, g.k >= 0.5 ? 99 : 300 * dt);
+    if (g.k >= 0.5 && !g.shut) { g.crush = G.units.filter(u => !u.dead && u.team !== 'hero' && underGate(A, g, u, 0)).map(u => [u, u.x, u.y]); gateShut(A, g, true); } // (blocks from halfway down; the thud when it is down, below)
+    if (g.crush) for (const [u, x, y] of g.crush) if (!u.dead) { u.x = x; u.y = y; u.kx = u.ky = 0; u.stun = Math.max(u.stun || 0, 0.25); } // (held where it was caught)
     if (g.k !== was) {
       if ((g.chT = (g.chT || 0) - dt) <= 0) { g.chT = rand(0.05, 0.1); SFX.clink(rand(1500, 2600), 0.05, pan, 0); } if (was === 1 || was === 0) SFX.stone(pan, false);
       if (g.k === 1 && was < 1) { shake(0.06); SFX.stone(pan, true); for (const [x, y] of gateFoot(g)) smoke(x, y, 2, 'dust', 7, 14, 0.8); } // down: the thud, and dust off the floor right in front of it, all along it
+      if (g.k === 1 && was < 1 && g.crush) { for (const [u] of g.crush) if (!u.dead) crushUnder(u); g.crush = null; }
       if (g.k === 0 && was > 0) { SFX.stone(pan, true); for (const [x, y] of gateTop(g)) smoke(x, y, 1, 'dust', 5, 9, 0.6); } // up: a puff from under the strut over every panel
     }
     g.d.k = g.k;

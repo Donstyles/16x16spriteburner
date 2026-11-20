@@ -87,7 +87,7 @@ function trimAt(x, y) {
 // pixels and whatever of its floor the floor does not reach
 function wallBoxes(tx, ty) {
   const A = ARENA, x0 = tx * TS, y0 = ty * TS; if (tx < 0 || ty < 0 || tx >= A.w || ty >= A.h) return [[x0, y0, x0 + TS, y0 + TS]];
-  const i = ty * A.w + tx, v = A.fl[i]; if (FLOOR(v)) return null; if (PITPASS && v === PIT) return null;
+  const i = ty * A.w + tx, v = A.fl[i]; if (A.gateBox && A.gateBox.has(i)) return A.gateBox.get(i); if (FLOOR(v)) return null; if (PITPASS && v === PIT) return null; // (gateBox: the row behind a shut north door, its lower part: 41_puzzles gateShut)
   return pieceAt(A, i) ? openMap(A).wr[i] : [[x0, y0, x0 + TS, y0 + TS]];
 }
 // the ceiling: every piece's trim, as it is drawn on the ground there (the piece, or the floor through its clear pixels)

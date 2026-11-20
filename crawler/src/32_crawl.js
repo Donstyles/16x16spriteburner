@@ -35,13 +35,8 @@ function drawDoors(c) {
   const A = ARENA; if (!A.doors) return; const th = A.th;
   for (const d of A.doors) {
     if (d.k <= 0) continue; const k = d.k;
-    if (d.side === 'N' || d.side === 'S') {
-      const col = doorFrame(k) + (d.motif || 0); // (its motif: the cross, the chevron or the emblem, in the floor's colour)
-      if (d.side === 'S') continue; // (a south doorway's blast door is drawn among the units: drawSouthDoor)
-      for (const [x, y] of d.cells) { c.drawImage(IMG.doors, col * TS, th.door * TS, TS, TS, x * TS, (y - 1) * TS, TS, TS); c.drawImage(IMG.doors, col * TS, (th.door + 1) * TS, TS, TS, x * TS, y * TS, TS, TS); }
-      const xs = d.cells.map(q => q[0]), x0 = Math.min(...xs), x1 = Math.max(...xs), y = d.cells[0][1]; // (the doorway is 4 px wider each side than its three tiles: the gaps filled from the panels' own edges, as in a south doorway)
-      for (const [r, dy] of [[th.door, (y - 1) * TS], [th.door + 1, y * TS]]) { c.drawImage(IMG.doors, col * TS + TS - S_GAP, r * TS, S_GAP, TS, x0 * TS - S_GAP, dy, S_GAP, TS); c.drawImage(IMG.doors, col * TS, r * TS, S_GAP, TS, (x1 + 1) * TS, dy, S_GAP, TS); }
-    } else {
+    if (d.side === 'N' || d.side === 'S') continue; // (both drawn among the units by depth: a north one with its strut, drawNorthDoor; a south one, drawSouthDoor)
+    {
       // the portcullis stands in the wall line: up past the brick face to the corner post above the doorway, down to the corner
       // post below it. Both posts stand in front of it in the tileset's perspective, so they are drawn again over its two ends
       const x = d.cells[0][0], ty = d.cells[0][1], y0 = (ty - 1) * TS - 4, y1 = (d.cells[2][1] + 1) * TS + 6, len = Math.round((y1 - y0) * k), gx = x * TS + (d.side === 'W' ? 7 : 5);
@@ -57,7 +52,15 @@ function drawDoors(c) {
 // underside). It is drawn among the units by depth, the depth of the wall's face where it meets the floor: whoever walks
 // through the doorway passes under it, whoever stands in the room in front of the wall stays in front of it.
 const STRUTS = d => d.side === 'N' ? [(d.cells[0][1] + 1) * TS, 6, d] : null;
-function drawStrut(c, d) { const th = ARENA.th, sx = (4 + (d.motif || 0)) * TS; for (const [x, y] of d.cells) c.drawImage(IMG.doors, sx, th.door * TS, TS, 11, x * TS, (y - 1) * TS, TS, 11); strutEnds(c, d, sx, th.door * TS + 3, (d.cells[0][1] - 1) * TS + 3); }
+// a north doorway's blast door, down or on its way: by the depth of its foot too, so from the corridor behind it a shut
+// door is a south wall to whoever walks up to it, his head over its top
+function drawNorthDoor(c, d) {
+  const th = ARENA.th, col = doorFrame(d.k) + (d.motif || 0); // (its motif: the cross, the chevron or the emblem, in the floor's colour)
+  for (const [x, y] of d.cells) { c.drawImage(IMG.doors, col * TS, th.door * TS, TS, TS, x * TS, (y - 1) * TS, TS, TS); c.drawImage(IMG.doors, col * TS, (th.door + 1) * TS, TS, TS, x * TS, y * TS, TS, TS); }
+  const xs = d.cells.map(q => q[0]), x0 = Math.min(...xs), x1 = Math.max(...xs), y = d.cells[0][1]; // (the doorway is 4 px wider each side than its three tiles: the gaps filled from the panels' own edges, as in a south doorway)
+  for (const [r, dy] of [[th.door, (y - 1) * TS], [th.door + 1, y * TS]]) { c.drawImage(IMG.doors, col * TS + TS - S_GAP, r * TS, S_GAP, TS, x0 * TS - S_GAP, dy, S_GAP, TS); c.drawImage(IMG.doors, col * TS, r * TS, S_GAP, TS, (x1 + 1) * TS, dy, S_GAP, TS); }
+}
+function drawStrut(c, d) { if (d.k > 0) drawNorthDoor(c, d); const th = ARENA.th, sx = (4 + (d.motif || 0)) * TS; for (const [x, y] of d.cells) c.drawImage(IMG.doors, sx, th.door * TS, TS, 11, x * TS, (y - 1) * TS, TS, 11); strutEnds(c, d, sx, th.door * TS + 3, (d.cells[0][1] - 1) * TS + 3); }
 // the bar's two ends run one pixel on into the posts beside the doorway, over the posts' dark outline, so the strut joins
 // the trim instead of stopping short against a dark edge (the outline stays above and below it)
 function strutEnds(c, d, sx, sy, dy, w = 1) { const xs = d.cells.map(q => q[0]), x0 = Math.min(...xs), x1 = Math.max(...xs); c.drawImage(IMG.doors, sx + TS - w, sy, w, 8, x0 * TS - w, dy, w, 8); c.drawImage(IMG.doors, sx, sy, w, 8, (x1 + 1) * TS, dy, w, 8); }
