@@ -346,7 +346,7 @@ function buildArena1(floor) {
     cng.save(); cng.beginPath(); for (const [rx, ry, rw, rh] of R) cng.rect(rx, ry, rw, rh); cng.clip(); put(cng, tx, ty, x, y, flip); cng.restore();
   };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const P = wallPiece(isF, x, y); if (P) T(P[0], P[1], x, y, P[2]); }
-  const A = ARENA = { arch: ARCH.cur, w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilN: cn, fl, wt, wf, rooms, halls, props: [], torches: [], name: floorName(floor), floor, liq }; // (liq: what the crypt's pools hold, 36_works LIQUIDS)
+  const A = ARENA = { arch: ARCH.cur, w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilN: cn, fl, wt, wf, rooms, halls, props: [], torches: [], name: floorName(floor), floor, liq, moss: th.sheet === 'crypt' && floor >= 6 }; // (liq: what the crypt's pools hold, 36_works LIQUIDS; moss: the deepest crypt's dead grown over, 43_crypt)
   paintCeil(A, cg, cv); // the painted trim, as drawn on the ground: the ceiling over everyone (31_walls)
   for (const i of hidMask) fl[i] = 1;
   for (const h of halls) h.frame = shortHall(h) && chance(0.6);

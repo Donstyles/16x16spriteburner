@@ -14,6 +14,9 @@
 // All of it but the walls goes in last of all (cryptDress), on floor nothing else on the floor needs.
 
 let CWEAR = null; // (the floor's wear, from cryptFloor: > 0 worn)
+// THE MOSSY DEEP: on the lowest crypt floor (6) its dead are grown over: every tomb, sarcophagus, gravestone, throne and
+// font is the sheet's green twin (eight rows down), every niche its green twin (four rows down); walls and floor stay
+const MOSS = () => (ARENA && ARENA.moss ? 8 : 0), MOSSN = () => (ARENA && ARENA.moss ? 4 : 0);
 const worn = (x, y) => (CWEAR ? CWEAR(x + 0.5, y + 0.5) : -9);
 // the sheet's tombs (columns; rows 0-1 lidded, 2-3 the same with candles, 4-5 opened) and the rest of its dead
 const TOMBS = { cross: 16, frame: 17, plain: 18, carved: 19, head: 20, headCross: 21 };
@@ -56,9 +59,9 @@ function cryptDress(A, g) {
 }
 // a tomb: two tiles tall (its bottom tile at x, y), solid from its foot to its lid's back edge
 function tombProp(prop, x, y, kind, lit) {
-  prop('tomb', x, y, { sheet: 'crypt', tile: [TOMBS[kind], 0], th: 2, r: 7, box: [-7, 7, -17, 1], tombKind: kind });
+  const M = MOSS(); prop('tomb', x, y, { sheet: 'crypt', tile: [TOMBS[kind], M], th: 2, r: 7, box: [-7, 7, -17, 1], tombKind: kind, moss: M });
   if (!lit) return; const A = ARENA, p = A.props[A.props.length - 1], col = TOMBS[kind] * TS; // (its candles: those of the same tomb lit, rows 2-3, on the lidded one)
-  p.candles = addCandles(A, candleSrc(col, 2 * TS, TS, 2 * TS, [col, 0]), p.x - 8, p.y - 14 - TS, p.y - 6, 300);
+  p.candles = addCandles(A, candleSrc(col, (2 + M) * TS, TS, 2 * TS, [col, M * TS]), p.x - 8, p.y - 14 - TS, p.y - 6, 300);
 }
 function tombHall(A, r, P) {
   const c2 = r.ix0 + r.ix1, xs = []; // (the columns: from the middle out, every second tile, the two halves mirrored)
@@ -77,8 +80,8 @@ function burialChamber(A, r, P) {
   for (const by of [cy - 2, cy + 2]) { // (its bottom row: north of the paths' crossing, else south)
     const cells = [[bx, by], [bx + 1, by], [bx, by - 1], [bx + 1, by - 1]];
     if (!cells.every(([x, y]) => P.ok(x, y, -0.4)) || !P.fits(cells.map(([x, y]) => y * P.W + x))) continue;
-    P.prop('sarc', bx + 0.5, by, { sheet: 'crypt', tile: [(bx + by) % 2 ? 18 : 16, 6], tw: 2, th: 2, r: 12, box: [-15, 15, -22, 1] });
-    if ([bx - 2, bx + 3].every(gx => P.ok(gx, by) && P.ok(gx, by - 1)) && P.fits([by * P.W + bx - 2, by * P.W + bx + 3])) for (const gx of [bx - 2, bx + 3]) P.prop('grave', gx, by, { sheet: 'crypt', tile: [24, 6], th: 2, r: 5, box: [-5, 5, -7, 1] });
+    P.prop('sarc', bx + 0.5, by, { sheet: 'crypt', tile: [(bx + by) % 2 ? 18 : 16, 6 + MOSS()], tw: 2, th: 2, r: 12, box: [-15, 15, -22, 1] });
+    if ([bx - 2, bx + 3].every(gx => P.ok(gx, by) && P.ok(gx, by - 1)) && P.fits([by * P.W + bx - 2, by * P.W + bx + 3])) for (const gx of [bx - 2, bx + 3]) P.prop('grave', gx, by, { sheet: 'crypt', tile: [24, 6 + MOSS()], th: 2, r: 5, box: [-5, 5, -7, 1] });
     return true;
   }
   return false;
@@ -103,8 +106,8 @@ function cryptWall(A, r, g, used) {
 }
 // one niche at x on the wall face row y: a light niche, skulls, urns or chains
 function cryptNiche(A, r, g, xx, y, role, k) {
-  const NICHE = { skulls: [[6, 6], [8, 6], [9, 6], [7, 7]], urns: [[9, 7], [10, 7], [11, 6]] }, nx = xx * TS, ny = y * TS + NICHE_Y, gy = (y + 1) * TS + 3;
-  if (role === 'light') { const S = candleSrc(...LIGHT_NICHE); g.drawImage(S.cv, nx, ny); A.torches.push({ x: nx + 8, y: y * TS + 9, tx: xx, f: (xx * 3) % 4, room: r.i, candles: addCandles(A, S, nx, ny, gy, 720, { wall: true, torch: true }) }); }
+  const N = MOSSN(), NICHE = { skulls: [[6, 6 + N], [8, 6 + N], [9, 6 + N], [7, 7 + N]], urns: [[9, 7 + N], [10, 7 + N], [11, 6 + N]] }, nx = xx * TS, ny = y * TS + NICHE_Y, gy = (y + 1) * TS + 3;
+  if (role === 'light') { const S = candleSrc(7 * TS, (6 + N) * TS, TS, TS, [8 * TS, (7 + N) * TS]); g.drawImage(S.cv, nx, ny); A.torches.push({ x: nx + 8, y: y * TS + 9, tx: xx, f: (xx * 3) % 4, room: r.i, candles: addCandles(A, S, nx, ny, gy, 720, { wall: true, torch: true }) }); }
   else if (role === 'chains') cryptAt(g, 9 + (k >> 1) % 3, 2, nx, y * TS - 8);
   else { const L = NICHE[role], t = L[(k >> 1) % L.length], S = candleSrc(t[0] * TS, t[1] * TS, TS, TS); g.drawImage(S.cv, nx, ny); const cs = addCandles(A, S, nx, ny, gy, 450, { wall: true }); if (role === 'skulls' && y === r.fy0 + 1) (r.niches = r.niches || []).push({ nx, ny, candles: cs }); }
 }
@@ -127,14 +130,14 @@ const BONE_SHARDS = { 3: [[9, 4], [9, 4]], 2: [[10, 4], [11, 4]], 1: [[10, 5], [
 // three, by its place, is empty, and only its lid gives. The lid is read off the sheet: what of the lidded tomb is not
 // in the opened one (rows 4-5), so it is exactly the part that comes away.
 const OPEN_ROW = 4, LIDS = {};
-function lidOf(kind) {
-  if (LIDS[kind]) return LIDS[kind];
+function lidOf(kind, M = 0) {
+  const key = kind + M; if (LIDS[key]) return LIDS[key];
   const col = TOMBS[kind] * TS, P = PIX.crypt, w = TS, h = 2 * TS, cv = mkCanvas(w, h), g = cv.getContext('2d'), id = g.createImageData(w, h);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const a = (y * P.w + col + x) * 4, b = ((OPEN_ROW * TS + y) * P.w + col + x) * 4, j = (y * w + x) * 4;
+    const a = ((M * TS + y) * P.w + col + x) * 4, b = (((OPEN_ROW + M) * TS + y) * P.w + col + x) * 4, j = (y * w + x) * 4;
     if (P.d[a + 3] && (!P.d[b + 3] || P.d[a] !== P.d[b] || P.d[a + 1] !== P.d[b + 1] || P.d[a + 2] !== P.d[b + 2])) { id.data[j] = P.d[a]; id.data[j + 1] = P.d[a + 1]; id.data[j + 2] = P.d[a + 2]; id.data[j + 3] = 255; }
   }
-  g.putImageData(id, 0, 0); return (LIDS[kind] = { cv, pix: { w, d: id.data } });
+  g.putImageData(id, 0, 0); return (LIDS[key] = { cv, pix: { w, d: id.data } });
 }
 // light on a place: a lit candle within 30 px, a lit niche within 56, a burning brazier within 80
 function litAt(A, x, y) {
@@ -173,9 +176,9 @@ function tombsTick(dt) {
   }
 }
 function popLid(A, p, h) {
-  p.opened = true; p.wake = undefined; p.jx = 0; p.tile = [p.tile[0], OPEN_ROW]; p.candles = null; // (its candles stood on the lid: they go with it)
+  p.opened = true; p.wake = undefined; p.jx = 0; p.tile = [p.tile[0], OPEN_ROW + (p.moss || 0)]; p.candles = null; // (its candles stood on the lid: they go with it)
   const away = h ? Math.sign(p.x - h.x) || 1 : 1;
-  (A.lids = A.lids || []).push({ lid: lidOf(p.tombKind), x: p.x - 8, y: p.y - 14 - TS, vx: away * 38, vy: 6, z: 0, vz: 150 });
+  (A.lids = A.lids || []).push({ lid: lidOf(p.tombKind, p.moss || 0), x: p.x - 8, y: p.y - 14 - TS, vx: away * 38, vy: 6, z: 0, vz: 150 });
   smoke(p.x, p.y - 8, 3, 'dust', 6, 16, 0.8); SFX.stone(panOf(p.x), true); SFX.groan(panOf(p.x)); shake(0.1);
   const who = tombOccupant(A, p); if (!who || !MOBS[who.spr]) return;
   const u = mkFoe(who.role, G.floor, p.x, p.y - 7, who.spr); Object.assign(u, { z: -14, room: p.room, face: -away, ghostT: 1.8 });
@@ -388,15 +391,15 @@ function brazierLamp(dt) {
 const FONT_COL = { blood: 23, water: 24 }, FONT_RGB = { blood: '#8a1418', water: '#2f7fcc' };
 const fontRoom = r => r.kind === 'room' && hash2(r.i * 5 + 2, 77) < 0.34;
 function cryptFont(A, r, g, xx, y) {
-  const liq = r.i % 2 ? 'blood' : 'water', col = FONT_COL[liq], nx = xx * TS;
-  cryptAt(g, col, 1, nx, y * TS - 3); // (the skull in the brick)
-  const p = { kind: 'font', sheet: 'crypt', liq, full: 1, x: nx + 8, y: r.iy0 * TS + 14, cy: r.iy0 * TS + 10, r: 6, solid: true, hp: 1e9, room: r.i, box: [-7, 7, -9, 1], drinkT: 0 };
-  p.candles = addCandles(A, candleSrc(col * TS, 3 * TS, TS, TS, [col * TS, 2 * TS]), nx, r.iy0 * TS, r.iy0 * TS + 16, 600);
+  const liq = r.i % 2 ? 'blood' : 'water', col = FONT_COL[liq], nx = xx * TS, M = MOSS();
+  cryptAt(g, col, 1 + M, nx, y * TS - 3); // (the skull in the brick)
+  const p = { kind: 'font', sheet: 'crypt', liq, full: 1, moss: M, x: nx + 8, y: r.iy0 * TS + 14, cy: r.iy0 * TS + 10, r: 6, solid: true, hp: 1e9, room: r.i, box: [-7, 7, -9, 1], drinkT: 0 };
+  p.candles = addCandles(A, candleSrc(col * TS, (3 + M) * TS, TS, TS, [col * TS, (2 + M) * TS]), nx, r.iy0 * TS, r.iy0 * TS + 16, 600);
   A.props.push(p);
 }
 function drawFont(c, p) {
-  const x = p.x - 8, y = p.y - 14; c.drawImage(IMG.crypt, 22 * TS, 2 * TS, TS, TS, x, y, TS, TS); // (the empty basin)
-  if (p.full > 0) { c.globalAlpha = Math.min(1, p.full * 1.4); c.drawImage(IMG.crypt, FONT_COL[p.liq] * TS, 2 * TS, TS, TS, x, y, TS, TS); c.globalAlpha = 1; }
+  const x = p.x - 8, y = p.y - 14, R = (2 + (p.moss || 0)) * TS; c.drawImage(IMG.crypt, 22 * TS, R, TS, TS, x, y, TS, TS); // (the empty basin)
+  if (p.full > 0) { c.globalAlpha = Math.min(1, p.full * 1.4); c.drawImage(IMG.crypt, FONT_COL[p.liq] * TS, R, TS, TS, x, y, TS, TS); c.globalAlpha = 1; }
   if (p.full < 1 && p.full > 0.02) { c.fillStyle = FONT_RGB[p.liq]; c.fillRect(p.x - (p.liq === 'blood' ? 0 : 1), y - 6, 1, 8 + ((G.time * 20) | 0) % 2); } // (the stream from the skull's mouth)
   if (p.candles) drawCandles(c, p.candles);
 }
@@ -423,7 +426,7 @@ function throneRoom(A, r, g, P) {
   if (r.kind !== 'end' || A.throne) return;
   const x = r.stairX !== undefined ? r.stairX + 1 : Math.round((r.ix0 + r.ix1) / 2), y = r.iy0 + 4;
   if (!P.ok(x, y, 9) || !P.ok(x, y - 1, 9) || !P.fits([y * P.W + x, (y - 1) * P.W + x])) return;
-  P.prop('throne', x, y, { sheet: 'crypt', tile: [26, 6], th: 2, r: 6, box: [-6, 6, -10, 1] });
+  P.prop('throne', x, y, { sheet: 'crypt', tile: [26, 6 + MOSS()], th: 2, r: 6, box: [-6, 6, -10, 1] });
   for (const bx of [x - 2, x + 2]) if (P.ok(bx, y, 9) && P.fits([y * P.W + bx])) P.prop('brazier', bx, y, { f: bx % 4, r: 6 });
   A.throne = { x: x * TS + 8, y: y * TS + 14 };
 }
