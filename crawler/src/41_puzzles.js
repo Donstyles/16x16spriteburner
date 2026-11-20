@@ -83,7 +83,10 @@ function echoCine(C, dt) {
   if (skip || (P.i >= e.order.length && P.t > e.order.length * gap + (e.song ? 0.3 : 0.7))) { if (skip) I.atkP = I.dodgeP = I.atkR = false; e.play = null; e.shown = true; G.cine = null; G.eyes = null; }
 }
 // ---- the gates
-function makeGate(A, h, near) { // (a corridor running north and south: the gate in the near room's own wall, a blast door in its north doorway or its south one)
+// THE PORTCULLIS (a gate in an east or west doorway, seen edge-on in the side wall) is out of the game for now: its art
+// and logic stay (drawDoors, gateShut), but no gate is put in a corridor running east and west, nor in the door test room
+const PORTCULLIS = false;
+function makeGate(A, h, near) { if (h.dir !== 'v' && !PORTCULLIS) return null; // (a corridor running north and south: the gate in the near room's own wall, a blast door in its north doorway or its south one)
   const X = near.has(h.A) ? h.A : h.B, d = h.dir === 'v' ? X.doors.find(q => q.hall === h) : (near.has(h.A) ? h.B : h.A).doors.find(q => q.hall === h); if (!d) return null; d.strut = true;
   const g = { d, hall: h, k: 1, target: 1, going: false }; h.gate = g; d.gate = g; (A.gates = A.gates || []).push(g); gateShut(A, g, true); d.k = 1; return g;
 }

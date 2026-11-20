@@ -142,7 +142,7 @@ function beginDoorTest(kit, tone) {
   if (!r) { beginTest(kit); return; }
   const A = ARENA, h = G.me; TEST.on = true; Object.assign(TEST, { mode: 'doors', god: true, kit, motif: 0, shut: false, tone: A.th === THEMES.grey ? 'grey' : 'brown', gates: [] }); A.name = 'DOOR TEST ROOM';
   G.foes.length = 0; G.units = G.heroes.slice(); G.sched.length = 0; G.drops.length = 0;
-  for (const d of r.doors) { const g = { d, hall: d.hall, k: 0, target: 0, going: false, test: true }; d.gate = g; d.motif = 0; if (d.side === 'S') d.strut = true; (A.gates = A.gates || []).push(g); TEST.gates.push(g); }
+  for (const d of r.doors) { if ((d.side === 'E' || d.side === 'W') && !PORTCULLIS) continue; const g = { d, hall: d.hall, k: 0, target: 0, going: false, test: true }; d.gate = g; d.motif = 0; if (d.side === 'S') d.strut = true; (A.gates = A.gates || []).push(g); TEST.gates.push(g); }
   h.x = (r.ix0 + r.ix1 + 1) / 2 * TS; h.y = (r.iy0 + r.iy1 + 1) / 2 * TS + 4; h.enter = null; h.lightR = 220; CAM.x = h.x; CAM.y = h.y;
   for (const p of A.props) if (Math.abs(p.x - h.x) < 18 && Math.abs(p.y - h.y) < 18) { p.dead = true; p.solid = false; }
   doorLabel(); A.keepClean = true; if (A.chunks) keepClean(A);
