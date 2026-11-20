@@ -279,7 +279,14 @@ function strikeHits(h, a) {
     hurt(f, W.dmg * mv.dm, h, { ...o, crit, poise: mv.poise * (crit > 1 ? 1.5 : 1), kx: Math.cos(ka) * mv.push, ky: Math.sin(ka) * mv.push * 0.8, ang: ka, style: styleOf(h, mv), sweep: (mv.sweep || 1) * (h.face < 0 ? -1 : 1) });
     sparks(f.x, f.y, 8 * f.scale, 6, crit > 1 ? 'gold' : 'white', 120, 70, ka, 1.6); const big = mv.dm >= 2 || crit > 1; freeze(f, big ? 0.12 : 0.07); freeze(h, big ? 0.06 : 0.025); if (crit > 1) { kick(0.04); flashLight(f.x, f.y, 50, 'gold', 1, 0.2); }
   }
-  for (const p of ARENA.props) if (!p.dead && p.hp < 1e8 && !a.hit.has(p) && hitsShape(src, { x: p.x, y: p.cy, r: p.r }, mv, a.dir)) { a.hit.add(p); breakProp(p, mv); }
+  for (const p of ARENA.props) if (!p.dead && p.hp < 1e8 && !a.hit.has(p) && hitsShape(src, { x: p.x, y: p.cy, r: p.r }, mv, a.dir)) { a.hit.add(p); if (p.kind === 'crack' && mv.dm < 2 && screened(h, p)) continue; breakProp(p, mv); } // (screened: this whole blow misses the wall)
+}
+// big furniture (two tiles high or wide) standing between him and a cracked wall stops a standard blow: the wall is not
+// struck through it, not even by the blow that smashes it (a heavy blow still goes through: 41_puzzles)
+function screened(h, p) {
+  const c = p.crack, tx = clamp(h.x, c.x * TS + 2, (c.x + 3) * TS - 2), ty = (c.y + 2) * TS;
+  for (let k = 0; k <= 12; k++) { const x = lerp(h.x, tx, k / 12), y = lerp(h.y - 4, ty, k / 12); if (ARENA.props.some(q => !q.dead && q.solid && q !== p && ((q.th || 1) >= 2 || (q.tw || 1) >= 2) && Math.abs(x - q.x) < 8 * (q.tw || 1) && y > q.y - 16 && y < q.y + 2)) return true; }
+  return false;
 }
 function breakProp(p, mv) {
   if (p.kind === 'crack') { hitCrack(p, mv && mv.dm >= 2 ? 3 : 1); return; } // (a cracked wall: a heavy blow breaks it at once, 41_puzzles)

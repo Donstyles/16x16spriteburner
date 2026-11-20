@@ -144,8 +144,10 @@ function trySpikeGate(A) {
     const d = X.doors.find(q => q.hall === h); if (!d) continue; const [dx, dy] = d.cells[1];
     // the plate: as far from the corridor's door as the room allows (seven tiles at least), on bare floor
     const spots = []; for (let y = X.iy0 + 1; y <= X.iy1 - 1; y++) for (let x = X.ix0 + 1; x <= X.ix1 - 1; x++) { if (!FLOOR(A.fl[y * W + x]) || X.doors.some(q => q.cells.some(([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 3))) continue; const m = Math.abs(x - dx) + Math.abs(y - dy); if (m >= 7) spots.push([x, y, m]); }
-    if (!spots.length) continue; spots.sort((a, b) => b[2] - a[2]); const at = pick(spots.slice(0, 4));
-    const D = 3, m0 = Math.round(((H ? h.x0 + h.x1 : h.y0 + h.y1) - D + 1) / 2), fc = (m0 + D / 2) * TS, sg = { downT: 0, spikes: [], clr: 0, hall: h, at: [at[0], at[1]], room: X.i };
+    if (!spots.length) continue; spots.sort((a, b) => b[2] - a[2]); let at = pick(spots.slice(0, 4)), hid = false;
+    // now and then its plate is sealed in a niche behind a cracked wall in that room, seven tiles or more from the corridor
+    if ((PUZ.spikeHidden || chance(0.3)) && !X.crack && crackIn(A, X, 'spike')) { const c = X.crack; if (Math.abs(c.x + 1 - dx) + Math.abs(c.y - dy) >= 7) { at = [c.x + 1, c.y]; hid = true; } else { A.cracks.splice(A.cracks.indexOf(c), 1); X.crack = null; X.crackX = undefined; } }
+    const D = 3, m0 = Math.round(((H ? h.x0 + h.x1 : h.y0 + h.y1) - D + 1) / 2), fc = (m0 + D / 2) * TS, sg = { downT: 0, spikes: [], clr: 0, hall: h, at: [at[0], at[1]], room: X.i, hidden: hid };
     const Wk = wkOf(A); A.spikes = A.spikes || [];
     for (let j = 0; j < D; j++) for (let k = 0; k < 6; k++) { const tx = H ? m0 + j : h.x0 + k, ty = H ? h.y0 + k : m0 + j; if (k >= 3 && !FLOOR(A.fl[ty * W + tx]) && !openAt(tx * TS + 8, ty * TS + 8)) break; const s = { tx, ty, x: tx * TS + 8, y: ty * TS + 8, tile: spikeLook(Wk), ph: 0, hit: new Set(), was: 1, ax: H ? 'x' : 'y', fc, gate: sg }; A.spikes.push(s); sg.spikes.push(s); }
     h.spikeGate = sg; (A.spikeGates = A.spikeGates || []).push(sg); X.puz = 'spikegate'; X.spikeGate = sg; A.sets.push('spikegate'); (A.puzNames = A.puzNames || []).push(PUZ_NAMES.spikegate);
@@ -196,7 +198,7 @@ function puzzleAfter(A, r) {
   if (r.gateOf && (r.puz === 'echo' || r.puz === 'song')) placeEcho(A, r, r.gateOf);
   if (r.gateOf && r.puz === 'fires') placeFires(A, r, r.gateOf);
   if (r.gap) { for (const i of r.gap.lanes) clear(i % W, (i / W) | 0, 16); for (const [x, y] of r.gap.blocks) { const b = block(x, y); b.fill = true; } }
-  if (r.spikeGate) { const sg = r.spikeGate; plate(sg.at[0], sg.at[1], { timer: sg }); }
+  if (r.spikeGate) { const sg = r.spikeGate; plate(sg.at[0], sg.at[1], { timer: sg, hidden: sg.hidden }); } // (hidden: in a cracked wall's niche, THE HIDDEN SWITCH)
   if (r.crack) { const c = r.crack; A.props.push({ kind: 'crack', crack: c, x: (c.x + 1.5) * TS, y: (c.y + 1) * TS + 15, cy: (c.y + 1) * TS + 12, r: 18, solid: false, hp: 3, room: r.i }); }
   // half the time, tall stock stands right in front of it: crate stacks two high along the cracks, so the wall is
   // half hidden and must be cleared before it can be struck (it all breaks)
@@ -315,7 +317,7 @@ function openCrack(A, p) {
   const x = (c.x + 1.5) * TS, y = (c.y + 1) * TS + 8; shake(0.25); SFX.quake(0.9); SFX.stone(panOf(x), true);
   for (let i = 0; i < 3; i++) debris(x + rand(-16, 16), y + rand(-6, 6), 14, ['#6e665c', '#8a8076', '#4a443e', '#a69a8c', '#3a342e'], 120, 140, 2); smoke(x, y, 10, 'dust', 12, 26, 1.4);
   if (c.holds === 'rune') { for (const rn of (A.runes || []).concat(...(A.echoes || []).map(e => e.runes))) if (rn.niche === c) rn.hidden = false; textPop(x, y, 26, 'A HIDDEN RUNE', 'gold', true); }
-  else if (c.holds === 'drain') { const pl = (A.plates || []).find(q => q.hidden && q.tx === c.x + 1 && q.ty === c.y); if (pl) pl.hidden = false; textPop(x, y, 26, 'A HIDDEN DRAIN', 'gold', true); }
+  else if (c.holds === 'drain' || c.holds === 'spike') { const pl = (A.plates || []).find(q => q.hidden && q.tx === c.x + 1 && q.ty === c.y); if (pl) pl.hidden = false; textPop(x, y, 26, c.holds === 'drain' ? 'A HIDDEN DRAIN' : 'A HIDDEN SWITCH', 'gold', true); }
   else if (c.holds === 'lever') { const pl = (A.plates || []).find(q => q.hidden && q.tx === c.x + 1 && q.ty === c.y); if (pl) pl.hidden = false; textPop(x, y, 26, 'A HIDDEN LEVER', 'gold', true); }
   else { A.props.push({ kind: 'chest', tile: [pick([28, 30]), 8], th: 1, x: (c.x + 1) * TS + 8, y: c.y * TS + 14, cy: c.y * TS + 10, r: 5, solid: true, hp: 40, room: c.room, rich: true }); textPop(x, y, 26, 'A HIDDEN NICHE', 'gold', true); }
   A.lights = A.slit = null;

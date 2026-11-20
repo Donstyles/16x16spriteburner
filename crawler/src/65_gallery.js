@@ -25,6 +25,7 @@ const GALLERY = [
   ['THE WEIGHT', 'puz', 'weight', 'THE GATE HOLDS ONLY WHILE ITS PLATE IS PRESSED: PUSH THE BLOCK ON', '#f0c060'],
   ['THE GAP', 'puz', 'gap', 'PUSH A BLOCK INTO THE CLEFT: A STEPPING STONE', '#f0c060'],
   ['SPIKE GATE', 'puz', 'spikegate', 'THE PLATE DROPS THE SPIKES FOR SEVEN SECONDS: RUN', '#f0c060'],
+  ['HIDDEN SWITCH', 'puz', 'spikehidden', 'THE SPIKE GATE\'S PLATE IS SEALED BEHIND A CRACKED WALL', '#c8b0e8'],
   ['CRACKED WALL', 'crack', 'chest', 'THREE BLOWS, OR ONE HEAVY ONE', '#c8b0e8'],
   ['HIDDEN LEVER', 'crack', 'lever', 'A PORTCULLIS WHOSE BUTTON IS BEHIND A CRACKED WALL', '#c8b0e8'],
   ['HIDDEN RUNE', 'crack', 'rune', 'ONE OF THE THREE RUNES IS SEALED BEHIND A CRACKED WALL', '#c8b0e8'],
@@ -43,15 +44,15 @@ function beginGallery(kit, i) {
   const room = r => { const W = ARENA.w, cx = Math.round((r.ix0 + r.ix1) / 2); for (let d = 0; d < 12; d++) for (const y of [r.iy1 - d, r.iy1 - d + 1]) for (const x of [cx, cx - d, cx + d]) if (y >= r.iy0 && y <= r.iy1 && FLOOR(ARENA.fl[y * W + x])) return [x * TS + 8, y * TS + 10]; return [(cx + 0.5) * TS, (r.iy1 + 0.5) * TS]; };
   const doorIn = (r, d) => { const [x, y] = d.cells[1]; return d.side === 'N' ? [x, y + 2] : d.side === 'S' ? [x, y - 2] : d.side === 'W' ? [x + 2, y] : [x - 2, y]; };
   for (let n = 0; n < 60 && !at; n++) {
-    if (kind === 'shape') SHAPES.force = what; if (kind === 'great') GREAT.force = true; if (kind === 'theme') ARCH.theme = what; if (kind === 'puz') { PUZ.force = what === 'songhidden' ? 'song' : what; PUZ.hidden = what === 'songhidden'; } if (kind === 'crack') PUZ.force = what === 'lever' ? 'gate' : what === 'rune' ? 'rune' : null; if (kind === 'arch') ARCH.force = what;
-    try { startFloor(); } finally { SHAPES.force = null; GREAT.force = false; ARCH.theme = null; PUZ.force = null; PUZ.hidden = false; ARCH.force = null; }
+    if (kind === 'shape') SHAPES.force = what; if (kind === 'great') GREAT.force = true; if (kind === 'theme') ARCH.theme = what; if (kind === 'puz') { PUZ.force = what === 'songhidden' ? 'song' : what === 'spikehidden' ? 'spikegate' : what; PUZ.hidden = what === 'songhidden'; PUZ.spikeHidden = what === 'spikehidden'; } if (kind === 'crack') PUZ.force = what === 'lever' ? 'gate' : what === 'rune' ? 'rune' : null; if (kind === 'arch') ARCH.force = what;
+    try { startFloor(); } finally { SHAPES.force = null; GREAT.force = false; ARCH.theme = null; PUZ.force = null; PUZ.hidden = false; PUZ.spikeHidden = false; ARCH.force = null; }
     const A = ARENA;
     if (kind === 'shape') { const r = A.rooms.find(q => q.shape === what); if (r) at = room(r); }
     else if (kind === 'great') { const r = A.rooms.find(q => q.great); if (r) at = room(r); }
     else if (kind === 'theme') { const r = A.rooms.find(q => q.theme === what); if (r) at = room(r); }
     else if (kind === 'hall') { const h = A.halls.find(q => q[what]); if (h) { const d = h.A.doors.find(q => q.hall === h), [x, y] = doorIn(h.A, d); at = [x * TS + 8, y * TS + 10]; } }
     else if (kind === 'puz') {
-      const g = (A.gates || []).find(q => q.how === (what === 'gate' ? 'lever' : what === 'songhidden' ? 'song' : what) && (what !== 'songhidden' || (q.host && q.host.crack && q.host.crack.holds === 'rune'))), r = what === 'gap' ? A.rooms.find(q => q.gap) : what === 'spikegate' ? A.rooms.find(q => q.spikeGate) : g && (what === 'gate' ? null : g.host);
+      const g = (A.gates || []).find(q => q.how === (what === 'gate' ? 'lever' : what === 'songhidden' ? 'song' : what) && (what !== 'songhidden' || (q.host && q.host.crack && q.host.crack.holds === 'rune'))), r = what === 'gap' ? A.rooms.find(q => q.gap) : what === 'spikegate' ? A.rooms.find(q => q.spikeGate) : what === 'spikehidden' ? A.rooms.find(q => q.spikeGate && q.spikeGate.hidden) : g && (what === 'gate' ? null : g.host);
       if (what === 'gate' && g) { const X = puzReach(A, g.hall, false).has(g.hall.A) ? g.hall.A : g.hall.B, d = X.doors.find(q => q.hall === g.hall), [x, y] = doorIn(X, d); at = [x * TS + 8, y * TS + 10]; }
       else if (r && what === 'gap') { const b = A.props.find(q => q.push && q.fill); at = b ? [b.x + 30, b.cy + 4] : room(r); } else if (r) at = room(r);
     } else if (kind === 'crack') { const c = (A.cracks || []).find(q => q.holds === what); if (c) at = [(c.x + 1.5) * TS, (c.y + 2) * TS + 8]; }
