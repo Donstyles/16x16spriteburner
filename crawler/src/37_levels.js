@@ -114,7 +114,7 @@ function hostSluice(A, host, p) {
 function waterSet(A, r, cells, g, set, dual) {
   const W = wkOf(A), p = waterBody(A, cells, set, W, dual); p.room = r.i; (A.pools = A.pools || []).push(p); g.drawImage(p.bed, p.px0, p.py0);
   const cs = [...cells].map(i => [i % A.w, Math.floor(i / A.w)]), cx = (p.x0 + p.x1) / 2, cy = (p.y0 + p.y1) / 2;
-  cs.sort((a, b) => Math.hypot(a[0] - cx, a[1] - cy) - Math.hypot(b[0] - cx, b[1] - cy)); p.drainAt = cs.find(([x, y]) => cells.has((y - 1) * A.w + x)) || cs[0]; // (the grate never on the north wall's face, the top row) p.spots = cs.slice(1).sort(() => Math.random() - 0.5);
+  cs.sort((a, b) => Math.hypot(a[0] - cx, a[1] - cy) - Math.hypot(b[0] - cx, b[1] - cy)); p.drainAt = cs.find(([x, y]) => cells.has((y - 1) * A.w + x)) || cs[0]; /* (the grate never on the north wall's face, the top row) */ p.spots = cs.filter(q => q !== p.drainAt).sort(() => Math.random() - 0.5);
   const t = mkCanvas(TS, TS), tg = t.getContext('2d'), [br, bgc, bb] = W.basin; sheetTile(tg, W.drain, 0, 0);
   tg.globalCompositeOperation = 'source-atop'; tg.fillStyle = `rgba(${br},${bgc},${bb},0.45)`; tg.fillRect(0, 0, TS, TS); g.drawImage(t, p.drainAt[0] * TS, p.drainAt[1] * TS);
   return p;
