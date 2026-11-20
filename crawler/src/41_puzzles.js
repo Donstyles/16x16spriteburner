@@ -132,8 +132,8 @@ function gatesTick(A, dt) {
     if (g.k >= 1 && !g.shut) { for (const u of G.units) if (!u.dead && u.team !== 'hero' && underGate(A, g, u, 0)) crushUnder(u); for (const p of A.props) if (!p.dead && p.hp < 1e8 && p.kind !== 'crack' && underGate(A, g, { x: p.x, y: p.cy }, 0)) for (let n = 0; n < 4 && !p.dead; n++) breakProp(p, { dm: 3 }); gateShut(A, g, true); } // (and what furniture stands under it is smashed)
     if (g.k !== was) {
       if ((g.chT = (g.chT || 0) - dt) <= 0) { g.chT = rand(0.05, 0.1); SFX.clink(rand(1500, 2600), 0.05, pan, 0); } if (was === 1 || was === 0) SFX.stone(pan, false);
-      if (g.k === 1 && was < 1) { shake(0.06); SFX.stone(pan, true); for (const [x, y] of gateFoot(g)) smoke(x, y, 2, 'dust', 7, 14, 0.8); } // down: the thud, and dust off the floor right in front of it, all along it
-      if (g.k === 0 && was > 0) { SFX.stone(pan, true); for (const [x, y] of gateTop(g)) smoke(x, y, 1, 'dust', 5, 9, 0.6); } // up: a puff from under the strut over every panel
+      if (g.k === 1 && was < 1) { logEv('gate shut', { how: g.how, at: g.d.cells[1].join(',') }); shake(0.06); SFX.stone(pan, true); for (const [x, y] of gateFoot(g)) smoke(x, y, 2, 'dust', 7, 14, 0.8); } // down: the thud, and dust off the floor right in front of it, all along it
+      if (g.k === 0 && was > 0) { logEv('gate open', { how: g.how, at: g.d.cells[1].join(',') }); SFX.stone(pan, true); for (const [x, y] of gateTop(g)) smoke(x, y, 1, 'dust', 5, 9, 0.6); } // up: a puff from under the strut over every panel
     }
     g.d.k = g.k;
   }
@@ -371,7 +371,7 @@ function wallBurst(A, c, top) {
   breakSprite({ w: bw, d }, 0, 0, bw, bh, bx, by, (c.y + 2) * TS + 2, 26, { away: Math.PI / 2, spd: 1.35, edge: ['#2c2620', '#3a332b'] });
 }
 function openCrack(A, p) {
-  const c = p.crack, W = A.w; c.open = true; p.dead = true;
+  const c = p.crack, W = A.w; c.open = true; p.dead = true; logEv('wall broken', { holds: c.holds, at: c.x + ',' + c.y });
   const top = c.holds === 'hall' ? c.y - 1 : c.y; // (a hidden wing's doorway: through the whole wall, onto its corridor)
   for (let yy = top; yy <= c.y + 1; yy++) for (let xx = c.x; xx <= c.x + 2; xx++) A.fl[yy * W + xx] = 1;
   if (c.holds === 'hall' && A.secret && c.secret) for (const i of c.secret) A.secret[i] = 0;

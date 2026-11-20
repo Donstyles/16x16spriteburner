@@ -10,12 +10,20 @@ const G = {
 function after(t, fn) { G.sched.push({ t, fn }); }
 function startRun(kit) {
   G.run++; G.floor = 1; G.army = null; G.kills = 0; G.gold = 0; G.kit = kit; G.summary = null; G.time = 0;
+  G.seed = G.nextSeed != null ? G.nextSeed >>> 0 : (Math.random() * 4294967296) >>> 0; G.nextSeed = null; G.seedsUsed = new Set(); G.log = []; // (the run's seed: 00_core)
   const h = makeHero(kit); G.heroes = [h]; G.me = h;
   startFloor();
   G.mode = 'play';
 }
 function startFloor() {
   TEST.on = false; GAL.on = false; // (a gallery floor's buttons go with it: 65_gallery)
+  // the floor's own stream (00_core): from the run's seed and the floor's number; a floor made again in the same run (a
+  // test room or a script trying for a layout) takes a fresh run seed, so it is not the same floor once more
+  if (G.seed == null) G.seed = (Math.random() * 4294967296) >>> 0; G.seedsUsed = G.seedsUsed || new Set(); let fs = floorSeed(G.seed, G.floor);
+  if (G.seedsUsed.has(fs)) { G.seed = (Math.random() * 4294967296) >>> 0; fs = floorSeed(G.seed, G.floor); } G.seedsUsed.add(fs); G.floorSeed = fs; G.prevArmy = G.army;
+  withSeed(fs, makeFloor); logEv('floor', { seed: hex8(G.seed), army: ARENA.army });
+}
+function makeFloor() {
   buildArena(G.floor); clearUnderGates(ARENA); initSight(ARENA); G.proj = []; G.hz = []; G.drops = []; G.sched = []; for (const k in FX) FX[k].length = 0;
   const A = ARENA, sp = A.spawn;
   G.heroes.forEach((h, i) => { h.x = sp.x + (i - (G.heroes.length - 1) / 2) * 16; h.y = sp.from; h.enter = { y1: sp.y + i * 4 }; h.z = 0; h.vx = h.vy = h.kx = h.ky = 0; h.act = null; h.stun = 0; h.iframe = 0; h.dir = -Math.PI / 2; h.path = null; h.inBasin = undefined; h.fall = null; h.rise = 0; h.onPlat = h.platHop = null; h.lift = 0; h.safe = { x: sp.x, y: sp.y }; });
@@ -52,7 +60,7 @@ function updateRun(dt) {
     if (!G.heroes.some(alive)) { G.phase = 'dead'; G.phaseT = 0; G.best = Math.max(G.best, G.floor); saveBest(); G.summary = { floor: G.floor, kills: G.kills, gold: G.gold, kit: G.kit, name: ARENA.name }; G.fallenT = 0; return; } // (the title comes once his death has played out: below)
     const s = ARENA.stairs, at = G.heroes.find(h => alive(h) && Math.abs(h.x - s.x) < 18 && h.y < s.y + 6 && h.y > s.y - 20);
     if (at && s.seal && s.seal.k > 0) sealedBump(s, at); // (the way down shut: 36_works)
-    else if (at) { G.phase = 'descend'; G.phaseT = 0; SFX.whoosh(0); }
+    else if (at) { G.phase = 'descend'; G.phaseT = 0; SFX.whoosh(0); logEv('descend'); }
   } else if (G.phase === 'descend') {
     G.fade = Math.min(1, G.phaseT / 0.7);
     if (G.phaseT > 0.9) { G.floor++; G.best = Math.max(G.best, G.floor); saveBest(); for (const h of G.heroes) { if (h.dead) { h.dead = false; h.gone = h.dropped = false; h.hp = Math.round(h.maxHp * 0.3); } } startFloor(); }

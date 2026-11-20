@@ -322,7 +322,7 @@ function exitSeal(A) {
   if (s.seal === undefined) { s.seal = guards.length ? { k: 1, motif: pick([0, 5, 10]), guards } : null; return; }
   if (s.seal.going) { if (s.seal.wait && !G.cine) { s.seal.wait = false; G.cine = { exit: s, x: s.x, y: s.y - 10, t: 0 }; } return; } const left = s.seal.guards.filter(f => !f.dead && G.foes.includes(f));
   if (left.length) return; if (!s.seal.guards.some(f => f.dead)) { s.seal = null; return; } // (taken off the floor, not slain: a test room's)
-  s.seal.going = true; after(0.7, () => { if (ARENA === A && !G.cine) G.cine = { exit: s, x: s.x, y: s.y - 10, t: 0 }; else if (ARENA === A) s.seal.wait = true; });
+  s.seal.going = true; logEv('exit unsealed'); after(0.7, () => { if (ARENA === A && !G.cine) G.cine = { exit: s, x: s.x, y: s.y - 10, t: 0 }; else if (ARENA === A) s.seal.wait = true; });
 }
 function exitCine(C, dt) {
   const s = C.exit, q = s.seal, A = ARENA, pan = panOf(s.x); updateSight(dt); updateProj(0);
@@ -342,7 +342,7 @@ function exitCine(C, dt) {
   if (skip || (C.endT !== undefined && C.t - C.endT > 0.8)) { G.cine = null; G.eyes = null; }
 }
 // walking up to it shut: a dull knock, and what it is
-function sealedBump(s, h) { if ((s.bumpT || 0) > G.time) return; s.bumpT = G.time + 1.6; SFX.stone(panOf(s.x), false); textPop(h.x, h.y, headZ(h) + 6, 'SEALED', 'stone', false); }
+function sealedBump(s, h) { if ((s.bumpT || 0) > G.time) return; s.bumpT = G.time + 1.6; logEv('sealed exit bumped', { left: s.seal.guards.filter(f => !f.dead && G.foes.includes(f)).length }); SFX.stone(panOf(s.x), false); textPop(h.x, h.y, headZ(h) + 6, 'SEALED', 'stone', false); }
 // drawn on the floor's picture (after the ground, under everyone): the panel's frames below their bar, in the opening
 function drawExitSeal(c) {
   const A = ARENA, s = A.stairs; if (!s || !s.seal || s.seal.k <= 0) return; const col = (doorFrame(s.seal.k) + s.seal.motif) * TS;
@@ -386,7 +386,7 @@ function worksTick(dt) {
     // (a weight plate: down only while someone stands on it or a block weighs it down; a spike gate's: down while its
     // spikes are; 41_puzzles)
     if (pl.hold || pl.timer) { const on = heroes.some(h => h.onPlat === pl && h.z <= 0.5), w = pl.hold ? on || pushOn(pl) : pl.timer.downT > 0 || on; if (pl.timer && on && !(pl.timer.downT > 0)) { pl.timer.downT = SPIKEGATE.t; SFX.spike(panOf(pl.timer.spikes[0].x)); } if (w !== pl.down) { pl.down = w; pl.t = 0; SFX.stone(panOf(pl.x), w); if (w) shake(0.04); } pl.t = (pl.t || 0) + dt; pl.f = pl.down ? Math.min(3, Math.floor(pl.t / 0.06)) : Math.max(0, 3 - Math.floor(pl.t / 0.06)); if (pl.hold && pl.gate) pl.gate.held = pl.down; continue; }
-    if (!pl.down && heroes.some(h => h.onPlat === pl && h.z <= 0.5)) { pl.down = true; pl.t = 0; SFX.stone(panOf(pl.x), true); shake(0.05); }
+    if (!pl.down && heroes.some(h => h.onPlat === pl && h.z <= 0.5)) { pl.down = true; pl.t = 0; SFX.stone(panOf(pl.x), true); shake(0.05); logEv('plate', { at: pl.tx + ',' + pl.ty }); }
     if (pl.down) { pl.t += dt; pl.f = Math.min(3, Math.floor(pl.t / 0.06)); if (pl.pool && !pl.pool.drain && pl.t > 0.35) { if (pl.remote) startCine(pl); else startDrain(pl.pool); } if (pl.bridge && !pl.bridge.going && pl.t > 0.35) startBridgeCine(pl); if (pl.gate && !pl.gate.going && pl.t > 0.35) startGateCine(pl, pl.gate); } // (a drawbridge's: 37_levels)
   }
   for (const p of A.pools || []) if (p.drain === 1) {
@@ -434,10 +434,10 @@ function worksTick(dt) {
   puzzlesTick(dt); // (gates, stone blocks, echoing runes, spike gates: 41_puzzles)
 }
 function startDrain(p) {
-  p.drain = 1; const [dx, dy] = p.drainAt; SFX.drain(panOf(dx * TS)); SFX.quake(0.8);
+  logEv('draining', { at: p.x0 + ',' + p.y0 }); p.drain = 1; const [dx, dy] = p.drainAt; SFX.drain(panOf(dx * TS)); SFX.quake(0.8);
 }
 function endDrain(p) {
-  const A = ARENA; p.drain = 2; p.level = 0;
+  const A = ARENA; p.drain = 2; p.level = 0; logEv('drained', { at: p.x0 + ',' + p.y0 });
   A.basin = A.basin || new Uint8Array(A.w * A.h); // the dry basin: floor now, but a step below the walk and the bridge
   for (const i of p.cells) if (A.fl[i] === 2) { A.fl[i] = 1; A.basin[i] = 1; }
   basinMasks(A, p);

@@ -86,7 +86,7 @@ function stagger(u, t) {
   if (u.team === 'foe') { textPop(u.x, u.y, headZ(u) + 2, 'STAGGERED', 'gold', false, u); for (let i = 0; i < 6; i++) part({ k: 'glow', x: u.x + rand(-5, 5), y: u.y, z: 16 * u.scale + rand(0, 6), vz: rand(-10, 10), life: t, s0: 1.4, s1: 0.6, col: 'gold' }); }
 }
 function kill(u, src) {
-  u.dead = true; u.hp = 0; u.act = null; u.stun = 0;
+  u.dead = true; u.hp = 0; u.act = null; u.stun = 0; logEv(u.team === 'foe' ? 'kill' : 'hero down', { who: u.spr, at: tileOf(u), exit: u.exitGuard ? 1 : null, treasure: u.guard ? 1 : null }); // (the report: 66_report)
   if (u.team === 'foe') { if (!u.raisedBy) G.kills++; deathFx(u); if (!u.raisedBy) dropLoot(u); if (u.dummy) dummyDied(u); if (src && src.team === 'hero' && !u.raisedBy) src.killsT = (src.killsT || 0) + 1; } // the necromancer's raised dead are worth nothing
   else { heroFalls(u); flashLight(u.x, u.y, 60, 'red', 1, 0.6); SFX.boom(0.5, panOf(u.x)); shake(0.4); slowmo(0.3, 1.4); } // (no words over it: his death plays out first, 48_deaths)
 }
