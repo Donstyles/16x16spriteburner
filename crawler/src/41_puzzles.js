@@ -359,8 +359,16 @@ function fillGap(A, b) {
 // ---- THE CRACKED WALL: a blow on it
 function hitCrack(p, n) {
   const c = p.crack; if (c.open) return; c.hp -= n; c.stage = Math.min(2, 3 - Math.max(0, c.hp)); p.flashUntil = G.time + 0.1;
-  const x = p.x, y = p.cy - 6; debris(x + rand(-14, 14), y, 6 + n * 3, ['#6e665c', '#8a8076', '#4a443e', '#a69a8c'], 70, 90, 1.4); smoke(x, y, 2 + n, 'dust', 8, 14, 0.9); SFX.stone(panOf(x), n >= 3); shake(0.04 * n);
+  const x = p.x, y = p.cy - 6; for (let k = 0; k < 2; k++) debris(x + rand(-16, 16), y + rand(-10, 2), 6 + n * 4, ['#6e665c', '#8a8076', '#4a443e', '#a69a8c'], 90, 110, k ? 1.4 : 2.2); smoke(x, y, 3 + n, 'dust', 9, 16, 1); /* (every blow knocks grit off it) */ SFX.stone(panOf(x), n >= 3); shake(0.04 * n);
   if (c.hp <= 0) openCrack(ARENA, p);
+}
+// a cracked wall coming apart: its own picture (the bricks, the trim over them), broken into two dozen chunks of every size
+// that burst out into the room, tumble and lie there as rubble (40_fx breakSprite: stone left on the floor)
+function wallBurst(A, c, top) {
+  const bx = c.x * TS, by = top * TS, bw = 3 * TS, bh = (c.y + 2 - top) * TS, cv = mkCanvas(bw, bh), g = cv.getContext('2d');
+  g.translate(-bx, -by); drawGround(g, bx, by, bw, bh); for (const C of [A.ceil, A.ceilN]) if (C) g.drawImage(C, bx, by, bw, bh, bx, by, bw, bh);
+  const id = g.getImageData(0, 0, bw, bh), d = id.data; for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] < 70) d[i + 3] = 0; // (not the black of the rock behind it)
+  breakSprite({ w: bw, d }, 0, 0, bw, bh, bx, by, (c.y + 2) * TS + 2, 26, { away: Math.PI / 2, spd: 1.35, edge: ['#2c2620', '#3a332b'] });
 }
 function openCrack(A, p) {
   const c = p.crack, W = A.w; c.open = true; p.dead = true;
@@ -369,9 +377,14 @@ function openCrack(A, p) {
   if (c.holds === 'hall' && A.secret && c.secret) for (const i of c.secret) A.secret[i] = 0;
   // (the floor behind it painted in at last; a wall still standing further in keeps its own floor painted as rock: 30_arena)
   const still = (A.cracks || []).filter(q => q !== c && !q.open && q.mask).flatMap(q => q.mask); for (const i of still) A.fl[i] = 0;
+  wallBurst(A, c, top); // (before the picture of it goes)
   repaintTiles(A, ...(c.box || [c.x - 2, c.y - 4, c.x + 4, c.y + 2])); for (const i of still) A.fl[i] = 1;
-  const x = (c.x + 1.5) * TS, y = (c.y + 1) * TS + 8; shake(0.25); SFX.quake(0.9); SFX.stone(panOf(x), true);
-  for (let i = 0; i < 3; i++) debris(x + rand(-16, 16), y + rand(-6, 6), 14, ['#6e665c', '#8a8076', '#4a443e', '#a69a8c', '#3a342e'], 120, 140, 2); smoke(x, y, 10, 'dust', 12, 26, 1.4);
+  const x = (c.x + 1.5) * TS, y = (c.y + 1) * TS + 8; shake(0.45); kick(0.05); SFX.quake(1); SFX.boom && SFX.boom(0.6, panOf(x)); SFX.stone(panOf(x), true); after(0.12, () => SFX.stone(panOf(x), true));
+  // a hail of grit and pebbles off the whole face, high and low, and a cloud of dust rolling out into the room
+  const GRIT = ['#6e665c', '#8a8076', '#4a443e', '#a69a8c', '#3a342e'];
+  for (let i = 0; i < 8; i++) debris(x + rand(-22, 22), y + rand(-18, 6), 16, GRIT, 150, 170, i < 3 ? 3 : 2);
+  smoke(x, y, 16, 'dust', 14, 34, 1.8); smoke(x, y - 14, 8, 'dust', 10, 24, 1.4); ring(x, y, 34, 'white', 0.3, 2);
+  after(0.18, () => { if (ARENA === A) { debris(x + rand(-16, 16), y - 22, 14, GRIT, 40, 30, 2); smoke(x, y - 10, 5, 'dust', 10, 14, 1.2); } }); // (the last of it trickling down off the top)
   if (c.holds === 'rune') { for (const rn of (A.runes || []).concat(...(A.echoes || []).map(e => e.runes))) if (rn.niche === c) rn.hidden = false; }
   else if (c.holds === 'hall') { A.flv = (A.flv || 0) + 1; } // (nothing in it: the way on, now to be seen)
   else if (c.holds === 'drain' || c.holds === 'spike') { const pl = (A.plates || []).find(q => q.hidden && q.tx === c.x + 1 && q.ty === c.y); if (pl) pl.hidden = false; }
