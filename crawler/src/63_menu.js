@@ -78,7 +78,7 @@ function drawPause(c) {
   c.fillStyle = 'rgba(4,3,6,0.72)'; c.fillRect(0, 0, W, H);
   font(c, 900, clamp(big / 8, 30, 56), F_DISP); label(c, 'Paused', W / 2, H * 0.24, '#f8ecd6', { align: 'center' });
   font(c, 500, 14, F_HUD);
-  ['TAP ATTACK TO STRIKE, HOLD IT TO CHARGE A HEAVY BLOW', 'ROLL THROUGH BLOWS · HOLD BLOCK, OR RAISE IT JUST AS A BLOW LANDS TO PARRY', 'HIT SLEEPING OR UNAWARE FOES FOR A SNEAK ATTACK · RED MARKS SHOW WHERE A BLOW WILL LAND', 'KEYS: WASD · J ATTACK · SPACE ROLL · SHIFT BLOCK · F FLASK · ESC MENU'].forEach((L, i) => spaced(c, L, W / 2, H * 0.36 + i * 20, 1.5, 'rgba(240,224,192,0.8)', 'center'));
+  ['TAP ATTACK TO STRIKE, HOLD IT TO CHARGE A HEAVY BLOW', 'ROLL THROUGH BLOWS · HOLD BLOCK, OR RAISE IT JUST AS A BLOW LANDS TO PARRY', 'HIT SLEEPING OR UNAWARE FOES FOR A SNEAK ATTACK', 'KEYS: WASD · J ATTACK · SPACE ROLL · SHIFT BLOCK · F FLASK · ESC MENU'].forEach((L, i) => spaced(c, L, W / 2, H * 0.36 + i * 20, 1.5, 'rgba(240,224,192,0.8)', 'center'));
   const bw = Math.min(220, W * 0.32), bh = 42; btn(c, W / 2 - bw / 2, H * 0.66 - 46, bw, 34, 'GORE: ' + GORE_NAMES[GORE.level], () => setGore((GORE.level + 2) % 3), { size: 15 }); btn(c, W / 2 - bw - 8, H * 0.66, bw, bh, 'RESUME', togglePause); btn(c, W / 2 + 8, H * 0.66, bw, bh, 'ABANDON RUN', abandonRun, { col: '#e8907a' });
   if (MENU.update) btn(c, W / 2 - bw - 8, H * 0.66 + bh + 12, bw * 2 + 16, 38, 'NEW VERSION READY  ·  UPDATE NOW (ENDS THIS RUN)', () => location.reload(), { col: '#ffb860', size: 17, on: true });
 }

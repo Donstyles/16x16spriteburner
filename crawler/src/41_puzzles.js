@@ -90,9 +90,9 @@ function makeGate(A, h, near) { // (a corridor running north and south: the gate
 function gateCells(A, g) { const d = g.d, out = d.cells.map(([x, y]) => y * A.w + x); if (d.side === 'N') for (const [x, y] of d.cells) out.push((y - 1) * A.w + x); if (d.side === 'S') for (const [x, y] of d.cells) out.push((y + 1) * A.w + x); return out; }
 // shut, its cells are rock (and a side doorway's row behind the south wall, where it crosses the doorway); open, floor again
 function gateShut(A, g, shut) {
-  const d = g.d, ns = d.side === 'N' || d.side === 'S', solid = d.side === 'N' ? d.cells.map(([x, y]) => y * A.w + x) : d.side === 'S' ? d.cells.map(([x, y]) => (y + 1) * A.w + x) : gateCells(A, g);
+  const d = g.d, solid = d.side === 'N' ? d.cells.map(([x, y]) => y * A.w + x) : d.side === 'S' ? d.cells.map(([x, y]) => (y + 1) * A.w + x) : gateCells(A, g);
   for (const i of solid) A.fl[i] = shut ? 0 : 1; // (a north or south door: only its far row is solid; the row on the near side of it, under the door's top, can be walked into: from the corridor behind a north one, from the room in front of a south one)
-  if (ns) { A.gateBox = A.gateBox || new Map(); for (const [x, y0] of d.cells) { const y = d.side === 'N' ? y0 - 1 : y0, i = y * A.w + x; if (shut) A.gateBox.set(i, [[x * TS, y * TS + 9, (x + 1) * TS, (y + 1) * TS]]); else A.gateBox.delete(i); } } // (as far in as a south wall lets him: feet up to 8 px under the door's top, his head and shoulders over it)
+  if (d.side === 'N') { A.gateBox = A.gateBox || new Map(); for (const [x, y0] of d.cells) { const y = y0 - 1, i = y * A.w + x; if (shut) A.gateBox.set(i, [[x * TS, y * TS + 9, (x + 1) * TS, (y + 1) * TS]]); else A.gateBox.delete(i); } } // (a south one: its doorway row is open all the way, as the south wall's row beside it is) // (as far in as a south wall lets him: feet up to 8 px under the door's top, his head and shoulders over it)
   if (d.side === 'E' || d.side === 'W') { const x = d.cells[0][0], y = Math.max(...d.cells.map(c => c[1])) + 1, i = y * A.w + x; if (shut) { if (!g.wt) g.wt = [i, A.wt[i]]; A.wt[i] = 0; } else if (g.wt) A.wt[i] = g.wt[1]; }
   g.shut = shut; A.flv = (A.flv || 0) + 1;
 }
