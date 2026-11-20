@@ -135,7 +135,7 @@ function drawProp(c, p) {
   else if (p.kind === 'block') c.drawImage(IMG.cellar, (p.tile[0] + p.f) * TS, p.tile[1] * TS, TS, TS, p.x - 8, p.y - 14, TS, TS); // a vault's block, sinking frame by frame
   else { // (th: how many tiles tall; struck, a tall crate flashes white and fades back)
     const w = (p.tw || 1) * TS, n = p.th || 1, fl = (p.flashUntil || 0) - G.time, im = p.sheet === 'crypt' ? IMG.crypt : IMG.cellar; // (sheet: the crypt's own pieces, 43_crypt)
-    for (let i = 0; i < n; i++) c.drawImage(im, p.tile[0] * TS, (p.tile[1] + i) * TS, w, TS, p.x - w / 2, p.y - 14 - (n - 1 - i) * TS, w, TS);
+    for (let i = 0; i < n; i++) c.drawImage(im, p.tile[0] * TS, (p.tile[1] + i) * TS, w, TS, p.x - w / 2 + (p.jx || 0), p.y - 14 - (n - 1 - i) * TS, w, TS); // (jx: a tomb shuddering, 43_crypt)
     if (p.candles) drawCandles(c, p.candles); // (its candles: 44_candles)
     if (fl > 0) { c.globalAlpha = Math.min(1, fl * 9); c.drawImage(p.sheet === 'crypt' ? IMG.cryptW : IMG.cellarW, p.tile[0] * TS, p.tile[1] * TS, w, n * TS, p.x - w / 2, p.y - 14 - (n - 1) * TS, w, n * TS); c.globalAlpha = 1; }
   }
@@ -277,7 +277,7 @@ function render() {
   for (const [, k, o] of list) if (k === 0) { if (o.fall) drawFalling(c, o); else if (!(o.rise > 0 && ((G.time * 18) | 0) % 2)) drawUnit(c, o); } else if (k === 1) { if (propSplit(o)) drawPropPart(c, o, false); else drawProp(c, o); } else if (k === 2) drawDrop(c, o); else if (k === 3) drawProj(c, o); else if (k === 5) drawWallArrow(c, o); else if (k === 6) drawStrut(c, o); else if (k === 7) drawSouthDoor(c, o); else drawRock(c, o);
   if (ARENA.shop) for (const w of ARENA.shop.wares) drawWare(c, w); // (his wares, over everyone: they never hide behind a customer, 39_shop)
   for (const h of G.heroes) if (h.shown) drawShown(c, h);
-  drawWorldParts(c); drawCeil(c, ox, oy, bw, bh); drawSouthStruts(c); // the tops of the south, east and west walls, at the ceiling, over everything in the room (and a south doorway's strut: 32_crawl)
+  drawLids(c); drawWorldParts(c); drawCeil(c, ox, oy, bw, bh); drawSouthStruts(c); // the tops of the south, east and west walls, at the ceiling, over everything in the room (and a south doorway's strut: 32_crawl)
   renderLight();
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'multiply'; c.drawImage(lc, 0, 0);
   fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.globalCompositeOperation = 'source-over'; fctx.globalAlpha = 1; fctx.clearRect(0, 0, bw, bh); fctx.globalCompositeOperation = 'lighter'; fctx.imageSmoothingEnabled = false; X(fctx);

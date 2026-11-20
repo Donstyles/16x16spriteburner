@@ -104,3 +104,70 @@ function cryptWall(A, r, g, used) {
     }
   }
 }
+
+// ===================== the restless dead =====================
+// A tomb's candles keep its dead asleep: while one still burns, the lid stays on. When the last goes out (burnt down, or
+// put out by a careless blow), the dead stir: a grinding, the tomb shudders, then the lid bursts off, comes down beside
+// it in pieces, and what lay in it climbs out. A tomb without candles holds its dead only while it stands in light:
+// come close to one in the dark (no candle, niche or brazier lighting it) and it opens. So keep to the worn paths,
+// keep the candles burning, and do not swing among the tombs. Who lies in a tomb follows the tomb: the tall ones with
+// headstones a mummy of the bone legion (a bound cadaver of the rot), the others a skeleton (a stumbler); one tomb in
+// three, by its place, is empty, and only its lid gives. The lid is read off the sheet: what of the lidded tomb is not
+// in the opened one (rows 4-5), so it is exactly the part that comes away.
+const OPEN_ROW = 4, LIDS = {};
+function lidOf(kind) {
+  if (LIDS[kind]) return LIDS[kind];
+  const col = TOMBS[kind] * TS, P = PIX.crypt, w = TS, h = 2 * TS, cv = mkCanvas(w, h), g = cv.getContext('2d'), id = g.createImageData(w, h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const a = (y * P.w + col + x) * 4, b = ((OPEN_ROW * TS + y) * P.w + col + x) * 4, j = (y * w + x) * 4;
+    if (P.d[a + 3] && (!P.d[b + 3] || P.d[a] !== P.d[b] || P.d[a + 1] !== P.d[b + 1] || P.d[a + 2] !== P.d[b + 2])) { id.data[j] = P.d[a]; id.data[j + 1] = P.d[a + 1]; id.data[j + 2] = P.d[a + 2]; id.data[j + 3] = 255; }
+  }
+  g.putImageData(id, 0, 0); return (LIDS[kind] = { cv, pix: { w, d: id.data } });
+}
+// light on a place: a lit candle within 30 px, a lit niche within 56, a burning brazier within 80
+function litAt(A, x, y) {
+  if ((A.candles || []).some(c => c.lit && Math.hypot(c.x - x, c.yb - y) < 30)) return true;
+  if (A.torches.some(t => !t.out && Math.hypot(t.x - x, t.y + 20 - y) < 56)) return true;
+  return A.props.some(p => p.kind === 'brazier' && !p.dead && !p.out && Math.hypot(p.x - x, p.y - y) < 80);
+}
+function tombOccupant(A, p) {
+  const tx = Math.floor(p.x / TS), ty = Math.floor(p.y / TS); if (hash2(tx * 31 + 7, ty * 17 + 3) < 0.34) return null;
+  const rot = A.army === 'rot', tall = p.tombKind === 'head' || p.tombKind === 'headCross', alt = hash2(ty, tx) < 0.5;
+  return tall ? { role: 'brute', spr: rot ? 'BoundCadaver' : 'GrapplerMummy' } : { role: 'grunt', spr: rot ? (alt ? 'MutilatedStumbler' : 'SandGhoul') : (alt ? 'DecrepitBones' : 'GraveRevenant') };
+}
+function tombsTick(dt) {
+  const A = ARENA; if (!A || A.th.sheet !== 'crypt' || G.cine) return; const h = G.me;
+  for (const p of A.props) {
+    if (p.kind !== 'tomb' || p.opened || p.dead) continue;
+    if (p.wake === undefined) {
+      if (p.candles) { if (!p.candles.some(c => c.lit)) p.wake = 1.5; }
+      else if (h && !h.dead && Math.hypot(h.x - p.x, (h.y - (p.y - 6)) * 1.2) < 30 && !litAt(A, p.x, p.y - 8)) p.wake = 0.8;
+      if (p.wake !== undefined) { SFX.stone(panOf(p.x)); smoke(p.x, p.y - 6, 1, 'dust', 4, 10, 0.5); }
+      continue;
+    }
+    p.jx = ((G.time * 26) | 0) % 2 ? 1 : 0; // (it shudders)
+    if ((p.wake -= dt) <= 0) popLid(A, p, h);
+  }
+  for (const f of G.foes) if (f.ghostT > 0) f.ghostT -= dt;
+  if (A.lids) {
+    for (const L of A.lids) {
+      L.vz -= 520 * dt; L.z += L.vz * dt; L.x += L.vx * dt; L.y += L.vy * dt;
+      if (L.z <= 0 && L.vz < 0) { // it comes down and breaks
+        L.done = true; breakSprite(L.lid.pix, 0, 0, TS, 2 * TS, Math.round(L.x), Math.round(L.y), L.y + 2 * TS - 2, 8, { spd: 0.7 });
+        smoke(L.x + 8, L.y + 24, 4, 'dust', 8, 22, 0.9); debris(L.x + 8, L.y + 26, 10, ['#897873', '#ab9c94', '#4c403d'], 70, 90, 1.2); SFX.stone(panOf(L.x), true); shake(0.12);
+      }
+    }
+    A.lids = A.lids.filter(L => !L.done);
+  }
+}
+function popLid(A, p, h) {
+  p.opened = true; p.wake = undefined; p.jx = 0; p.tile = [p.tile[0], OPEN_ROW]; p.candles = null; // (its candles stood on the lid: they go with it)
+  const away = h ? Math.sign(p.x - h.x) || 1 : 1;
+  (A.lids = A.lids || []).push({ lid: lidOf(p.tombKind), x: p.x - 8, y: p.y - 14 - TS, vx: away * 38, vy: 6, z: 0, vz: 150 });
+  smoke(p.x, p.y - 8, 3, 'dust', 6, 16, 0.8); SFX.stone(panOf(p.x), true); SFX.groan(panOf(p.x)); shake(0.1);
+  const who = tombOccupant(A, p); if (!who || !MOBS[who.spr]) return;
+  const u = mkFoe(who.role, G.floor, p.x, p.y - 7, who.spr); Object.assign(u, { z: -14, room: p.room, face: -away, ghostT: 1.8 });
+  G.foes.push(u); G.units.push(u); if (h) wakeFoe(u, h, 'noise');
+}
+// the lids in the air: over everything
+function drawLids(c) { const A = ARENA; if (!A || !A.lids) return; for (const L of A.lids) c.drawImage(L.lid.cv, Math.round(L.x), Math.round(L.y - L.z)); }
