@@ -83,29 +83,53 @@ function cryptFloor(g, W, H, near, inRoom, rooms) {
     for (let q = 0; q < 4; q++) Q[(y * 2 + (q >> 1)) * QW + x * 2 + (q & 1)] = e[q];
   }
   const at = (qx, qy) => qx < 0 || qy < 0 || qx >= QW || qy >= H * 2 ? -1 : Q[qy * QW + qx];
-  const nearStone = (qx0, qy0, qx1, qy1) => { for (let qy = qy0 - 1; qy <= qy1 + 1; qy++) for (let qx = qx0 - 1; qx <= qx1 + 1; qx++) if (at(qx, qy) === 0) return true; return false; };
+  /* the grout's print on bare earth (a brick's, n 1, or a slab's, n 2, from the sheet's bare piece at sx, sy): only along the
+     sides where stone is still down, so the lines open out into the dirt wherever the earth runs on */
+  const stone = (qx, qy) => at(qx, qy) === 0, cp = (sx, sy, w, h, dx, dy) => g.drawImage(IMG.crypt, sx, sy, w, h, dx, dy, w, h);
+  const print = (sx, sy, n, ax, ay, ox, oy) => { const e = n * 8 - 1;
+    earth(ox, oy, n * 8, n * 8);
+    for (let k = 0; k < n; k++) {
+      if (stone(ax + k, ay - 1)) cp(sx + k * 8, sy, 8, 1, ox + k * 8, oy);
+      if (stone(ax + k, ay + n)) cp(sx + k * 8, sy + e, 8, 1, ox + k * 8, oy + e);
+      if (stone(ax - 1, ay + k)) cp(sx, sy + k * 8, 1, 8, ox, oy + k * 8);
+      if (stone(ax + n, ay + k)) cp(sx + e, sy + k * 8, 1, 8, ox + e, oy + k * 8);
+    }
+    for (const [cx, cy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) { /* a corner: rounded where both its sides are stone, a dot where only the stone across it is */
+      const hx = cx ? ax + n : ax - 1, hy = cy ? ay + n : ay - 1, vx = cx ? ax + n - 1 : ax, vy = cy ? ay + n - 1 : ay;
+      const a = stone(vx, hy), b = stone(hx, vy), px = cx ? e : 0, py = cy ? e : 0;
+      if (a && b && n > 1) cp(sx + (cx ? e - 2 : 0), sy + (cy ? e - 2 : 0), 3, 3, ox + (cx ? e - 2 : 0), oy + (cy ? e - 2 : 0));
+      else if (!a && !b && stone(hx, hy)) cp(sx + px, sy + py, 1, 1, ox + px, oy + py);
+    }
+  };
   const earth = (dx, dy, w, h) => { g.fillStyle = '#332919'; g.fillRect(dx, dy, w, h); /* bare earth: a speck of grit now and then */
     for (let k = 0; k < w * h / 64; k++) if (Math.random() < 0.3) { g.fillStyle = Math.random() < 0.7 ? '#4c3e26' : '#261d1a'; g.fillRect(dx + ((Math.random() * (w - 1)) | 0), dy + ((Math.random() * (h - 1)) | 0), 1, 1); } };
-  const sprite = (s, dx, dy) => { if (!s[2]) { cryptAt(g, s[0], s[1], dx, dy); return; } g.save(); g.translate(dx + TS, dy); g.scale(-1, 1); cryptAt(g, s[0], s[1], 0, 0); g.restore(); };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (!near(x, y)) continue; const slab = lay[y * W + x], qx = x * 2, qy = y * 2, dx = x * TS, dy = y * TS;
     if (slab) {
-      if (at(qx, qy) === 1) { if ([[-1, 0], [2, 0], [0, -1], [0, 2]].filter(([i, j]) => at(qx + i, qy + j) === 0).length >= 3) cryptAt(g, 6, 1, dx, dy); else earth(dx, dy, TS, TS); continue; } /* a slab gone: its outline where it was one alone, else plain earth */
-      const open = { tl: [[-1, 0], [0, -1], [-1, -1]], tr: [[2, 0], [1, -1], [2, -1]], bl: [[-1, 1], [0, 2], [-1, 2]], br: [[2, 1], [1, 2], [2, 2]] };
-      const bare = Object.keys(open).filter(c => open[c].some(([i, j]) => at(qx + i, qy + j) === 1));
-      const c = bare.length && Math.random() < 0.65 ? pick(bare) : Math.random() < 0.03 ? pick(['tl', 'tr', 'bl', 'br']) : null;
-      if (c) sprite(CRYPT_CHIP[slab][c], dx, dy); else cryptAt(g, slab === 'plain' ? 6 : 7, 0, dx, dy);
+      if (at(qx, qy) === 1) { print(6 * TS, TS, 2, qx, qy, dx, dy); continue; } /* a slab gone */
+      /* each corner's chance of being broken off: high where it points out into bare earth (higher still into a wide
+         patch), lower along a straight edge of a patch, rare beside nothing; each chipped corner is that quarter of the
+         sheet's chipped slab (mirrored for the corners the sheet lacks), so a slab can lose more than one */
+      cryptAt(g, slab === 'plain' ? 6 : 7, 0, dx, dy);
+      for (const [cx, cy, c] of [[0, 0, 'tl'], [1, 0, 'tr'], [0, 1, 'bl'], [1, 1, 'br']]) {
+        const ox = cx ? qx + 2 : qx - 1, oy = cy ? qy + 2 : qy - 1, sx = cx ? 1 : -1, sy = cy ? 1 : -1;
+        const n = (at(ox, qy + cy) === 1) + (at(qx + cx, oy) === 1) + (at(ox, oy) === 1);
+        let wide = 0; for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) wide += at(ox + i * sx, oy + j * sy) === 1;
+        if (Math.random() >= (n === 3 ? (wide >= 7 ? 0.95 : 0.8) : n === 2 ? 0.25 : n === 1 ? 0.1 : 0.02)) continue;
+        const [tx, ty, m] = CRYPT_CHIP[slab][c], qdx = dx + cx * 8, qdy = dy + cy * 8;
+        if (!m) { g.drawImage(IMG.crypt, tx * TS + cx * 8, ty * TS + cy * 8, 8, 8, qdx, qdy, 8, 8); continue; }
+        g.save(); g.translate(qdx + 8, qdy); g.scale(-1, 1); g.drawImage(IMG.crypt, tx * TS + (1 - cx) * 8, ty * TS + cy * 8, 8, 8, 0, 0, 8, 8); g.restore();
+      }
       continue;
     }
     for (let q = 0; q < 4; q++) { const ax = qx + (q & 1), ay = qy + (q >> 1), ox = dx + (q & 1) * 8, oy = dy + (q >> 1) * 8;
       if (!at(ax, ay)) { g.drawImage(IMG.crypt, 10 * TS + (q & 1) * 8, (q >> 1) * 8, 8, 8, ox, oy, 8, 8); continue; }
-      if (nearStone(ax, ay, ax, ay)) g.drawImage(IMG.crypt, 10 * TS + (q & 1) * 8, TS + (q >> 1) * 8, 8, 8, ox, oy, 8, 8); /* the grout's print beside the bricks still down */
-      else earth(ox, oy, 8, 8);
+      print(10 * TS + (q & 1) * 8, TS + (q >> 1) * 8, 1, ax, ay, ox, oy); /* a brick gone */
     }
   }
 }
 // on the crypt's north walls, in place of the cellar's banners and windows: a burial niche (bones, skulls, urns, candles),
-// chains or blood running down, set in the brick between the trim and the foot of the wall (on the face's tile, y)
+// or chains hanging down, set in the brick between the trim and the foot of the wall (on the face's tile, y)
 const CRYPT_NICHES = [[6, 6], [7, 6], [8, 6], [9, 6], [10, 6], [11, 6], [6, 7], [7, 7], [9, 7], [10, 7], [11, 7]];
 // a crypt's lights on the walls are candles in a niche (the animated sheet's small shelf, four frames), set in the brick as
 // the niches are; a dead one is a niche with nothing burning in it
@@ -116,9 +140,8 @@ function cryptTorch(c, t) {
 function cryptAt(g, tx, ty, dx, dy) { g.drawImage(IMG.crypt, tx * TS, ty * TS, TS, TS, dx, dy, TS, TS); }
 function cryptWallDeco(g, x, y) {
   const r = Math.random(), dx = x * TS, top = y * TS - 8; // (the brick runs from eight pixels up the tile above to the foot)
-  if (r < 0.62) cryptAt(g, ...pick(CRYPT_NICHES), dx, top + 2);
-  else if (r < 0.82) cryptAt(g, 9 + randi(0, 2), 2 + randi(0, 1), dx, top);
-  else cryptAt(g, 6 + randi(0, 2), 2 + randi(0, 1), dx, top);
+  if (r < 0.75) cryptAt(g, ...pick(CRYPT_NICHES), dx, top + 2);
+  else cryptAt(g, 9 + randi(0, 2), 2 + randi(0, 1), dx, top);
 }
 function tileAt(g, tx, ty, dx, dy) { const [im, sx, sy] = srcOf(tx, ty); g.drawImage(im, sx, sy, TS, TS, dx, dy, TS, TS); }
 // A floor that cannot take the puzzles its depth asks for (37_levels levelPlan) is laid out again, a few times at most.
@@ -344,7 +367,7 @@ function furnish(A, r, g) {
   for (let x = r.ix0 + 1; x < r.ix1; x += r.great === 'h' ? 5 : 4) { const tx = x + (used.has(x) ? 3 : 0); if (tx >= r.ix1 || used.has(tx) || !plainWall(A, tx, r.fy0 + 1)) continue; used.add(tx); A.torches.push({ x: tx * TS + 8, y: (r.fy0 + 1) * TS + 9, tx, f: randi(0, 3) }); }
   // a banner: one of the twelve tall ones ([20..31, 0..1], the rod low in the upper tile) or one of the eight small ones
   // ([16..19, 0..1], one tile, the rod at its top; hung so its rod is level with the tall ones' and it hangs as low)
-  if (th.sheet === 'crypt') { for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || !plainWall(A, x, r.fy0 + 1) || !chance(0.5)) continue; cryptWallDeco(g, x, r.fy0 + 1); used.add(x); } } // (the crypt's own: niches, chains, blood)
+  if (th.sheet === 'crypt') { for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || !plainWall(A, x, r.fy0 + 1) || !chance(0.5)) continue; cryptWallDeco(g, x, r.fy0 + 1); used.add(x); } } // (the crypt's own: niches and chains)
   else for (let x = r.ix0 + 1; x < r.ix1; x++) {
     if (used.has(x) || used.has(x - 1) || used.has(x + 1) || !plainWall(A, x, r.fy0 + 1) || !chance(0.3)) continue; const b = randi(0, 19);
     if (b < 12) { tileAt(g, 20 + b, 0, x * TS, r.fy0 * TS); tileAt(g, 20 + b, 1, x * TS, (r.fy0 + 1) * TS); } else tileAt(g, 16 + (b - 12) % 4, (b - 12) >> 2, x * TS, r.fy0 * TS + 11);
