@@ -197,7 +197,7 @@ function buildArena(floor) {
   return A;
 }
 function buildArena1(floor) {
-  const th = CRYPT.force ? THEMES.crypt : floor % 2 ? THEMES.brown : THEMES.grey, GW = 5, GH = 4; TH = th; const liq = th.sheet === 'crypt' ? pick(['blood', 'black', 'rot']) : null; themeSheets(th, liq); // (longer floors: nine rooms on the first, one more every second floor down, up to fourteen)
+  const th = CRYPT.force || (floor >= 4 && floor <= 6) ? THEMES.crypt : floor % 2 ? THEMES.brown : THEMES.grey, /* (floors 4 to 6: the catacombs) */ GW = 5, GH = 4; TH = th; const liq = th.sheet === 'crypt' ? pick(['blood', 'black', 'rot']) : null; themeSheets(th, liq); // (longer floors: nine rooms on the first, one more every second floor down, up to fourteen)
   const N = Math.min(GW * GH - 1, 9 + Math.min(5, Math.floor(floor / 2)));
   // ---- the room graph: grown outward from the start cell, then a loop or two so not every floor is a single line
   const key = (x, y) => y * GW + x, cells = new Map(), edges = [];
