@@ -315,7 +315,7 @@ function exitTorches(A) { // (30_arena: one each side of the way down)
 // THE SEALED WAY DOWN. The stairs out of a floor are shut behind a blast door (one panel, in the stairwell's opening between
 // its two stone posts, the bar hidden up behind the lintel) while any creature that was in the exit room is still on its
 // feet, wherever it has gone. The last of them down, the door rumbles up into the lintel and then the torches either side
-// of the way down catch, one after the other, the view held on it all the while. A floor with nobody in its exit room (a
+// of the way down catch, both at once, the view held on it all the while. A floor with nobody in its exit room (a
 // test room's) has it open from the start, its torches lit as a hero comes near as before
 function exitSeal(A) {
   const s = A.stairs; if (!s || s.seal === null) return; const guards = G.foes.filter(f => f.guard);
@@ -333,8 +333,8 @@ function exitCine(C, dt) {
     if (chance(dt * 8)) smoke(s.x + rand(-6, 6), (s.sy + 1) * TS - 4, 1, 'dust', 4, 6, 0.6);
     if (q.k === 0) { C.upT = C.t; SFX.stone(pan, true); shake(0.08); for (let i = 0; i < 3; i++) smoke(s.x + rand(-6, 6), s.sy * TS + 12, 1, 'dust', 5, 9, 0.7); }
   }
-  if (C.upT !== undefined) { // then the torches, one and the other
-    const T = A.torches.filter(t => t.exit && t.out).sort((a, b) => a.x - b.x); if (T.length && C.t - C.upT > 0.45 + (2 - T.length) * 0.4) lightUp(T[0]);
+  if (C.upT !== undefined) { // then the torches, both at once
+    const T = A.torches.filter(t => t.exit && t.out); if (T.length && C.t - C.upT > 0.45) for (const t of T) lightUp(t);
     if (!T.length && C.endT === undefined) { C.endT = C.t; A.exitLit = true; }
   }
   const I = G.me && G.me.inp, skip = C.t > 1 && I && (I.atkP || I.dodgeP);
