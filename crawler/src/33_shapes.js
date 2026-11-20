@@ -129,11 +129,11 @@ function greatHall(r, fl, W, H) {
 // run over the corner)
 function plainWall(A, x, y) { return faceAt(A, x, y) && A.wt[y * A.w + x] === 6 * 64 + 1 + 1 && A.wt[(y - 1) * A.w + x] === 6 * 64 + 0 + 1; }
 function faceAt(A, x, y) { return x >= 0 && y >= 0 && y + 1 < A.h && A.fl[y * A.w + x] === 0 && FLOOR(A.fl[(y + 1) * A.w + x]); }
-// The blocks of wall a room's shape leaves standing get torches and banners on their faces like any wall (never a window:
-// a pillar has nothing behind it to look out on). Only plain brick takes them: a 2-wide block has none (both its face
+// The blocks of wall a room's shape leaves standing get torches, banners and barred windows on their faces like any wall.
+// Only plain brick takes them: a 2-wide block has none (both its face
 // tiles are wall ends), a 3-wide ring one (in the middle), a 5-wide three, a spur's long side many. Each face is laid out
-// about its middle: one tile a torch or a banner; three a torch, a banner and a torch, a banner alone, or two torches; a
-// long face torches four tiles apart, centred, a banner now and then between them.
+// about its middle: one tile a torch, a banner or a window; three a torch, a banner or a window and a torch, a banner alone,
+// two windows or two torches; a long face torches four tiles apart, centred, a banner or a window now and then between.
 function blockDecor(A, r, g) {
   const W = A.w, seen = new Set(), faces = [];
   for (const s of r.rock) {
@@ -142,13 +142,15 @@ function blockDecor(A, r, g) {
     let run = []; for (const c of blk.filter(q => plainWall(A, q % W, (q / W) | 0)).sort((a, b) => a - b)) { if (run.length && c !== run[run.length - 1] + 1) { faces.push(run); run = []; } run.push(c); } if (run.length) faces.push(run);
   }
   const torch = c => A.torches.push({ x: (c % W) * TS + 8, y: ((c / W) | 0) * TS + 9, tx: c % W, f: randi(0, 3), room: r.i });
+  const wy = A.th === THEMES.brown ? 3 : 0, WIN = [[16, 2, 1], [16, 3, 1], [17, 3, 2], [18, 3, 2], [19, 2, 1], [19, 3, 1], [20, 3, 2]];
+  const win = c => { const x = c % W, y = (c / W) | 0, [wx, wy0, wh] = pick(WIN); for (let j = 0; j < wh; j++) tileAt(g, wx, wy0 + wy - j, x * TS, (y - j) * TS); };
   const banner = c => { const x = c % W, y = (c / W) | 0, b = randi(0, 19); if (b < 12) { tileAt(g, 20 + b, 0, x * TS, (y - 1) * TS); tileAt(g, 20 + b, 1, x * TS, y * TS); } else tileAt(g, 16 + (b - 12) % 4, (b - 12) >> 2, x * TS, (y - 1) * TS + 11); };
   for (const f of faces) {
     const n = f.length, k = Math.random();
-    if (n === 1) { if (k < 0.5) torch(f[0]); else if (k < 0.9) banner(f[0]); }
-    else if (n === 2) { if (k < 0.6) { banner(f[0]); banner(f[1]); } }
-    else if (n === 3) { if (k < 0.4) { torch(f[0]); banner(f[1]); torch(f[2]); } else if (k < 0.7) banner(f[1]); else { torch(f[0]); torch(f[2]); } }
-    else { const cnt = Math.floor((n - 1) / 4) + 1, s0 = Math.floor((n - 1 - (cnt - 1) * 4) / 2), ts = new Set(); for (let i = 0; i < cnt; i++) ts.add(s0 + i * 4); for (const i of ts) torch(f[i]); for (let i = 0; i < n; i++) if (!ts.has(i) && !ts.has(i - 1) && !ts.has(i + 1) && chance(0.3)) banner(f[i]); }
+    if (n === 1) { if (k < 0.4) torch(f[0]); else if (k < 0.7) banner(f[0]); else if (k < 0.9) win(f[0]); }
+    else if (n === 2) { if (k < 0.4) { banner(f[0]); banner(f[1]); } else if (k < 0.7) { win(f[0]); win(f[1]); } }
+    else if (n === 3) { if (k < 0.3) { torch(f[0]); banner(f[1]); torch(f[2]); } else if (k < 0.55) { torch(f[0]); win(f[1]); torch(f[2]); } else if (k < 0.7) banner(f[1]); else if (k < 0.85) { win(f[0]); win(f[2]); } else { torch(f[0]); torch(f[2]); } }
+    else { const cnt = Math.floor((n - 1) / 4) + 1, s0 = Math.floor((n - 1 - (cnt - 1) * 4) / 2), ts = new Set(); for (let i = 0; i < cnt; i++) ts.add(s0 + i * 4); for (const i of ts) torch(f[i]); for (let i = 0; i < n; i++) if (!ts.has(i) && !ts.has(i - 1) && !ts.has(i + 1)) { const q = Math.random(); if (q < 0.25) banner(f[i]); else if (q < 0.4) win(f[i]); } }
   }
 }
 // what stands in the alcoves (after the room is furnished): a statue on its pedestal, a burning brazier, a small chest, a

@@ -73,6 +73,9 @@ function gateShut(A, g, shut) {
   if (d.side === 'E' || d.side === 'W') { const x = d.cells[0][0], y = Math.max(...d.cells.map(c => c[1])) + 1, i = y * A.w + x; if (shut) { if (!g.wt) g.wt = [i, A.wt[i]]; A.wt[i] = 0; } else if (g.wt) A.wt[i] = g.wt[1]; }
   g.shut = shut; A.flv = (A.flv || 0) + 1;
 }
+// where a gate meets the floor in front of it (its foot, the side we see), and the underside of its strut, a point a panel
+const gateFoot = g => { const d = g.d; if (d.side === 'N') return d.cells.map(([x, y]) => [x * TS + 8, (y + 1) * TS + 1]); if (d.side === 'S') return d.cells.map(([x, y]) => [x * TS + 8, (y + 2) * TS + S_DROP - 2]); const [x, y] = d.cells[2]; return [[x * TS + 8, (y + 1) * TS + 4]]; };
+const gateTop = g => { const d = g.d; if (d.side === 'N') return d.cells.map(([x, y]) => [x * TS + 8, (y - 1) * TS + 11]); if (d.side === 'S') return d.cells.map(([x, y]) => [x * TS + 8, y * TS + S_DROP + 8]); const [x, y] = d.cells[0]; return [[x * TS + 8, (y - 1) * TS]]; };
 const gatePos = g => { const c = g.d.cells[1]; return [c[0] * TS + 8, c[1] * TS + (g.d.side === 'N' ? 0 : 8)]; };
 function gatesTick(A, dt) {
   for (const g of A.gates || []) {
@@ -81,9 +84,13 @@ function gatesTick(A, dt) {
     if (g.k < 0.5 && g.shut) gateShut(A, g, false);
     if (g.k >= 0.5 && !g.shut) { // (it never comes down on anyone: it waits)
       const cs = gateCells(A, g).map(i => [(i % A.w) * TS, Math.floor(i / A.w) * TS]);
-      if (G.units.some(u => !u.dead && cs.some(([x, y]) => u.x > x - 5 && u.x < x + TS + 5 && u.y > y - 3 && u.y < y + TS + 4))) g.k = 0.49; else { gateShut(A, g, true); shake(0.06); SFX.stone(pan, true); smoke(gx, gy + 6, 3, 'dust', 8, 16, 0.8); }
+      if (G.units.some(u => !u.dead && cs.some(([x, y]) => u.x > x - 5 && u.x < x + TS + 5 && u.y > y - 3 && u.y < y + TS + 4))) g.k = 0.49; else gateShut(A, g, true); // (blocks from halfway down; the thud when it is down, below)
     }
-    if (g.k !== was) { if ((g.chT = (g.chT || 0) - dt) <= 0) { g.chT = rand(0.05, 0.1); SFX.clink(rand(1500, 2600), 0.05, pan, 0); } if (was === 1 || was === 0) SFX.stone(pan, false); if (g.k === 0 && was > 0) { SFX.stone(pan, true); smoke(gx, gy, 2, 'dust', 6, 10, 0.6); } }
+    if (g.k !== was) {
+      if ((g.chT = (g.chT || 0) - dt) <= 0) { g.chT = rand(0.05, 0.1); SFX.clink(rand(1500, 2600), 0.05, pan, 0); } if (was === 1 || was === 0) SFX.stone(pan, false);
+      if (g.k === 1 && was < 1) { shake(0.06); SFX.stone(pan, true); for (const [x, y] of gateFoot(g)) smoke(x, y, 2, 'dust', 7, 14, 0.8); } // down: the thud, and dust off the floor right in front of it, all along it
+      if (g.k === 0 && was > 0) { SFX.stone(pan, true); for (const [x, y] of gateTop(g)) smoke(x, y, 1, 'dust', 5, 9, 0.6); } // up: a puff from under the strut over every panel
+    }
     g.d.k = g.k;
   }
 }

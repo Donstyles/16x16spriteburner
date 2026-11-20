@@ -34,9 +34,9 @@ function lineOfSight(x0, y0, x1, y1) {
 function drawDoors(c) {
   const A = ARENA; if (!A.doors) return; const th = A.th;
   for (const d of A.doors) {
-    if (d.k <= 0.02) continue; const k = d.k;
+    if (d.k <= 0) continue; const k = d.k;
     if (d.side === 'N' || d.side === 'S') {
-      const col = 1 + Math.round((1 - k) * 3) + (d.motif || 0); // (its motif: the cross, the chevron or the emblem, in the floor's colour)
+      const col = doorFrame(k) + (d.motif || 0); // (its motif: the cross, the chevron or the emblem, in the floor's colour)
       if (d.side === 'S') continue; // (a south doorway's blast door is drawn among the units: drawSouthDoor)
       for (const [x, y] of d.cells) { c.drawImage(IMG.doors, col * TS, th.door * TS, TS, TS, x * TS, (y - 1) * TS, TS, TS); c.drawImage(IMG.doors, col * TS, (th.door + 1) * TS, TS, TS, x * TS, y * TS, TS, TS); }
     } else {
@@ -58,14 +58,23 @@ const STRUTS = d => d.side === 'N' ? [(d.cells[0][1] + 1) * TS, 6, d] : null;
 function drawStrut(c, d) { const th = ARENA.th, sx = (4 + (d.motif || 0)) * TS; for (const [x, y] of d.cells) c.drawImage(IMG.doors, sx, th.door * TS, TS, 11, x * TS, (y - 1) * TS, TS, 11); strutEnds(c, d, sx, th.door * TS + 3, (d.cells[0][1] - 1) * TS + 3); }
 // the bar's two ends run one pixel on into the posts beside the doorway, over the posts' dark outline, so the strut joins
 // the trim instead of stopping short against a dark edge (the outline stays above and below it)
-function strutEnds(c, d, sx, sy, dy) { const xs = d.cells.map(q => q[0]), x0 = Math.min(...xs), x1 = Math.max(...xs); c.drawImage(IMG.doors, sx, sy, 1, 8, x0 * TS - 1, dy, 1, 8); c.drawImage(IMG.doors, sx + TS - 1, sy, 1, 8, (x1 + 1) * TS, dy, 1, 8); }
+function strutEnds(c, d, sx, sy, dy, w = 1) { const xs = d.cells.map(q => q[0]), x0 = Math.min(...xs), x1 = Math.max(...xs); c.drawImage(IMG.doors, sx + TS - w, sy, w, 8, x0 * TS - w, dy, w, 8); c.drawImage(IMG.doors, sx, sy, w, 8, (x1 + 1) * TS, dy, w, 8); }
 // a blast door in a south doorway: the same frames (we see its south face, as with a north wall's), hung from the top of
 // the south wall, where its strut runs, and reaching down over the doorway and the corridor's first row; drawn among the
 // units by the depth of its foot, so whoever is in the corridor in front of it stands in front of it
-function drawSouthDoor(c, d) { const th = ARENA.th, col = 1 + Math.round((1 - d.k) * 3) + (d.motif || 0); for (const [x, y] of d.cells) { c.drawImage(IMG.doors, col * TS, th.door * TS, TS, TS, x * TS, y * TS - 3, TS, TS); c.drawImage(IMG.doors, col * TS, (th.door + 1) * TS, TS, TS, x * TS, (y + 1) * TS - 3, TS, TS); } }
+// the sheet's four frames, shut to all but up, and then only the strut: five steps of the same length either way
+const doorFrame = k => 1 + Math.min(3, Math.floor((1 - k) * 4));
+const S_DROP = 4, S_GAP = 4; // (a south doorway's strut sits 4 px down the tile, its top line on the south wall's trim line; the doorway is 4 px wider each side than its three tiles)
+function drawSouthDoor(c, d) {
+  const th = ARENA.th, col = (doorFrame(d.k) + (d.motif || 0)) * TS, xs = d.cells.map(q => q[0]), x0 = Math.min(...xs), x1 = Math.max(...xs), y = d.cells[0][1];
+  for (const [r, dy] of [[th.door, y * TS + S_DROP - 3], [th.door + 1, (y + 1) * TS + S_DROP - 3]]) {
+    for (const x of xs) c.drawImage(IMG.doors, col, r * TS, TS, TS, x * TS, dy, TS, TS);
+    c.drawImage(IMG.doors, col + TS - S_GAP, r * TS, S_GAP, TS, x0 * TS - S_GAP, dy, S_GAP, TS); c.drawImage(IMG.doors, col, r * TS, S_GAP, TS, (x1 + 1) * TS, dy, S_GAP, TS); // (the gap either side, filled from the panels' own edges)
+  }
+}
 // now and then a south doorway (which has no door) has a strut across it too: the same bar (the sheet has none seen from
 // behind), along the top of the south wall at the ceiling, over everyone passing under it (drawn with the ceiling)
-function drawSouthStruts(c) { const A = ARENA; if (!A.doors) return; for (const d of A.doors) if (d.side === 'N') strutEnds(c, d, (4 + (d.motif || 0)) * TS, A.th.door * TS + 3, (d.cells[0][1] - 1) * TS + 3); /* (a north strut's two ends again, over the ceiling: the posts' dark outline is part of the ceiling's trim) */ for (const d of A.doors) if (d.side === 'S' && d.strut) { const sx = (4 + (d.motif || 0)) * TS; for (const [x, y] of d.cells) c.drawImage(IMG.doors, sx, A.th.door * TS + 3, TS, 8, x * TS, y * TS, TS, 8); strutEnds(c, d, sx, A.th.door * TS + 3, d.cells[0][1] * TS); } }
+function drawSouthStruts(c) { const A = ARENA; if (!A.doors) return; for (const d of A.doors) if (d.side === 'N') strutEnds(c, d, (4 + (d.motif || 0)) * TS, A.th.door * TS + 3, (d.cells[0][1] - 1) * TS + 3); /* (a north strut's two ends again, over the ceiling: the posts' dark outline is part of the ceiling's trim) */ for (const d of A.doors) if (d.side === 'S' && d.strut) { const sx = (4 + (d.motif || 0)) * TS; for (const [x, y] of d.cells) c.drawImage(IMG.doors, sx, A.th.door * TS + 3, TS, 8, x * TS, y * TS + S_DROP, TS, 8); strutEnds(c, d, sx, A.th.door * TS + 3, d.cells[0][1] * TS + S_DROP, S_GAP); } }
 // the map in the corner: every tile the party has seen, where it came down, the way down once the map is read, every hero
 let MINI = null;
 function drawMinimap(c, xr, y0) {
