@@ -256,7 +256,7 @@ function puzzleAfter(A, r) {
   // half the time, tall stock stands right in front of it: crate stacks two high along the cracks, so the wall is
   // half hidden and must be cleared before it can be struck (it all breaks)
   if (r.crack && chance(0.5)) { const c = r.crack, y = c.y + 2, TALL = A.th.sheet === 'crypt' ? FURN.pot.map(t => [t[0], t[1], 'barrel']) : [[27, 12, 'crate'], [28, 12, 'crate'], [29, 12, 'crate']]; // (the crypt's: urns, one tall)
-    for (let x = c.x; x <= c.x + 2; x++) { if (!FLOOR(A.fl[y * W + x]) || (A.plates || []).some(q => q.tx === x && q.ty === y) || (A.runes || []).some(q => q.tx === x && q.ty === y)) continue; removeIf(A.props, q => q.kind !== 'crack' && Math.abs(q.x - (x * TS + 8)) < 14 && Math.abs(q.cy - (y * TS + 10)) < 14); const t = TALL[x % TALL.length]; A.props.push({ kind: t[2], tile: [t[0], t[1]], th: A.th.sheet === 'crypt' ? 1 : 2, tw: 1, x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 5, solid: true, hp: 40, room: r.i, screen: c }); } }
+    for (let x = c.x; x <= c.x + 2; x++) { if (!FLOOR(A.fl[y * W + x]) || (A.plates || []).some(q => q.tx === x && q.ty === y) || (A.runes || []).some(q => q.tx === x && q.ty === y)) continue; removeIf(A.props, q => q.kind !== 'crack' && Math.abs(q.x - (x * TS + 8)) < 14 && Math.abs(q.cy - (y * TS + 10)) < 14); const t = A.th.sheet === 'crypt' ? TALL[x % TALL.length] : pick(TALL); A.props.push({ kind: t[2], tile: [t[0], t[1]], th: A.th.sheet === 'crypt' ? 1 : 2, tw: 1, x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 5, solid: true, hp: 40, room: r.i, screen: c }); } }
 }
 // ---- THE ECHOING RUNES
 function placeEcho(A, r, g) {
