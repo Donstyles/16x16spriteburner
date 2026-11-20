@@ -171,3 +171,45 @@ function popLid(A, p, h) {
 }
 // the lids in the air: over everything
 function drawLids(c) { const A = ARENA; if (!A || !A.lids) return; for (const L of A.lids) c.drawImage(L.lid.cv, Math.round(L.x), Math.round(L.y - L.z)); }
+
+// ===================== they do not stay down =====================
+// In the crypt a skeleton cut down falls into a heap of its bones, and in the dark the heap pulls itself together again:
+// some seconds after, it rattles, shudders and stands up, whole. A heap in light stays down (a candle, a light niche, a
+// brazier: litAt) for as long as the light lasts; a heavy blow, or two blows on the heap, scatters it for good, and a
+// skeleton finished with a heavy blow never makes one. What it carried it dropped the first time only.
+const HEAP_T = 6, HEAP_RATTLE = 1.1;
+function boneHeap(u, src) {
+  const A = ARENA; if (!A || A.th.sheet !== 'crypt' || u.def.blood !== 'bone' || u.raisedBy || u.dummy || u.fall) return;
+  if (src && src.act && src.act.mv && src.act.mv.dm >= 2) return; // (finished with a heavy blow: in pieces for good)
+  (A.heaps = A.heaps || []).push({ x: Math.round(u.x), y: Math.round(u.y), spr: u.spr, type: u.type, face: u.face, room: u.room, t: 0, hp: 2, big: (u.scale || 1) > 1.1 });
+}
+function heapsTick(dt) {
+  const A = ARENA; if (!A || !A.heaps || G.cine) return;
+  for (const q of A.heaps) {
+    if (q.gone) continue;
+    if (q.t < HEAP_T && litAt(A, q.x, q.y)) continue; // (in light it lies still)
+    const was = q.t; q.t += dt;
+    if (was < HEAP_T && q.t >= HEAP_T) SFX.clatter(panOf(q.x));
+    if (q.t >= HEAP_T + HEAP_RATTLE) { // it stands up
+      q.gone = true; const h = G.me, u = mkFoe(q.type, G.floor, q.x, q.y, q.spr);
+      Object.assign(u, { z: -5, room: q.room, face: q.face, reborn: true, stun: 0.5 }); G.foes.push(u); G.units.push(u); if (h && !h.dead) wakeFoe(u, h, 'noise');
+      SFX.bone(panOf(q.x), true); debris(q.x, q.y, 6, BLOOD.bone, 50, 70, 1);
+    }
+  }
+  A.heaps = A.heaps.filter(q => !q.gone);
+}
+// a blow on a heap: two scatter it, a heavy one at once
+function heapBlow(src, mv, dir) {
+  const A = ARENA; if (!A || !A.heaps) return;
+  for (const q of A.heaps) {
+    if (q.gone || !hitsShape(src, { x: q.x, y: q.y, r: 5 }, mv, dir)) continue;
+    q.hp -= mv.dm >= 2 ? 2 : 1; q.t = Math.min(q.t, HEAP_T * 0.5); SFX.bone(panOf(q.x), q.hp <= 0); debris(q.x, q.y, q.hp <= 0 ? 14 : 5, BLOOD.bone, 90, 110, 1.3);
+    if (q.hp <= 0) { q.gone = true; smoke(q.x, q.y, 2, 'dust', 5, 12, 0.7); }
+  }
+}
+// the heap: the sheet's pile of bones, shuddering as it gathers itself
+const HEAP_TILES = [[13, 14], [12, 14]];
+function drawHeaps(c) {
+  const A = ARENA; if (!A || !A.heaps) return;
+  for (const q of A.heaps) { const t = HEAP_TILES[q.big ? 0 : 1], j = q.t >= HEAP_T ? (((G.time * 30) | 0) % 2 ? 1 : -1) : 0; c.drawImage(IMG.crypt, t[0] * TS, t[1] * TS, TS, TS, q.x - 8 + j, q.y - 12, TS, TS); }
+}

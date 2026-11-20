@@ -246,7 +246,7 @@ function render() {
   const c = wbc; c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; c.fillStyle = '#0b0c0f'; c.fillRect(0, 0, bw, bh); c.imageSmoothingEnabled = false; X(c);
   drawGround(c, ox, oy, bw, bh);
   const tb = ARENA.th.tone === 'brown' ? 5 : 0; if (ARENA.wallCandles) drawCandles(c, ARENA.wallCandles); /* (the crypt's niches: 44_candles) */ for (const t of ARENA.torches) { if (t.candles) continue; if (ARENA.th.sheet === 'crypt') { cryptTorch(c, t); continue; } if (t.out) { c.drawImage(IMG.cellar, (t.ember ? 31 : 30) * TS, (tb ? 5 : 2) * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); continue; } const f = ((G.time * 9 + t.f) | 0) % 4; c.drawImage(IMG.cellar, (tb + f) * TS, 26 * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); } // (the brown floors' own, iron on stone)
-  drawWorks(c); drawPits(c); drawWet(c); drawHazards(c); drawWake(c); drawRuns(c); drawDoors(c); drawTele(c); drawTelegraphs(c);
+  drawWorks(c); drawHeaps(c); drawPits(c); drawWet(c); drawHazards(c); drawWake(c); drawRuns(c); drawDoors(c); drawTele(c); drawTelegraphs(c);
   // the shadows, on a layer of their own cut to the floor (noFloor), then laid down
   if (!shb) { shb = mkCanvas(1, 1); shbc = shb.getContext('2d'); } fitBuf(shb, bw, bh); const S = shbc; S.setTransform(1, 0, 0, 1, 0, 0); S.globalCompositeOperation = 'source-over'; S.clearRect(0, 0, bw, bh); X(S);
   // (a drained basin: whoever stands outside it casts no shadow on its walls' faces nor its bed, whoever is down in it

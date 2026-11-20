@@ -279,7 +279,7 @@ function strikeHits(h, a) {
     hurt(f, W.dmg * mv.dm, h, { ...o, crit, poise: mv.poise * (crit > 1 ? 1.5 : 1), kx: Math.cos(ka) * mv.push, ky: Math.sin(ka) * mv.push * 0.8, ang: ka, style: styleOf(h, mv), sweep: (mv.sweep || 1) * (h.face < 0 ? -1 : 1) });
     sparks(f.x, f.y, 8 * f.scale, 6, crit > 1 ? 'gold' : 'white', 120, 70, ka, 1.6); const big = mv.dm >= 2 || crit > 1; freeze(f, big ? 0.12 : 0.07); freeze(h, big ? 0.06 : 0.025); if (crit > 1) { kick(0.04); flashLight(f.x, f.y, 50, 'gold', 1, 0.2); }
   }
-  if (!a.blew) { a.blew = true; candleBlow(src, mv, a.dir); } // (the candles it passes over go out: 44_candles)
+  if (!a.blew) { a.blew = true; candleBlow(src, mv, a.dir); heapBlow(src, mv, a.dir); } // (the candles it passes over go out: 44_candles)
   for (const p of ARENA.props) if (!p.dead && p.hp < 1e8 && !a.hit.has(p) && hitsShape(src, { x: p.x, y: p.cy, r: p.r }, mv, a.dir)) { a.hit.add(p); if (p.kind === 'crack' && mv.dm < 2 && screened(h, p)) continue; breakProp(p, mv); } // (screened: this whole blow misses the wall)
 }
 // big furniture (two tiles high or wide) standing between him and a cracked wall stops a standard blow: the wall is not
