@@ -26,8 +26,8 @@ function updateSight(dt) {
   // a fallen hero's lamp still burns, so whoever killed him stays in sight
   const W = A.w, H = A.h, vis = A.vis, lamps = G.eyes ? G.heroes.concat(G.eyes) : G.heroes; staticLit(A); vis.fill(0); let fresh = 0;
   // a seen tile is remembered in full; the tiles around it get a half-dim band, so memory ends in a softer pixel step
-  const D = A.memId.data, paint = (i, a) => { const o = i * 4; if (D[o + 3] >= a) return; D[o] = 46; D[o + 1] = 40; D[o + 2] = 52; D[o + 3] = a; };
-  const see = i => { if (vis[i]) return; vis[i] = 1; if (!A.mem[i]) { A.mem[i] = 1; fresh++; paint(i, 255); const x = i % W, y = (i / W) | 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < W && Y < H) paint(Y * W + X, 96); } } };
+  const S = A.secret, D = A.memId.data, paint = (i, a) => { const o = i * 4; if (D[o + 3] >= a || S && S[i]) return; D[o] = 46; D[o + 1] = 40; D[o + 2] = 52; D[o + 3] = a; };
+  const see = i => { if (vis[i] || S && S[i]) return; /* (a hidden wing: not till its wall is broken, 30_arena) */ vis[i] = 1; if (!A.mem[i]) { A.mem[i] = 1; fresh++; paint(i, 255); const x = i % W, y = (i / W) | 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < W && Y < H) paint(Y * W + X, 96); } } };
   for (const h of lamps) { // (and a sluice's view: 37_levels)
     const hx = h.x / TS, hy = (h.y - 4) / TS, R = h.eyeR || SIGHT.R;
     for (let k = 0; k < 120; k++) {
@@ -48,10 +48,10 @@ function updateSight(dt) {
 // the floor's map read (53_foes): all of the floor remembered at once, as if seen, with its walls (to two tiles above any
 // floor, a north wall's top behind its face) and the soft edge round it
 function revealFloor(A) {
-  const W = A.w, H = A.h, D = A.memId.data, open = (x, y) => x >= 0 && y >= 0 && x < W && y < H && A.fl[y * W + x] !== 0; let n = 0;
-  const paint = (i, a) => { const o = i * 4; if (D[o + 3] >= a) return; D[o] = 46; D[o + 1] = 40; D[o + 2] = 52; D[o + 3] = a; };
+  const W = A.w, H = A.h, D = A.memId.data, S = A.secret, open = (x, y) => x >= 0 && y >= 0 && x < W && y < H && A.fl[y * W + x] !== 0 && !(S && S[y * W + x]); let n = 0;
+  const paint = (i, a) => { const o = i * 4; if (D[o + 3] >= a || S && S[i]) return; D[o] = 46; D[o + 1] = 40; D[o + 2] = 52; D[o + 3] = a; };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const i = y * W + x; if (A.mem[i]) continue; let near = false; for (let dy = -1; dy <= 2 && !near; dy++) for (let dx = -1; dx <= 1; dx++) if (open(x + dx, y + dy)) { near = true; break; }
+    const i = y * W + x; if (A.mem[i] || S && S[i]) continue; let near = false; for (let dy = -1; dy <= 2 && !near; dy++) for (let dx = -1; dx <= 1; dx++) if (open(x + dx, y + dy)) { near = true; break; }
     if (near) { A.mem[i] = 1; n++; paint(i, 255); }
   }
   for (let i = 0; i < W * H; i++) if (!A.mem[i]) { const x = i % W, y = (i / W) | 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < W && Y < H && A.mem[Y * W + X]) paint(i, 96); } }

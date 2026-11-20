@@ -155,8 +155,18 @@ function buildArena1(floor) {
     R.doors.push({ side: 'N', cells: [[x1, F + 1], [x1 + 1, F + 1], [x1 + 2, F + 1]], hall: hl, hidden: true }); // (a doorway as far as the room's other works go: its landing kept clear; walled up, so no door of its own)
     R.hiddenN = true; R.hidCrack = { x: x1, y: F, hp: 3, stage: 0, open: false, room: R.i, holds: 'hall', hall: hl };
     if (P0 !== null) { R.hidCrack.inner = { x: x0, y: P0 - 2, hp: 3, stage: 0, open: false, room: R.i, holds: 'hall', hall: hl, deep: true }; hl.nest = x1 === x0 ? 'alcove' : 'leg'; }
+    // what of the wing stays unseen (nor remembered, nor read off the map) till the wall in front of it is broken: the room
+    // and its corridor (with their walls), and in a nested wing the pocket first (34_sight)
+    const rect = (a, b, c, d) => { const o = []; for (let y = b; y <= d; y++) for (let x = a; x <= c; x++) o.push(y * W + x); return o; }, far = rect(S.fx0 - 1, S.fy0 - 1, S.fx1 + 1, S.fy1).concat(rect(x0 - 1, S.fy1, x0 + 3, P0 === null ? F - 2 : P0 - 4));
+    if (P0 === null) R.hidCrack.secret = far; else { R.hidCrack.secret = rect(Math.min(x0, x1) - 1, P0 - 3, Math.max(x0, x1) + 3, F - 2); R.hidCrack.inner.secret = far; }
+    // and painted as solid rock where it comes up to the wall, so the wall's top is a plain one and not the end of a corridor
+    // (the two rows of floor behind each cracked wall; the real floor painted in when that wall breaks: 41_puzzles openCrack)
+    const xa = P0 === null ? x0 : Math.min(x0, x1), xb = P0 === null ? x0 + 2 : Math.max(x0, x1) + 2; R.hidCrack.mask = rect(xa, F - 3, xb, F - 2).filter(i => fl[i] === 1); R.hidCrack.box = [xa - 2, F - 5, xb + 2, F + 2];
+    if (P0 !== null) { R.hidCrack.inner.mask = rect(x0, P0 - 5, x0 + 2, P0 - 4).filter(i => fl[i] === 1); R.hidCrack.inner.box = [x0 - 2, P0 - 7, x0 + 4, P0]; }
+    hid.mask = R.hidCrack.mask.concat(P0 !== null ? R.hidCrack.inner.mask : []);
   }
   shapeRooms(rooms, fl, W, H, floor); // pillared halls, rings, cut corners, alcoves, spurs (33_shapes)
+  const hidMask = hid && hid.mask ? hid.mask : []; for (const i of hidMask) fl[i] = 0; // (a hidden wing's floor behind its walls, painted as rock: back after the paint)
   // ---- paint, the way the tileset is built: dark is solid rock, the beige rim is the top edge of the rock, and a brick face
   // stands under every rim that faces south. Wall pieces are overlays: the floor runs on underneath them.
   const cv = mkCanvas(W * TS, H * TS), g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
@@ -188,9 +198,10 @@ function buildArena1(floor) {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const P = wallPiece(isF, x, y); if (P) T(P[0], P[1], x, y, P[2]); }
   const A = ARENA = { arch: ARCH.cur, w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilN: cn, fl, wt, wf, rooms, halls, props: [], torches: [], name: floorName(floor), floor };
   paintCeil(A, cg, cv); // the painted trim, as drawn on the ground: the ceiling over everyone (31_walls)
+  for (const i of hidMask) fl[i] = 1;
   A.doors = rooms.flatMap(r => r.doors.filter(d => !d.hidden).map(d => Object.assign(d, { room: r.i, k: 0, strut: d.side === 'S' && (shortHall(d.hall) || chance(0.16)), motif: pick([0, 5, 10]) }))); // (strut: a south doorway's, now and then, and always at the top of a short straight corridor down to a north doorway, whose strut it then faces: a square frame; 32_crawl)
   A.start = rooms.find(r => r.kind === 'start'); A.end = rooms.find(r => r.kind === 'end');
-  for (const r of rooms) if (r.hidCrack) { r.crack = r.hidCrack; r.crackX = r.crack.x; (A.cracks = A.cracks || []).push(r.crack); if (r.crack.inner) A.cracks.push(r.crack.inner); } // (the hidden wing's walled-up doorway)
+  for (const r of rooms) if (r.hidCrack) { r.crack = r.hidCrack; r.crackX = r.crack.x; (A.cracks = A.cracks || []).push(r.crack); if (r.crack.inner) A.cracks.push(r.crack.inner); A.secret = A.secret || new Uint8Array(W * H); for (const c of [r.crack, r.crack.inner]) if (c) for (const i of c.secret) A.secret[i] = 1; } // (the hidden wing's walled-up doorway)
   // ---- furnishing (the stairways' places first, so no torch or banner hangs on them)
   // three free tiles of north wall, clear of any doorway by a tile, as near the middle as they come
   const wallSpot = r => { const nd = r.doors.filter(d => d.side === 'N').flatMap(d => d.cells.map(c => c[0])); let best = r.cx - 1, bd = 1e9; for (let x = r.ix0 + 1; x + 2 <= r.ix1 - 1; x++) { if (nd.some(c => c >= x - 1 && c <= x + 3)) continue; const d = Math.abs(x + 1 - (r.ix0 + r.ix1) / 2); if (d < bd) { bd = d; best = x; } } return best; };

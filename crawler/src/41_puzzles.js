@@ -363,11 +363,14 @@ function openCrack(A, p) {
   const c = p.crack, W = A.w; c.open = true; p.dead = true;
   const top = c.holds === 'hall' ? c.y - 1 : c.y; // (a hidden wing's doorway: through the whole wall, onto its corridor)
   for (let yy = top; yy <= c.y + 1; yy++) for (let xx = c.x; xx <= c.x + 2; xx++) A.fl[yy * W + xx] = 1;
-  repaintTiles(A, c.x - 2, c.y - 4, c.x + 4, c.y + 2);
+  if (c.holds === 'hall' && A.secret && c.secret) for (const i of c.secret) A.secret[i] = 0;
+  // (the floor behind it painted in at last; a wall still standing further in keeps its own floor painted as rock: 30_arena)
+  const still = (A.cracks || []).filter(q => q !== c && !q.open && q.mask).flatMap(q => q.mask); for (const i of still) A.fl[i] = 0;
+  repaintTiles(A, ...(c.box || [c.x - 2, c.y - 4, c.x + 4, c.y + 2])); for (const i of still) A.fl[i] = 1;
   const x = (c.x + 1.5) * TS, y = (c.y + 1) * TS + 8; shake(0.25); SFX.quake(0.9); SFX.stone(panOf(x), true);
   for (let i = 0; i < 3; i++) debris(x + rand(-16, 16), y + rand(-6, 6), 14, ['#6e665c', '#8a8076', '#4a443e', '#a69a8c', '#3a342e'], 120, 140, 2); smoke(x, y, 10, 'dust', 12, 26, 1.4);
   if (c.holds === 'rune') { for (const rn of (A.runes || []).concat(...(A.echoes || []).map(e => e.runes))) if (rn.niche === c) rn.hidden = false; }
-  else if (c.holds === 'hall') { A.flv = (A.flv || 0) + 1; } // (nothing in it: the way on)
+  else if (c.holds === 'hall') { A.flv = (A.flv || 0) + 1; } // (nothing in it: the way on, now to be seen)
   else if (c.holds === 'drain' || c.holds === 'spike') { const pl = (A.plates || []).find(q => q.hidden && q.tx === c.x + 1 && q.ty === c.y); if (pl) pl.hidden = false; }
   else if (c.holds === 'lever') { const pl = (A.plates || []).find(q => q.hidden && q.tx === c.x + 1 && q.ty === c.y); if (pl) pl.hidden = false; }
   else { A.props.push({ kind: 'chest', tile: [pick([28, 30]), 8], th: 1, x: (c.x + 1) * TS + 8, y: c.y * TS + 14, cy: c.y * TS + 10, r: 5, solid: true, hp: 40, room: c.room, rich: true }); }

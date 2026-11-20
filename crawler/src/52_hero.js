@@ -7,8 +7,8 @@
 // Block soaks blows at the price of stamina; raised just as a blow lands it parries, leaving the attacker open.
 const KITS = {
   sellsword: { name: 'SELLSWORD', spr: 'VeteranSwordsman', hp: 100, spd: 62, weapon: 'sword', off: 'shield', blurb: 'SWORD AND SHIELD · STEADY COMBOS, A SOLID GUARD' },
-  lancer: { name: 'LANCER', spr: 'BoldManAtArms', hp: 100, spd: 60, weapon: 'spear', off: 'shield', blurb: 'SPEAR AND SHIELD · LONG REACH, KEEPS FOES AT BAY' },
-  gladiator: { name: 'GLADIATOR', spr: 'BlessedGladiator', hp: 125, spd: 56, weapon: 'axe', off: null, blurb: 'TWO-HANDED AXE · SLOW, BRUTAL, BREAKS ANY GUARD' },
+  lancer: { name: 'LANCER', spr: 'BoldManAtArms', hp: 100, spd: 60, weapon: 'spear', off: 'shield', blurb: 'HALBERD AND SHIELD · LONG REACH, KEEPS FOES AT BAY' },
+  gladiator: { name: 'GLADIATOR', spr: 'BlessedGladiator', hp: 125, spd: 56, weapon: 'axe', off: null, blurb: 'TWO-HANDED CLUB · SLOW, BRUTAL, BREAKS ANY GUARD' },
   cutthroat: { name: 'CUTTHROAT', spr: 'HalflingAssassin', hp: 85, spd: 68, weapon: 'daggers', off: null, roll: 1.3, blurb: 'TWIN DAGGERS · QUICK, ROLLS FAR, DEADLY FROM BEHIND' },
 };
 // k: 'arc' (sweep: +1/-1 direction of the swing), 'line' (thrust, w = width) or 'circle' (at = centre ahead of the hero)
@@ -18,12 +18,12 @@ const WEAPONS = {
     { k: 'arc', wind: 0.06, act: 0.09, rec: 0.24, reach: 21, arc: 2.1, sweep: -1, dm: 1.05, stam: 12, poise: 10, lunge: 70, push: 70 },
     { k: 'line', wind: 0.1, act: 0.08, rec: 0.36, reach: 28, w: 10, dm: 1.5, stam: 16, poise: 24, lunge: 140, push: 150 }],
     heavy: { k: 'circle', charge: 0.55, wind: 0.04, act: 0.24, rec: 0.42, reach: 27, dm: 2.3, stam: 26, poise: 60, push: 170, spin: true } },
-  spear: { name: 'SPEAR', dmg: 15, guard: { absorb: 0.45, cost: 1.25 }, combo: [
+  spear: { name: 'HALBERD', dmg: 15, guard: { absorb: 0.45, cost: 1.25 }, combo: [
     { k: 'line', wind: 0.09, act: 0.08, rec: 0.26, reach: 35, w: 8, dm: 1, stam: 12, poise: 9, lunge: 50, push: 90 },
     { k: 'line', wind: 0.08, act: 0.08, rec: 0.26, reach: 35, w: 8, dm: 1, stam: 12, poise: 9, lunge: 50, push: 90 },
     { k: 'arc', wind: 0.12, act: 0.1, rec: 0.38, reach: 31, arc: 2.6, sweep: 1, dm: 1.3, stam: 18, poise: 22, lunge: 30, push: 140 }],
     heavy: { k: 'line', charge: 0.6, wind: 0.05, act: 0.18, rec: 0.45, reach: 40, w: 10, dm: 2.4, stam: 26, poise: 55, lunge: 330, push: 210, dash: true } },
-  axe: { name: 'BATTLE AXE', dmg: 27, guard: { absorb: 0.55, cost: 1.15 }, combo: [
+  axe: { name: 'CLUB', dmg: 27, guard: { absorb: 0.55, cost: 1.15 }, combo: [
     { k: 'arc', wind: 0.17, act: 0.11, rec: 0.38, reach: 23, arc: 2.5, sweep: 1, dm: 1, stam: 20, poise: 28, lunge: 70, push: 150 },
     { k: 'arc', wind: 0.19, act: 0.12, rec: 0.5, reach: 24, arc: 2.7, sweep: -1, dm: 1.25, stam: 22, poise: 36, lunge: 80, push: 180 }],
     heavy: { k: 'circle', charge: 0.75, wind: 0.08, act: 0.1, rec: 0.62, reach: 30, at: 14, dm: 2.8, stam: 32, poise: 95, push: 240, slam: true } },
