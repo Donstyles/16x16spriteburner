@@ -54,16 +54,17 @@ function wallPiece(isF, x, y) {
   if (O(x + 1, y - 1)) return [5, 3, false]; if (O(x - 1, y - 1)) return [7, 3, false];
   return null;
 }
-// THE CRYPT'S FLOOR: a pavement of small bricks over bare earth, laid a quarter tile at a time (every brick tile of the
-// sheet is four quarters, each a brick or earth: 10,0 all brick, 10,1 all earth), so bricks go missing anywhere. Where
-// they are missing follows a slow noise of its own, so the gaps gather into worn patches; the corridors are the more
-// broken
-// The crypt floor is laid in two kinds of stone: small bricks (an 8 px brick to a quarter tile) and big slabs (a whole tile,
-// plain or quartered by grout lines). Each room is laid one way: a nave of big slabs framed by a row of bricks along its
-// walls, big slabs wall to wall, or bricks throughout with now and then a single grave slab set in them; the corridors are
-// brick. Then the wear: where a soft noise runs high the stone has come away, a brick at a time or a whole slab at a time,
-// in broad patches. Bare earth is plain; the grout's print stays only beside stone still down (a brick's frame, or a missing
-// slab's outline), and a slab beside a bare patch has its corner on that side broken off (a few are chipped anyway).
+// THE CRYPT'S FLOOR, laid by rule: nothing in it is left to chance. Two stones: small bricks (four to a tile) and big
+// slabs (a whole tile, plain or quartered by grout lines). How a room is paved follows what it is: the way out and the
+// great rooms a nave of quartered slabs framed by a row of bricks along the walls, the treasure rooms and the middling
+// rooms plain slabs wall to wall, small rooms and the corridors brick. The wear follows the feet: from every doorway
+// straight into the room and along to its middle, and down the middle of every corridor, the stone is worn away in a band
+// that swells and narrows slowly along the way (a smooth function of the place, so crossing paths agree); bricks go where
+// the band reaches, a slab only where the band runs deep over it (it outlasts a brick). Rooms nobody passes through much
+// (the treasure rooms, the shop, the secret ones) are worn the less. A slab's corner is broken off where it points out
+// into bare earth, and along a band's edge where the band runs deep beside it; never elsewhere. Bare earth is plain but
+// for its grit; the grout's print runs only along the stone still down and opens out into the dirt everywhere else.
+const hash2 = (x, y) => { let h = Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const CRYPT_CHIP = { plain: { tl: [8, 1], tr: [7, 1], br: [9, 1], bl: [9, 1, 1] }, panel: { tl: [8, 0], tr: [8, 0, 1], br: [9, 0], bl: [9, 0, 1] } };
 // a chipped corner: that quarter of the sheet's chipped slab (mirrored for the corners the sheet lacks), its outer grout
 // opened into earth on the sides (oh: above or below it, ov: beside it) where bare earth lies beyond, and any grout left
@@ -88,40 +89,50 @@ function chipQuarter(kind, c, oh, ov) {
   }
   return (CHIPQ[key] = cv);
 }
-function cryptFloor(g, W, H, near, inRoom, rooms) {
-  const S = 4.5, gw = Math.ceil(W / S) + 2, gh = Math.ceil(H / S) + 2, N = Float32Array.from({ length: gw * gh }, () => Math.random());
-  const noise = (x, y) => { const fx = x / S, fy = y / S, ix = Math.floor(fx), iy = Math.floor(fy), u = fx - ix, v = fy - iy, s = t => t * t * (3 - 2 * t), a = N[iy * gw + ix], b = N[iy * gw + ix + 1], c = N[(iy + 1) * gw + ix], d = N[(iy + 1) * gw + ix + 1];
-    return (a + (b - a) * s(u)) * (1 - s(v)) + (c + (d - c) * s(u)) * s(v); };
+function cryptFloor(g, W, H, near, inRoom, rooms, halls) {
   /* the laying: per tile, 0 bricks, or a slab kind */
   const lay = new Array(W * H).fill(null);
   for (const r of rooms) {
-    const w = r.ix1 - r.ix0 + 1, h = r.iy1 - r.iy0 + 1, kind = Math.random() < 0.5 ? 'plain' : 'panel', u = Math.random();
-    const how = w >= 5 && h >= 5 && u < 0.45 ? 'nave' : u < 0.75 ? 'slabs' : 'bricks'; r.paving = how + ' ' + kind;
+    const w = r.ix1 - r.ix0 + 1, h = r.iy1 - r.iy0 + 1, how = w >= 5 && h >= 5 && (r.kind === 'end' || w * h >= 110) ? 'nave' : r.kind === 'treasure' || w * h >= 56 ? 'slabs' : 'bricks', kind = how === 'nave' ? 'panel' : 'plain';
+    r.paving = how + ' ' + kind;
     for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) { /* (the room's own floor: ix, iy; fx, fy take in its walls) */
       const rim = x === r.ix0 || x === r.ix1 || y === r.iy0 || y === r.iy1;
-      lay[y * W + x] = how === 'slabs' || (how === 'nave' && !rim) ? kind : how === 'bricks' && Math.random() < 0.035 ? 'plain' : 0;
+      lay[y * W + x] = how === 'slabs' || (how === 'nave' && !rim) ? kind : 0;
     }
   }
-  const QW = W * 2, Q = new Int8Array(QW * H * 2).fill(-1); /* per quarter tile: -1 not floor, 0 stone, 1 bare earth */
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    if (!near(x, y)) continue; const cut = inRoom(x, y) ? 0.36 : 0.46, slab = lay[y * W + x], e = [];
-    const worn = (qx, qy, j) => noise(x + qx, y + qy) - 0.5 + cut * 0.9 + (Math.random() - 0.5) * j;
-    if (slab) { const n = (worn(0, 0, 0) + worn(0.5, 0, 0) + worn(0, 0.5, 0) + worn(0.5, 0.5, 0)) / 4 + (Math.random() - 0.5) * 0.06; e.length = 4; e.fill(n > 0.43 || Math.random() < 0.015 ? 1 : 0); } /* (a slab outlasts a brick) */
-    else for (let q = 0; q < 4; q++) e[q] = worn((q & 1) * 0.5, (q >> 1) * 0.5, 0.06) > 0.36 || Math.random() < 0.025 ? 1 : 0;
-    for (let q = 0; q < 4; q++) Q[(y * 2 + (q >> 1)) * QW + x * 2 + (q & 1)] = e[q];
+  /* the paths the feet take, as lines through tile middles, each with how hard it is worn (k) */
+  const segs = [], seg = (x0, y0, x1, y1, k) => { if (x0 !== x1 || y0 !== y1) segs.push([x0 + 0.5, y0 + 0.5, x1 + 0.5, y1 + 0.5, k]); };
+  for (const r of rooms) {
+    const cx = Math.round((r.ix0 + r.ix1) / 2), cy = Math.round((r.iy0 + r.iy1) / 2), k = r.kind === 'treasure' || r.kind === 'shop' || r.secret ? 0.55 : 1;
+    const ins = r.doors.filter(d => !d.hidden).map(d => [d.side, d.cells[1][0], d.cells[1][1]]); if (r.stairX !== undefined) ins.push(['N', r.stairX + 1, r.iy0]);
+    for (const [sd, mx, my] of ins) { if (sd === 'N' || sd === 'S') { seg(mx, my, mx, cy, k); seg(mx, cy, cx, cy, k); } else { seg(mx, my, cx, my, k); seg(cx, my, cx, cy, k); } }
+    if (ins.length > 1) { seg(cx - 1, cy, cx + 1, cy, k * 1.35); seg(cx, cy - 1, cx, cy + 1, k * 1.35); } /* (where its paths meet, a wider worn place) */
   }
-  const at = (qx, qy) => qx < 0 || qy < 0 || qx >= QW || qy >= H * 2 ? -1 : Q[qy * QW + qx];
-  /* the chipped corners, chosen before anything is drawn (the bare earth beside one needs to know): each corner's chance of
-     being broken off is high where it points out into bare earth (higher still into a wide patch), lower along a straight
-     edge of a patch, rare beside nothing; so a slab can lose more than one */
+  for (const h of halls) { if (h.hidden) continue;
+    if (h.dir === 'h') { const y = h.y0 + 1, yb = h.yb + 1; if (h.bent) { seg(h.x0, y, h.xm, y, 1); seg(h.xm, y, h.xm, yb, 1); seg(h.xm, yb, h.x1, yb, 1); } else seg(h.x0, y, h.x1, y, 1); }
+    else { const x = h.x0 + 1, xb = h.xb + 1; if (h.bent) { seg(x, h.y0, x, h.ym, 1); seg(x, h.ym, xb, h.ym, 1); seg(xb, h.ym, xb, h.y1, 1); } else seg(x, h.y0, x, h.y1, 1); }
+  }
+  /* how deep the wear runs at a place (tile units): the band's half width there less the distance to its path; > 0 is worn */
+  const wearAt = (px, py) => { let best = -9;
+    for (const [x0, y0, x1, y1, k] of segs) {
+      const dx = x1 - x0, dy = y1 - y0, t = Math.max(0, Math.min(1, ((px - x0) * dx + (py - y0) * dy) / (dx * dx + dy * dy))), qx = x0 + dx * t, qy = y0 + dy * t;
+      const hw = k * (0.95 + 0.75 * (0.5 + 0.5 * Math.sin(qx * 0.83 + qy * 0.61) * Math.cos(qx * 0.37 - qy * 0.71))), v = hw - Math.hypot(px - qx, py - qy);
+      if (v > best) best = v;
+    }
+    return best; };
+  const QW = W * 2, Q = new Int8Array(QW * H * 2).fill(-1), QV = new Float32Array(QW * H * 2); /* per quarter tile: -1 not floor, 0 stone, 1 bare earth; and the wear there */
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!near(x, y)) continue; const slab = lay[y * W + x], deep = slab ? wearAt(x + 0.5, y + 0.5) > 0.45 : false;
+    for (let q = 0; q < 4; q++) { const i = (y * 2 + (q >> 1)) * QW + x * 2 + (q & 1), v = wearAt(x + 0.25 + (q & 1) * 0.5, y + 0.25 + (q >> 1) * 0.5); QV[i] = v; Q[i] = slab ? (deep ? 1 : 0) : v > 0 ? 1 : 0; }
+  }
+  const at = (qx, qy) => qx < 0 || qy < 0 || qx >= QW || qy >= H * 2 ? -1 : Q[qy * QW + qx], vAt = (qx, qy) => qx < 0 || qy < 0 || qx >= QW || qy >= H * 2 ? -9 : QV[qy * QW + qx];
+  /* the chipped corners, settled before anything is drawn (the bare earth beside one needs to know) */
   const chipped = new Map(); /* quarter tile -> [slab kind, corner] */
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const slab = lay[y * W + x], qx = x * 2, qy = y * 2; if (!slab || !near(x, y) || at(qx, qy) !== 0) continue;
     for (const [cx, cy, c] of [[0, 0, 'tl'], [1, 0, 'tr'], [0, 1, 'bl'], [1, 1, 'br']]) {
-      const ox = cx ? qx + 2 : qx - 1, oy = cy ? qy + 2 : qy - 1, sx = cx ? 1 : -1, sy = cy ? 1 : -1;
-      const n = (at(ox, qy + cy) === 1) + (at(qx + cx, oy) === 1) + (at(ox, oy) === 1);
-      let wide = 0; for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) wide += at(ox + i * sx, oy + j * sy) === 1;
-      if (Math.random() < (n === 3 ? (wide >= 7 ? 0.95 : 0.8) : n === 2 ? 0.25 : n === 1 ? 0.1 : 0.02)) chipped.set((qy + cy) * QW + qx + cx, [slab, c]);
+      const ox = cx ? qx + 2 : qx - 1, oy = cy ? qy + 2 : qy - 1, a = at(ox, qy + cy) === 1, b = at(qx + cx, oy) === 1, d = at(ox, oy) === 1;
+      if ((a && b && d) || (d && (a || b) && vAt(ox, oy) > 0.3)) chipped.set((qy + cy) * QW + qx + cx, [slab, c]); /* (out into the earth; or along a deep band's edge) */
     }
   }
   /* the grout's print on bare earth (a brick's, n 1, or a slab's, n 2, from the sheet's bare piece at sx, sy): only along the
@@ -142,8 +153,8 @@ function cryptFloor(g, W, H, near, inRoom, rooms) {
       else if (!a && !b && stone(hx, hy)) cp(sx + px, sy + py, 1, 1, ox + px, oy + py);
     }
   };
-  const earth = (dx, dy, w, h) => { g.fillStyle = '#332919'; g.fillRect(dx, dy, w, h); /* bare earth: a speck of grit now and then */
-    for (let k = 0; k < w * h / 32; k++) if (Math.random() < 0.38) { g.fillStyle = Math.random() < 0.7 ? '#4c3e26' : '#261d1a'; g.fillRect(dx + ((Math.random() * (w - 1)) | 0), dy + ((Math.random() * (h - 1)) | 0), 1, 1); } };
+  const earth = (dx, dy, w, h) => { g.fillStyle = '#332919'; g.fillRect(dx, dy, w, h); /* bare earth: its grit, a speck in every few dozen pixels, where the place says */
+    for (let y = dy; y < dy + h; y++) for (let x = dx; x < dx + w; x++) { const u = hash2(x, y); if (u < 0.026) { g.fillStyle = u < 0.019 ? '#4c3e26' : '#261d1a'; g.fillRect(x, y, 1, 1); } } };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (!near(x, y)) continue; const slab = lay[y * W + x], qx = x * 2, qy = y * 2, dx = x * TS, dy = y * TS;
     if (slab) {
@@ -320,7 +331,7 @@ function buildArena1(floor) {
   const inRoomRect = (x, y) => rooms.some(r => x >= r.fx0 && x <= r.fx1 && y >= r.fy0 && y <= r.fy1);
   const near = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (O(x + dx, y + dy)) return true; return false; };
   const floorRow = th.floors[0][1], hallRow = floorRow + 2; // the plain slab, light in the rooms and its darker twin in the corridors
-  if (th.sheet === 'crypt') cryptFloor(g, W, H, near, inRoomRect, rooms);
+  if (th.sheet === 'crypt') cryptFloor(g, W, H, near, inRoomRect, rooms, halls);
   else for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (near(x, y)) tileAt(g, 10, inRoomRect(x, y) ? floorRow : hallRow, x * TS, y * TS);
   // an inlaid square now and then: four corner slabs that only make sense together, or the small one-slab square
   if (th.sheet !== 'crypt') for (const r of rooms) { // (the crypt's broken slabs: cryptFloor)
