@@ -1,5 +1,5 @@
 // ===================== the report: what a floor is and what happened on it, to paste to whoever is fixing it =====================
-// The pause menu shows the run's seed and has a REPORT button: it lays out, as plain text, the build, the seed and the floor
+// The pause menu (the menu button, top right) shows the run's seed and has a LOG button: it lays out, as plain text, the build, the seed and the floor
 // (enough to make the very floor again: replayFloor, below), where the hero is, how the floor's works stand (the way
 // down, its gates, plates, water and cracked walls), who is still on their feet and the last few dozen things that
 // happened, in a box to copy from (a COPY button, or select it by hand).

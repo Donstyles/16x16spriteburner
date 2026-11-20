@@ -246,6 +246,9 @@ function drawHUD() {
   font(c, 600, 15, F_NUM); label(c, G.gold + ' GOLD', mb.x - mb.r - 10, T + 14, '#ffd860', { align: 'right', stroke: 3 });
   font(c, 500, 13, F_HUD); label(c, ARENA.name, mb.x - mb.r - 10, T + 30, 'rgba(240,224,192,0.7)', { align: 'right', stroke: 3 });
   if (!UI.paused) drawMinimap(c, R, my);
+  // the run's seed and the version, tiny in the bottom right corner (under the attack button), so any screenshot says
+  // which floor it is (60_run, 66_report)
+  { const B = H - Math.max(12, S.b + 8); font(c, 500, 9, F_HUD); c.globalAlpha = 0.55; label(c, 'SEED ' + hex8(G.seed || 0) + ' · V ' + BUILD.toUpperCase(), R, Math.min(H - 3, B + 6), '#d8c8a8', { align: 'right', stroke: 2 }); c.globalAlpha = 1; }
   if (MENU.update && !UI.paused) { c.globalAlpha = 0.6 + 0.4 * Math.sin(performance.now() / 260); font(c, 600, 14, F_HUD); label(c, 'UPDATE READY · OPEN THE MENU', mb.x - mb.r - 10, T + 46, '#ffb860', { align: 'right', stroke: 3 }); c.globalAlpha = 1; }
   // banners
   const bn = G.banner; if (bn) {
