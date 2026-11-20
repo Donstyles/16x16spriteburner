@@ -19,11 +19,14 @@ function trimEdgeBars(img) {
 function loadImage(src) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('image ' + String(src).slice(0, 40))); i.src = src; }); }
 async function loadAssets() {
   const A = window.__ASSETS;
-  for (const k of ['cellar', 'mobs', 'doors', 'items', 'ores', 'scrolls', 'ends', 'crypt', 'cryptAnim']) IMG[k] = await loadImage(A ? A[k] : 'assets/' + ({ doors: 'cellar_doors', ends: 'beam_ends', cryptAnim: 'crypt_anim' }[k] || k) + '.png'); // (ends: a south strut's two ends where it meets the posts, grey left and right, then brown, as painted in the Item Painter)
+  for (const k of ['cellar', 'mobs', 'doors', 'items', 'ores', 'scrolls', 'ends', 'crypt', 'cryptAnim', 'cellarCrypt', 'doorsCrypt', 'endsCrypt']) IMG[k] = await loadImage(A ? A[k] : 'assets/' + ({ doors: 'cellar_doors', ends: 'beam_ends', cryptAnim: 'crypt_anim', cellarCrypt: 'cellar_crypt', doorsCrypt: 'doors_crypt', endsCrypt: 'ends_crypt' }[k] || k) + '.png'); // (ends: a south strut's two ends where it meets the posts, grey left and right, then brown, as painted in the Item Painter)
   IMG.doors = trimEdgeBars(IMG.doors); IMG.crypt = tallCrypt(IMG.crypt);
   MOBS = A ? A.mobsJson : await (await fetch('assets/mobs.json')).json();
   padMobs();
   IMG.mobsW = silhouette(IMG.mobs); IMG.oresW = silhouette(IMG.ores); IMG.cellarW = silhouette(IMG.cellar); PIX.ores = pixelData(IMG.ores); PIX.mobs = pixelData(IMG.mobs); PIX.cellar = pixelData(IMG.cellar); cutWeapons();
+  // the cellar's pieces in the crypt's colours (tools/crypt_recolor.py): IMG.cellar, IMG.doors, IMG.ends and PIX.cellar are
+  // whichever the floor's theme draws with (30_arena themeSheets)
+  IMG.cellarBase = IMG.cellar; IMG.doorsBase = IMG.doors; IMG.endsBase = IMG.ends; PIX.cellarBase = PIX.cellar; PIX.cellarCrypt = pixelData(IMG.cellarCrypt);
   for (const k in COL) { GLOW[k] = glowTex(COL[k]); }
   SMOKE.grey = smokeTex([70, 66, 72]); SMOKE.dust = smokeTex([122, 100, 78]); SMOKE.dark = smokeTex([22, 18, 24]); SMOKE.green = smokeTex([60, 120, 60]); SMOKE.breath = smokeTex([226, 230, 240]);
   ROCKS.length = 0; for (let i = 0; i < 6; i++) ROCKS.push(rockTex(i));

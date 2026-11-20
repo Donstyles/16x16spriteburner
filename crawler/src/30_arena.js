@@ -23,6 +23,9 @@ let TH = null;
 function srcOf(tx, ty) { const m = TH && TH.map && TH.map[tx + ',' + ty]; return m ? [IMG[TH.sheet], m[0] * TS, m[1] * TS] : [IMG.cellar, tx * TS, ty * TS]; }
 const FLOOR_NAMES = ['THE ROOT CELLAR', 'THE SALT VAULT', 'THE DROWNED STORES', 'THE BONE PANTRY', 'THE ASHEN KILN', 'THE WINE CRYPT', 'THE GRAIN TOMB', 'THE IRON LARDER', 'THE HOLLOW CISTERN', 'THE ROTTED GRANARY', 'THE BLACK BREWERY', 'THE DEEP MILL', 'THE SCREAMING SILO', 'THE LAST LARDER'];
 let ARENA = null;
+// the sheets a floor draws the cellar's own pieces from (props, doors, water, pits, the walls the crypt has none of): the
+// crypt's floors take them recoloured in its stone (tools/crypt_recolor.py), so nothing carried over shows the cellar's colours
+function themeSheets(th) { const c = th.sheet === 'crypt'; IMG.cellar = c ? IMG.cellarCrypt : IMG.cellarBase; IMG.doors = c ? IMG.doorsCrypt : IMG.doorsBase; IMG.ends = c ? IMG.endsCrypt : IMG.endsBase; PIX.cellar = c ? PIX.cellarCrypt : PIX.cellarBase; PIT_BLACK = null; }
 const CW = 24, CH = 17; // one grid cell, in tiles
 const FORCE_SHOP = { on: false }; // (the shop test: 39_shop)
 // a short straight corridor between a room's south doorway and the next room's north doorway: three rows of floor or fewer
@@ -60,6 +63,29 @@ function wallPiece(isF, x, y) {
 // in broad patches. Bare earth is plain; the grout's print stays only beside stone still down (a brick's frame, or a missing
 // slab's outline), and a slab beside a bare patch has its corner on that side broken off (a few are chipped anyway).
 const CRYPT_CHIP = { plain: { tl: [8, 1], tr: [7, 1], br: [9, 1], bl: [9, 1, 1] }, panel: { tl: [8, 0], tr: [8, 0, 1], br: [9, 0], bl: [9, 0, 1] } };
+// a chipped corner: that quarter of the sheet's chipped slab (mirrored for the corners the sheet lacks), its outer grout
+// opened into earth on the sides (oh: above or below it, ov: beside it) where bare earth lies beyond, and any grout left
+// floating once its edge is gone cleared too
+const CHIPQ = {};
+function chipQuarter(kind, c, oh, ov) {
+  const key = kind + c + (oh ? 1 : 0) + (ov ? 2 : 0); if (CHIPQ[key]) return CHIPQ[key];
+  const [tx, ty, m] = CRYPT_CHIP[kind][c], cx = c[1] === 'r' ? 1 : 0, cy = c[0] === 'b' ? 1 : 0, cv = mkCanvas(8, 8), q = cv.getContext('2d');
+  if (!m) q.drawImage(IMG.crypt, tx * TS + cx * 8, ty * TS + cy * 8, 8, 8, 0, 0, 8, 8);
+  else { q.translate(8, 0); q.scale(-1, 1); q.drawImage(IMG.crypt, tx * TS + (1 - cx) * 8, ty * TS + cy * 8, 8, 8, 0, 0, 8, 8); q.setTransform(1, 0, 0, 1, 0, 0); }
+  if (oh || ov) {
+    const d = q.getImageData(0, 0, 8, 8), p = d.data, at = (x, y) => (y * 8 + x) * 4, rgb = (x, y) => (p[at(x, y)] << 16) | (p[at(x, y) + 1] << 8) | p[at(x, y) + 2];
+    const dirt = (x, y) => { const v = rgb(x, y); return v === 0x332919 || v === 0x4c3e26; }, bare = (x, y) => { const i = at(x, y); p[i] = 0x33; p[i + 1] = 0x29; p[i + 2] = 0x19; p[i + 3] = 255; };
+    const ey = cy ? 7 : 0, ex = cx ? 7 : 0, open = [];
+    if (oh) for (let x = 0; x < 8; x++) if (dirt(x, ey) && dirt(x, cy ? 6 : 1)) open.push([x, ey]);
+    if (ov) for (let y = 0; y < 8; y++) if (dirt(ex, y) && dirt(cx ? 6 : 1, y)) open.push([ex, y]);
+    for (const [x, y] of open) bare(x, y);
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { if (rgb(x, y) !== 0x4c3e26) continue; let lone = true;
+      for (let j = -1; j <= 1 && lone; j++) for (let i = -1; i <= 1; i++) { const X = x + i, Y = y + j; if (X < 0 || Y < 0 || X > 7 || Y > 7 || !dirt(X, Y)) { lone = false; break; } }
+      if (lone) bare(x, y); }
+    q.putImageData(d, 0, 0);
+  }
+  return (CHIPQ[key] = cv);
+}
 function cryptFloor(g, W, H, near, inRoom, rooms) {
   const S = 4.5, gw = Math.ceil(W / S) + 2, gh = Math.ceil(H / S) + 2, N = Float32Array.from({ length: gw * gh }, () => Math.random());
   const noise = (x, y) => { const fx = x / S, fy = y / S, ix = Math.floor(fx), iy = Math.floor(fy), u = fx - ix, v = fy - iy, s = t => t * t * (3 - 2 * t), a = N[iy * gw + ix], b = N[iy * gw + ix + 1], c = N[(iy + 1) * gw + ix], d = N[(iy + 1) * gw + ix + 1];
@@ -83,9 +109,22 @@ function cryptFloor(g, W, H, near, inRoom, rooms) {
     for (let q = 0; q < 4; q++) Q[(y * 2 + (q >> 1)) * QW + x * 2 + (q & 1)] = e[q];
   }
   const at = (qx, qy) => qx < 0 || qy < 0 || qx >= QW || qy >= H * 2 ? -1 : Q[qy * QW + qx];
+  /* the chipped corners, chosen before anything is drawn (the bare earth beside one needs to know): each corner's chance of
+     being broken off is high where it points out into bare earth (higher still into a wide patch), lower along a straight
+     edge of a patch, rare beside nothing; so a slab can lose more than one */
+  const chipped = new Map(); /* quarter tile -> [slab kind, corner] */
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const slab = lay[y * W + x], qx = x * 2, qy = y * 2; if (!slab || !near(x, y) || at(qx, qy) !== 0) continue;
+    for (const [cx, cy, c] of [[0, 0, 'tl'], [1, 0, 'tr'], [0, 1, 'bl'], [1, 1, 'br']]) {
+      const ox = cx ? qx + 2 : qx - 1, oy = cy ? qy + 2 : qy - 1, sx = cx ? 1 : -1, sy = cy ? 1 : -1;
+      const n = (at(ox, qy + cy) === 1) + (at(qx + cx, oy) === 1) + (at(ox, oy) === 1);
+      let wide = 0; for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) wide += at(ox + i * sx, oy + j * sy) === 1;
+      if (Math.random() < (n === 3 ? (wide >= 7 ? 0.95 : 0.8) : n === 2 ? 0.25 : n === 1 ? 0.1 : 0.02)) chipped.set((qy + cy) * QW + qx + cx, [slab, c]);
+    }
+  }
   /* the grout's print on bare earth (a brick's, n 1, or a slab's, n 2, from the sheet's bare piece at sx, sy): only along the
-     sides where stone is still down, so the lines open out into the dirt wherever the earth runs on */
-  const stone = (qx, qy) => at(qx, qy) === 0, cp = (sx, sy, w, h, dx, dy) => g.drawImage(IMG.crypt, sx, sy, w, h, dx, dy, w, h);
+     sides where stone is still down (a chipped corner is open earth to it), so the lines open out into the dirt wherever the earth runs on */
+  const stone = (qx, qy) => at(qx, qy) === 0 && !chipped.has(qy * QW + qx), cp = (sx, sy, w, h, dx, dy) => g.drawImage(IMG.crypt, sx, sy, w, h, dx, dy, w, h);
   const print = (sx, sy, n, ax, ay, ox, oy) => { const e = n * 8 - 1;
     earth(ox, oy, n * 8, n * 8);
     for (let k = 0; k < n; k++) {
@@ -107,19 +146,10 @@ function cryptFloor(g, W, H, near, inRoom, rooms) {
     if (!near(x, y)) continue; const slab = lay[y * W + x], qx = x * 2, qy = y * 2, dx = x * TS, dy = y * TS;
     if (slab) {
       if (at(qx, qy) === 1) { print(6 * TS, TS, 2, qx, qy, dx, dy); continue; } /* a slab gone */
-      /* each corner's chance of being broken off: high where it points out into bare earth (higher still into a wide
-         patch), lower along a straight edge of a patch, rare beside nothing; each chipped corner is that quarter of the
-         sheet's chipped slab (mirrored for the corners the sheet lacks), so a slab can lose more than one */
       cryptAt(g, slab === 'plain' ? 6 : 7, 0, dx, dy);
-      for (const [cx, cy, c] of [[0, 0, 'tl'], [1, 0, 'tr'], [0, 1, 'bl'], [1, 1, 'br']]) {
-        const ox = cx ? qx + 2 : qx - 1, oy = cy ? qy + 2 : qy - 1, sx = cx ? 1 : -1, sy = cy ? 1 : -1;
-        const n = (at(ox, qy + cy) === 1) + (at(qx + cx, oy) === 1) + (at(ox, oy) === 1);
-        let wide = 0; for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) wide += at(ox + i * sx, oy + j * sy) === 1;
-        if (Math.random() >= (n === 3 ? (wide >= 7 ? 0.95 : 0.8) : n === 2 ? 0.25 : n === 1 ? 0.1 : 0.02)) continue;
-        const [tx, ty, m] = CRYPT_CHIP[slab][c], qdx = dx + cx * 8, qdy = dy + cy * 8;
-        if (!m) { g.drawImage(IMG.crypt, tx * TS + cx * 8, ty * TS + cy * 8, 8, 8, qdx, qdy, 8, 8); continue; }
-        g.save(); g.translate(qdx + 8, qdy); g.scale(-1, 1); g.drawImage(IMG.crypt, tx * TS + (1 - cx) * 8, ty * TS + cy * 8, 8, 8, 0, 0, 8, 8); g.restore();
-      }
+      for (const [cx, cy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) { const ch = chipped.get((qy + cy) * QW + qx + cx); if (!ch) continue;
+        const oh = at(qx + cx, cy ? qy + 2 : qy - 1) === 1, ov = at(cx ? qx + 2 : qx - 1, qy + cy) === 1;
+        g.drawImage(chipQuarter(ch[0], ch[1], oh, ov), dx + cx * 8, dy + cy * 8); }
       continue;
     }
     for (let q = 0; q < 4; q++) { const ax = qx + (q & 1), ay = qy + (q >> 1), ox = dx + (q & 1) * 8, oy = dy + (q >> 1) * 8;
@@ -158,7 +188,7 @@ function buildArena(floor) {
   return A;
 }
 function buildArena1(floor) {
-  const th = CRYPT.force ? THEMES.crypt : floor % 2 ? THEMES.brown : THEMES.grey, GW = 5, GH = 4; TH = th; // (longer floors: nine rooms on the first, one more every second floor down, up to fourteen)
+  const th = CRYPT.force ? THEMES.crypt : floor % 2 ? THEMES.brown : THEMES.grey, GW = 5, GH = 4; TH = th; themeSheets(th); // (longer floors: nine rooms on the first, one more every second floor down, up to fourteen)
   const N = Math.min(GW * GH - 1, 9 + Math.min(5, Math.floor(floor / 2)));
   // ---- the room graph: grown outward from the start cell, then a loop or two so not every floor is a single line
   const key = (x, y) => y * GW + x, cells = new Map(), edges = [];
@@ -311,7 +341,7 @@ function buildArena1(floor) {
   paintCeil(A, cg, cv); // the painted trim, as drawn on the ground: the ceiling over everyone (31_walls)
   for (const i of hidMask) fl[i] = 1;
   for (const h of halls) h.frame = shortHall(h) && chance(0.6);
-  A.doors = rooms.flatMap(r => r.doors.filter(d => !d.hidden).map(d => Object.assign(d, { room: r.i, k: 0, strut: (d.side === 'S' || d.side === 'N') && (d.hall.frame || chance(0.12)), motif: pick([0, 5, 10]) }))); // (strut: a north or south doorway's, now and then, and at both ends of most short straight corridors, the two facing each other: a square frame; a blast door's always, 41_puzzles makeGate; 32_crawl)
+  A.doors = rooms.flatMap(r => r.doors.filter(d => !d.hidden).map(d => Object.assign(d, { room: r.i, k: 0, strut: th.sheet !== 'crypt' && (d.side === 'S' || d.side === 'N') && (d.hall.frame || chance(0.12)), motif: pick([0, 5, 10]) }))); // (strut: a north or south doorway's, now and then, and at both ends of most short straight corridors, the two facing each other: a square frame; a blast door's always, 41_puzzles makeGate; 32_crawl)
   A.start = rooms.find(r => r.kind === 'start'); A.end = rooms.find(r => r.kind === 'end');
   for (const r of rooms) if (r.hidCrack) { r.crack = r.hidCrack; r.crackX = r.crack.x; (A.cracks = A.cracks || []).push(r.crack); if (r.crack.inner) A.cracks.push(r.crack.inner); A.secret = A.secret || new Uint8Array(W * H); for (const c of [r.crack, r.crack.inner]) if (c) for (const i of c.secret) A.secret[i] = 1; } // (the hidden wing's walled-up doorway)
   // ---- furnishing (the stairways' places first, so no torch or banner hangs on them)

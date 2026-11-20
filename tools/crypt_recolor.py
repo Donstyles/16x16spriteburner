@@ -1,0 +1,42 @@
+# The cellar's pieces in the crypt's colours (python3 tools/crypt_recolor.py): every stone, wood, clay and metal colour
+# goes to the crypt stone nearest it in lightness (the crypt sheet's own unsaturated colours); only water (blue, on the
+# cellar sheet), fire and gold (yellow) and blood (deep red) are kept as drawn. Writes crawler/assets/*_crypt.png.
+from PIL import Image
+import colorsys
+from collections import Counter
+crypt = Image.open('crawler/assets/crypt.png').convert('RGBA')
+cp = Counter(p[:3] for p in crypt.get_flattened_data() if p[3] > 128)
+def lab(c):
+    r, g, b = [v / 255 for v in c]; f = lambda v: ((v + 0.055) / 1.055) ** 2.4 if v > 0.04045 else v / 12.92
+    r, g, b = f(r), f(g), f(b); X = 0.4124*r + 0.3576*g + 0.1805*b; Y = 0.2126*r + 0.7152*g + 0.0722*b; Z = 0.0193*r + 0.1192*g + 0.9505*b
+    F = lambda t: t ** (1 / 3) if t > 0.008856 else 7.787 * t + 16 / 116
+    fx, fy, fz = F(X / 0.9505), F(Y), F(Z / 1.089); return (116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz))
+def hls(c): h, l, s = colorsys.rgb_to_hls(*[v / 255 for v in c]); return h * 360, l, s
+stone = [(c, lab(c)) for c, n in cp.most_common() if n >= 6 and hls(c)[2] < 0.35]
+def keep(c, water):
+    h, l, s = hls(c)
+    if water and l > 0.9 and 190 < h < 240: return True        # water glints
+    if s < 0.3 or l > 0.9: return False
+    if water and 180 <= h <= 250: return True                   # water
+    if 42 <= h <= 62 and s > 0.6 and l > 0.45: return True      # fire, gold
+    if (h < 10 or h > 340) and s > 0.5 and l < 0.6: return True # blood
+    return False
+def recolor(src, dst, water, bars=False):
+    im = Image.open(src).convert('RGBA'); px = im.load(); cache = {}
+    if bars:  # the doors sheet's edge bars, lightened as the game does at load (10_assets trimEdgeBars)
+        for row, f, t in [(1, (60, 69, 76), (81, 93, 102)), (7, (76, 67, 52), (102, 90, 70))]:
+            for x in range(im.width):
+                if px[x, row * 16 + 3] == f + (255,): px[x, row * 16 + 3] = t + (255,)
+    for y in range(im.height):
+        for x in range(im.width):
+            p = px[x, y]
+            if p[3] == 0: continue
+            k = p[:3]
+            if k not in cache:
+                if keep(k, water): cache[k] = k
+                else: L = lab(k); cache[k] = min(stone, key=lambda e: 1.6 * (e[1][0] - L[0]) ** 2 + 0.35 * ((e[1][1] - L[1]) ** 2 + (e[1][2] - L[2]) ** 2))[0]
+            px[x, y] = cache[k] + (p[3],)
+    im.save(dst); print(dst, im.size, len(cache), 'colours')
+recolor('assets/cellar.png', 'crawler/assets/cellar_crypt.png', True)
+recolor('crawler/assets/cellar_doors.png', 'crawler/assets/doors_crypt.png', False, True)
+recolor('crawler/assets/beam_ends.png', 'crawler/assets/ends_crypt.png', False)

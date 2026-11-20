@@ -8,8 +8,10 @@
 function logEv(k, o) { if (!G.log) G.log = []; G.log.push(Object.assign({ t: +(G.time || 0).toFixed(1), f: G.floor, k }, o || {})); if (G.log.length > 80) G.log.shift(); }
 const tileOf = u => Math.floor(u.x / TS) + ',' + Math.floor(u.y / TS);
 
-// a reported floor made again (bug reports and test scripts): the run's seed, the floor, the army before it
+// a reported floor made again (bug reports and test scripts): the run's seed, the floor, the army before it, and whether
+// it was a catacombs floor from the test menu (theme crypt)
 function replayFloor(o) {
+  CRYPT.force = o.theme === 'crypt';
   G.nextSeed = typeof o.seed === 'string' ? parseInt(o.seed, 16) >>> 0 : o.seed >>> 0; startRun(o.kit || 'sellsword');
   G.floor = o.floor || 1; G.army = o.prevArmy || null; G.seedsUsed = new Set(); startFloor(); G.mode = 'play';
 }
@@ -17,7 +19,7 @@ function replayFloor(o) {
 function buildReport() {
   const A = ARENA, h = G.me, s = A && A.stairs, L = [], alive = G.foes.filter(f => !f.dead);
   L.push('CELLAR OF RUIN II  REPORT');
-  L.push(`build ${BUILD} | seed ${hex8(G.seed)} | floor ${G.floor} | floor seed ${hex8(G.floorSeed || 0)} | kit ${G.kit} | heroes ${G.heroes.length} | army ${A.army} | army before ${G.prevArmy || '-'}`);
+  L.push(`build ${BUILD} | seed ${hex8(G.seed)} | floor ${G.floor} | floor seed ${hex8(G.floorSeed || 0)} | kit ${G.kit} | heroes ${G.heroes.length} | army ${A.army} | army before ${G.prevArmy || '-'} | theme ${A.th.name}`);
   L.push(`time ${(G.time || 0).toFixed(1)} | phase ${G.phase}${TEST.on ? ' | test room ' + TEST.mode : ''}${GAL.on ? ' | gallery' : ''} | kills ${G.kills} | gold ${G.gold}`);
   if (h) L.push(`hero at ${Math.round(h.x)},${Math.round(h.y)} (tile ${tileOf(h)}) | hp ${Math.round(h.hp)}/${h.maxHp} | flasks ${h.flasks}${h.dead ? ' | dead' : ''}`);
   L.push(`floor: ${A.name}${A.arch && A.arch.name ? ' | ' + A.arch.name : ''} | sets ${(A.sets || []).join(',') || '-'} | puzzles ${(A.puzNames || []).join(',') || '-'}`);
