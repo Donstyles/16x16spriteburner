@@ -12,8 +12,9 @@ THEMES.crypt = Object.assign({}, THEMES.grey, { name: 'crypt', sheet: 'crypt', a
   // the walls, as the crypt's room frame (3-5, 2-5) and wall block (0-2, 2-5) draw them
   '6,8': [4, 3], '6,7': [4, 2], '6,10': [4, 5], '5,7': [3, 2], '7,7': [5, 2], '5,8': [3, 3], '7,8': [5, 3], '5,9': [3, 4], '7,9': [5, 4], '5,10': [3, 5], '7,10': [5, 5],
   '3,7': [2, 2], '3,9': [2, 4], '3,10': [2, 5],
-  // the floors: the plain slab in the rooms, four small slabs in the corridors, cracked slabs for the inlays
-  '10,9': [6, 0], '10,11': [7, 0], '11,9': [7, 1], '12,9': [8, 1], '13,9': [9, 1], '14,9': [8, 0], '15,9': [9, 0],
+  // the floors: the brick pavement (laid quarter by quarter in buildArena1: cryptFloor), a grave slab or a cracked one for
+  // the inlays
+  '10,9': [10, 0], '10,11': [10, 0], '11,9': [8, 0], '12,9': [9, 0], '13,9': [7, 1], '14,9': [8, 1], '15,9': [6, 0],
 } });
 const CRYPT = { force: false }; // (a test: the crypt on any floor: 64_testroom)
 // the theme a floor is being made or drawn in: tileAt and the wall pieces draw through its map (buildArena1)
@@ -47,6 +48,38 @@ function wallPiece(isF, x, y) {
   if (O(x + 1, y + 1)) return [5, 0, false]; if (O(x - 1, y + 1)) return [7, 0, false]; // the inside corners of a room
   if (O(x + 1, y - 1)) return [5, 3, false]; if (O(x - 1, y - 1)) return [7, 3, false];
   return null;
+}
+// THE CRYPT'S FLOOR: a pavement of small bricks over bare earth, laid a quarter tile at a time (every brick tile of the
+// sheet is four quarters, each a brick or earth: 10,0 all brick, 10,1 all earth), so bricks go missing anywhere. Where
+// they are missing follows a slow noise of its own, so the gaps gather into worn patches; the corridors are the more
+// broken
+function cryptFloor(g, W, H, near, inRoom) {
+  const S = 3, gw = Math.ceil(W / S) + 2, gh = Math.ceil(H / S) + 2, N = Float32Array.from({ length: gw * gh }, () => Math.random());
+  const noise = (x, y) => { const fx = x / S, fy = y / S, ix = Math.floor(fx), iy = Math.floor(fy), u = fx - ix, v = fy - iy, s = t => t * t * (3 - 2 * t), a = N[iy * gw + ix], b = N[iy * gw + ix + 1], c = N[(iy + 1) * gw + ix], d = N[(iy + 1) * gw + ix + 1];
+    return (a + (b - a) * s(u)) * (1 - s(v)) + (c + (d - c) * s(u)) * s(v); };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!near(x, y)) continue; const room = inRoom(x, y), cut = room ? 0.3 : 0.5; // (how much of it is worn away)
+    if (Math.random() < (room ? 0.07 : 0.1)) { cryptAt(g, ...pick(CRYPT_BROKEN), x * TS, y * TS); continue; } // (a broken grave slab in the pavement)
+    for (let q = 0; q < 4; q++) { const qx = q & 1, qy = q >> 1, n = noise(x + qx * 0.5, y + qy * 0.5) - 0.5 + cut * 0.9 + (Math.random() - 0.5) * 0.25, earth = n > 0.36;
+      g.drawImage(IMG.crypt, 10 * TS + qx * 8, (earth ? 1 : 0) * TS + qy * 8, 8, 8, x * TS + qx * 8, y * TS + qy * 8, 8, 8); }
+  }
+}
+// on the crypt's north walls, in place of the cellar's banners and windows: a burial niche (bones, skulls, urns, candles),
+// chains or blood running down, set in the brick between the trim and the foot of the wall (on the face's tile, y)
+const CRYPT_BROKEN = [[8, 0], [9, 0], [7, 1], [8, 1], [9, 1], [7, 0], [6, 0]]; // (cracked, sunk at a corner, quartered, whole)
+const CRYPT_NICHES = [[6, 6], [7, 6], [8, 6], [9, 6], [10, 6], [11, 6], [6, 7], [7, 7], [9, 7], [10, 7], [11, 7]];
+// a crypt's lights on the walls are candles in a niche (the animated sheet's small shelf, four frames), set in the brick as
+// the niches are; a dead one is a niche with nothing burning in it
+function cryptTorch(c, t) {
+  const x = t.x - 8, y = t.y - 15; if (t.out) { c.drawImage(IMG.crypt, 8 * TS, 7 * TS, TS, TS, x, y, TS, TS); return; }
+  const f = ((G.time * 7 + (t.f || 0)) | 0) % 4; c.drawImage(IMG.cryptAnim, 16 + f * 16, 256, TS, TS, x, y, TS, TS);
+}
+function cryptAt(g, tx, ty, dx, dy) { g.drawImage(IMG.crypt, tx * TS, ty * TS, TS, TS, dx, dy, TS, TS); }
+function cryptWallDeco(g, x, y) {
+  const r = Math.random(), dx = x * TS, top = y * TS - 8; // (the brick runs from eight pixels up the tile above to the foot)
+  if (r < 0.62) cryptAt(g, ...pick(CRYPT_NICHES), dx, top + 2);
+  else if (r < 0.82) cryptAt(g, 9 + randi(0, 2), 2 + randi(0, 1), dx, top);
+  else cryptAt(g, 6 + randi(0, 2), 2 + randi(0, 1), dx, top);
 }
 function tileAt(g, tx, ty, dx, dy) { const [im, sx, sy] = srcOf(tx, ty); g.drawImage(im, sx, sy, TS, TS, dx, dy, TS, TS); }
 // A floor that cannot take the puzzles its depth asks for (37_levels levelPlan) is laid out again, a few times at most.
@@ -193,9 +226,10 @@ function buildArena1(floor) {
   const inRoomRect = (x, y) => rooms.some(r => x >= r.fx0 && x <= r.fx1 && y >= r.fy0 && y <= r.fy1);
   const near = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (O(x + dx, y + dy)) return true; return false; };
   const floorRow = th.floors[0][1], hallRow = floorRow + 2; // the plain slab, light in the rooms and its darker twin in the corridors
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (near(x, y)) tileAt(g, 10, inRoomRect(x, y) ? floorRow : hallRow, x * TS, y * TS);
+  if (th.sheet === 'crypt') cryptFloor(g, W, H, near, inRoomRect);
+  else for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (near(x, y)) tileAt(g, 10, inRoomRect(x, y) ? floorRow : hallRow, x * TS, y * TS);
   // an inlaid square now and then: four corner slabs that only make sense together, or the small one-slab square
-  for (const r of rooms) {
+  if (th.sheet !== 'crypt') for (const r of rooms) { // (the crypt's broken slabs: cryptFloor)
     const n = Math.round(r.w * r.h / 70); for (let k = 0; k < n; k++) {
       const x = randi(r.ix0 + 1, r.ix1 - 2), y = randi(r.iy0 + 1, r.iy1 - 2); if (r.inlay && r.inlay.some(([a, b]) => Math.abs(a - x) < 4 && Math.abs(b - y) < 3)) continue; (r.inlay = r.inlay || []).push([x, y]);
       const four = chance(0.6); if (!(four ? isF(x, y) && isF(x + 1, y) && isF(x, y + 1) && isF(x + 1, y + 1) : isF(x, y))) { r.inlay.pop(); continue; } // (only on open floor: never on rock a room's shape left standing)
@@ -271,7 +305,8 @@ function furnish(A, r, g) {
   for (let x = r.ix0 + 1; x < r.ix1; x += r.great === 'h' ? 5 : 4) { const tx = x + (used.has(x) ? 3 : 0); if (tx >= r.ix1 || used.has(tx) || !plainWall(A, tx, r.fy0 + 1)) continue; used.add(tx); A.torches.push({ x: tx * TS + 8, y: (r.fy0 + 1) * TS + 9, tx, f: randi(0, 3) }); }
   // a banner: one of the twelve tall ones ([20..31, 0..1], the rod low in the upper tile) or one of the eight small ones
   // ([16..19, 0..1], one tile, the rod at its top; hung so its rod is level with the tall ones' and it hangs as low)
-  for (let x = r.ix0 + 1; x < r.ix1; x++) {
+  if (th.sheet === 'crypt') { for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || !plainWall(A, x, r.fy0 + 1) || !chance(0.5)) continue; cryptWallDeco(g, x, r.fy0 + 1); used.add(x); } } // (the crypt's own: niches, chains, blood)
+  else for (let x = r.ix0 + 1; x < r.ix1; x++) {
     if (used.has(x) || used.has(x - 1) || used.has(x + 1) || !plainWall(A, x, r.fy0 + 1) || !chance(0.3)) continue; const b = randi(0, 19);
     if (b < 12) { tileAt(g, 20 + b, 0, x * TS, r.fy0 * TS); tileAt(g, 20 + b, 1, x * TS, (r.fy0 + 1) * TS); } else tileAt(g, 16 + (b - 12) % 4, (b - 12) >> 2, x * TS, r.fy0 * TS + 11);
     used.add(x);
@@ -279,7 +314,7 @@ function furnish(A, r, g) {
   // between the banners, now and then a barred window or a vent in the brick (grey [16..20, 2..3], brown three rows down);
   // the tall arched windows and the tall vent ([17..18, 2..3], [20, 2..3]) are two tiles high, their tops in the brick above
   const wy = th.tone === 'brown' ? 3 : 0, WIN = [[16, 2, 1], [16, 3, 1], [17, 3, 2], [18, 3, 2], [19, 2, 1], [19, 3, 1], [20, 3, 2]];
-  for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || !plainWall(A, x, r.fy0 + 1) || !chance(0.16)) continue; const [wx, wy0, wh] = pick(WIN); for (let j = 0; j < wh; j++) tileAt(g, wx, wy0 + wy - j, x * TS, (r.fy0 + 1 - j) * TS); used.add(x); }
+  if (th.sheet !== 'crypt') for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || !plainWall(A, x, r.fy0 + 1) || !chance(0.16)) continue; const [wx, wy0, wh] = pick(WIN); for (let j = 0; j < wh; j++) tileAt(g, wx, wy0 + wy - j, x * TS, (r.fy0 + 1 - j) * TS); used.add(x); }
   if (r.rock && r.rock.size) blockDecor(A, r, g); // (the faces of the blocks its shape left standing: 33_shapes)
   const prop = (kind, tx, ty, o = {}) => { if (A.noProp && A.noProp.has(Math.floor(ty) * A.w + Math.floor(tx)) || !FLOOR(A.fl[Math.floor(ty) * A.w + Math.floor(tx)]) || !FLOOR(A.fl[Math.floor(ty) * A.w + Math.ceil(tx)]) || A.crumbleSet && (A.crumbleSet.has(Math.floor(ty) * A.w + Math.floor(tx)) || A.crumbleSet.has(Math.floor(ty) * A.w + Math.ceil(tx)))) return; A.props.push(Object.assign({ kind, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o)); }; // (never in water, nor on a cracked slab: 38_pits)
   const free = (x, y, d = 10) => !A.props.some(p => Math.abs(p.x - x) < d && Math.abs(p.y - y) < d);

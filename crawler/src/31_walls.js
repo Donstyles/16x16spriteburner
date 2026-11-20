@@ -37,7 +37,7 @@ function paintOf(tx, ty, flip) {
   const rows = h => { const a = new Uint16Array(16); for (let i = 0; i < 16; i++) a[i] = parseInt(h.substr(i * 4, 4), 16); return a; };
   const rev = v => { let r = 0; for (let i = 0; i < 16; i++) if (v & (1 << i)) r |= 1 << (15 - i); return r; };
   let w = p ? rows(p[0]) : new Uint16Array(16).fill(0xffff), t = p ? rows(p[1]) : new Uint16Array(16);
-  if (cm) { if (t.some(v => v)) t = cryptRows(cm[0] * TS, cm[1] * TS); if (CRYPT_SOLID.has(tx + ',' + ty)) w = new Uint16Array(16).fill(0xffff); } // (the crypt's: above)
+  if (cm) { if (t.some(v => v)) t = cryptRows(cm[0] * TS, cm[1] * TS); if (CRYPT_SOLID.has(tx + ',' + ty)) w = new Uint16Array(16).fill(0xffff); if (tx === 6 && ty === 3) for (let y = 12; y < 16; y++) w[y] = 0xffff; } // (the crypt's: above; a south wall's trim starts four rows higher than the cellar's, so a foot stops four pixels sooner, his head over its top as before)
   if (flip) { w = w.map(rev); t = t.map(rev); } return (PAINTED[k] = { w, t, tr: maskRects(t) });
 }
 // the set bits of 16 rows as rectangles [x, y, w, h]: rows alike run together, each run of bits along them one rectangle
