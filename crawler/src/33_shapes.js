@@ -129,6 +129,28 @@ function greatHall(r, fl, W, H) {
 // run over the corner)
 function plainWall(A, x, y) { return faceAt(A, x, y) && A.wt[y * A.w + x] === 6 * 64 + 1 + 1 && A.wt[(y - 1) * A.w + x] === 6 * 64 + 0 + 1; }
 function faceAt(A, x, y) { return x >= 0 && y >= 0 && y + 1 < A.h && A.fl[y * A.w + x] === 0 && FLOOR(A.fl[(y + 1) * A.w + x]); }
+// The blocks of wall a room's shape leaves standing get torches and banners on their faces like any wall (never a window:
+// a pillar has nothing behind it to look out on). Only plain brick takes them: a 2-wide block has none (both its face
+// tiles are wall ends), a 3-wide ring one (in the middle), a 5-wide three, a spur's long side many. Each face is laid out
+// about its middle: one tile a torch or a banner; three a torch, a banner and a torch, a banner alone, or two torches; a
+// long face torches four tiles apart, centred, a banner now and then between them.
+function blockDecor(A, r, g) {
+  const W = A.w, seen = new Set(), faces = [];
+  for (const s of r.rock) {
+    if (seen.has(s)) continue; const blk = [], st = [s]; seen.add(s);
+    while (st.length) { const c = st.pop(); blk.push(c); for (const d of [1, -1, W, -W]) if (r.rock.has(c + d) && !seen.has(c + d)) { seen.add(c + d); st.push(c + d); } }
+    let run = []; for (const c of blk.filter(q => plainWall(A, q % W, (q / W) | 0)).sort((a, b) => a - b)) { if (run.length && c !== run[run.length - 1] + 1) { faces.push(run); run = []; } run.push(c); } if (run.length) faces.push(run);
+  }
+  const torch = c => A.torches.push({ x: (c % W) * TS + 8, y: ((c / W) | 0) * TS + 9, tx: c % W, f: randi(0, 3), room: r.i });
+  const banner = c => { const x = c % W, y = (c / W) | 0, b = randi(0, 19); if (b < 12) { tileAt(g, 20 + b, 0, x * TS, (y - 1) * TS); tileAt(g, 20 + b, 1, x * TS, y * TS); } else tileAt(g, 16 + (b - 12) % 4, (b - 12) >> 2, x * TS, (y - 1) * TS + 11); };
+  for (const f of faces) {
+    const n = f.length, k = Math.random();
+    if (n === 1) { if (k < 0.5) torch(f[0]); else if (k < 0.9) banner(f[0]); }
+    else if (n === 2) { if (k < 0.6) { banner(f[0]); banner(f[1]); } }
+    else if (n === 3) { if (k < 0.4) { torch(f[0]); banner(f[1]); torch(f[2]); } else if (k < 0.7) banner(f[1]); else { torch(f[0]); torch(f[2]); } }
+    else { const cnt = Math.floor((n - 1) / 4) + 1, s0 = Math.floor((n - 1 - (cnt - 1) * 4) / 2), ts = new Set(); for (let i = 0; i < cnt; i++) ts.add(s0 + i * 4); for (const i of ts) torch(f[i]); for (let i = 0; i < n; i++) if (!ts.has(i) && !ts.has(i - 1) && !ts.has(i + 1) && chance(0.3)) banner(f[i]); }
+  }
+}
 // what stands in the alcoves (after the room is furnished): a statue on its pedestal, a burning brazier, a small chest, a
 // column; a torch on the back wall of a north niche
 function shapeAfter(A, r) {

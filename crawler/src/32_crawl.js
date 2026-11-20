@@ -65,7 +65,7 @@ function strutEnds(c, d, sx, sy, dy) { const xs = d.cells.map(q => q[0]), x0 = M
 function drawSouthDoor(c, d) { const th = ARENA.th, col = 1 + Math.round((1 - d.k) * 3) + (d.motif || 0); for (const [x, y] of d.cells) { c.drawImage(IMG.doors, col * TS, th.door * TS, TS, TS, x * TS, y * TS - 3, TS, TS); c.drawImage(IMG.doors, col * TS, (th.door + 1) * TS, TS, TS, x * TS, (y + 1) * TS - 3, TS, TS); } }
 // now and then a south doorway (which has no door) has a strut across it too: the same bar (the sheet has none seen from
 // behind), along the top of the south wall at the ceiling, over everyone passing under it (drawn with the ceiling)
-function drawSouthStruts(c) { const A = ARENA; if (!A.doors) return; for (const d of A.doors) if (d.side === 'S' && d.strut) { const sx = (4 + (d.motif || 0)) * TS; for (const [x, y] of d.cells) c.drawImage(IMG.doors, sx, A.th.door * TS + 3, TS, 8, x * TS, y * TS, TS, 8); strutEnds(c, d, sx, A.th.door * TS + 3, d.cells[0][1] * TS); } }
+function drawSouthStruts(c) { const A = ARENA; if (!A.doors) return; for (const d of A.doors) if (d.side === 'N') strutEnds(c, d, (4 + (d.motif || 0)) * TS, A.th.door * TS + 3, (d.cells[0][1] - 1) * TS + 3); /* (a north strut's two ends again, over the ceiling: the posts' dark outline is part of the ceiling's trim) */ for (const d of A.doors) if (d.side === 'S' && d.strut) { const sx = (4 + (d.motif || 0)) * TS; for (const [x, y] of d.cells) c.drawImage(IMG.doors, sx, A.th.door * TS + 3, TS, 8, x * TS, y * TS, TS, 8); strutEnds(c, d, sx, A.th.door * TS + 3, d.cells[0][1] * TS); } }
 // the map in the corner: every tile the party has seen, where it came down, the way down once the map is read, every hero
 let MINI = null;
 function drawMinimap(c, xr, y0) {

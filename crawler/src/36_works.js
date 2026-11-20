@@ -272,7 +272,7 @@ function hideRunes(A, r, v, vx, vy) {
 // (lightable: its braziers will be lit again, by runes or by a hero standing by them, so they hold their dead coals, the
 // sheet's [31, 3] / [31, 6]; a dark room that stays dark has them empty, [30, 3] / [30, 6]: the coals say a brazier can burn)
 function darkRoom(A, r, lightable = true) {
-  for (const t of A.torches) if (t.tx >= r.ix0 && t.tx <= r.ix1 && Math.abs(t.y - ((r.fy0 + 1) * TS + 9)) < 2) Object.assign(t, { out: true, ember: chance(0.3), room: r.i });
+  for (const t of A.torches) if (t.room === r.i || (t.tx >= r.ix0 && t.tx <= r.ix1 && Math.abs(t.y - ((r.fy0 + 1) * TS + 9)) < 2)) Object.assign(t, { out: true, ember: chance(0.3), room: r.i }); // (and those on its pillars and in its alcoves)
   for (const p of A.props) if (p.kind === 'brazier' && p.room === r.i) Object.assign(p, { out: true, ember: lightable });
   A.lights = A.slit = null;
 }
