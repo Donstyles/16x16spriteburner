@@ -155,9 +155,9 @@ function cistern(A, r, g, within) { // (within: a sunken button's cistern, its d
   g.drawImage(p.bed, p.px0, p.py0);
   const bc = p.bridge.cells, free = (x, y) => !bc.some(([a, b]) => a === x && b === y);
   // (the inner cells first, the rim's after them, never a bridge's: a narrow cistern's bridge can take all its inner rows)
-  const cands = []; for (let ty = p.y0; ty <= p.y1; ty++) for (let tx = p.x0; tx <= p.x1; tx++) if (free(tx, ty)) cands.push([tx, ty, tx > p.x0 && tx < p.x1 && ty > p.y0 && ty < p.y1 ? 0 : 1]);
+  const cands = []; for (let ty = p.y0; ty <= p.y1; ty++) for (let tx = p.x0; tx <= p.x1; tx++) if (free(tx, ty) && p.cells.has((ty - 1) * A.w + tx)) cands.push( /* (never in the top row: the north wall's face runs across it) */[tx, ty, tx > p.x0 && tx < p.x1 && ty > p.y0 && ty < p.y1 ? 0 : 1]);
   const cx = (p.x0 + p.x1) / 2, cy = (p.y0 + p.y1) / 2; cands.sort((a, b) => a[2] - b[2] || Math.hypot(a[0] - cx, a[1] - cy) - Math.hypot(b[0] - cx, b[1] - cy));
-  p.drainAt = cands[0] || [p.x0, p.y0];
+  p.drainAt = cands[0] || [Math.round(cx), p.y0 + 1]; // (none clear of the bridge: under it, but still off the top row)
   { // the grate (the sheet's small square one), wet and dark like the stone round it
     const t = mkCanvas(TS, TS), tg = t.getContext('2d'), [br, bgc, bb] = W.basin; sheetTile(tg, W.drain, 0, 0);
     tg.globalCompositeOperation = 'source-atop'; tg.fillStyle = `rgba(${br},${bgc},${bb},0.45)`; tg.fillRect(0, 0, TS, TS); g.drawImage(t, p.drainAt[0] * TS, p.drainAt[1] * TS);
@@ -187,7 +187,7 @@ const SUNK = [
 ];
 const sunkStone = A => { const d = A.th === THEMES.brown ? 3 : 0, br = d ? 2 : 0; return [
   [[0, 16 + d], [22, 2 + d], 'stone', 1, 2], [[2, 18 + d], [25, 4 + d], 'stone'],
-  [[3, 16 + d], [26, 2 + d], 'stone'], // (not the two small blocks, the button's own stone, nor the two slabs with a socket's dark well: under water they read as a button without its socket, or a socket that lost its button; nor the plain slab beside them, [4, 16] / [4, 19]: it has no waterline, a floor slab, not a thing standing in the water)
+  // (not the square block with its dashed rim, [3, 16]; not the two small blocks, the button's own stone, nor the two slabs with a socket's dark well: under water they read as a button without its socket, or a socket that lost its button; nor the plain slab beside them, [4, 16] / [4, 19]: it has no waterline, a floor slab, not a thing standing in the water)
   [[br + 1, 22], [31, 3 + d], 'stone']]; }; // (the cold brazier with its dead coals; not the empty one, a plain block that reads as a button)
 // n of them about the water, each on open water clear of the bridge, the drain, the pillars and each other
 function sinkThings(A, p, n, kinds) {
@@ -494,11 +494,18 @@ function basinFace(x, y) { const A = ARENA; if (!A || !A.basin) return null; con
 // onto the floor), and while he is in the air he is carried there evenly, so he never lands on the face nor snaps at the end
 const hopZone = (x, y) => basinFace(x, y) !== null ? 1 : basinAt(x, y) ? 2 : 0; // (0 floor, 1 the north wall's face, 2 the bed)
 function basinLeap(u) {
-  const sx = Math.abs(u.vx) > Math.abs(u.vy) + 0.01, dir = sx ? (Math.sign(u.vx) || 1) : (Math.sign(u.vy) || (u.hopDir === 'up' ? -1 : 1)), ax = sx ? 'x' : 'y';
-  const at = k => sx ? hopZone(u.x + k, u.y) : hopZone(u.x, u.y + k), z0 = at(0); let k = 0;
-  while (Math.abs(k) < 20 && at(k) === z0) k += dir; if (Math.abs(k) >= 20) return; // (the edge he is crossing)
-  if (at(k) === 1) while (Math.abs(k) < 30 && at(k) === 1) k += dir; // (the face: on past it, to its foot or its top)
-  u.hopTo = [ax, (sx ? u.x : u.y) + k + dir * 2, dir];
+  // (the edge he is crossing: looked for along both ways he is going, the nearer found; over the north wall's face, on
+  // past it to its foot or its top; from the side, far enough that all of him is over the edge, not half)
+  const cand = [];
+  for (const ax of ['x', 'y']) {
+    let dir = Math.sign(ax === 'x' ? u.vx : u.vy); if (!dir) { if (ax === 'x') continue; dir = u.hopDir === 'up' ? -1 : 1; }
+    const at = k => ax === 'x' ? hopZone(u.x + k, u.y) : hopZone(u.x, u.y + k), z0 = at(0); let k = 0;
+    while (Math.abs(k) < 16 && at(k) === z0) k += dir; if (Math.abs(k) >= 16) continue;
+    if (at(k) === 1) while (Math.abs(k) < 30 && at(k) === 1) k += dir;
+    cand.push([Math.abs(k), ax, k, dir]);
+  }
+  if (!cand.length) return; cand.sort((a, b) => a[0] - b[0]); const [, ax, k, dir] = cand[0];
+  u.hopTo = [ax, (ax === 'x' ? u.x : u.y) + k + dir * (ax === 'x' ? 7 : 2), dir];
 }
 // in the air, the rest of the way to where the hop lands, spread over the time left before he comes down
 function hopCarry(u, dt) {
