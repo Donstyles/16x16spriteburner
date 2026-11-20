@@ -7,7 +7,7 @@
 // - CUT CORNERS: a corner or two of the rock left standing in the room (an L, a T, a Z), or all four (a cross).
 // - ALCOVES: niches let into the north wall (or a side wall without a door), with something standing in them: a statue on
 //   its pedestal, a burning brazier, a small chest, a column.
-// - SPURS: walls run out into the room from one side, two tiles thick from the north or south wall, three from a side
+// - SPURS: walls run out into the room from one side, three tiles thick, from any wall
 //   wall, making bays; from the north and the south in turn they make the room a serpentine.
 // Every door still reaches every other, nothing of the room is cut off, and the doors' landings stay clear. A shaped room
 // takes no set piece, pit, cistern, shrine or pond (its walls are its feature); the end room may have a pillared hall or a
@@ -71,12 +71,12 @@ function shapeRoom(r, k, fl, W, H) {
       }
     } else if (k === 'spurs' || k === 'serpent') { // walls run out into the room
       const ser = k === 'serpent', n = ser ? randi(2, 3) : randi(1, 2), from = ser ? (chance(0.5) ? ['N', 'S', 'N'] : ['S', 'N', 'S']) : null;
-      const xsAll = []; for (let x = r.ix0 + 3; x <= r.ix1 - 4; x++) xsAll.push(x);
+      const xsAll = []; for (let x = r.ix0 + 3; x <= r.ix1 - 5; x++) xsAll.push(x);
       let xs = ser ? (() => { const step = (r.w - 2) / (n + 1); return Array.from({ length: n }, (_, i) => Math.round(r.ix0 + step * (i + 1)) - 1 + randi(-1, 1)); })() : pitShuffle(xsAll).slice(0, n);
       let bad = false;
       for (let i = 0; i < n; i++) {
         const s = ser ? from[i] : pick(['N', 'S', 'N', 'S', 'E', 'W']), x = xs[i];
-        if (s === 'N' || s === 'S') { const L = ser ? r.h - 3 : randi(2, Math.max(2, r.h - 4)); rect(rock, x, s === 'N' ? r.iy0 : r.iy1 - L + 1, 2, L); }
+        if (s === 'N' || s === 'S') { const L = ser ? r.h - 3 : randi(2, Math.max(2, r.h - 4)); rect(rock, x, s === 'N' ? r.iy0 : r.iy1 - L + 1, 3, L); } // (three tiles thick: two read as a thin line)
         else { if (side(s)) { bad = true; break; } const L = randi(2, Math.max(2, Math.floor(r.w / 2) - 2)), y = randi(r.iy0 + 1, r.iy1 - 3); rect(rock, s === 'W' ? r.ix0 : r.ix1 - L + 1, y, L, 3); }
       }
       if (bad) continue;
