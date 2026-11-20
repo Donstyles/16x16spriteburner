@@ -39,6 +39,8 @@ function drawDoors(c) {
       const col = doorFrame(k) + (d.motif || 0); // (its motif: the cross, the chevron or the emblem, in the floor's colour)
       if (d.side === 'S') continue; // (a south doorway's blast door is drawn among the units: drawSouthDoor)
       for (const [x, y] of d.cells) { c.drawImage(IMG.doors, col * TS, th.door * TS, TS, TS, x * TS, (y - 1) * TS, TS, TS); c.drawImage(IMG.doors, col * TS, (th.door + 1) * TS, TS, TS, x * TS, y * TS, TS, TS); }
+      const xs = d.cells.map(q => q[0]), x0 = Math.min(...xs), x1 = Math.max(...xs), y = d.cells[0][1]; // (the doorway is 4 px wider each side than its three tiles: the gaps filled from the panels' own edges, as in a south doorway)
+      for (const [r, dy] of [[th.door, (y - 1) * TS], [th.door + 1, y * TS]]) { c.drawImage(IMG.doors, col * TS + TS - S_GAP, r * TS, S_GAP, TS, x0 * TS - S_GAP, dy, S_GAP, TS); c.drawImage(IMG.doors, col * TS, r * TS, S_GAP, TS, (x1 + 1) * TS, dy, S_GAP, TS); }
     } else {
       // the portcullis stands in the wall line: up past the brick face to the corner post above the doorway, down to the corner
       // post below it. Both posts stand in front of it in the tileset's perspective, so they are drawn again over its two ends

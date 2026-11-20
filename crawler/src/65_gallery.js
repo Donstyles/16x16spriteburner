@@ -71,7 +71,8 @@ function beginGallery(kit, i) {
 // the gallery's screen: a grid of buttons, three columns (63_menu)
 function drawGalleryMenu(c, W, H, big, btn, k) {
   font(c, 900, clamp(big / 10, 22, 40), F_DISP); label(c, 'Night gallery', W / 2, H * 0.11 + 6, '#f8ecd6', { align: 'center' });
-  const cols = 3, rows = Math.ceil(GALLERY.length / cols), gx = 10, gy = 5, x0 = 14 + VIEW.safe.l + 86, x1 = W - 14 - VIEW.safe.r, bw = Math.min(230, (x1 - x0 - gx * (cols - 1)) / cols), y0 = H * 0.11 + 22, bh = clamp((H - y0 - 10 - VIEW.safe.b) / rows - gy, 22, 34), ox = (x0 + x1 - (bw * cols + gx * (cols - 1))) / 2;
+  // (a column more each time ten rows would not hold them)
+  const cols = Math.max(3, Math.ceil(GALLERY.length / 10)), rows = Math.ceil(GALLERY.length / cols), gx = 10, gy = 5, x0 = 14 + VIEW.safe.l + 86, x1 = W - 14 - VIEW.safe.r, bw = Math.min(230, (x1 - x0 - gx * (cols - 1)) / cols), y0 = H * 0.11 + 22, bh = clamp((H - y0 - 10 - VIEW.safe.b) / rows - gy, 22, 34), ox = (x0 + x1 - (bw * cols + gx * (cols - 1))) / 2;
   GALLERY.forEach(([txt, , , , col], i) => { const cx = Math.floor(i / rows), cy = i % rows; // (down each column: rooms and corridors, then themes and puzzles, then puzzles and floors)
     btn(c, ox + cx * (bw + gx), y0 + cy * (bh + gy), bw, bh, txt, () => beginGallery(k, i), { size: bh < 28 ? 12 : 14, col }); });
 }

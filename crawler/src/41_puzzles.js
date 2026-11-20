@@ -73,7 +73,7 @@ function echoCine(C, dt) {
   else if (h) { C.x = h.x; C.y = h.y - 8; }
   while (P.i < e.order.length && P.t >= P.i * gap) {
     const rn = e.runes[e.order[P.i]]; SFX.rune(panOf(rn.x), rn.i, false);
-    if (!e.song) { if (rn.hidden) { const c = rn.niche; flashLight((c.x + 1.5) * TS, (c.y + 1) * TS + 8, 40, 'gold', 0.9, 0.45); } else { rn.flash = 0.5; ring(rn.x, rn.y, 16, 'gold', 0.4, 2); } }
+    if (!e.song) { if (rn.hidden) crackGleam(rn.niche); else { rn.flash = 0.5; ring(rn.x, rn.y, 16, 'gold', 0.4, 2); } }
     P.i++;
   }
   const I = h && h.inp, skip = e.shown && C.t > 0.3 && I && (I.atkP || I.dodgeP);
@@ -369,10 +369,19 @@ function repaintTiles(A, x0, y0, x1, y1) {
 }
 // the cracks in a stretch of wall: jagged dark lines in its bricks, more of them with every blow; a crumb drops off it now
 // and then (the tell)
+// a rune sealed behind a cracked wall sounding its note: its light leaks out through the cracks for a moment, a few
+// gold motes and a breath of dust drifting out of them (drawn in drawCrack)
+function crackGleam(k) {
+  k.glowAt = G.time; const x0 = k.x * TS, foot = (k.y + 2) * TS, L = k.lines || [];
+  for (let i = 0; i < 2; i++) { const q = L.length ? pick(L.slice(0, 3 + k.stage * 3)) : null, [px, py] = q ? q[randi(1, q.length - 1)] : [x0 + rand(8, 40), foot - 10]; glows(px, foot + 1, Math.max(1, foot - py), 1, 'gold', 6, 0.9, 0.9); }
+  smoke(x0 + 24, foot + 1, 2, 'dust', 5, 6, 0.9, 6);
+}
 function drawCrack(c, p) {
   const k = p.crack, x0 = k.x * TS, y0 = (k.y + 1) * TS, n = 3 + k.stage * 3; if (!k.lines) { k.lines = []; for (let i = 0; i < 9; i++) { let x = x0 + rand(4, 44), y = y0 + rand(0, 4); const L = [[x, y]]; for (let j = 0; j < randi(3, 6); j++) { x += rand(-4, 4); y += rand(2, 4); L.push([x, y]); } k.lines.push(L); } }
-  const fl = (p.flashUntil || 0) > G.time;
-  for (let i = 0; i < Math.min(n, k.lines.length); i++) { const L = k.lines[i]; for (let j = 1; j < L.length; j++) { const [ax, ay] = L[j - 1], [bx, by] = L[j], m = Math.max(Math.abs(bx - ax), Math.abs(by - ay)); for (let s = 0; s <= m; s++) { const x = Math.round(lerp(ax, bx, s / m)), y = Math.round(lerp(ay, by, s / m)); if (y >= y0 + 16) continue; c.fillStyle = fl ? '#e8e0d0' : '#1c1814'; c.fillRect(x, y, 1, 1); c.fillStyle = 'rgba(210,196,170,0.35)'; c.fillRect(x + 1, y, 1, 1); } } }
+  const fl = (p.flashUntil || 0) > G.time, ga = k.glowAt === undefined ? 9 : G.time - k.glowAt, gl = ga < 0.07 ? ga / 0.07 : clamp(1 - (ga - 0.07) / 0.65, 0, 1); // (gl: a sealed rune's light in the cracks, crackGleam)
+  const glowCol = gl > 0 ? `rgb(${Math.round(lerp(28, 150, gl))},${Math.round(lerp(24, 118, gl))},${Math.round(lerp(20, 62, gl))})` : null;
+  for (let i = 0; i < Math.min(n, k.lines.length); i++) { const L = k.lines[i]; for (let j = 1; j < L.length; j++) { const [ax, ay] = L[j - 1], [bx, by] = L[j], m = Math.max(Math.abs(bx - ax), Math.abs(by - ay)); for (let s = 0; s <= m; s++) { const x = Math.round(lerp(ax, bx, s / m)), y = Math.round(lerp(ay, by, s / m)); if (y >= y0 + 16) continue; c.fillStyle = fl ? '#e8e0d0' : glowCol || '#1c1814'; c.fillRect(x, y, 1, 1); c.fillStyle = gl > 0 ? `rgba(255,186,84,${(0.16 * gl).toFixed(3)})` : 'rgba(210,196,170,0.35)'; c.fillRect(x + 1, y, 1, 1); if (gl > 0) c.fillRect(x - 1, y, 1, 1); } } }
+  if (gl > 0) light(x0 + 24, y0 + 8, 26, 'gold', 0.28 * gl);
   if (k.stage >= 1) { c.fillStyle = '#1c1814'; for (let i = 0; i < k.stage * 3; i++) { const L = k.lines[i]; c.fillRect(Math.round(L[1][0]) - 1, Math.round(L[1][1]), 3, 2); } } // (chips knocked out of it)
   if (chance(0.006)) debris(x0 + rand(6, 42), y0 + 14, 1, ['#6e665c', '#8a8076'], 6, 10, 1);
 }

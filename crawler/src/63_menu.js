@@ -59,8 +59,10 @@ function drawMenu(c) {
     const k = KIT_ORDER[MENU.sel]; font(c, 900, clamp(big / 9, 26, 46), F_DISP); label(c, 'Test rooms', W / 2, H * 0.15, '#f8ecd6', { align: 'center' });
     font(c, 500, 13, F_HUD); spaced(c, 'AS ' + KITS[k].name, W / 2, H * 0.15 + 24, 2, 'rgba(240,224,192,0.6)', 'center');
     const T = [['NIGHT GALLERY', () => { MENU.screen = 'gallery'; }, '#ffe4a0'], ['ARMOUR & DEATH ROOM', () => beginArmourTest(k), '#ecdcae'], ['SHOP', () => beginShopTest(k), '#ffd860'], ['PUZZLE FLOOR', () => beginPuzzleFloor(k), '#e8c87a'], ['PIT FLOOR', () => beginPitFloor(k), '#c8a0e8'], ['BLOOD TEST ROOM', () => beginTest(k), '#e8907a'], ['CREATURE TEST ROOM', () => beginCreatureTest(k), '#9ad0e8'], ['WATER TEST ROOM', () => beginWaterTest(k), '#7ab8f0'], ['DOOR TEST ROOM', () => beginDoorTest(k), '#d8c8a8']];
-    const bw = Math.min(260, W * 0.42), y0 = H * 0.15 + 42, bh = clamp((H - y0 - 14 - VIEW.safe.b) / T.length - 8, 30, 40);
-    T.forEach(([txt, fn, col], i) => btn(c, W / 2 - bw / 2, y0 + i * (bh + 8), bw, bh, txt, fn, { size: 15, col }));
+    // (two columns once they no longer fit in one: down the first, then the second)
+    const y0 = H * 0.15 + 42, room = H - y0 - 14 - VIEW.safe.b, cols = room / T.length - 8 >= 34 ? 1 : 2, rows = Math.ceil(T.length / cols), gx = 14;
+    const bw = Math.min(260, (W - 28 - VIEW.safe.l - VIEW.safe.r - gx * (cols - 1)) / cols), bh = clamp(room / rows - 8, 28, 40), ox = W / 2 - (bw * cols + gx * (cols - 1)) / 2;
+    T.forEach(([txt, fn, col], i) => btn(c, ox + Math.floor(i / rows) * (bw + gx), y0 + (i % rows) * (bh + 8), bw, bh, txt, fn, { size: 15, col }));
     btn(c, 14 + VIEW.safe.l, 14 + VIEW.safe.t, 70, 32, 'BACK', () => { MENU.screen = 'kits'; }, { size: 16 });
   } else if (MENU.screen === 'gallery') { // (every new room, corridor, puzzle and floor: 65_gallery)
     drawGalleryMenu(c, W, H, big, btn, KIT_ORDER[MENU.sel]); btn(c, 14 + VIEW.safe.l, 14 + VIEW.safe.t, 70, 32, 'BACK', () => { MENU.screen = 'tests'; }, { size: 16 });
