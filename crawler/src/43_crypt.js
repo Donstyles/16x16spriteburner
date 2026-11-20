@@ -45,8 +45,9 @@ function cryptDress(A, g) {
     const before = reach(), fits = tiles => { for (const k of tiles) blocked.add(k); const after = reach(); for (const k of before) if (!blocked.has(k) && !after.has(k)) { for (const t of tiles) blocked.delete(t); return false; } return true; };
     const prop = (kind, tx, ty, o) => A.props.push(Object.assign({ kind, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o));
     const mir = x => r.ix0 + r.ix1 - x, w = r.ix1 - r.ix0 + 1, h = r.iy1 - r.iy0 + 1, put = { prop, ok, fits, mir, W };
+    charnelPit(A, r, g, put); // (one a floor: below)
     if (r.kind === 'room' || r.kind === 'end') {
-      if (w >= 10 && h >= 7) tombHall(A, r, put);
+      if (r.charnel) ossuary(A, r, g, put); else if (w >= 10 && h >= 7) tombHall(A, r, put);
       else if (w >= 6 && h >= 6 && w % 2 === 0) { if (!burialChamber(A, r, put)) ossuary(A, r, g, put); }
       else ossuary(A, r, g, put);
     }
@@ -312,4 +313,38 @@ function drawShadeEyes(c) {
     if (blink) continue; c.globalAlpha = Math.min(1, (190 - d) / 80) * (f.frozen ? 1 : 0.85); c.fillStyle = '#e8f0ff'; c.fillRect(x - 2, y, 1, 1); c.fillRect(x + 1, y, 1, 1);
   }
   c.globalAlpha = 1;
+}
+
+// ===================== the charnel pit =====================
+// One crypt room a floor (the first one with room for it) has the pit the dead were thrown into: the sheet's ragged pit,
+// three tiles square, off the worn paths and as near the room's middle as it fits, a cold brazier either side of it.
+// While the hero is in its room and either brazier is dark, the dead climb out of it, one every few seconds (no more
+// than three of its own up at once, eight in all). Stand at a brazier a moment and his lamp lights it; with both
+// burning, the pit is quiet for good (and the light keeps the heaps of those cut down there down: 43_crypt litAt).
+function charnelPit(A, r, g, P) {
+  if (A.charnel || r.kind !== 'room' || r.ix1 - r.ix0 < 8 || r.iy1 - r.iy0 < 5) return;
+  const cx = Math.round((r.ix0 + r.ix1) / 2), cy = Math.round((r.iy0 + r.iy1) / 2), tries = [];
+  for (let j = -3; j <= 3; j++) for (let i = -6; i <= 6; i++) tries.push([cx + i - 1, cy + j - 1, Math.abs(i) + Math.abs(j) * 1.5]);
+  tries.sort((a, b) => a[2] - b[2]);
+  for (const [x0, y0] of tries) {
+    const cells = []; for (let y = y0; y < y0 + 3; y++) for (let x = x0; x < x0 + 3; x++) cells.push([x, y]);
+    if (!cells.every(([x, y]) => P.ok(x, y, 0)) || !P.ok(x0 - 2, y0 + 2) || !P.ok(x0 + 4, y0 + 2) || !P.fits(cells.map(([x, y]) => y * P.W + x).concat([(y0 + 2) * P.W + x0 - 2, (y0 + 2) * P.W + x0 + 4]))) continue;
+    for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) cryptAt(g, 3 + i, 13 + j, (x0 + i) * TS, (y0 + j) * TS);
+    P.prop('charnel', x0 + 1, y0 + 1, { flat: true, r: 18, box: [-23, 23, -24, 18], draw: false });
+    const fires = [x0 - 2, x0 + 4].map(bx => { P.prop('brazier', bx, y0 + 2, { f: bx % 4, out: true, ember: true, pitFire: true, r: 6 }); return A.props[A.props.length - 1]; });
+    A.charnel = { x0, y0, room: r.i, fires, t: 3, made: 0, kids: [] }; r.charnel = true; return;
+  }
+}
+function charnelTick(dt) {
+  const A = ARENA, C = A && A.charnel, h = G.me; if (!C || !h || h.dead || G.cine) return;
+  for (const p of C.fires) if (p.out) { if (dist(h.x, h.y, p.x, p.y) < 20) { p.lightT = (p.lightT || 0) + dt; if (p.lightT > 0.8) { lightUp(p, true); } } else p.lightT = 0; }
+  const r = A.rooms[C.room]; if (C.fires.every(p => !p.out) || C.made >= 8) return;
+  if (!(h.x > r.ix0 * TS && h.x < (r.ix1 + 1) * TS && h.y > r.iy0 * TS && h.y < (r.iy1 + 1) * TS)) return;
+  C.kids = C.kids.filter(u => !u.dead); if (C.kids.length >= 3 || (C.t -= dt) > 0) return;
+  C.t = 4.5; C.made++;
+  const spr = A.army === 'rot' ? (C.made % 2 ? 'MutilatedStumbler' : 'DismemberedCrawler') : (C.made % 3 ? 'DecrepitBones' : 'UnravelingCrawler'); if (!MOBS[spr]) return;
+  const side = C.made % 4, x = (C.x0 + 0.5 + (side % 2 ? 2 : 0)) * TS + (side < 2 ? 4 : 0), y = (C.y0 + 2.6) * TS;
+  const u = mkFoe(spr === 'UnravelingCrawler' || spr === 'DismemberedCrawler' ? 'flanker' : 'grunt', G.floor, x, y, spr);
+  Object.assign(u, { z: -16, room: C.room, ghostT: 2.2, face: x < (C.x0 + 1.5) * TS ? -1 : 1 }); G.foes.push(u); G.units.push(u); wakeFoe(u, h, 'noise'); C.kids.push(u);
+  SFX.clatter(panOf(x)); debris(x, y - 4, 5, ['#cfc6b0', '#a49a84', '#332919'], 40, 70, 1); smoke(x, y - 6, 1, 'dust', 4, 10, 0.6);
 }
