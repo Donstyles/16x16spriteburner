@@ -53,7 +53,7 @@ function updateRun(dt) {
   if (TEST.on && TEST.mode === 'creatures') creatureTick(dt);
   if (TEST.on && TEST.mode === 'water') waterTick(dt);
   if (TEST.on && TEST.mode === 'armour') armourTick(dt);
-  updateProj(dt); updateHazards(dt); worksTick(dt); candlesTick(dt); tombsTick(dt); heapsTick(dt); buriedTick(dt); nicheAmbush(dt); charnelTick(dt); cryptSounds(dt); brazierLamp(dt); fontsTick(dt); levelTick(dt); updateDrops(dt); updateSight(dt);
+  updateProj(dt); updateHazards(dt); worksTick(dt); candlesTick(dt); tombsTick(dt); heapsTick(dt); buriedTick(dt); nicheAmbush(dt); charnelTick(dt); cryptSounds(dt); brazierLamp(dt); fontsTick(dt); relightTick(dt); levelTick(dt); updateDrops(dt); updateSight(dt);
   removeIf(G.foes, f => f.dead); removeIf(G.units, u => u.dead && u.team === 'foe');
   if (G.hurtFlash > 0) G.hurtFlash -= dt; if (G.tiredT > 0) G.tiredT -= dt;
   if (G.phase === 'play') {

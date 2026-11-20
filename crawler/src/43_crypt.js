@@ -438,3 +438,24 @@ function seatedTick(f) {
   if (!(h && !h.dead && (dist(h.x, h.y, f.x, f.y) < 76 || f.hp < f.maxHp))) return;
   f.seated = false; f.stun = 0.5; SFX.groan(panOf(f.x)); SFX.stone(panOf(f.x), true); shake(0.2); smoke(f.x, f.y - 6, 3, 'dust', 6, 14, 0.8); wakeFoe(f, h, 'noise');
 }
+
+// ===================== the burial galleries =====================
+// The crypt's corridors are its galleries: along the north wall of every straight one running east and west, from its
+// middle out and mirrored, a light niche every fourth tile and niches of skulls between, the dead stored in its walls.
+function cryptGalleries(A, g) {
+  for (const hl of A.halls) {
+    if (hl.dir !== 'h' || hl.bent || hl.hidden) continue; const y = hl.y0 - 1, c2 = hl.x0 + hl.x1, R = { i: -1, fy0: -99 }; let k = 0;
+    for (let x = Math.floor(c2 / 2); x > hl.x0 + 1; x -= 2, k++) {
+      const m = c2 - x, both = x === m ? [x] : [x, m]; if (both.some(xx => !plainWall(A, xx, y))) continue;
+      for (const xx of both) cryptNiche(A, R, g, xx, y, k % 2 === 0 ? 'light' : 'skulls', k);
+    }
+  }
+}
+// a snuffed candle (not a burnt-down one) lights again from the hero's lamp: stand under a light niche, or beside a
+// candle tomb, a moment
+function relightTick(dt) {
+  const A = ARENA, h = G.me; if (!A || A.th.sheet !== 'crypt' || !h || h.dead) return;
+  const relight = (o, list) => { if ((o.relightT = (o.relightT || 0) + dt) < 0.9) return; o.relightT = 0; let n = 0; for (const c of list) if (!c.lit && c.wax > 0.6) { c.lit = true; c.sput = 0; n++; } if (n) { SFX.fire(panOf(o.x)); sparks(o.x, o.y - 6, 2, 5, 'fire', 40, 40); A.lights = A.slit = null; } };
+  for (const t of A.torches) { if (!t.candles || !t.candles.some(c => !c.lit && c.wax > 0.6)) continue; if (Math.abs(h.x - t.x) < 12 && h.y > t.y + 8 && h.y < t.y + 34) relight(t, t.candles); else t.relightT = 0; }
+  for (const p of A.props) { if (p.kind !== 'tomb' || !p.candles || p.opened || p.wake !== undefined || !p.candles.some(c => !c.lit && c.wax > 0.6)) continue; if (dist(h.x, h.y, p.x, p.y - 6) < 22) relight(p, p.candles); else p.relightT = 0; }
+}

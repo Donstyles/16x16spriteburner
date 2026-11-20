@@ -363,7 +363,7 @@ function buildArena1(floor) {
   for (const r of rooms) worksBefore(A, r, g); // a cistern, a rune shrine (36_works)
   for (const r of rooms) { furnish(A, r, g); shapeAfter(A, r); } // (what stands in the alcoves: 33_shapes)
   mapChest(A); // (the floor's map, in one of its small chests)
-  for (const r of rooms) worksAfter(A, r); for (const r of rooms) levelAfter(A, r); for (const r of rooms) puzzleAfter(A, r); spikeHalls(A); corridorWood(A, g); if (th.sheet === 'crypt') cryptDress(A, g); wayArrows(A, g); // (the crypt's dead, on floor nothing else needs: 43_crypt)
+  for (const r of rooms) worksAfter(A, r); for (const r of rooms) levelAfter(A, r); for (const r of rooms) puzzleAfter(A, r); spikeHalls(A); corridorWood(A, g); if (th.sheet === 'crypt') { cryptGalleries(A, g); cryptDress(A, g); } wayArrows(A, g); // (the crypt's dead, on floor nothing else needs: 43_crypt)
   // the stairway we came down, in the start room's north wall; the way down waits shut in the end room's
   { const r = A.start, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 12, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 13, (sx + i) * TS, (r.fy0 + 1) * TS); } }
   { const r = A.end, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 14, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 15, (sx + i) * TS, (r.fy0 + 1) * TS); } A.stairs = { x: (sx + 1.5) * TS, y: (r.fy0 + 2) * TS + 2, sx, sy: r.fy0, room: r.i };
