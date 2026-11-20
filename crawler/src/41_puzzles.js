@@ -221,6 +221,18 @@ function placeFires(A, r, g) {
   while (f.braziers.length < n && cands.length) { const far = cands.filter(([x, y]) => f.braziers.every(q => Math.hypot(q.x - (x * TS + 8), q.y - (y * TS + 14)) >= 80)), [x, y] = pick(far.length ? far : cands); const p = { kind: 'brazier', x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i, f: randi(0, 3), out: true, ember: false }; A.props.push(p); f.braziers.push(p); removeIf(cands, ([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 4); }
   for (const p of f.braziers) { p.ember = true; p.fire = f; } /* (the coals in it: a brazier that can be lit, 36_works darkRoom) */ A.lights = A.slit = null; (A.fires = A.fires || []).push(f);
 }
+// Every brazier with dead coals in it can be lit, wherever it stands, the same way: stand by it a while. (A dark rune
+// room's, a cistern's sunken one once the water is gone, a cold braziers puzzle's; that last burns only so long.) An
+// empty brazier never lights: the coals are the sign.
+const isCoals = p => !p.dead && !p.fire && ((p.kind === 'brazier' && p.out && p.ember) || (p.kind === 'stone' && p.tile && p.tile[0] === 31 && (p.tile[1] === 3 || p.tile[1] === 6)));
+function coalsTick(A, dt, heroes) {
+  for (const p of A.props) {
+    if (!isCoals(p)) continue;
+    if (!heroes.some(h => Math.abs(h.x - p.x) < 15 && Math.abs(h.y - p.cy) < 13)) { p.kindle = 0; continue; }
+    p.kindle = (p.kindle || 0) + dt; if (p.kindle > FIRES.smoke && chance(dt * (6 + 14 * (p.kindle - FIRES.smoke)))) smoke(p.x, p.y - 12, 1, 'dust', 4, 8, 0.6, 10);
+    if (p.kindle > FIRES.catch) { p.kindle = 0; if (p.kind === 'stone') Object.assign(p, { kind: 'brazier', out: true, ember: true, f: randi(0, 3), tile: null }); lightUp(p, true); } // (a sunken one, dry now: a brazier again)
+  }
+}
 function firesTick(A, f, dt, heroes) {
   if (f.solved) return; let lit = 0;
   for (const p of f.braziers) {
@@ -312,7 +324,7 @@ function drawCrack(c, p) {
 // ---- every frame (36_works worksTick)
 function puzzlesTick(dt) {
   const A = ARENA; if (!A) return; const heroes = G.heroes.filter(h => !h.dead && !h.enter);
-  gatesTick(A, dt); pushTick(A, dt, heroes); for (const e of A.echoes || []) echoTick(A, e, dt, heroes); for (const f of A.fires || []) firesTick(A, f, dt, heroes);
+  gatesTick(A, dt); pushTick(A, dt, heroes); for (const e of A.echoes || []) echoTick(A, e, dt, heroes); for (const f of A.fires || []) firesTick(A, f, dt, heroes); coalsTick(A, dt, heroes);
   for (const sg of A.spikeGates || []) {
     const was = sg.downT; if (sg.downT > 0) { sg.downT = Math.max(0, sg.downT - dt); const left = sg.downT; if ((sg.tkT = (sg.tkT || 0) - dt) <= 0) { sg.tkT = left > 3 ? 0.5 : left > 1.2 ? 0.25 : 0.12; SFX.tick(panOf(sg.spikes[0].x)); } }
     if (was > 0 && sg.downT <= 0) for (const s of sg.spikes) s.hit.clear();

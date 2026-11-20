@@ -208,6 +208,15 @@ let wb = null, wbc = null, PXO = { x: 0, y: 0 }, shb = null, shbc = null;
 // standing up from the floor's edge), on water or down a pit. Everything that is not floor, opaque, over the whole map;
 // the strip of floor a south wall leaves showing along its top is floor. Made again when the floor changes (a cracked
 // slab gives way, a cistern drains or fills: A.flv).
+// the solid rock: tiles of rock with no wall piece drawn on them (the dark between the rooms, the tops of the blocks), and
+// not a shut door; no glow, spark or swing shows over it (render, below). Kept until the floor changes (A.flv)
+function voidMask() {
+  const A = ARENA, v = A.flv || 0; if (A.vmC && A.vmV === v) return A.vmC; const c = A.vmC || (A.vmC = mkCanvas(A.pw, A.ph)), g = c.getContext('2d');
+  g.clearRect(0, 0, A.pw, A.ph); g.fillStyle = '#000'; const shut = new Set();
+  for (const d of A.doors || []) if (d.k > 0.02) for (const [x, y] of d.cells) { shut.add(y * A.w + x); if (d.side === 'N') shut.add((y - 1) * A.w + x); }
+  for (let ty = 0; ty < A.h; ty++) for (let tx = 0; tx < A.w; tx++) { const i = ty * A.w + tx; if (A.fl[i] === 0 && !A.wt[i] && !shut.has(i)) g.fillRect(tx * TS, ty * TS, TS, TS); }
+  A.vmV = v; return c;
+}
 function noFloor() {
   const A = ARENA; if (A.nfC && A.nfV === (A.flv || 0)) return A.nfC; const c = A.nfC || (A.nfC = mkCanvas(A.pw, A.ph)), g = c.getContext('2d');
   g.clearRect(0, 0, A.pw, A.ph); g.fillStyle = '#000';
@@ -257,7 +266,7 @@ function render() {
   fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.globalCompositeOperation = 'source-over'; fctx.globalAlpha = 1; fctx.clearRect(0, 0, bw, bh); fctx.globalCompositeOperation = 'lighter'; fctx.imageSmoothingEnabled = false; X(fctx);
   drawAuras(fctx); drawGhosts(fctx); drawRings(fctx); drawFxParts(fctx); drawBolts(fctx); drawArrowGlints(fctx); drawSpellGlows(fctx); drawWorksGlow(fctx); drawWareGlow(fctx); drawCharges(fctx);
   if (G.mode === 'play') maskToMemory(fctx, ox, oy, 'destination-in'); // no glow, spark or flame shows where nobody has looked
-  fctx.globalCompositeOperation = 'destination-out'; drawCeil(fctx, ox, oy, bw, bh); drawCeil(fctx, ox, oy, bw, bh, ARENA.ceilN); fctx.globalCompositeOperation = 'lighter'; // nor over the tops of the walls
+  fctx.globalCompositeOperation = 'destination-out'; drawCeil(fctx, ox, oy, bw, bh); drawCeil(fctx, ox, oy, bw, bh, ARENA.ceilN); drawCeil(fctx, ox, oy, bw, bh, voidMask()); fctx.globalCompositeOperation = 'lighter'; // nor over the tops of the walls, nor the solid rock
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'lighter'; c.drawImage(fxc, 0, 0);
   if (Q.bloom > 0) { b1c.imageSmoothingEnabled = b2c.imageSmoothingEnabled = c.imageSmoothingEnabled = true; b1c.clearRect(0, 0, b1.width, b1.height); b1c.drawImage(fxc, 0, 0, b1.width, b1.height); b2c.clearRect(0, 0, b2.width, b2.height); b2c.drawImage(b1, 0, 0, b2.width, b2.height); c.globalAlpha = 0.45 * Q.bloom; c.drawImage(b1, 0, 0, bw, bh); c.globalAlpha = 0.5 * Q.bloom; c.drawImage(b2, 0, 0, bw, bh); c.globalAlpha = 1; c.imageSmoothingEnabled = false; }
   c.globalCompositeOperation = 'source-over';
