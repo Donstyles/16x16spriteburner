@@ -125,6 +125,7 @@ function drawPropPart(c, p, low) {
 }
 function drawProp(c, p) {
   if (p.draw === false) return; // (painted into the ground, a body only: the charnel pit, 43_crypt)
+  if (p.kind === 'font') { drawFont(c, p); return; } // (a skull font's basin: 43_crypt)
   if (p.kind === 'pillar') { const [tx, ty] = p.tile; for (let i = 0; i < 3; i++) c.drawImage(IMG.cellar, tx * TS, (ty + i) * TS, TS, TS, p.x - 8, p.y - 14 - 32 + i * TS, TS, TS); }
   else if (p.kind === 'brazier') { const br = ARENA.th.tone === 'brown'; if (p.out) c.drawImage(IMG.cellar, (p.ember ? 31 : 30) * TS, (br ? 6 : 3) * TS, TS, TS, p.x - 8, p.y - 14, TS, TS); else { const f = ((G.time * 8 + p.f) | 0) % 4 + (br ? 5 : 0); c.drawImage(IMG.cellar, f * TS, 27 * TS, TS, TS, p.x - 8, p.y - 14, TS, TS); } } // (a dead one: the sheet's cold brazier, or the one with embers)
   else if (p.kind === 'ore') { // struck, it flashes white and fades back as a foe does; the last blow, a beat later, it bursts into chunks

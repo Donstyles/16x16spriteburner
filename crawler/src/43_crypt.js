@@ -97,6 +97,7 @@ function cryptWall(A, r, g, used) {
   for (let x = Math.floor(c2 / 2); x > r.ix0; x -= 2, k++) {
     const m = c2 - x, both = x === m ? [x] : [x, m]; if (both.some(xx => used.has(xx) || !plainWall(A, xx, y))) continue;
     const role = k % 2 === 0 ? 'light' : ['skulls', 'urns', 'chains'][(k >> 1) % 3];
+    if (k === 0 && both.length === 1 && fontRoom(r) && FLOOR(A.fl[r.iy0 * A.w + x])) { used.add(x); cryptFont(A, r, g, x, y); continue; } // (a font at its middle: below)
     for (const xx of both) { used.add(xx); cryptNiche(A, r, g, xx, y, role, k); }
   }
 }
@@ -376,4 +377,39 @@ function cryptSounds(dt) {
 function brazierLamp(dt) {
   const A = ARENA, h = G.me; if (!A || A.th.sheet !== 'crypt' || !h || h.dead) return;
   for (const p of A.props) { if (p.kind !== 'brazier' || !p.out || p.dead || p.pitFire) continue; if (dist(h.x, h.y, p.x, p.y) < 20) { p.lightT = (p.lightT || 0) + dt; if (p.lightT > 0.8) lightUp(p, true); } else p.lightT = 0; }
+}
+
+// ===================== the skull fonts =====================
+// In one crypt room in three (by its place) the middle of the north wall holds a font instead of a light niche: a skull
+// set in the brick over a stone basin with candles at its corners, the basin full of blood (rooms of odd number) or of
+// water. Stand at it a moment to drink. The blood heals four tenths of the hero's life, and curses him (his blows go
+// wide two times in three for twenty seconds); the water washes a curse away and heals a little. Drunk, the basin
+// empties, and fills again from the skull's mouth over a minute and a half, a thin stream running down the whole while.
+const FONT_COL = { blood: 23, water: 24 }, FONT_RGB = { blood: '#8a1418', water: '#2f7fcc' };
+const fontRoom = r => r.kind === 'room' && hash2(r.i * 5 + 2, 77) < 0.34;
+function cryptFont(A, r, g, xx, y) {
+  const liq = r.i % 2 ? 'blood' : 'water', col = FONT_COL[liq], nx = xx * TS;
+  cryptAt(g, col, 1, nx, y * TS - 3); // (the skull in the brick)
+  const p = { kind: 'font', sheet: 'crypt', liq, full: 1, x: nx + 8, y: r.iy0 * TS + 14, cy: r.iy0 * TS + 10, r: 6, solid: true, hp: 1e9, room: r.i, box: [-7, 7, -9, 1], drinkT: 0 };
+  p.candles = addCandles(A, candleSrc(col * TS, 3 * TS, TS, TS, [col * TS, 2 * TS]), nx, r.iy0 * TS, r.iy0 * TS + 16, 600);
+  A.props.push(p);
+}
+function drawFont(c, p) {
+  const x = p.x - 8, y = p.y - 14; c.drawImage(IMG.crypt, 22 * TS, 2 * TS, TS, TS, x, y, TS, TS); // (the empty basin)
+  if (p.full > 0) { c.globalAlpha = Math.min(1, p.full * 1.4); c.drawImage(IMG.crypt, FONT_COL[p.liq] * TS, 2 * TS, TS, TS, x, y, TS, TS); c.globalAlpha = 1; }
+  if (p.full < 1 && p.full > 0.02) { c.fillStyle = FONT_RGB[p.liq]; c.fillRect(p.x - (p.liq === 'blood' ? 0 : 1), y - 6, 1, 8 + ((G.time * 20) | 0) % 2); } // (the stream from the skull's mouth)
+  if (p.candles) drawCandles(c, p.candles);
+}
+function fontsTick(dt) {
+  const A = ARENA, h = G.me; if (!A || A.th.sheet !== 'crypt' || !h || h.dead) return;
+  for (const p of A.props) {
+    if (p.kind !== 'font') continue;
+    if (p.full < 1) { p.full = Math.min(1, p.full + dt / 90); continue; }
+    if (Math.abs(h.x - p.x) < 10 && h.y > p.y - 2 && h.y < p.y + 14) { if ((p.drinkT += dt) > 0.6) drinkFont(p, h); } else p.drinkT = 0;
+  }
+}
+function drinkFont(p, h) {
+  p.full = 0; p.drinkT = 0; SFX.splash(panOf(p.x)); healGlow(h.x, h.y);
+  if (p.liq === 'blood') { const n = Math.round(h.maxHp * 0.4); h.hp = Math.min(h.maxHp, h.hp + n); h.curseT = 20; textPop(h.x, h.y, headZ(h) + 4, '+' + n, 'heal', true); textPop(h.x, h.y, headZ(h) + 12, 'CURSED', 'curse', false); SFX.hex(panOf(h.x), true); }
+  else { const n = Math.round(h.maxHp * 0.15), cursed = h.curseT > 0; h.hp = Math.min(h.maxHp, h.hp + n); h.curseT = 0; textPop(h.x, h.y, headZ(h) + 4, '+' + n, 'heal', true); if (cursed) textPop(h.x, h.y, headZ(h) + 12, 'CLEANSED', 'heal', false); SFX.chime(panOf(h.x)); }
 }
