@@ -9,6 +9,7 @@ const FLOOR_NAMES = ['THE ROOT CELLAR', 'THE SALT VAULT', 'THE DROWNED STORES', 
 let ARENA = null;
 const CW = 24, CH = 17; // one grid cell, in tiles
 const FORCE_SHOP = { on: false }; // (the shop test: 39_shop)
+const HIDDEN = { force: false }; // (a test: a hidden wing on the floor; 'exit': with the way down in it)
 const GREAT = { force: false }; // (a test: a great hall on every floor)
 // The tops of the south, east and west walls are at the ceiling: nothing in the room passes over them, so their painted
 // trim is drawn into a ceiling layer over everything else (31_walls).
@@ -65,7 +66,7 @@ function buildArena1(floor) {
   // the end room is the one farthest from the start
   const adj = k => edges.filter(e => e[0] === k || e[1] === k).map(e => e[0] === k ? e[1] : e[0]);
   const far = new Map([[key(...s0), 0]]), q = [key(...s0)]; while (q.length) { const k = q.shift(); for (const n of adj(k)) if (!far.has(n)) { far.set(n, far.get(k) + 1); q.push(n); } }
-  const endK = [...far.entries()].sort((a, b) => b[1] - a[1])[0][0], leaves = [...cells.keys()].filter(k => k !== endK && k !== key(...s0) && adj(k).length === 1);
+  let endK = [...far.entries()].sort((a, b) => b[1] - a[1])[0][0], leaves = [...cells.keys()].filter(k => k !== endK && k !== key(...s0) && adj(k).length === 1);
   // from the second floor a dead end may be the shop (39_shop): one of two or more, or now and then the only one (the
   // treasure then goes to a guarded room)
   const lv = leaves.slice(), north = k => { const n = adj(k)[0]; return cells.get(n)[1] < cells.get(k)[1]; }, shopC = lv.filter(k => !north(k)); // (its door not in the north wall: the keeper stands with his back to it)
@@ -73,7 +74,8 @@ function buildArena1(floor) {
   const treasK = lv.length ? pick(lv) : -1; // a dead end off the way, when there is one, holds the treasure
   // ---- rooms inside their cells; every room covers its cell's centre so the corridors can run straight
   const W = GW * CW, H = GH * CH, fl = new Uint8Array(W * H), rooms = [], byKey = new Map();
-  const kindOf = k => k === key(...s0) ? 'start' : k === endK ? 'end' : k === treasK ? 'treasure' : k === shopK ? 'shop' : 'room';
+  let hid = null; // (the hidden wing, below)
+  const kindOf = k => hid && k === hid.s && hid.kind !== 'end' ? hid.kind : k === key(...s0) ? 'start' : k === endK ? 'end' : k === treasK ? 'treasure' : k === shopK ? 'shop' : 'room';
   // THE GREAT HALL (from the second floor, now and then; two from the sixth): two neighbouring cells of the grid made one
   // room, thirty to thirty-six tiles long, or a nave twenty-four to twenty-eight tall; the end room may be one
   const great = new Map(); if (floor >= 2 || GREAT.force) {
@@ -81,6 +83,18 @@ function buildArena1(floor) {
     for (const [a, b] of pitShuffle(edges.slice())) { if (great.size >= want) break; if (!ok(a) || !ok(b) || used.has(a) || used.has(b)) continue; const ca = cells.get(a), cb = cells.get(b); if (ca[1] !== cb[1] && !chance(0.35)) continue; if (!GREAT.force && !chance(Math.min(0.9, 0.45 * (ARCH.cur.great || 1)))) continue; const [f, s] = ca[0] + ca[1] * 100 < cb[0] + cb[1] * 100 ? [a, b] : [b, a]; great.set(f, s); used.add(a); used.add(b); }
   }
   const second = new Set(great.values());
+  // THE HIDDEN WING: from the second floor, now and then, an empty cell of the grid north of a room holds a room of its own,
+  // reached only by a corridor walled up behind a cracked stretch of that room's north wall (41_puzzles). Mostly treasure;
+  // now and then an ordinary room (a switch the floor needs may end up in it), and from the third floor now and then the
+  // way down itself, off a room far along the way
+  if ((floor >= 2 || HIDDEN.force) && (HIDDEN.force || chance(0.55))) {
+    const cand = [...cells.entries()].filter(([k, [x, y]]) => y > 0 && !cells.has(key(x, y - 1)) && kindOf(k) !== 'shop' && kindOf(k) !== 'end' && !great.has(k) && !second.has(k));
+    if (cand.length) {
+      const exit = HIDDEN.force === 'exit' || (!HIDDEN.force && floor >= 3 && chance(0.25)); cand.sort((a, b) => (far.get(b[0]) || 0) - (far.get(a[0]) || 0));
+      const [rk, [x, y]] = exit ? cand[randi(0, Math.min(2, cand.length - 1))] : pick(cand), sk = key(x, y - 1);
+      hid = { r: rk, s: sk, x, kind: exit ? 'end' : chance(0.35) ? 'room' : 'treasure' }; cells.set(sk, [x, y - 1]); if (exit) endK = sk;
+    }
+  }
   for (const [k, [gx, gy]] of cells) {
     if (second.has(k)) continue; const k2 = great.get(k), kind = k2 !== undefined && kindOf(k2) === 'end' ? 'end' : kindOf(k);
     const big = kind === 'end'; let w = big ? randi(18, 20) : kind === 'start' ? randi(13, 14) : kind === 'treasure' ? randi(10, 12) : kind === 'shop' ? 9 : randi(12, 18), h = big ? randi(10, 12) : kind === 'start' || kind === 'treasure' ? randi(7, 8) : kind === 'shop' ? 7 : randi(7, 11);
@@ -121,6 +135,13 @@ function buildArena1(floor) {
       A.doors.push({ side: 'S', cells: [[x0, A.fy1], [x0 + 1, A.fy1], [x0 + 2, A.fy1]], hall: hl }); B.doors.push({ side: 'N', cells: [[x1, B.fy0 + 1], [x1 + 1, B.fy0 + 1], [x1 + 2, B.fy0 + 1]], hall: hl });
     }
   }
+  if (hid) { // its corridor: from the hidden room's south doorway to three rows short of the room it hangs off, whose wall stands whole across it
+    const S = byKey.get(hid.s), R = byKey.get(hid.r), x0 = hid.x * CW + CW / 2 - 1; carve(x0, S.fy1, x0 + 2, R.fy0 - 2);
+    const hl = { dir: 'v', A: S, B: R, x0, y0: S.fy1, y1: R.fy0 + 1, bent: false, wide: false, ym: Math.floor((S.fy1 + R.fy0) / 2), xb: x0, hidden: true, px0: (x0 - 1) * TS, py0: S.fy1 * TS, px1: (x0 + 4) * TS, py1: (R.fy0 + 2) * TS };
+    halls.push(hl); S.doors.push({ side: 'S', cells: [[x0, S.fy1], [x0 + 1, S.fy1], [x0 + 2, S.fy1]], hall: hl }); S.secret = true;
+    R.doors.push({ side: 'N', cells: [[x0, R.fy0 + 1], [x0 + 1, R.fy0 + 1], [x0 + 2, R.fy0 + 1]], hall: hl, hidden: true }); // (a doorway as far as the room's other works go: its landing kept clear; walled up, so no door of its own)
+    R.hiddenN = true; R.hidCrack = { x: x0, y: R.fy0, hp: 3, stage: 0, open: false, room: R.i, holds: 'hall', hall: hl };
+  }
   shapeRooms(rooms, fl, W, H, floor); // pillared halls, rings, cut corners, alcoves, spurs (33_shapes)
   // ---- paint, the way the tileset is built: dark is solid rock, the beige rim is the top edge of the rock, and a brick face
   // stands under every rim that faces south. Wall pieces are overlays: the floor runs on underneath them.
@@ -153,8 +174,9 @@ function buildArena1(floor) {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const P = wallPiece(isF, x, y); if (P) T(P[0], P[1], x, y, P[2]); }
   const A = ARENA = { arch: ARCH.cur, w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilN: cn, fl, wt, wf, rooms, halls, props: [], torches: [], name: floorName(floor), floor };
   paintCeil(A, cg, cv); // the painted trim, as drawn on the ground: the ceiling over everyone (31_walls)
-  A.doors = rooms.flatMap(r => r.doors.map(d => Object.assign(d, { room: r.i, k: 0, strut: d.side === 'S' && chance(0.16), motif: pick([0, 5, 10]) }))); // (strut: a south doorway's, now and then: 32_crawl)
+  A.doors = rooms.flatMap(r => r.doors.filter(d => !d.hidden).map(d => Object.assign(d, { room: r.i, k: 0, strut: d.side === 'S' && chance(0.16), motif: pick([0, 5, 10]) }))); // (strut: a south doorway's, now and then: 32_crawl)
   A.start = rooms.find(r => r.kind === 'start'); A.end = rooms.find(r => r.kind === 'end');
+  for (const r of rooms) if (r.hidCrack) { r.crack = r.hidCrack; r.crackX = r.crack.x; (A.cracks = A.cracks || []).push(r.crack); } // (the hidden wing's walled-up doorway)
   // ---- furnishing (the stairways' places first, so no torch or banner hangs on them)
   // three free tiles of north wall, clear of any doorway by a tile, as near the middle as they come
   const wallSpot = r => { const nd = r.doors.filter(d => d.side === 'N').flatMap(d => d.cells.map(c => c[0])); let best = r.cx - 1, bd = 1e9; for (let x = r.ix0 + 1; x + 2 <= r.ix1 - 1; x++) { if (nd.some(c => c >= x - 1 && c <= x + 3)) continue; const d = Math.abs(x + 1 - (r.ix0 + r.ix1) / 2); if (d < bd) { bd = d; best = x; } } return best; };

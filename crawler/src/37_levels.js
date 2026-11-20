@@ -107,7 +107,7 @@ function hostSluice(A, host, p) {
   if (A.planning && !A.sunkPlanned && !p.runes && !host.shape && host.w >= 12 && host.h >= 8 && chance(0.5)) { host.sunkHost = p; A.sunkPlanned = true; } // (its button sunk in a cistern made of this room: THE SUNKEN BUTTON, 36_works)
   // the outlet in the host's north wall, clear of its doors and stairs (furnish leaves it bare)
   const nd = host.doors.filter(d => d.side === 'N').flatMap(d => d.cells.map(c => c[0])), xs = [];
-  for (let x = host.ix0 + 1; x <= host.ix1 - 1; x++) if (faceAt(A, x, host.fy0 + 1) && !nd.some(c => Math.abs(c - x) <= 3) && !(host.stairX !== undefined && x >= host.stairX - 2 && x <= host.stairX + 4)) xs.push(x);
+  for (let x = host.ix0 + 1; x <= host.ix1 - 1; x++) if (faceAt(A, x, host.fy0 + 1) && !nd.some(c => Math.abs(c - x) <= 3) && !(host.stairX !== undefined && x >= host.stairX - 2 && x <= host.stairX + 4) && !(host.crackX !== undefined && x >= host.crackX - 2 && x <= host.crackX + 4)) xs.push(x);
   host.sluiceX = xs.length ? pick(xs) : host.ix0 + 1;
 }
 // the bed, the grate in it, and what a drained body needs (where its whirl turns, where its coins lie)
@@ -336,7 +336,7 @@ function bridgeCine(C, dt) {
   if (skip || (C.endT !== undefined && C.t - C.endT > 1.1)) { G.cine = null; G.eyes = null; }
 }
 function cineTick(dt) {
-  const C = G.cine; C.t += dt; if (C.bridge) { bridgeCine(C, dt); return; } if (C.gate) { gateCine(C, dt); return; } const p = C.pool;
+  const C = G.cine; C.t += dt; if (C.bridge) { bridgeCine(C, dt); return; } if (C.gate) { gateCine(C, dt); return; } if (C.echo) { echoCine(C, dt); return; } const p = C.pool;
   if (C.t > 0.8 && !p.drain) startDrain(p);
   worksTick(dt); updateSight(dt); updateProj(0);
   for (const f of G.foes) if (f.drowned) foeTick(f, dt); // (the drowned settle where they lie)

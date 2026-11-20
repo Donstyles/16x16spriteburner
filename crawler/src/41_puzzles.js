@@ -36,7 +36,7 @@ function puzReach(A, cut, free, skip = null) { // rooms reachable from the start
 // null while the floor has no gates
 const gateFree = A => A.gates && A.gates.length ? puzReach(A, null, true) : null;
 // the corridors the way down must pass through (none of them is part of a loop)
-function critHalls(A) { return A.halls.filter(h => h.A.kind !== 'shop' && h.B.kind !== 'shop' && !h.gate && !h.spikeGate && !puzReach(A, h, false).has(A.end)); }
+function critHalls(A) { return A.halls.filter(h => !h.hidden && h.A.kind !== 'shop' && h.B.kind !== 'shop' && !h.gate && !h.spikeGate && !puzReach(A, h, false).has(A.end)); }
 const puzRoomOK = r => r && r.kind !== 'shop' && r.kind !== 'end' && !r.set && !r.pool && !r.shrine && !r.puz && !r.sluice && !r.chest;
 // ---- planning (37_levels levelPlan): one of the puzzles that stand in the way, wherever it fits
 function puzzleTry(A, g) {
@@ -60,6 +60,24 @@ function tryGate(A, how) {
     return true;
   }
   return false;
+}
+// THE ORDER, GIVEN: everything holds still while it plays. The echoing runes are shown: the view goes to each rune in turn as
+// it lights with its note (to the cracked wall for one sealed behind it, its light glowing through the cracks), then back.
+// The singing runes are only heard: the view stays where it is, a moment's stop to listen. Once the order has been given
+// whole, attack or dodge skips it
+function echoCine(C, dt) {
+  const e = C.echo, P = e.play, gap = e.song ? 0.85 : 0.9, h = G.me; updateSight(dt); updateProj(0); P.t += dt;
+  for (const rn of e.runes) rn.flash = Math.max(0, rn.flash - dt);
+  const spot = rn => rn.hidden ? { x: (rn.niche.x + 1.5) * TS, y: (rn.niche.y + 1) * TS + 8 } : { x: rn.x, y: rn.y - 4 };
+  if (!e.song) { const nx = P.i < e.order.length ? spot(e.runes[e.order[P.i]]) : h ? { x: h.x, y: h.y - 8 } : null; if (nx) { C.x = nx.x; C.y = nx.y; } } // (the next to light; at the end, back)
+  else if (h) { C.x = h.x; C.y = h.y - 8; }
+  while (P.i < e.order.length && P.t >= P.i * gap) {
+    const rn = e.runes[e.order[P.i]]; SFX.rune(panOf(rn.x), rn.i, false);
+    if (!e.song) { if (rn.hidden) { const c = rn.niche; flashLight((c.x + 1.5) * TS, (c.y + 1) * TS + 8, 40, 'gold', 0.9, 0.45); } else { rn.flash = 0.5; ring(rn.x, rn.y, 16, 'gold', 0.4, 2); } }
+    P.i++;
+  }
+  const I = h && h.inp, skip = e.shown && C.t > 0.3 && I && (I.atkP || I.dodgeP);
+  if (skip || (P.i >= e.order.length && P.t > e.order.length * gap + (e.song ? 0.3 : 0.7))) { if (skip) I.atkP = I.dodgeP = I.atkR = false; e.play = null; e.shown = true; G.cine = null; G.eyes = null; }
 }
 // ---- the gates
 function makeGate(A, h, near) { // (a corridor running north and south: the gate in the near room's own wall, a blast door in its north doorway or its south one)
@@ -207,6 +225,7 @@ function puzzleAfter(A, r) {
   if (r.gateOf && r.puz === 'fires') placeFires(A, r, r.gateOf);
   if (r.gap) { for (const i of r.gap.lanes) clear(i % W, (i / W) | 0, 16); for (const [x, y] of r.gap.blocks) { const b = block(x, y); b.fill = true; } }
   if (r.spikeGate) { const sg = r.spikeGate; plate(sg.at[0], sg.at[1], { timer: sg, hidden: sg.hidden }); } // (hidden: in a cracked wall's niche, THE HIDDEN SWITCH)
+  if (r.crack) { const c = r.crack; removeIf(A.props, q => q.solid && q.hp >= 1e8 && q.kind !== 'crack' && Math.abs(q.cy - ((c.y + 2) * TS + 10)) < 12 && q.x > c.x * TS - 6 && q.x < (c.x + 3) * TS + 6); } // (nothing unbreakable stands in front of a cracked wall)
   if (r.crack) { const c = r.crack; A.props.push({ kind: 'crack', crack: c, x: (c.x + 1.5) * TS, y: (c.y + 1) * TS + 15, cy: (c.y + 1) * TS + 12, r: 18, solid: false, hp: 3, room: r.i }); }
   // half the time, tall stock stands right in front of it: crate stacks two high along the cracks, so the wall is
   // half hidden and must be cleared before it can be struck (it all breaks)
@@ -230,9 +249,8 @@ function echoTick(A, e, dt, heroes) {
   for (const rn of e.runes) rn.flash = Math.max(0, rn.flash - dt);
   const r = A.rooms[e.room], inside = heroes.some(h => roomAt(h.x, h.y) === r), came = inside && !e.inside; e.inside = inside;
   if (!e.solved && !e.play && came && (!e.shown || e.step === 0)) { e.play = { i: 0, t: -0.5 }; if (e.song && !e.shown) { const h = heroes.find(q => roomAt(q.x, q.y) === r); if (h) textPop(h.x, h.y, headZ(h) + 6, 'LISTEN', 'gold', false); } }
-  if (e.play) { // the order, given: each rune's note in turn (lit as well, unless they only sing)
-    const P = e.play, gap = e.song ? 0.85 : 0.7; P.t += dt; while (P.i < e.order.length && P.t >= P.i * gap) { const rn = e.runes[e.order[P.i]]; SFX.rune(panOf(rn.x), rn.i, false); if (!e.song) { if (rn.hidden) { const c = rn.niche; flashLight((c.x + 1.5) * TS, (c.y + 1) * TS + 8, 40, 'gold', 0.9, 0.45); } else { rn.flash = 0.5; ring(rn.x, rn.y, 16, 'gold', 0.4, 2); } } P.i++; }
-    if (P.i >= e.order.length && P.t > e.order.length * gap + 0.2) { e.play = null; e.shown = true; } return;
+  if (e.play) { // the order is given as a scene of its own (echoCine, below): everything holds still while it plays
+    if (!G.cine && e.play.t >= -0.7) G.cine = { echo: e, t: 0, x: CAM.x, y: CAM.y }; else e.play.t += dt; return; // (after a wrong step, the knock first)
   }
   if (e.solved) return;
   for (const rn of e.runes) {
@@ -320,11 +338,13 @@ function hitCrack(p, n) {
 }
 function openCrack(A, p) {
   const c = p.crack, W = A.w; c.open = true; p.dead = true;
-  for (let yy = c.y; yy <= c.y + 1; yy++) for (let xx = c.x; xx <= c.x + 2; xx++) A.fl[yy * W + xx] = 1;
-  repaintTiles(A, c.x - 1, c.y - 3, c.x + 3, c.y + 2);
+  const top = c.holds === 'hall' ? c.y - 1 : c.y; // (a hidden wing's doorway: through the whole wall, onto its corridor)
+  for (let yy = top; yy <= c.y + 1; yy++) for (let xx = c.x; xx <= c.x + 2; xx++) A.fl[yy * W + xx] = 1;
+  repaintTiles(A, c.x - 2, c.y - 4, c.x + 4, c.y + 2);
   const x = (c.x + 1.5) * TS, y = (c.y + 1) * TS + 8; shake(0.25); SFX.quake(0.9); SFX.stone(panOf(x), true);
   for (let i = 0; i < 3; i++) debris(x + rand(-16, 16), y + rand(-6, 6), 14, ['#6e665c', '#8a8076', '#4a443e', '#a69a8c', '#3a342e'], 120, 140, 2); smoke(x, y, 10, 'dust', 12, 26, 1.4);
   if (c.holds === 'rune') { for (const rn of (A.runes || []).concat(...(A.echoes || []).map(e => e.runes))) if (rn.niche === c) rn.hidden = false; }
+  else if (c.holds === 'hall') { A.flv = (A.flv || 0) + 1; } // (nothing in it: the way on)
   else if (c.holds === 'drain' || c.holds === 'spike') { const pl = (A.plates || []).find(q => q.hidden && q.tx === c.x + 1 && q.ty === c.y); if (pl) pl.hidden = false; }
   else if (c.holds === 'lever') { const pl = (A.plates || []).find(q => q.hidden && q.tx === c.x + 1 && q.ty === c.y); if (pl) pl.hidden = false; }
   else { A.props.push({ kind: 'chest', tile: [pick([28, 30]), 8], th: 1, x: (c.x + 1) * TS + 8, y: c.y * TS + 14, cy: c.y * TS + 10, r: 5, solid: true, hp: 40, room: c.room, rich: true }); }
