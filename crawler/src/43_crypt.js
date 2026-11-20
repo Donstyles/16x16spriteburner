@@ -468,3 +468,13 @@ function relightTick(dt) {
   for (const t of A.torches) { if (!t.candles || !t.candles.some(c => !c.lit && c.wax > 0.6)) continue; if (Math.abs(h.x - t.x) < 12 && h.y > t.y + 8 && h.y < t.y + 34) relight(t, t.candles); else t.relightT = 0; }
   for (const p of A.props) { if (p.kind !== 'tomb' || !p.candles || p.opened || p.wake !== undefined || !p.candles.some(c => !c.lit && c.wax > 0.6)) continue; if (dist(h.x, h.y, p.x, p.y - 6) < 22) relight(p, p.candles); else p.relightT = 0; }
 }
+
+// ===================== hints =====================
+// The first time the hero comes near something in the crypt he can use (a full font, a cold brazier, a niche whose
+// candles were put out), a word rises from it once: what standing there does.
+function cryptHints() {
+  const A = ARENA, h = G.me; if (!A || A.th.sheet !== 'crypt' || !h || h.dead) return;
+  const hint = (o, x, y, txt, col) => { if (o.hinted || dist(h.x, h.y, x, y) > 34) return; o.hinted = true; textPop(x, y, 14, txt, col, false); };
+  for (const p of A.props) { if (p.kind === 'font' && p.full >= 1) hint(p, p.x, p.y, p.liq === 'blood' ? 'DRINK: BLOOD' : 'DRINK: WATER', p.liq === 'blood' ? 'red' : 'heal'); else if (p.kind === 'brazier' && p.out && !p.dead) hint(p, p.x, p.y, 'STAND TO LIGHT', 'gold'); }
+  for (const t of A.torches) if (t.candles && t.candles.some(c => !c.lit && c.wax > 0.6)) hint(t, t.x, t.y + 22, 'STAND TO RELIGHT', 'gold');
+}
