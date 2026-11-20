@@ -76,7 +76,7 @@ function drawControls(c) {
   if (!G.me || G.mode !== 'play') return; const L = btnLayout(), h = G.me, sc = ctrlScale();
   if (INPUT.touch) {
     const charge = h.act && h.act.k === 'charge' ? clamp(h.act.t / weaponOf(h).heavy.charge, 0, 1) : 0;
-    roundBtn(c, L.atk, 'ATTACK', INPUT.btn.atk, '#f0d8a8', charge);
+    const buy = shopWare(); roundBtn(c, L.atk, buy ? 'BUY' : 'ATTACK', INPUT.btn.atk, buy ? '#ffd860' : '#f0d8a8', charge); // (at the counter, with a ware picked out: a blow buys it)
     roundBtn(c, L.dodge, 'ROLL', INPUT.btn.dodge, '#b8d8f0', 0, h.stam <= 0);
     roundBtn(c, L.block, h.off === 'shield' ? 'BLOCK' : 'GUARD', INPUT.btn.block, '#d8d0c0', 0, h.stam <= 0);
     roundBtn(c, L.flask, 'FLASK ' + h.flasks, INPUT.btn.flask, '#9fe8a8', 0, h.flasks <= 0);

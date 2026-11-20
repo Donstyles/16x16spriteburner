@@ -110,7 +110,7 @@ function drawShopHud(c, zf) {
     selTop = sy - (w.sub ? 40 : 29) * zf; font(c, 600, 13 * zf, F_HUD); label(c, w.name, sx, sy - 14 * zf, '#ffffff', { align: 'center', stroke: 3 });
     if (w.sub) { font(c, 600, 9 * zf, F_HUD); label(c, w.sub, sx, sy - 27 * zf, '#7cff9c', { align: 'center', stroke: 3 }); }
     font(c, 600, 12 * zf, F_NUM); label(c, p + ' GOLD', sx, sy, red ? '#ff5a46' : poor ? '#c08a6a' : '#ffd860', { align: 'center', stroke: 3 });
-    const [hx, hy] = toScreen(G.me.x, G.me.y + 10); font(c, 600, 9 * zf, F_HUD); label(c, 'ATTACK: BUY', hx, hy, '#d8d0c0', { align: 'center', stroke: 3 });
+    if (!INPUT.touch) { const [hx, hy] = toScreen(G.me.x, G.me.y + 10); font(c, 600, 9 * zf, F_HUD); label(c, 'ATTACK: BUY', hx, hy, '#d8d0c0', { align: 'center', stroke: 3 }); } // (on a phone the attack button itself says BUY: shopWare, 61_input)
   }
   // what the keeper says: in the words' own face and outline, but pale blue (no number is) and typed out a letter at a
   // time, steady over his head, so it reads as speech and not as one of the numbers that pop and fly; above the name of
@@ -129,3 +129,5 @@ function beginShopTest(kit) {
   for (const f of G.foes) if (dist(f.x, f.y, h.x, h.y) < 160) f.dead = true; // (nobody waiting at the door)
   CAM.x = h.x; CAM.y = h.y;
 }
+// the ware a blow would buy now: the one picked out on the counter, in stock (the attack button reads BUY: 61_input)
+function shopWare() { const A = ARENA, S = A && A.shop, w = S && G.me && G.me.inShop ? S.sel : null; return w && w.stock > 0 && !(w.k === 'map' && A.mapRead) ? w : null; }

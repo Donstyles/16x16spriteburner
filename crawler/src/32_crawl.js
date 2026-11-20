@@ -96,6 +96,7 @@ function drawMinimap(c, xr, y0) {
   const dot = (x, y, col) => { c.fillStyle = col; c.fillRect(Math.round(x0 + x / TS * s) - 2, Math.round(y0 + (y - 12) / TS * s) - 2, 4, 4); };
   if (A.spawn) dot(A.spawn.x, (A.start.fy0 + 2) * TS + 2, '#6c3aa6');
   const st = A.stairs; if (st && A.mapRead) dot(st.x, st.y, '#ffd860');
+  const kp = A.shop && A.shop.keeper; if (kp && A.mem[Math.floor(kp.y / TS) * A.w + Math.floor(kp.x / TS)]) dot(kp.x, kp.y, '#8fe08a'); // (the shopkeeper, once seen: pale green)
   for (const h of G.heroes) { if (h.dead) continue; c.fillStyle = h === G.me ? '#ffffff' : '#9fd0ff'; c.fillRect(Math.round(x0 + h.x / TS * s) - 2, Math.round(y0 + h.y / TS * s) - 2, 4, 4); }
   c.globalAlpha = 1;
 }
