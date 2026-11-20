@@ -186,7 +186,7 @@ function sentinelPond(A, r, g) {
     const seen = new Set([doorAt[0][1] * A.w + doorAt[0][0]]), q = [doorAt[0][1] * A.w + doorAt[0][0]];
     while (q.length) { const i = q.pop(), x = i % A.w, y = Math.floor(i / A.w); for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + a, Y = y + b, j = Y * A.w + X; if (X < r.ix0 || X > r.ix1 || Y < r.iy0 || Y > r.iy1 || seen.has(j) || cells.has(j) || (X === ix && Y === iy)) continue; seen.add(j); q.push(j); } }
     if (!doorAt.every(([x, y]) => seen.has(y * A.w + x))) continue;
-    const p = waterSet(A, r, cells, g, chance(0.6) ? wkOf(A).round : wkOf(A).deep, true); p.sentinel = true; r.pool = p; r.islands = [[ix, iy]]; r.lone = true;
+    const p = waterSet(A, r, cells, g, wkOf(A).round, true); p.sentinel = true; r.pool = p; r.islands = [[ix, iy]]; r.lone = true;
     // its sluice: a plate on the floor beside the pond, on the side toward the room's middle
     const sx = x0 + w / 2 < (r.ix0 + r.ix1) / 2 ? x0 + w : x0 - 1; r.pondPlate = [sx, iy]; return true;
   }

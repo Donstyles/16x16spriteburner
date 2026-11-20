@@ -51,7 +51,7 @@ function drawDoors(c) {
 // The strut across the top of a blast door stays when the door is up (the frames' top rows: the bar and its dark
 // underside). It is drawn among the units by depth, the depth of the wall's face where it meets the floor: whoever walks
 // through the doorway passes under it, whoever stands in the room in front of the wall stays in front of it.
-const STRUTS = d => d.side === 'N' ? [(d.cells[0][1] + 1) * TS, 6, d] : null;
+const STRUTS = d => d.side === 'N' && (d.strut || d.gate) ? [(d.cells[0][1] + 1) * TS, 6, d] : null;
 // a north doorway's blast door, down or on its way: by the depth of its foot too, so from the corridor behind it a shut
 // door is a south wall to whoever walks up to it, his head over its top
 function drawNorthDoor(c, d) {
@@ -82,7 +82,7 @@ function drawSouthDoor(c, d) {
 // under a south strut's ends, in the corner of the doorway, a pixel of the ceiling's diagonal trim taken out so the floor
 // shows there, as painted in the Item Painter (left end; the right end mirrored)
 const BEAM_CUTS = [[12, 12]];
-function drawSouthStruts(c) { const A = ARENA; if (!A.doors) return; for (const d of A.doors) if (d.side === 'N') strutEnds(c, d, (4 + (d.motif || 0)) * TS, A.th.door * TS + 3, (d.cells[0][1] - 1) * TS + 3); /* (a north strut's two ends again, over the ceiling: the posts' dark outline is part of the ceiling's trim) */ for (const d of A.doors) if (d.side === 'S' && d.strut) { const sx = (4 + (d.motif || 0)) * TS, xs = d.cells.map(q => q[0]), y = d.cells[0][1], e = A.th === THEMES.grey ? 0 : 2; for (const [x] of d.cells) c.drawImage(IMG.doors, sx, A.th.door * TS + 3, TS, 8, x * TS, y * TS + S_DROP, TS, 8); const xl = (Math.min(...xs) - 1) * TS, xr = (Math.max(...xs) + 1) * TS; c.drawImage(IMG.ends, e * TS, 0, TS, 12, xl, y * TS, TS, 12); c.drawImage(IMG.ends, (e + 1) * TS, 0, TS, 12, xr, y * TS, TS, 12); // (its ends: the posts beside the doorway run on down through the trim and the bar stops against them, as painted)
+function drawSouthStruts(c) { const A = ARENA; if (!A.doors) return; for (const d of A.doors) if (d.side === 'N' && (d.strut || d.gate)) strutEnds(c, d, (4 + (d.motif || 0)) * TS, A.th.door * TS + 3, (d.cells[0][1] - 1) * TS + 3); /* (a north strut's two ends again, over the ceiling: the posts' dark outline is part of the ceiling's trim) */ for (const d of A.doors) if (d.side === 'S' && d.strut) { const sx = (4 + (d.motif || 0)) * TS, xs = d.cells.map(q => q[0]), y = d.cells[0][1], e = A.th === THEMES.grey ? 0 : 2; for (const [x] of d.cells) c.drawImage(IMG.doors, sx, A.th.door * TS + 3, TS, 8, x * TS, y * TS + S_DROP, TS, 8); const xl = (Math.min(...xs) - 1) * TS, xr = (Math.max(...xs) + 1) * TS; c.drawImage(IMG.ends, e * TS, 0, TS, 12, xl, y * TS, TS, 12); c.drawImage(IMG.ends, (e + 1) * TS, 0, TS, 12, xr, y * TS, TS, 12); // (its ends: the posts beside the doorway run on down through the trim and the bar stops against them, as painted)
     if (!d.ceilCut) { d.ceilCut = true; const fr = A.th.floors[0][1], pts = BEAM_CUTS.flatMap(([px, py]) => [[xl + px, y * TS + py, px], [xr + 15 - px, y * TS + py, 15 - px]]);
       for (const C of [A.ceil, A.ceilN]) if (C) { const g = C.getContext('2d'); for (const [x, yy] of pts) g.clearRect(x, yy, 1, 1); }
       groundPaint(xl, y * TS, xr + TS, (y + 1) * TS, g => { for (const [x, yy, px] of pts) g.drawImage(IMG.cellar, 10 * TS + px, fr * TS + (yy - y * TS), 1, 1, x, yy, 1, 1); }); } } } // (the ground there too: the plain slab's own pixel)

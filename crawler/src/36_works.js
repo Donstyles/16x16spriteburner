@@ -128,7 +128,7 @@ function ponds(A, r, g) {
       for (let ty = y; ty < y + h; ty++) for (let tx = x; tx < x + w; tx++) cells.add(ty * A.w + tx);
     }
     if ([...cells].some(i => A.fl[i] !== 1)) continue;
-    const b = waterBody(A, cells, chance(0.7) ? W.round : W.deep, W, true); b.room = r.i; b.still = true; g.drawImage(b.bed, b.px0, b.py0); (A.pools = A.pools || []).push(b);
+    const b = waterBody(A, cells, W.round, W, true); b.room = r.i; b.still = true; g.drawImage(b.bed, b.px0, b.py0); (A.pools = A.pools || []).push(b);
   }
 }
 function cistern(A, r, g, within) { // (within: a sunken button's cistern, its drain only in one of these rooms, or none: on its walkway)

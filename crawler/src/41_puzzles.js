@@ -84,7 +84,7 @@ function echoCine(C, dt) {
 }
 // ---- the gates
 function makeGate(A, h, near) { // (a corridor running north and south: the gate in the near room's own wall, a blast door in its north doorway or its south one)
-  const X = near.has(h.A) ? h.A : h.B, d = h.dir === 'v' ? X.doors.find(q => q.hall === h) : (near.has(h.A) ? h.B : h.A).doors.find(q => q.hall === h); if (!d) return null; if (d.side === 'S') d.strut = true;
+  const X = near.has(h.A) ? h.A : h.B, d = h.dir === 'v' ? X.doors.find(q => q.hall === h) : (near.has(h.A) ? h.B : h.A).doors.find(q => q.hall === h); if (!d) return null; d.strut = true;
   const g = { d, hall: h, k: 1, target: 1, going: false }; h.gate = g; d.gate = g; (A.gates = A.gates || []).push(g); gateShut(A, g, true); d.k = 1; return g;
 }
 function gateCells(A, g) { const d = g.d, out = d.cells.map(([x, y]) => y * A.w + x); if (d.side === 'N') for (const [x, y] of d.cells) out.push((y - 1) * A.w + x); if (d.side === 'S') for (const [x, y] of d.cells) out.push((y + 1) * A.w + x); return out; }

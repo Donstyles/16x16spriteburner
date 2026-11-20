@@ -9,9 +9,9 @@ const FLOOR_NAMES = ['THE ROOT CELLAR', 'THE SALT VAULT', 'THE DROWNED STORES', 
 let ARENA = null;
 const CW = 24, CH = 17; // one grid cell, in tiles
 const FORCE_SHOP = { on: false }; // (the shop test: 39_shop)
-// a short straight corridor between a room's south doorway and the next room's north doorway: four rows of floor or fewer
+// a short straight corridor between a room's south doorway and the next room's north doorway: three rows of floor or fewer
 // between the two walls
-const shortHall = h => !!h && h.dir === 'v' && !h.bent && !h.wide && !h.hidden && h.B.fy0 - h.A.fy1 - 1 <= 4;
+const shortHall = h => !!h && h.dir === 'v' && !h.bent && !h.wide && !h.hidden && h.B.fy0 - h.A.fy1 - 1 <= 3;
 const HIDDEN = { force: false, nest: null }; // (nest: 'alcove' or 'leg' forces a second cracked wall inside) // (a test: a hidden wing on the floor; 'exit': with the way down in it)
 const GREAT = { force: false }; // (a test: a great hall on every floor)
 // The tops of the south, east and west walls are at the ceiling: nothing in the room passes over them, so their painted
@@ -199,7 +199,8 @@ function buildArena1(floor) {
   const A = ARENA = { arch: ARCH.cur, w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilN: cn, fl, wt, wf, rooms, halls, props: [], torches: [], name: floorName(floor), floor };
   paintCeil(A, cg, cv); // the painted trim, as drawn on the ground: the ceiling over everyone (31_walls)
   for (const i of hidMask) fl[i] = 1;
-  A.doors = rooms.flatMap(r => r.doors.filter(d => !d.hidden).map(d => Object.assign(d, { room: r.i, k: 0, strut: d.side === 'S' && (shortHall(d.hall) || chance(0.16)), motif: pick([0, 5, 10]) }))); // (strut: a south doorway's, now and then, and always at the top of a short straight corridor down to a north doorway, whose strut it then faces: a square frame; 32_crawl)
+  for (const h of halls) h.frame = shortHall(h) && chance(0.6);
+  A.doors = rooms.flatMap(r => r.doors.filter(d => !d.hidden).map(d => Object.assign(d, { room: r.i, k: 0, strut: (d.side === 'S' || d.side === 'N') && (d.hall.frame || chance(0.12)), motif: pick([0, 5, 10]) }))); // (strut: a north or south doorway's, now and then, and at both ends of most short straight corridors, the two facing each other: a square frame; a blast door's always, 41_puzzles makeGate; 32_crawl)
   A.start = rooms.find(r => r.kind === 'start'); A.end = rooms.find(r => r.kind === 'end');
   for (const r of rooms) if (r.hidCrack) { r.crack = r.hidCrack; r.crackX = r.crack.x; (A.cracks = A.cracks || []).push(r.crack); if (r.crack.inner) A.cracks.push(r.crack.inner); A.secret = A.secret || new Uint8Array(W * H); for (const c of [r.crack, r.crack.inner]) if (c) for (const i of c.secret) A.secret[i] = 1; } // (the hidden wing's walled-up doorway)
   // ---- furnishing (the stairways' places first, so no torch or banner hangs on them)
