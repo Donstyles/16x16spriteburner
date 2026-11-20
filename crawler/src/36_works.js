@@ -27,7 +27,7 @@ const WK = {
   grey: { square: [[20, 19], [20, 16]], round: [[16, 19], [16, 16]], deep: [[24, 19], [24, 16]], slatV: [17, 29], slatH: [16, 30], plate: [10, 26], socket: [13, 26], wetSocket: [3, 18], rune: [27, 3], runeOn: [27, 4], block: [10, 28], spike: [0, 28], drain: [18, 4], wetPillar: [1, 16], dryPillar: [24, 2], basin: [54, 56, 62] },
   brown: { square: [[20, 26], [20, 23]], round: [[16, 26], [16, 23]], deep: [[24, 26], [24, 23]], slatV: [21, 29], slatH: [20, 30], plate: [10, 27], socket: [13, 27], wetSocket: [3, 21], rune: [27, 6], runeOn: [27, 7], block: [10, 29], spike: [5, 28], drain: [18, 7], wetPillar: [1, 19], dryPillar: [24, 5], basin: [64, 54, 44] },
 };
-const wkOf = A => WK[A.th === THEMES.grey ? 'grey' : 'brown'];
+const wkOf = A => WK[A.th.tone === 'grey' ? 'grey' : 'brown'];
 const sheetTile = (g, [tx, ty], x, y, dx = 0, dy = 0) => g.drawImage(IMG.cellar, (tx + dx) * TS, (ty + dy) * TS, TS, TS, x, y, TS, TS);
 // The sheet's wooden bridges, two tiles wide, fresh (orange) or green with age: for a way running east and west the planks
 // lie north to south ([440, 424] / [440, 376]: four planks a block, eight pixels each), for a way running north and south
@@ -190,7 +190,7 @@ const SUNK = [
   ...[20, 21, 22, 23].flatMap(y => [[[13, y], [30, y - 8], 'cart'], [[14, y], [31, y - 8], 'cart']]),
   [[5, 22], [22, 8], 'sacks', 2], [[7, 22], [24, 14], 'crate', 2, 2], [[9, 22], [26, 14], 'crate', 2, 2], [[11, 22], [28, 14], 'crate', 2, 2],
 ];
-const sunkStone = A => { const d = A.th === THEMES.brown ? 3 : 0, br = d ? 2 : 0; return [
+const sunkStone = A => { const d = A.th.tone === 'brown' ? 3 : 0, br = d ? 2 : 0; return [
   [[0, 16 + d], [22, 2 + d], 'stone', 1, 2], [[2, 18 + d], [25, 4 + d], 'stone'],
   // (not the square block with its dashed rim, [3, 16]; not the two small blocks, the button's own stone, nor the two slabs with a socket's dark well: under water they read as a button without its socket, or a socket that lost its button; nor the plain slab beside them, [4, 16] / [4, 19]: it has no waterline, a floor slab, not a thing standing in the water)
   [[br + 1, 22], [31, 3 + d], 'stone']]; }; // (the cold brazier with its dead coals; not the empty one, a plain block that reads as a button)

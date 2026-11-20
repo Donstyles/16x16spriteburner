@@ -53,7 +53,7 @@ function shutDoor(A, d, r) {
     const xs = d.cells.map(c => c[0]), y = d.cells[0][1], x0 = Math.min(...xs) - 1, x1 = Math.max(...xs) + 1, fr = th.floors[0][1];
     groundPaint(x0 * TS, y * TS, (x1 + 1) * TS, (y + 4) * TS, g => {
       g.fillStyle = '#121418'; g.fillRect(x0 * TS, (y + 1) * TS, (x1 - x0 + 1) * TS, 3 * TS);
-      for (let x = x0; x <= x1; x++) { tileAt(g, 10, fr, x * TS, y * TS); g.drawImage(IMG.cellar, 6 * TS, (3 + th.fy) * TS, TS, TS, x * TS, y * TS, TS, TS); }
+      for (let x = x0; x <= x1; x++) { tileAt(g, 10, fr, x * TS, y * TS); { const [im, sx, sy] = srcOf(6, 3 + th.fy); g.drawImage(im, sx, sy, TS, TS, x * TS, y * TS, TS, TS); } }
     });
     // the corridor's first stretch is rock now, and the wall across the doorway south wall pieces (31_walls: their row is
     // floor behind the wall, as along the rest of it); over the ceiling layer the corridor's posts and corners go, and the
@@ -63,7 +63,7 @@ function shutDoor(A, d, r) {
     removeIf(A.props, p => inside(p.x, p.y)); if (A.spikes) removeIf(A.spikes, s => inside(s.x, s.y + 6));
     for (let x = x0; x <= x1; x++) { A.wt[y * A.w + x] = 6 * 64 + 3 + 1; A.wf[y * A.w + x] = 0; } A.flv = (A.flv || 0) + 1;
     const cg = A.ceil.getContext('2d'); cg.clearRect(x0 * TS, y * TS, (x1 - x0 + 1) * TS, 4 * TS); A.ceilN.getContext('2d').clearRect(x0 * TS, y * TS, (x1 - x0 + 1) * TS, 4 * TS);
-    for (let x = x0; x <= x1; x++) { const c = mkCanvas(TS, TS), q = c.getContext('2d'); tileAt(q, 10, fr, 0, 0); q.drawImage(IMG.cellar, 6 * TS, (3 + th.fy) * TS, TS, TS, 0, 0, TS, TS); for (const [rx, ry, rw, rh] of paintOf(6, 3, 0).tr) cg.drawImage(c, rx, ry, rw, rh, x * TS + rx, y * TS + ry, rw, rh); }
+    for (let x = x0; x <= x1; x++) { const c = mkCanvas(TS, TS), q = c.getContext('2d'); tileAt(q, 10, fr, 0, 0); { const [im, sx, sy] = srcOf(6, 3 + th.fy); q.drawImage(im, sx, sy, TS, TS, 0, 0, TS, TS); } for (const [rx, ry, rw, rh] of paintOf(6, 3, 0).tr) cg.drawImage(c, rx, ry, rw, rh, x * TS + rx, y * TS + ry, rw, rh); }
     return;
   }
   for (const [x, y] of d.cells) groundPaint(x * TS, (y - 1) * TS, x * TS + TS, (y + 1) * TS, g => { const cx = (1 + (d.motif || 0)) * TS; g.drawImage(IMG.doors, cx, th.door * TS, TS, TS, x * TS, (y - 1) * TS, TS, TS); g.drawImage(IMG.doors, cx, (th.door + 1) * TS, TS, TS, x * TS, y * TS, TS, TS); });
@@ -149,7 +149,7 @@ function beginDoorTest(kit, tone) {
   beginRun(kit); let r = null; const ok = q => (q.kind === 'room' || q.kind === 'start') && !q.set && !q.pool && !q.puz && !q.shrine && ['N', 'S'].every(s => q.doors.some(d => d.side === s && !d.hall.bent && !d.gate)) && !q.doors.some(d => d.gate);
   for (let n = 0; n < 160 && !r; n++) { G.floor = 1 + (n % 6); if (tone && (G.floor % 2 ? 'brown' : 'grey') !== tone) continue; startFloor(); r = ARENA.rooms.filter(ok).sort((a, b) => b.doors.length - a.doors.length)[0] || null; }
   if (!r) { beginTest(kit); return; }
-  const A = ARENA, h = G.me; TEST.on = true; Object.assign(TEST, { mode: 'doors', god: true, kit, motif: 0, shut: false, tone: A.th === THEMES.grey ? 'grey' : 'brown', gates: [] }); A.name = 'DOOR TEST ROOM';
+  const A = ARENA, h = G.me; TEST.on = true; Object.assign(TEST, { mode: 'doors', god: true, kit, motif: 0, shut: false, tone: A.th.tone === 'grey' ? 'grey' : 'brown', gates: [] }); A.name = 'DOOR TEST ROOM';
   G.foes.length = 0; G.units = G.heroes.slice(); G.sched.length = 0; G.drops.length = 0;
   for (const d of r.doors) { if ((d.side === 'E' || d.side === 'W') && !PORTCULLIS) continue; const g = { d, hall: d.hall, k: 0, target: 0, going: false, test: true }; d.gate = g; d.motif = 0; if (d.side === 'S') d.strut = true; (A.gates = A.gates || []).push(g); TEST.gates.push(g); }
   h.x = (r.ix0 + r.ix1 + 1) / 2 * TS; h.y = (r.iy0 + r.iy1 + 1) / 2 * TS + 4; h.enter = null; h.lightR = 220; CAM.x = h.x; CAM.y = h.y;

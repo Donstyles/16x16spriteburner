@@ -124,7 +124,7 @@ function drawPropPart(c, p, low) {
 }
 function drawProp(c, p) {
   if (p.kind === 'pillar') { const [tx, ty] = p.tile; for (let i = 0; i < 3; i++) c.drawImage(IMG.cellar, tx * TS, (ty + i) * TS, TS, TS, p.x - 8, p.y - 14 - 32 + i * TS, TS, TS); }
-  else if (p.kind === 'brazier') { const br = ARENA.th === THEMES.brown; if (p.out) c.drawImage(IMG.cellar, (p.ember ? 31 : 30) * TS, (br ? 6 : 3) * TS, TS, TS, p.x - 8, p.y - 14, TS, TS); else { const f = ((G.time * 8 + p.f) | 0) % 4 + (br ? 5 : 0); c.drawImage(IMG.cellar, f * TS, 27 * TS, TS, TS, p.x - 8, p.y - 14, TS, TS); } } // (a dead one: the sheet's cold brazier, or the one with embers)
+  else if (p.kind === 'brazier') { const br = ARENA.th.tone === 'brown'; if (p.out) c.drawImage(IMG.cellar, (p.ember ? 31 : 30) * TS, (br ? 6 : 3) * TS, TS, TS, p.x - 8, p.y - 14, TS, TS); else { const f = ((G.time * 8 + p.f) | 0) % 4 + (br ? 5 : 0); c.drawImage(IMG.cellar, f * TS, 27 * TS, TS, TS, p.x - 8, p.y - 14, TS, TS); } } // (a dead one: the sheet's cold brazier, or the one with embers)
   else if (p.kind === 'ore') { // struck, it flashes white and fades back as a foe does; the last blow, a beat later, it bursts into chunks
     if (p.burst && G.time >= p.burst) { p.dead = true; return; } const fl = (p.flashUntil || 0) - G.time;
     c.drawImage(IMG.ores, p.ore * 32, p.shape * 32, 32, 32, p.x - 16, p.y - 30, 32, 32);
@@ -242,7 +242,7 @@ function render() {
   const X = c => c.setTransform(1, 0, 0, 1, -ox, -oy);
   const c = wbc; c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; c.fillStyle = '#0b0c0f'; c.fillRect(0, 0, bw, bh); c.imageSmoothingEnabled = false; X(c);
   drawGround(c, ox, oy, bw, bh);
-  const tb = ARENA.th === THEMES.brown ? 5 : 0; for (const t of ARENA.torches) { if (t.out) { c.drawImage(IMG.cellar, (t.ember ? 31 : 30) * TS, (tb ? 5 : 2) * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); continue; } const f = ((G.time * 9 + t.f) | 0) % 4; c.drawImage(IMG.cellar, (tb + f) * TS, 26 * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); } // (the brown floors' own, iron on stone)
+  const tb = ARENA.th.tone === 'brown' ? 5 : 0; for (const t of ARENA.torches) { if (t.out) { c.drawImage(IMG.cellar, (t.ember ? 31 : 30) * TS, (tb ? 5 : 2) * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); continue; } const f = ((G.time * 9 + t.f) | 0) % 4; c.drawImage(IMG.cellar, (tb + f) * TS, 26 * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); } // (the brown floors' own, iron on stone)
   drawWorks(c); drawPits(c); drawWet(c); drawHazards(c); drawWake(c); drawRuns(c); drawDoors(c); drawTele(c); drawTelegraphs(c);
   // the shadows, on a layer of their own cut to the floor (noFloor), then laid down
   if (!shb) { shb = mkCanvas(1, 1); shbc = shb.getContext('2d'); } fitBuf(shb, bw, bh); const S = shbc; S.setTransform(1, 0, 0, 1, 0, 0); S.globalCompositeOperation = 'source-over'; S.clearRect(0, 0, bw, bh); X(S);

@@ -52,7 +52,7 @@ const RESERVE = {
 };
 const GUARDS = [['ScarecrowGolem'], ['StoneGolem', 'ClayGolem'], ['StoneGolem', 'ClayGolem']]; // by depth
 // the army holding a floor: one of its depth's, not the one that held the floor above if there is another
-function pickArmy(f) { const L = zoneAt(f).armies, prev = G.army && L.length > 1 ? L.filter(a => a !== G.army) : L; return (G.army = pick(prev)); }
+function pickArmy(f) { if (G.nextArmy) { const a = G.nextArmy; G.nextArmy = null; return (G.army = a); } const L = zoneAt(f).armies, prev = G.army && L.length > 1 ? L.filter(a => a !== G.army) : L; return (G.army = pick(prev)); }
 const BLOOD_OF = { AcidAnt: 'bug', AdeptNecromancer: 'sludge', BoundCadaver: 'sludge', BrittleArcher: 'bone', CarcassFeeder: 'sludge', ClayGolem: 'stone', DecrepitBones: 'bone', DismemberedCrawler: 'sludge', DungBeetle: 'bug', FamishedTick: 'bug', FleshGolem: 'sludge', FlutteringPixie: 'dust', ForagingMaggot: 'bug', GrapplerMummy: 'bone', GraveRevenant: 'bone', GrizzledTreant: 'wood', LavaAnt: 'bug', MithrilConstruct: 'stone', MutilatedStumbler: 'sludge', RhinoBeetle: 'bug', RottingArcher: 'sludge', SandGhoul: 'sludge', ScarecrowGolem: 'straw', SkitteringHand: 'bone', SoldierAnt: 'bug', StoneGolem: 'stone', TaintedCockroach: 'bug', UnravelingCrawler: 'bone', WaterElemental: 'water' };
 const STONE_SHOT = { HalflingSlinger: true, KoboldRockthrower: true };
 // Bats fly: they hover over their shadow, rising and sinking gently with their wingbeats and drifting in slow loops; they

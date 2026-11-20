@@ -142,7 +142,7 @@ function blockDecor(A, r, g) {
     let run = []; for (const c of blk.filter(q => plainWall(A, q % W, (q / W) | 0)).sort((a, b) => a - b)) { if (run.length && c !== run[run.length - 1] + 1) { faces.push(run); run = []; } run.push(c); } if (run.length) faces.push(run);
   }
   const torch = c => A.torches.push({ x: (c % W) * TS + 8, y: ((c / W) | 0) * TS + 9, tx: c % W, f: randi(0, 3), room: r.i });
-  const wy = A.th === THEMES.brown ? 3 : 0, WIN = [[16, 2, 1], [16, 3, 1], [17, 3, 2], [18, 3, 2], [19, 2, 1], [19, 3, 1], [20, 3, 2]];
+  const wy = A.th.tone === 'brown' ? 3 : 0, WIN = [[16, 2, 1], [16, 3, 1], [17, 3, 2], [18, 3, 2], [19, 2, 1], [19, 3, 1], [20, 3, 2]];
   const win = c => { const x = c % W, y = (c / W) | 0, [wx, wy0, wh] = pick(WIN); for (let j = 0; j < wh; j++) tileAt(g, wx, wy0 + wy - j, x * TS, (y - j) * TS); };
   const banner = c => { const x = c % W, y = (c / W) | 0, b = randi(0, 19); if (b < 12) { tileAt(g, 20 + b, 0, x * TS, (y - 1) * TS); tileAt(g, 20 + b, 1, x * TS, y * TS); } else tileAt(g, 16 + (b - 12) % 4, (b - 12) >> 2, x * TS, (y - 1) * TS + 11); };
   for (const f of faces) {
@@ -156,7 +156,7 @@ function blockDecor(A, r, g) {
 // what stands in the alcoves (after the room is furnished): a statue on its pedestal, a burning brazier, a small chest, a
 // column; a torch on the back wall of a north niche
 function shapeAfter(A, r) {
-  if (!r.alcoves) return; const d = A.th === THEMES.brown ? 3 : 0;
+  if (!r.alcoves) return; const d = A.th.tone === 'brown' ? 3 : 0;
   const put = (kind, tx, ty, o) => A.props.push(Object.assign({ kind, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o));
   for (const a of r.alcoves) {
     const mx = a.side === 'N' ? a.x + 1 : a.x + (a.side === 'E' ? 1 : 0), my = a.side === 'N' ? a.y : a.y + 1, what = pick(['statue', 'statue', 'brazier', 'chest', 'column', 'chest']);

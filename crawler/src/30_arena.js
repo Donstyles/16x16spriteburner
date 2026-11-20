@@ -2,9 +2,24 @@
 // Rooms sit one to a cell of a coarse grid; neighbouring rooms are joined by straight corridors three tiles wide that run
 // along the cells' centre lines, so every corridor meets its rooms square on. Everything that is not floor is wall.
 const THEMES = {
-  brown: { fy: 0, floors: [[10, 1], [10, 1], [10, 1], [10, 1], [10, 3], [11, 1], [12, 1], [13, 3], [14, 1], [15, 3]], pillar: [[21, 5], [23, 5]], stairs: 19, rune: [27, 7], amb: [92, 78, 70], door: 7 },
-  grey: { fy: 7, floors: [[10, 9], [10, 9], [10, 9], [10, 9], [10, 11], [11, 9], [12, 9], [13, 11], [14, 9], [15, 11]], pillar: [[21, 2], [23, 2]], stairs: 16, rune: [27, 4], amb: [60, 66, 88], door: 1 },
+  brown: { tone: 'brown', fy: 0, floors: [[10, 1], [10, 1], [10, 1], [10, 1], [10, 3], [11, 1], [12, 1], [13, 3], [14, 1], [15, 3]], pillar: [[21, 5], [23, 5]], stairs: 19, rune: [27, 7], amb: [92, 78, 70], door: 7 },
+  grey: { tone: 'grey', fy: 7, floors: [[10, 9], [10, 9], [10, 9], [10, 9], [10, 11], [11, 9], [12, 9], [13, 11], [14, 9], [15, 11]], pillar: [[21, 2], [23, 2]], stairs: 16, rune: [27, 4], amb: [60, 66, 88], door: 1 },
 };
+// THE CATACOMBS (floors 4 to 6, the crypt zone): the grey cellar underneath (its doors, water, props and every system built
+// on its pieces), with the crypt sheet drawn over it. Everything keeps the cellar's piece names (A.wt, the masks' roles);
+// only the drawing turns a cellar piece into the crypt's own (map: the grey cellar's sheet tile, x and y, to the crypt's)
+THEMES.crypt = Object.assign({}, THEMES.grey, { name: 'crypt', sheet: 'crypt', amb: [44, 46, 58], ceilN: { '6,0': [[0, 0, 16, 14]] }, map: {
+  // the walls, as the crypt's room frame (3-5, 2-5) and wall block (0-2, 2-5) draw them
+  '6,8': [4, 3], '6,7': [4, 2], '6,10': [4, 5], '5,7': [3, 2], '7,7': [5, 2], '5,8': [3, 3], '7,8': [5, 3], '5,9': [3, 4], '7,9': [5, 4], '5,10': [3, 5], '7,10': [5, 5],
+  '3,7': [2, 2], '3,9': [2, 4], '3,10': [2, 5],
+  // the floors: the plain slab in the rooms, four small slabs in the corridors, cracked slabs for the inlays
+  '10,9': [6, 0], '10,11': [7, 0], '11,9': [7, 1], '12,9': [8, 1], '13,9': [9, 1], '14,9': [8, 0], '15,9': [9, 0],
+} });
+const CRYPT = { force: false }; // (a test: the crypt on any floor: 64_testroom)
+// the theme a floor is being made or drawn in: tileAt and the wall pieces draw through its map (buildArena1)
+let TH = null;
+// where a tile of the cellar sheet is drawn from in the theme at hand: the crypt's own tile if it has one ([image, sx, sy])
+function srcOf(tx, ty) { const m = TH && TH.map && TH.map[tx + ',' + ty]; return m ? [IMG[TH.sheet], m[0] * TS, m[1] * TS] : [IMG.cellar, tx * TS, ty * TS]; }
 const FLOOR_NAMES = ['THE ROOT CELLAR', 'THE SALT VAULT', 'THE DROWNED STORES', 'THE BONE PANTRY', 'THE ASHEN KILN', 'THE WINE CRYPT', 'THE GRAIN TOMB', 'THE IRON LARDER', 'THE HOLLOW CISTERN', 'THE ROTTED GRANARY', 'THE BLACK BREWERY', 'THE DEEP MILL', 'THE SCREAMING SILO', 'THE LAST LARDER'];
 let ARENA = null;
 const CW = 24, CH = 17; // one grid cell, in tiles
@@ -33,7 +48,7 @@ function wallPiece(isF, x, y) {
   if (O(x + 1, y - 1)) return [5, 3, false]; if (O(x - 1, y - 1)) return [7, 3, false];
   return null;
 }
-function tileAt(g, tx, ty, dx, dy) { g.drawImage(IMG.cellar, tx * TS, ty * TS, TS, TS, dx, dy, TS, TS); }
+function tileAt(g, tx, ty, dx, dy) { const [im, sx, sy] = srcOf(tx, ty); g.drawImage(im, sx, sy, TS, TS, dx, dy, TS, TS); }
 // A floor that cannot take the puzzles its depth asks for (37_levels levelPlan) is laid out again, a few times at most.
 // It looks for some variety too: two puzzles of different kinds where it can, and the flooded way as often as the
 // drawbridge where one is asked for (it takes a room with a side branch, so it fits less often); after eight tries any
@@ -48,7 +63,7 @@ function buildArena(floor) {
   return A;
 }
 function buildArena1(floor) {
-  const th = floor % 2 ? THEMES.brown : THEMES.grey, GW = 5, GH = 4; // (longer floors: nine rooms on the first, one more every second floor down, up to fourteen)
+  const th = CRYPT.force ? THEMES.crypt : floor % 2 ? THEMES.brown : THEMES.grey, GW = 5, GH = 4; TH = th; // (longer floors: nine rooms on the first, one more every second floor down, up to fourteen)
   const N = Math.min(GW * GH - 1, 9 + Math.min(5, Math.floor(floor / 2)));
   // ---- the room graph: grown outward from the start cell, then a loop or two so not every floor is a single line
   const key = (x, y) => y * GW + x, cells = new Map(), edges = [];
@@ -188,10 +203,10 @@ function buildArena1(floor) {
       else tileAt(g, 15, floorRow, x * TS, y * TS);
     }
   }
-  const put = (c, tx, ty, x, y, flip) => { c.save(); c.translate(flip ? (x + 1) * TS : x * TS, y * TS); if (flip) c.scale(-1, 1); c.drawImage(IMG.cellar, tx * TS, (ty + th.fy) * TS, TS, TS, 0, 0, TS, TS); c.restore(); };
+  const put = (c, tx, ty, x, y, flip) => { c.save(); c.translate(flip ? (x + 1) * TS : x * TS, y * TS); if (flip) c.scale(-1, 1); const [im, sx, sy] = srcOf(tx, ty + th.fy); c.drawImage(im, sx, sy, TS, TS, 0, 0, TS, TS); c.restore(); };
   const wt = new Uint16Array(W * H), wf = new Uint8Array(W * H); // which wall piece went where (tx * 64 + ty + 1), mirrored or not, for what is built against the walls later
   const T = (tx, ty, x, y, flip) => {
-    put(g, tx, ty, x, y, flip); wt[y * W + x] = tx * 64 + ty + 1; wf[y * W + x] = flip ? 1 : 0; const m = CEIL_N[tx + ',' + ty]; if (!m) return; // (the ceiling itself: paintCeil, below)
+    put(g, tx, ty, x, y, flip); wt[y * W + x] = tx * 64 + ty + 1; wf[y * W + x] = flip ? 1 : 0; const m = (th.ceilN || CEIL_N)[tx + ',' + ty]; if (!m) return; // (the ceiling itself: paintCeil, below)
     const R = m.map(([mx, my, mw, mh]) => [x * TS + (flip ? TS - mx - mw : mx), y * TS + my, mw, mh]);
     cng.save(); cng.beginPath(); for (const [rx, ry, rw, rh] of R) cng.rect(rx, ry, rw, rh); cng.clip(); put(cng, tx, ty, x, y, flip); cng.restore();
   };
@@ -263,7 +278,7 @@ function furnish(A, r, g) {
   }
   // between the banners, now and then a barred window or a vent in the brick (grey [16..20, 2..3], brown three rows down);
   // the tall arched windows and the tall vent ([17..18, 2..3], [20, 2..3]) are two tiles high, their tops in the brick above
-  const wy = th === THEMES.brown ? 3 : 0, WIN = [[16, 2, 1], [16, 3, 1], [17, 3, 2], [18, 3, 2], [19, 2, 1], [19, 3, 1], [20, 3, 2]];
+  const wy = th.tone === 'brown' ? 3 : 0, WIN = [[16, 2, 1], [16, 3, 1], [17, 3, 2], [18, 3, 2], [19, 2, 1], [19, 3, 1], [20, 3, 2]];
   for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || !plainWall(A, x, r.fy0 + 1) || !chance(0.16)) continue; const [wx, wy0, wh] = pick(WIN); for (let j = 0; j < wh; j++) tileAt(g, wx, wy0 + wy - j, x * TS, (r.fy0 + 1 - j) * TS); used.add(x); }
   if (r.rock && r.rock.size) blockDecor(A, r, g); // (the faces of the blocks its shape left standing: 33_shapes)
   const prop = (kind, tx, ty, o = {}) => { if (A.noProp && A.noProp.has(Math.floor(ty) * A.w + Math.floor(tx)) || !FLOOR(A.fl[Math.floor(ty) * A.w + Math.floor(tx)]) || !FLOOR(A.fl[Math.floor(ty) * A.w + Math.ceil(tx)]) || A.crumbleSet && (A.crumbleSet.has(Math.floor(ty) * A.w + Math.floor(tx)) || A.crumbleSet.has(Math.floor(ty) * A.w + Math.ceil(tx)))) return; A.props.push(Object.assign({ kind, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o)); }; // (never in water, nor on a cracked slab: 38_pits)

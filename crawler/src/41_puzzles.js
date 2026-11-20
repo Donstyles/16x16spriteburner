@@ -396,7 +396,7 @@ function openCrack(A, p) {
 // ceiling over them, and what of it is drawn at all (30_arena groundSeen)
 function repaintTiles(A, x0, y0, x1, y1) {
   const W = A.w, isF = (x, y) => x >= 0 && y >= 0 && x < W && y < A.h && A.fl[y * W + x] !== 0, th = A.th, floorRow = th.floors[0][1];
-  const put = (g, tx, ty, x, y, flip) => { g.save(); g.translate(flip ? (x + 1) * TS : x * TS, y * TS); if (flip) g.scale(-1, 1); g.drawImage(IMG.cellar, tx * TS, (ty + th.fy) * TS, TS, TS, 0, 0, TS, TS); g.restore(); };
+  const put = (g, tx, ty, x, y, flip) => { g.save(); g.translate(flip ? (x + 1) * TS : x * TS, y * TS); if (flip) g.scale(-1, 1); const [im, sx, sy] = srcOf(tx, ty + th.fy); g.drawImage(im, sx, sy, TS, TS, 0, 0, TS, TS); g.restore(); };
   const P = []; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const i = y * W + x; A.wt[i] = 0; A.wf[i] = 0; if (!isF(x, y)) { const pc = wallPiece(isF, x, y); if (pc) { A.wt[i] = pc[0] * 64 + pc[1] + 1; A.wf[i] = pc[2] ? 1 : 0; P.push([x, y, pc]); } } }
   groundPaint(x0 * TS, y0 * TS, (x1 + 1) * TS, (y1 + 1) * TS, g => {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const v = A.fl[y * W + x]; if (v !== 0 && !FLOOR(v)) continue; g.fillStyle = '#121418'; g.fillRect(x * TS, y * TS, TS, TS); if (FLOOR(v) || P.some(q => q[0] === x && q[1] === y)) tileAt(g, 10, floorRow, x * TS, y * TS); } // (water and pits stay as they are)
@@ -405,7 +405,7 @@ function repaintTiles(A, x0, y0, x1, y1) {
   // the ceiling over it again (and the north walls' trim), from the floor as it is drawn now
   const px = x0 * TS, py = y0 * TS, pw = (x1 - x0 + 1) * TS, ph = (y1 - y0 + 1) * TS, tmp = mkCanvas(pw, ph), tg = tmp.getContext('2d'); tg.translate(-px, -py); drawGround(tg, px, py, pw, ph);
   const cg = A.ceil.getContext('2d'), cn = A.ceilN.getContext('2d'); cg.clearRect(px, py, pw, ph); cn.clearRect(px, py, pw, ph);
-  for (const [x, y, pc] of P) { const i = y * W + x; for (const [rx, ry, rw, rh] of paintAt(A, i).tr) cg.drawImage(tmp, x * TS + rx - px, y * TS + ry - py, rw, rh, x * TS + rx, y * TS + ry, rw, rh); const m = CEIL_N[pc[0] + ',' + pc[1]]; if (m) { cn.save(); cn.beginPath(); for (const [mx, my, mw, mh] of m) cn.rect(x * TS + (pc[2] ? TS - mx - mw : mx), y * TS + my, mw, mh); cn.clip(); put(cn, pc[0], pc[1], x, y, pc[2]); cn.restore(); } }
+  for (const [x, y, pc] of P) { const i = y * W + x; for (const [rx, ry, rw, rh] of paintAt(A, i).tr) cg.drawImage(tmp, x * TS + rx - px, y * TS + ry - py, rw, rh, x * TS + rx, y * TS + ry, rw, rh); const m = (th.ceilN || CEIL_N)[pc[0] + ',' + pc[1]]; if (m) { cn.save(); cn.beginPath(); for (const [mx, my, mw, mh] of m) cn.rect(x * TS + (pc[2] ? TS - mx - mw : mx), y * TS + my, mw, mh); cn.clip(); put(cn, pc[0], pc[1], x, y, pc[2]); cn.restore(); } }
   const d = tg.getImageData(0, 0, pw, ph).data; if (A.lum) for (let yy = 0; yy < ph; yy++) for (let xx = 0; xx < pw; xx++) { const o = (yy * pw + xx) * 4; A.lum[(py + yy) * A.pw + px + xx] = d[o + 3] > 0 && d[o] + d[o + 1] + d[o + 2] > 90 ? 1 : 0; }
   A.flv = (A.flv || 0) + 1;
 }

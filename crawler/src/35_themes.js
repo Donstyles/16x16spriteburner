@@ -37,7 +37,7 @@ function themeRoom(A, r, prop, nearDoor) {
   let k = force && fits(force) ? force : null; if (!k && !force) for (const [n, p] of pitShuffle(Object.entries(T))) if (fits(n) && chance(p * (r.great ? 3 : 1))) { k = n; break; } if (!k) return false;
   const W = A.w, sides = new Set(r.doors.map(d => d.side)), doorCols = r.doors.filter(d => d.side === 'N' || d.side === 'S').flatMap(d => d.cells.map(c => c[0])), doorRows = r.doors.filter(d => d.side === 'E' || d.side === 'W').flatMap(d => d.cells.map(c => c[1]));
   const lane = (x, y) => doorCols.some(c => Math.abs(c - x) <= 1) || doorRows.some(c => Math.abs(c - y) <= 1); // (a straight way from every door across the room)
-  const d = A.th === THEMES.brown ? 3 : 0;
+  const d = A.th.tone === 'brown' ? 3 : 0;
   if (k === 'warehouse' || k === 'carts') { // rows across the room with aisles between them, a gap or two in each row
     // (running east and west, or north and south: whichever the doors leave more room for)
     const lane1 = (x, y) => doorCols.includes(x) || doorRows.includes(y), step = k === 'carts' ? 3 : 2, cnt = ns => { let n = 0; for (let a = (ns ? r.ix0 : r.iy0) + 1; a <= (ns ? r.ix1 : r.iy1) - 1; a += step) if (!(ns ? doorCols : doorRows).includes(a)) n += (ns ? r.h : r.w) - 2; return n; }, ns = cnt(true) > cnt(false);

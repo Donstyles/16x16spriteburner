@@ -10,7 +10,7 @@ function trimEdgeBars(img) {
 function loadImage(src) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('image ' + String(src).slice(0, 40))); i.src = src; }); }
 async function loadAssets() {
   const A = window.__ASSETS;
-  for (const k of ['cellar', 'mobs', 'doors', 'items', 'ores', 'scrolls', 'ends']) IMG[k] = await loadImage(A ? A[k] : 'assets/' + ({ doors: 'cellar_doors', ends: 'beam_ends' }[k] || k) + '.png'); // (ends: a south strut's two ends where it meets the posts, grey left and right, then brown, as painted in the Item Painter)
+  for (const k of ['cellar', 'mobs', 'doors', 'items', 'ores', 'scrolls', 'ends', 'crypt']) IMG[k] = await loadImage(A ? A[k] : 'assets/' + ({ doors: 'cellar_doors', ends: 'beam_ends' }[k] || k) + '.png'); // (ends: a south strut's two ends where it meets the posts, grey left and right, then brown, as painted in the Item Painter)
   IMG.doors = trimEdgeBars(IMG.doors);
   MOBS = A ? A.mobsJson : await (await fetch('assets/mobs.json')).json();
   padMobs();

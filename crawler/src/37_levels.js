@@ -237,7 +237,7 @@ function levelAfter(A, r) {
   else if (r.sluice && r.sluice.drawbridge && r.sluice.runes) { const v = { blocks: [], open: false, t: 0, room: r.i, runes: [], bridge: r.sluice, dark: true }; (A.vaults = A.vaults || []).push(v); placeRunes(A, r, v); hideRunes(A, r, v); darkRoom(A, r); } // a drawbridge laid by three hidden runes (36_works)
   else if (r.sluice && r.sluice.drawbridge) { const [px, py] = freeSpot(A, r, r.sluiceX == null) || (r.sluiceX == null ? anyFloor(A, r) : [r.sluiceX, r.iy0]); if (py === r.iy0) clear(px, py); plate(px, py, null, { remote: true, bridge: r.sluice }); } // a drawbridge's button
   else if (r.sluice) { // the outlet grate in the north wall, the plate before it, or standing free in the room
-    r.sluiceX = outletSpot(A, r); const x = r.sluiceX, wy = A.th === THEMES.brown ? 3 : 0; if (x != null) tileAt(A.g, 19, 3 + wy, x * TS, (r.fy0 + 1) * TS);
+    r.sluiceX = outletSpot(A, r); const x = r.sluiceX, wy = A.th.tone === 'brown' ? 3 : 0; if (x != null) tileAt(A.g, 19, 3 + wy, x * TS, (r.fy0 + 1) * TS);
     const [px, py] = freeSpot(A, r, x == null) || (x == null ? anyFloor(A, r) : [x, r.iy0]); if (py === r.iy0) clear(px, py);
     plate(px, py, r.sluice, { remote: true, outlet: x == null ? null : { x: x * TS + 8, y: (r.fy0 + 1) * TS + 11 } });
   }

@@ -23,11 +23,21 @@ const PAINT = {
 };
 const PAINTED = {};
 // a piece's wall and trim rows, as placed (mirrored or not); a piece never painted is wall all over, with no trim
+// THE CRYPT'S WALLS (30_arena THEMES.crypt) are drawn the other way about: the dark top of the wall fills the tile and the
+// trim runs along its room side, with no strip of floor beside it. Until they are painted in the painter, a crypt piece is
+// ceiling wherever it is drawn (where its cellar piece has any ceiling) and its side walls are wall all over
+const CRYPT_SOLID = new Set(['5,1', '5,2', '7,1', '7,2', '5,3', '7,3']);
+let CRYPT_A = null; // (the crypt sheet's alpha, read once)
+function cryptRows(sx, sy) {
+  if (!CRYPT_A) { const c = mkCanvas(IMG.crypt.width, IMG.crypt.height), g = c.getContext('2d'); g.drawImage(IMG.crypt, 0, 0); CRYPT_A = { w: c.width, d: g.getImageData(0, 0, c.width, c.height).data }; }
+  const a = new Uint16Array(16); for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) if (CRYPT_A.d[((sy + y) * CRYPT_A.w + sx + x) * 4 + 3] > 128) a[y] |= 0x8000 >>> x; return a;
+}
 function paintOf(tx, ty, flip) {
-  const k = tx + ',' + ty + (flip ? 'm' : ''); if (PAINTED[k]) return PAINTED[k]; const p = PAINT[tx + ',' + ty];
+  const cm = TH && TH.sheet === 'crypt' && TH.map[tx + ',' + (ty + TH.fy)], k = (cm ? 'c' : '') + tx + ',' + ty + (flip ? 'm' : ''); if (PAINTED[k]) return PAINTED[k]; const p = PAINT[tx + ',' + ty];
   const rows = h => { const a = new Uint16Array(16); for (let i = 0; i < 16; i++) a[i] = parseInt(h.substr(i * 4, 4), 16); return a; };
   const rev = v => { let r = 0; for (let i = 0; i < 16; i++) if (v & (1 << i)) r |= 1 << (15 - i); return r; };
   let w = p ? rows(p[0]) : new Uint16Array(16).fill(0xffff), t = p ? rows(p[1]) : new Uint16Array(16);
+  if (cm) { if (t.some(v => v)) t = cryptRows(cm[0] * TS, cm[1] * TS); if (CRYPT_SOLID.has(tx + ',' + ty)) w = new Uint16Array(16).fill(0xffff); } // (the crypt's: above)
   if (flip) { w = w.map(rev); t = t.map(rev); } return (PAINTED[k] = { w, t, tr: maskRects(t) });
 }
 // the set bits of 16 rows as rectangles [x, y, w, h]: rows alike run together, each run of bits along them one rectangle

@@ -27,7 +27,7 @@
 const PIT = 4, PIT_DMG = 0.2, FALL_T = 0.95, CRUMBLE_T = 0.55, PIT_KNOCK = 110;
 const FORCE_PITS = { on: false }; // the pit floor (kit screen): every kind of pit room that fits
 let PITPASS = false; // (while a knocked unit moves, a pit does not stop it: 31_walls' wallBoxes)
-const pitFace = A => A.th === THEMES.grey ? [10, 12] : [10, 4];
+const pitFace = A => A.th.tone === 'grey' ? [10, 12] : [10, 4];
 let PIT_BLACK = null;
 function pitBlack() { if (PIT_BLACK) return PIT_BLACK; const P = PIX.cellar, i = ((4 * TS + 15) * P.w + 10 * TS + 8) * 4; return (PIT_BLACK = `rgb(${P.d[i]},${P.d[i + 1]},${P.d[i + 2]})`); }
 function pitAt(x, y) { const A = ARENA; if (!A || !A.fl) return false; const tx = Math.floor(x / TS), ty = Math.floor(y / TS); return tx >= 0 && ty >= 0 && tx < A.w && ty < A.h && A.fl[ty * A.w + tx] === PIT; }
@@ -45,7 +45,7 @@ function pitPaint(A, g, i) {
     if (A.fl[j] !== 0 || !A.wt[j]) continue; const c = A.wt[j] - 1, ptx = (c / 64) | 0, pty = c % 64, wx = (j % W) * TS, wy = ((j / W) | 0) * TS;
     if (!PITB) PITB = mkCanvas(TS, TS); const t = PITB.getContext('2d'); t.imageSmoothingEnabled = false; t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, TS, TS);
     t.fillStyle = pitBlack(); t.fillRect(bx, by, bw, bh); if (face && fx >= 0) t.drawImage(IMG.cellar, sx + fx, sy, bw, TS, bx, 0, bw, TS);
-    t.globalCompositeOperation = 'destination-out'; t.save(); if (A.wf && A.wf[j]) { t.translate(TS, 0); t.scale(-1, 1); } t.drawImage(IMG.cellar, ptx * TS, (pty + A.th.fy) * TS, TS, TS, 0, 0, TS, TS); t.restore(); // (only where the wall leaves it open)
+    t.globalCompositeOperation = 'destination-out'; t.save(); if (A.wf && A.wf[j]) { t.translate(TS, 0); t.scale(-1, 1); } { const [im, sx, sy] = srcOf(ptx, pty + A.th.fy); t.drawImage(im, sx, sy, TS, TS, 0, 0, TS, TS); } t.restore(); // (only where the wall leaves it open)
     t.globalCompositeOperation = 'source-over'; g.drawImage(PITB, wx, wy);
   }
 }
