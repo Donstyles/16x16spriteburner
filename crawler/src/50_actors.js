@@ -110,6 +110,7 @@ function deathFx(u) {
 // flooded column's, two tiles, from 12 to 1). The box nobody walks into: from the front of the plinth back to its drawn
 // top edge, so a foot coming from the north stops where the plinth's top begins and never sinks in behind it.
 function propFoot(p) {
+  if (p.box) return { x0: p.x + p.box[0], x1: p.x + p.box[1], y0: p.y + p.box[2], y1: p.y + p.box[3] }; // (the crypt's tombs and the like: 43_crypt)
   if (p.kind === 'pillar') return { x0: p.x - 6, x1: p.x + 6, y0: p.y - 17, y1: p.y - 7 };
   if (p.kind === 'wetpillar') return { x0: p.x - 6, x1: p.x + 6, y0: p.y - 10, y1: p.y };
   if (p.kind === 'counter') { const w = (p.tw || 1) * 8; return { x0: p.x - w, x1: p.x + w, y0: p.y - 12, y1: p.y + 1 }; } // (the shop's counter: solid end to end, 39_shop)

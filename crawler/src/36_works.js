@@ -223,7 +223,7 @@ function sinkThings(A, p, n, kinds) {
   const wet8 = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (A.fl[(y + j) * A.w + x + i] !== 2) return false; return true; };
   const open = (x, y) => { const i = y * A.w + x; return p.cells.has(i) && A.fl[i] === 2 && wet8(x, y) && !taken.has(i) && !(p.sunkAt && Math.abs(p.sunkAt[0] - x) <= 1 && Math.abs(p.sunkAt[1] - y) <= 1) && !bc.some(([a, b]) => Math.abs(a - x) <= 1 && Math.abs(b - y) <= 1) && !(x === p.drainAt[0] && y === p.drainAt[1]) &&
     !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 16 && Math.abs(q.cy - (y * TS + 10)) < 20); };
-  const all = SUNK.concat(sunkStone(A)), list = kinds || Array.from({ length: n * 2 }, () => pick(all)); let made = 0; // (twice as many to try as are wanted: the big ones often find no room)
+  const all = (A.th.sheet === 'crypt' ? SUNK.filter(s => s[2] === 'barrel') : SUNK).concat(sunkStone(A)), list = kinds || Array.from({ length: n * 2 }, () => pick(all)); let made = 0; // (twice as many to try as are wanted: the big ones often find no room)
   for (const s of list) for (let k = 0; k < 10 && made < n; k++) { // each a few tries for a spot it fits
     // (on open water, never on the stone rim: the foot off the edge rows and columns; a tall heap's top may stand in front of the north rim)
     const [wt, dt, kind, w = 1, h = 1] = s, xa = p.x0 + 1, xb = p.x1 - w, ya = Math.max(p.y0 + 1, p.y0 + h - 1), yb = p.y1 - 1; if (xb < xa || yb < ya) break;
@@ -287,7 +287,7 @@ function placeRunes(A, r, v, vx, vy) {
 // and braziers are dead, and its rune plates lie under crates, pots and stacks among a good many more that hide nothing;
 // smash your way to them. The last rune woken, the dead lights catch one after another round the room.
 function hideRunes(A, r, v, vx, vy) {
-  const put = (x, y) => { const t = Math.random(), stack = t < 0.25, pot = !stack && t < 0.5; A.props.push({ kind: pot ? 'barrel' : 'crate', tile: pick(stack ? FURN.stack : pot ? FURN.pot : FURN.crate), th: stack ? 2 : 1, x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 5, solid: true, hp: 40, room: r.i }); return A.props[A.props.length - 1]; };
+  const put = (x, y) => { const t = Math.random(), cr = A.th.sheet === 'crypt', stack = !cr && t < 0.25, pot = cr || (!stack && t < 0.5); /* (the crypt's: urns, every one) */ A.props.push({ kind: pot ? 'barrel' : 'crate', tile: pick(stack ? FURN.stack : pot ? FURN.pot : FURN.crate), th: stack ? 2 : 1, x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 5, solid: true, hp: 40, room: r.i }); return A.props[A.props.length - 1]; };
   for (const rn of v.runes) if (!rn.hidden) rn.cover = put(rn.tx, rn.ty); // (a rune under its crate cannot be woken till the crate is smashed)
   const nearDoor = (tx, ty) => r.doors.some(d => d.cells.some(([x, y]) => Math.abs(x - tx) <= 2 && Math.abs(y - ty) <= 2)), cands = [];
   for (let ty = r.iy0 + 1; ty <= r.iy1 - 1; ty++) for (let tx = r.ix0 + 1; tx <= r.ix1 - 1; tx++) {

@@ -280,6 +280,7 @@ const FURN = {
   junk: [[24, 9], [24, 11], [25, 9], [25, 11], [26, 9], [26, 11], [27, 9], [27, 11], [28, 9], [28, 11], [31, 9], [31, 11]],
 };
 function corridorWood(A, g) {
+  if (A.th.sheet === 'crypt') return; // (the crypt's corridors hold no wood)
   const put = (kind, t, tx, ty, th = 1) => A.props.push({ kind, tile: t, th, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 40, hall: true });
   const spiky = (x, y) => (A.spikes || []).some(s => s.tx === x && s.ty === y);
   // a smashed crate: still a heap of wood in the way (it takes a blow to clear)

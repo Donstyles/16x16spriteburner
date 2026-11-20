@@ -134,9 +134,10 @@ function drawProp(c, p) {
   else if (p.kind === 'tchest') { const [cx, cy] = CHEST[p.tier].at; c.drawImage(IMG.items, cx + (p.open ? 16 : 0), cy, 16, 16, p.x - 8, p.y - 14, 16, 16); }
   else if (p.kind === 'block') c.drawImage(IMG.cellar, (p.tile[0] + p.f) * TS, p.tile[1] * TS, TS, TS, p.x - 8, p.y - 14, TS, TS); // a vault's block, sinking frame by frame
   else { // (th: how many tiles tall; struck, a tall crate flashes white and fades back)
-    const w = (p.tw || 1) * TS, n = p.th || 1, fl = (p.flashUntil || 0) - G.time;
-    for (let i = 0; i < n; i++) c.drawImage(IMG.cellar, p.tile[0] * TS, (p.tile[1] + i) * TS, w, TS, p.x - w / 2, p.y - 14 - (n - 1 - i) * TS, w, TS);
-    if (fl > 0) { c.globalAlpha = Math.min(1, fl * 9); c.drawImage(IMG.cellarW, p.tile[0] * TS, p.tile[1] * TS, w, n * TS, p.x - w / 2, p.y - 14 - (n - 1) * TS, w, n * TS); c.globalAlpha = 1; }
+    const w = (p.tw || 1) * TS, n = p.th || 1, fl = (p.flashUntil || 0) - G.time, im = p.sheet === 'crypt' ? IMG.crypt : IMG.cellar; // (sheet: the crypt's own pieces, 43_crypt)
+    for (let i = 0; i < n; i++) c.drawImage(im, p.tile[0] * TS, (p.tile[1] + i) * TS, w, TS, p.x - w / 2, p.y - 14 - (n - 1 - i) * TS, w, TS);
+    if (p.candles) drawCandles(c, p.candles); // (its candles: 44_candles)
+    if (fl > 0) { c.globalAlpha = Math.min(1, fl * 9); c.drawImage(p.sheet === 'crypt' ? IMG.cryptW : IMG.cellarW, p.tile[0] * TS, p.tile[1] * TS, w, n * TS, p.x - w / 2, p.y - 14 - (n - 1) * TS, w, n * TS); c.globalAlpha = 1; }
   }
 }
 // an arrow or a stone in flight (its shadow on the floor below it)

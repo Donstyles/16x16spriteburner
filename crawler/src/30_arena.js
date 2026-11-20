@@ -120,6 +120,7 @@ function cryptFloor(g, W, H, near, inRoom, rooms, halls) {
       if (v > best) best = v;
     }
     return best; };
+  CWEAR = wearAt; // (for the furniture, which stands where nobody walks: 43_crypt)
   const QW = W * 2, Q = new Int8Array(QW * H * 2).fill(-1), QV = new Float32Array(QW * H * 2); /* per quarter tile: -1 not floor, 0 stone, 1 bare earth; and the wear there */
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (!near(x, y)) continue; const slab = lay[y * W + x], deep = slab ? wearAt(x + 0.5, y + 0.5) > 0.45 : false;
@@ -181,11 +182,6 @@ function cryptTorch(c, t) {
   const f = ((G.time * 7 + (t.f || 0)) | 0) % 4; c.drawImage(IMG.cryptAnim, 16 + f * 16, 256, TS, TS, x, y, TS, TS);
 }
 function cryptAt(g, tx, ty, dx, dy) { g.drawImage(IMG.crypt, tx * TS, ty * TS, TS, TS, dx, dy, TS, TS); }
-function cryptWallDeco(g, x, y) {
-  const r = Math.random(), dx = x * TS, top = y * TS - 8; // (the brick runs from eight pixels up the tile above to the foot)
-  if (r < 0.75) cryptAt(g, ...pick(CRYPT_NICHES), dx, top + 2);
-  else cryptAt(g, 9 + randi(0, 2), 2 + randi(0, 1), dx, top);
-}
 function tileAt(g, tx, ty, dx, dy) { const [im, sx, sy] = srcOf(tx, ty); g.drawImage(im, sx, sy, TS, TS, dx, dy, TS, TS); }
 // A floor that cannot take the puzzles its depth asks for (37_levels levelPlan) is laid out again, a few times at most.
 // It looks for some variety too: two puzzles of different kinds where it can, and the flooded way as often as the
@@ -367,7 +363,7 @@ function buildArena1(floor) {
   for (const r of rooms) worksBefore(A, r, g); // a cistern, a rune shrine (36_works)
   for (const r of rooms) { furnish(A, r, g); shapeAfter(A, r); } // (what stands in the alcoves: 33_shapes)
   mapChest(A); // (the floor's map, in one of its small chests)
-  for (const r of rooms) worksAfter(A, r); for (const r of rooms) levelAfter(A, r); for (const r of rooms) puzzleAfter(A, r); spikeHalls(A); corridorWood(A, g); wayArrows(A, g);
+  for (const r of rooms) worksAfter(A, r); for (const r of rooms) levelAfter(A, r); for (const r of rooms) puzzleAfter(A, r); spikeHalls(A); corridorWood(A, g); if (th.sheet === 'crypt') cryptDress(A, g); wayArrows(A, g); // (the crypt's dead, on floor nothing else needs: 43_crypt)
   // the stairway we came down, in the start room's north wall; the way down waits shut in the end room's
   { const r = A.start, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 12, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 13, (sx + i) * TS, (r.fy0 + 1) * TS); } }
   { const r = A.end, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 14, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 15, (sx + i) * TS, (r.fy0 + 1) * TS); } A.stairs = { x: (sx + 1.5) * TS, y: (r.fy0 + 2) * TS + 2, sx, sy: r.fy0, room: r.i };
@@ -407,11 +403,11 @@ function furnish(A, r, g) {
   if (r.stairX !== undefined) for (let k = -1; k <= 3; k++) used.add(r.stairX + k);
   if (r.sluiceX != null) for (let k = -1; k <= 1; k++) used.add(r.sluiceX + k); // (a sluice's outlet goes there: 37_levels)
   if (r.crackX !== undefined) for (let k = -1; k <= 3; k++) used.add(r.crackX + k); // (a cracked wall: 41_puzzles)
-  for (let x = r.ix0 + 1; x < r.ix1; x += r.great === 'h' ? 5 : 4) { const tx = x + (used.has(x) ? 3 : 0); if (tx >= r.ix1 || used.has(tx) || !plainWall(A, tx, r.fy0 + 1)) continue; used.add(tx); A.torches.push({ x: tx * TS + 8, y: (r.fy0 + 1) * TS + 9, tx, f: randi(0, 3) }); }
+  if (th.sheet === 'crypt') cryptWall(A, r, g, used); // (the crypt's: candle niches and niches of the dead, mirrored: 43_crypt)
+  else for (let x = r.ix0 + 1; x < r.ix1; x += r.great === 'h' ? 5 : 4) { const tx = x + (used.has(x) ? 3 : 0); if (tx >= r.ix1 || used.has(tx) || !plainWall(A, tx, r.fy0 + 1)) continue; used.add(tx); A.torches.push({ x: tx * TS + 8, y: (r.fy0 + 1) * TS + 9, tx, f: randi(0, 3) }); }
   // a banner: one of the twelve tall ones ([20..31, 0..1], the rod low in the upper tile) or one of the eight small ones
   // ([16..19, 0..1], one tile, the rod at its top; hung so its rod is level with the tall ones' and it hangs as low)
-  if (th.sheet === 'crypt') { for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || !plainWall(A, x, r.fy0 + 1) || !chance(0.5)) continue; cryptWallDeco(g, x, r.fy0 + 1); used.add(x); } } // (the crypt's own: niches and chains)
-  else for (let x = r.ix0 + 1; x < r.ix1; x++) {
+  if (th.sheet !== 'crypt') for (let x = r.ix0 + 1; x < r.ix1; x++) {
     if (used.has(x) || used.has(x - 1) || used.has(x + 1) || !plainWall(A, x, r.fy0 + 1) || !chance(0.3)) continue; const b = randi(0, 19);
     if (b < 12) { tileAt(g, 20 + b, 0, x * TS, r.fy0 * TS); tileAt(g, 20 + b, 1, x * TS, (r.fy0 + 1) * TS); } else tileAt(g, 16 + (b - 12) % 4, (b - 12) >> 2, x * TS, r.fy0 * TS + 11);
     used.add(x);
@@ -423,7 +419,8 @@ function furnish(A, r, g) {
   if (r.rock && r.rock.size) blockDecor(A, r, g); // (the faces of the blocks its shape left standing: 33_shapes)
   const prop = (kind, tx, ty, o = {}) => { if (A.noProp && A.noProp.has(Math.floor(ty) * A.w + Math.floor(tx)) || !FLOOR(A.fl[Math.floor(ty) * A.w + Math.floor(tx)]) || !FLOOR(A.fl[Math.floor(ty) * A.w + Math.ceil(tx)]) || A.crumbleSet && (A.crumbleSet.has(Math.floor(ty) * A.w + Math.floor(tx)) || A.crumbleSet.has(Math.floor(ty) * A.w + Math.ceil(tx)))) return; A.props.push(Object.assign({ kind, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o)); }; // (never in water, nor on a cracked slab: 38_pits)
   const free = (x, y, d = 10) => !A.props.some(p => Math.abs(p.x - x) < d && Math.abs(p.y - y) < d);
-  if (r.w * r.h >= 100) for (const [tx, ty] of [[r.ix0 + 1, r.iy1 - 1], [r.ix1 - 1, r.iy0 + 1]]) if (!nearDoor(tx, ty)) prop('brazier', tx, ty, { f: randi(0, 3) });
+  if (r.w * r.h >= 100) for (const [tx, ty] of th.sheet === 'crypt' ? [[r.ix0 + 1, r.iy0 + 1], [r.ix1 - 1, r.iy0 + 1]] : [[r.ix0 + 1, r.iy1 - 1], [r.ix1 - 1, r.iy0 + 1]]) if (!nearDoor(tx, ty)) prop('brazier', tx, ty, { f: th.sheet === 'crypt' ? tx % 4 : randi(0, 3) }); // (the crypt's: a mirrored pair in its north corners)
+  if (th.sheet === 'crypt') { cryptFurnish(A, r, g, prop, nearDoor); lightless(A, r); return; } // (43_crypt: by rule, no crates)
   if (themeRoom(A, r, prop, nearDoor)) { lightless(A, r); return; } // (a warehouse, a pottery, a cart shed, a statue gallery: 35_themes)
   const corner = (cx, cy) => { for (let i = 0; i < randi(1, 3); i++) { const tx = clamp(cx + randi(-1, 1), r.ix0, r.ix1), ty = clamp(cy + randi(-1, 1), r.iy0, r.iy1); if (nearDoor(tx, ty) || !free(tx * TS + 8, ty * TS + 14)) continue; const t = pick(CLUTTER); prop(t[2] || (t[0] >= 28 && t[1] === 8 ? 'chest' : 'barrel'), tx, ty, { tile: [t[0], t[1]], th: t[3] || 1, hp: 40 }); } };
   corner(r.ix0, r.iy0); corner(r.ix1, r.iy0); corner(r.ix0, r.iy1); corner(r.ix1, r.iy1);
