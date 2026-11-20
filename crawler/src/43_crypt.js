@@ -54,7 +54,11 @@ function cryptDress(A, g) {
   }
 }
 // a tomb: two tiles tall (its bottom tile at x, y), solid from its foot to its lid's back edge
-function tombProp(prop, x, y, kind, lit) { prop('tomb', x, y, { sheet: 'crypt', tile: [TOMBS[kind], lit ? 2 : 0], th: 2, r: 7, box: [-7, 7, -17, 1], tombKind: kind }); }
+function tombProp(prop, x, y, kind, lit) {
+  prop('tomb', x, y, { sheet: 'crypt', tile: [TOMBS[kind], 0], th: 2, r: 7, box: [-7, 7, -17, 1], tombKind: kind });
+  if (!lit) return; const A = ARENA, p = A.props[A.props.length - 1], col = TOMBS[kind] * TS; // (its candles: those of the same tomb lit, rows 2-3, on the lidded one)
+  p.candles = addCandles(A, candleSrc(col, 2 * TS, TS, 2 * TS, [col, 0]), p.x - 8, p.y - 14 - TS, p.y - 6, 300);
+}
 function tombHall(A, r, P) {
   const c2 = r.ix0 + r.ix1, xs = []; // (the columns: from the middle out, every second tile, the two halves mirrored)
   for (let x = Math.floor(c2 / 2); x > r.ix0; x -= 2) xs.push(x);
@@ -82,18 +86,21 @@ function burialChamber(A, r, P) {
 function ossuary(A, r, g, P) {
   let k = 0; for (let y = r.iy0 + 1; y <= r.iy1 - 1; y += 2, k++) { const x = r.ix0 + 1; if (!P.ok(x, y) || !P.ok(P.mir(x), y)) continue; const t = k % 2 ? BONES_SMALL[k % BONES_SMALL.length] : BONES_BIG[(k >> 1) % BONES_BIG.length]; for (const xx of [x, P.mir(x)]) cryptAt(g, t[0], t[1], xx * TS, y * TS); }
 }
-// the north wall: candle niches and niches of the dead, every second tile from the middle out, mirrored
+// the north wall: candle niches and niches of the dead, every second tile from the middle out, mirrored. A light niche
+// is the sheet's empty niche with three candles in it (the three of its candle niche, 7,6); a niche of skulls keeps its
+// own candles (44_candles); the urns' niches have none
+const NICHE_Y = -6, LIGHT_NICHE = [7 * 16, 6 * 16, 16, 16, [8 * 16, 7 * 16]];
 function cryptWall(A, r, g, used) {
-  const c2 = r.ix0 + r.ix1, y = r.fy0 + 1, NICHE = { skulls: [[6, 6], [8, 6], [9, 6], [7, 7]], urns: [[9, 7], [10, 7], [11, 6]] };
+  const c2 = r.ix0 + r.ix1, y = r.fy0 + 1, gy = (r.fy0 + 2) * TS + 3, NICHE = { skulls: [[6, 6], [8, 6], [9, 6], [7, 7]], urns: [[9, 7], [10, 7], [11, 6]] };
   let k = 0;
   for (let x = Math.floor(c2 / 2); x > r.ix0; x -= 2, k++) {
     const m = c2 - x, both = x === m ? [x] : [x, m]; if (both.some(xx => used.has(xx) || !plainWall(A, xx, y))) continue;
     const role = k % 2 === 0 ? 'light' : ['skulls', 'urns', 'chains'][(k >> 1) % 3];
     for (const xx of both) {
-      used.add(xx);
-      if (role === 'light') A.torches.push({ x: xx * TS + 8, y: y * TS + 9, tx: xx, f: (xx * 3) % 4 });
-      else if (role === 'chains') cryptAt(g, 9 + (k >> 1) % 3, 2, xx * TS, y * TS - 8);
-      else { const L = NICHE[role], t = L[(k >> 1) % L.length]; cryptAt(g, t[0], t[1], xx * TS, y * TS - 6); }
+      used.add(xx); const nx = xx * TS, ny = y * TS + NICHE_Y;
+      if (role === 'light') { const S = candleSrc(...LIGHT_NICHE); g.drawImage(S.cv, nx, ny); A.torches.push({ x: nx + 8, y: y * TS + 9, tx: xx, f: (xx * 3) % 4, candles: addCandles(A, S, nx, ny, gy, 720, { wall: true, torch: true }) }); }
+      else if (role === 'chains') cryptAt(g, 9 + (k >> 1) % 3, 2, nx, y * TS - 8);
+      else { const L = NICHE[role], t = L[(k >> 1) % L.length], S = candleSrc(t[0] * TS, t[1] * TS, TS, TS); g.drawImage(S.cv, nx, ny); addCandles(A, S, nx, ny, gy, 450, { wall: true }); }
     }
   }
 }

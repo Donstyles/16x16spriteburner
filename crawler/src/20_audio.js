@@ -98,6 +98,7 @@ const SFX = {
   fire(pan = 0) { if (!this.ok('fire', 0.06)) return; this.noise(this.white, 0.35, 'lowpass', 400, 3000, 0.8, 0.35, pan, 0, 0.05); },
   whoosh(pan = 0) { if (!this.ok('whoosh', 0.08)) return; this.noise(this.white, 0.45, 'bandpass', 250, 1800, 1.2, 0.35, pan, 0, 0.12); },
   summon(pan = 0) { if (!this.ok('summon', 0.15)) return; this.noise(this.brown, 0.9, 'bandpass', 150, 900, 2, 0.5, pan, 0, 0.7); this.tone('sawtooth', 52, 48, 0.9, 0.08, pan, 0, 0.6); },
+  puff(pan = 0) { if (!this.ok('puff', 0.05)) return; this.noise(this.white, 0.2, 'bandpass', 1400, 380, 0.9, 0.11, pan, 0, 0.16); }, // (a candle blown out: 44_candles)
   pop(pan = 0) { if (!this.ok('pop', 0.025)) return; this.noise(this.white, 0.12, 'lowpass', 3000, 300, 0.7, 0.35, pan); this.tone('square', 220, 60, 0.1, 0.12, pan); },
   // a coin: a bright two-note clink, a semitone higher for each coin scooped up in quick succession
   // stone struck: a hard dry knock (a burst of grit through a narrow middle band, driven into the clipper), a dull thud

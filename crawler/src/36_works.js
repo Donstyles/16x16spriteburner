@@ -299,7 +299,7 @@ function hideRunes(A, r, v, vx, vy) {
 // (lightable: its braziers will be lit again, by runes or by a hero standing by them, so they hold their dead coals, the
 // sheet's [31, 3] / [31, 6]; a dark room that stays dark has them empty, [30, 3] / [30, 6]: the coals say a brazier can burn)
 function darkRoom(A, r, lightable = true) {
-  for (const t of A.torches) if (t.room === r.i || (t.tx >= r.ix0 && t.tx <= r.ix1 && Math.abs(t.y - ((r.fy0 + 1) * TS + 9)) < 2)) Object.assign(t, { out: true, ember: chance(0.3), room: r.i }); // (and those on its pillars and in its alcoves)
+  for (const t of A.torches) if (t.room === r.i || (t.tx >= r.ix0 && t.tx <= r.ix1 && Math.abs(t.y - ((r.fy0 + 1) * TS + 9)) < 2)) { Object.assign(t, { out: true, ember: t.candles ? false : chance(0.3), room: r.i }); torchCandles(t, false); } // (and those on its pillars and in its alcoves; a crypt niche's candles: 44_candles)
   for (const p of A.props) if (p.kind === 'brazier' && p.room === r.i) Object.assign(p, { out: true, ember: lightable });
   A.lights = A.slit = null;
 }
@@ -325,7 +325,7 @@ function spikeHalls(A) {
 const litK = o => o.litT === undefined ? 1 : clamp((G.time - o.litT) / 0.3, 0, 1);
 const litFlare = o => o.litT === undefined ? 0 : Math.max(0, 1 - (G.time - o.litT) / 0.7);
 function lightUp(o, brazier) {
-  if (!o.out) return; const A = ARENA; o.out = false; o.litT = G.time; A.lights = A.slit = null; // (what the fixed lights reach, again: 34_sight)
+  if (!o.out) return; const A = ARENA; o.out = false; o.litT = G.time; torchCandles(o, true); A.lights = A.slit = null; // (what the fixed lights reach, again: 34_sight)
   const x = o.x, y = brazier ? o.y - 10 : o.y - 4; SFX.fire(panOf(x)); SFX.whoosh(panOf(x));
   sparks(x, y, 4, brazier ? 16 : 10, 'fire', 90, 90); smoke(x, y - 2, 2, 'dust', 5, 14, 0.8); flashLight(x, y, brazier ? 110 : 80, 'torch', 1.1, 0.6);
 }

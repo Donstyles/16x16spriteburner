@@ -10,7 +10,8 @@ function initSight(A) {
   SIGHT.t = 0;
 }
 // light sources that reveal what they shine on: wall torches and braziers, the ones burning (a dead one is lit later: 36_works)
-function staticLights(A) { if (!A.lights) A.lights = A.torches.filter(t => !t.out).map(t => ({ x: t.x, y: t.y + 10, r: 58 })).concat(A.props.filter(p => p.kind === 'brazier' && !p.dead && !p.out).map(p => ({ x: p.x, y: p.y, r: 80 }))); return A.lights; }
+const lampK = () => (ARENA && ARENA.th.sheet === 'crypt' ? 0.7 : 1); // (the crypt's dark: the hero's lamp reaches less far, 70_render too)
+function staticLights(A) { if (!A.lights) A.lights = A.torches.filter(t => !t.out).map(t => ({ x: t.x, y: t.y + 10, r: t.candles ? 30 + 28 * (t.cf === undefined ? 1 : t.cf) : 58 })).concat((A.candles || []).filter(c => c.lit && !c.torch).map(c => ({ x: c.x + 1, y: c.yb + 2, r: 22 }))).concat(A.props.filter(p => p.kind === 'brazier' && !p.dead && !p.out).map(p => ({ x: p.x, y: p.y, r: 80 }))); return A.lights; }
 // which tiles the fixed lights reach, worked out once per floor
 function staticLit(A) {
   if (A.slit) return A.slit; const s = A.slit = new Uint8Array(A.w * A.h);
@@ -19,7 +20,7 @@ function staticLit(A) {
 }
 function litTile(A, tx, ty, lamps) {
   if (tx < 0 || ty < 0 || tx >= A.w || ty >= A.h) return false; if (A.slit[ty * A.w + tx]) return true;
-  const x = tx * TS + 8, y = ty * TS + 8; for (const h of lamps) if (dist(h.x, h.y, x, y) < h.lightR) return true; return false;
+  const x = tx * TS + 8, y = ty * TS + 8; for (const h of lamps) if (dist(h.x, h.y, x, y) < h.lightR * (h.team === 'hero' ? lampK() : 1)) return true; return false;
 }
 function updateSight(dt) {
   const A = ARENA; if (!A || !A.mem) return; if ((SIGHT.t -= dt) > 0) return; SIGHT.t = 0.08;
