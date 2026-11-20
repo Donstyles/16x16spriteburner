@@ -112,21 +112,21 @@ function waterBody(A, cells, set, W, dual) {
 
 // The crypt's pools hold no water: blood, the black blood of its dead, or the green rot of the undead, one of them to a
 // floor (ARENA.liq). Everything about a pool is read off its blue art as before; then its blue is laid over in the
-// liquid's own shades by lightness (the water's eight blues, darkest to lightest, to eight of these), and its glints,
+// liquid's own colour, each pixel as much lighter or darker as it was in the water (liquify), and its glints,
 // its whirl over the drain, the drops thrown up, the rings and the wet it leaves take the liquid's colours (liq, below).
 const LIQUIDS = {
-  blood: { pal: ['#2a0608', '#3c0a0d', '#4c0e11', '#5c1215', '#6e171a', '#821d1f', '#962526', '#b03432'], drops: ['#a8302f', '#821d1f', '#c8484a', '#6e171a'], glint: '255,176,164', wet: '92,12,14' },
-  black: { pal: ['#08070a', '#0e0c11', '#141118', '#1a161f', '#211c27', '#28222f', '#302938', '#3e3648'], drops: ['#28222f', '#1a161f', '#3e3648', '#141118'], glint: '176,168,198', wet: '6,4,8' },
-  rot: { pal: ['#0a1208', '#0f1a0b', '#14220e', '#1a2c12', '#213716', '#29431b', '#335220', '#426428'], drops: ['#426428', '#29431b', '#5a7a34', '#213716'], glint: '178,214,128', wet: '20,40,12' },
+  blood: { base: [104, 16, 20], glintC: [176, 70, 66], drops: ['#7a1418', '#5e0f12', '#96262a', '#4a0a0d'], glint: '214,120,110', wet: '74,10,12' },
+  black: { base: [30, 25, 34], glintC: [92, 86, 108], drops: ['#1e1a23', '#16131a', '#2c2633', '#0e0c11'], glint: '150,142,170', wet: '6,4,8' },
+  rot: { base: [44, 62, 26], glintC: [112, 140, 70], drops: ['#2c3e1a', '#223014', '#3e5626', '#18220e'], glint: '160,196,110', wet: '18,34,10' },
 };
-for (const k in LIQUIDS) LIQUIDS[k].rgb = LIQUIDS[k].pal.map(h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)));
 const liq = () => (ARENA && ARENA.liq ? LIQUIDS[ARENA.liq] : null);
 IMG.cellarLiq = {};
 function liquidSheet(k) { const c = mkCanvas(IMG.cellarCrypt.width, IMG.cellarCrypt.height); c.getContext('2d').drawImage(IMG.cellarCrypt, 0, 0); liquify(c, LIQUIDS[k]); return c; }
-function liquify(cv, L) {
+function liquify(cv, L) { // (each blue pixel: the liquid's colour, as much lighter or darker than it as the blue was than the water's own, 111)
   const g = cv.getContext('2d'), id = g.getImageData(0, 0, cv.width, cv.height), d = id.data;
   for (let i = 0; i < d.length; i += 4) { if (!d[i + 3] || d[i + 2] < d[i] + 30) continue;
-    const t = Math.max(0, Math.min(1, (0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2] - 83) / 42)), c = L.rgb[Math.round(t * 7)]; d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; }
+    const l = 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2], c = l > 170 ? L.glintC : L.base, k = l > 170 ? 1 : l / 111;
+    d[i] = Math.min(255, Math.round(c[0] * k)); d[i + 1] = Math.min(255, Math.round(c[1] * k)); d[i + 2] = Math.min(255, Math.round(c[2] * k)); }
   g.putImageData(id, 0, 0);
 }
 
@@ -645,9 +645,9 @@ function drawWorks(c) {
       const ins = Math.round((1 - p.level) * 6); c.globalAlpha = Math.min(1, p.level * 1.6);
       c.drawImage(p.cv, ins, ins, w - ins * 2, h - ins * 2, X + ins, Y + ins, w - ins * 2, h - ins * 2); c.globalAlpha = 1;
       // light on the water: a few glints drifting and winking
-      for (let i = 0; i < Math.round(w * h / 300); i++) {
+      for (let i = 0, L = liq(); i < Math.round(w * h / (L ? 1100 : 300)); i++) { // (a crypt's thick liquid: a rare slow sheen)
         const sd = (i * 7919 + p.x0 * 31) % 997, gx = X + 3 + ((sd * 13 + G.time * (6 + sd % 5)) % (w - 6)), gy = Y + 7 + (sd * 29) % (h - 10), on = Math.sin(G.time * (1.3 + sd % 3) + sd) > 0.55;
-        if (on && p.level > 0.4 && wetAt(gx, gy)) { c.fillStyle = `rgba(${liq() ? liq().glint : '214,236,255'},0.75)`; c.fillRect(Math.round(gx), Math.round(gy), 2, 1); }
+        if (on && p.level > 0.4 && wetAt(gx, gy)) { c.fillStyle = L ? `rgba(${L.glint},0.4)` : 'rgba(214,236,255,0.75)'; c.fillRect(Math.round(gx), Math.round(gy), 2, 1); }
       }
       if (p.drain === 1) { // the whirl over the drain
         const [dx, dy] = p.drainAt, cx = dx * TS + 8, cy = dy * TS + 8; c.fillStyle = `rgba(${liq() ? liq().glint : '230,244,255'},0.85)`;
