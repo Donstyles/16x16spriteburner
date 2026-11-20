@@ -32,7 +32,7 @@ function cryptFurnish(A, r, g, prop, nearDoor) {
 // Each pair is set down only if every tile of the room that could be reached before can still be reached after.
 function cryptDress(A, g) {
   for (const r of A.rooms) {
-    if (r.kind === 'shop' || r.kind === 'start' || r.set || r.pool || r.shrine || r.sluice || A.props.some(p => p.push && !p.dead && p.x >= r.ix0 * TS && p.x <= (r.ix1 + 1) * TS && p.y >= r.iy0 * TS && p.y <= (r.iy1 + 1) * TS)) continue;
+    if (r.kind === 'shop' || r.kind === 'start' || (r.kind !== 'end' && r.set) || r.pool || r.shrine || r.sluice || A.props.some(p => p.push && !p.dead && p.x >= r.ix0 * TS && p.x <= (r.ix1 + 1) * TS && p.y >= r.iy0 * TS && p.y <= (r.iy1 + 1) * TS)) continue;
     const W = A.w, inR = (x, y) => x >= r.ix0 && x <= r.ix1 && y >= r.iy0 && y <= r.iy1, keep = new Set(), near = (x, y, m) => { for (let j = -m; j <= m; j++) for (let i = -m; i <= m; i++) keep.add((y + j) * W + x + i); };
     for (const q of A.plates || []) near(q.tx, q.ty, 1); for (const q of A.runes || []) near(q.tx, q.ty, 1); for (const q of A.spikes || []) near(q.tx, q.ty, 1); for (const q of A.levers || []) if (q.tx !== undefined) near(q.tx, q.ty, 1);
     for (const p of A.props) if (!p.dead) near(Math.floor(p.x / TS), Math.floor(p.cy / TS), 1);
@@ -45,7 +45,7 @@ function cryptDress(A, g) {
     const before = reach(), fits = tiles => { for (const k of tiles) blocked.add(k); const after = reach(); for (const k of before) if (!blocked.has(k) && !after.has(k)) { for (const t of tiles) blocked.delete(t); return false; } return true; };
     const prop = (kind, tx, ty, o) => A.props.push(Object.assign({ kind, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o));
     const mir = x => r.ix0 + r.ix1 - x, w = r.ix1 - r.ix0 + 1, h = r.iy1 - r.iy0 + 1, put = { prop, ok, fits, mir, W };
-    charnelPit(A, r, g, put); // (one a floor: below)
+    charnelPit(A, r, g, put); throneRoom(A, r, g, put); // (one a floor: below)
     if (r.kind === 'room' || r.kind === 'end') {
       if (r.charnel) ossuary(A, r, g, put); else if (w >= 10 && h >= 7) tombHall(A, r, put);
       else if (w >= 6 && h >= 6 && w % 2 === 0) { if (!burialChamber(A, r, put)) ossuary(A, r, g, put); }
@@ -412,4 +412,29 @@ function drinkFont(p, h) {
   p.full = 0; p.drinkT = 0; SFX.splash(panOf(p.x)); healGlow(h.x, h.y);
   if (p.liq === 'blood') { const n = Math.round(h.maxHp * 0.4); h.hp = Math.min(h.maxHp, h.hp + n); h.curseT = 20; textPop(h.x, h.y, headZ(h) + 4, '+' + n, 'heal', true); textPop(h.x, h.y, headZ(h) + 12, 'CURSED', 'curse', false); SFX.hex(panOf(h.x), true); }
   else { const n = Math.round(h.maxHp * 0.15), cursed = h.curseT > 0; h.hp = Math.min(h.maxHp, h.hp + n); h.curseT = 0; textPop(h.x, h.y, headZ(h) + 4, '+' + n, 'heal', true); if (cursed) textPop(h.x, h.y, headZ(h) + 12, 'CLEANSED', 'heal', false); SFX.chime(panOf(h.x)); }
+}
+
+// ===================== the throne crypt =====================
+// The way down is held by a lord of the dead: in the crypt's exit room a stone throne stands before the stairway (on its
+// middle line, a step out from it), a burning brazier either side, and before the throne waits the strongest of the
+// exit's guards, still, until the hero comes near or strikes it; then it rises, and the way stays sealed until it falls
+// with the rest. With no brute among the guards, the floor's army sends one up to take the seat.
+function throneRoom(A, r, g, P) {
+  if (r.kind !== 'end' || A.throne) return;
+  const x = r.stairX !== undefined ? r.stairX + 1 : Math.round((r.ix0 + r.ix1) / 2), y = r.iy0 + 4;
+  if (!P.ok(x, y, 9) || !P.ok(x, y - 1, 9) || !P.fits([y * P.W + x, (y - 1) * P.W + x])) return;
+  P.prop('throne', x, y, { sheet: 'crypt', tile: [26, 6], th: 2, r: 6, box: [-6, 6, -10, 1] });
+  for (const bx of [x - 2, x + 2]) if (P.ok(bx, y, 9) && P.fits([y * P.W + bx])) P.prop('brazier', bx, y, { f: bx % 4, r: 6 });
+  A.throne = { x: x * TS + 8, y: y * TS + 14 };
+}
+function cryptLord(A) {
+  if (!A.throne) return; const guards = G.foes.filter(f => f.exitGuard && !f.dead);
+  let L = guards.filter(f => f.type === 'brute').sort((a, b) => b.maxHp - a.maxHp)[0];
+  if (!L) { const spr = (ARMIES[A.army] && ARMIES[A.army].brute[0]) || 'GrapplerMummy'; if (!MOBS[spr]) return; L = mkFoe('brute', G.floor, A.throne.x, A.throne.y + 4, spr); L.exitGuard = true; L.room = A.end.i; G.foes.push(L); }
+  Object.assign(L, { x: A.throne.x, y: A.throne.y + 4, seated: true, aware: false, face: 1, lord: true, maxHp: L.maxHp * 1.6, hp: L.maxHp * 1.6, dmgMul: (L.dmgMul || 1) * 1.2 });
+}
+function seatedTick(f) {
+  f.vx = f.vy = 0; f.moving = false; const h = G.me;
+  if (!(h && !h.dead && (dist(h.x, h.y, f.x, f.y) < 76 || f.hp < f.maxHp))) return;
+  f.seated = false; f.stun = 0.5; SFX.groan(panOf(f.x)); SFX.stone(panOf(f.x), true); shake(0.2); smoke(f.x, f.y - 6, 3, 'dust', 6, 14, 0.8); wakeFoe(f, h, 'noise');
 }

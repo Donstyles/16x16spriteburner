@@ -187,7 +187,7 @@ function watchDeath(f, h, dt) {
   else { f.vx = damp(f.vx, 0, 6, dt); f.vy = damp(f.vy, 0, 6, dt); f.moving = false; }
 }
 function foeTick(f, dt) { // (a raised skeleton below the floor climbs out of it: z rises to 0)
-  if (f.dead) return; if (f.feed) { feedTick(f, dt); return; } /* (feed: a vermin at its meal, 48_deaths) */ if (f.script) { f.script.tick(f, dt); return; } /* (script: one at work on a dead hero, 49_deaths2) */ if (f.dying) { throesTick(f, dt); return; } if (f.dormant) { dormantTick(f, dt); return; } if (f.shade) { shadeTick(f, dt); return; } /* (the crypt's Shade: 43_crypt) */ if (f.z < 0 && !f.fly) f.z = Math.min(0, f.z + 22 * dt); if (f.poiseT > 0) f.poiseT -= dt; else f.poise = f.maxPoise; if (f.poiseGuard > 0) f.poiseGuard -= dt;
+  if (f.dead) return; if (f.feed) { feedTick(f, dt); return; } /* (feed: a vermin at its meal, 48_deaths) */ if (f.script) { f.script.tick(f, dt); return; } /* (script: one at work on a dead hero, 49_deaths2) */ if (f.dying) { throesTick(f, dt); return; } if (f.dormant) { dormantTick(f, dt); return; } if (f.shade) { shadeTick(f, dt); return; } /* (the crypt's Shade: 43_crypt) */ if (f.seated) { seatedTick(f); return; } /* (the lord before his throne: 43_crypt) */ if (f.z < 0 && !f.fly) f.z = Math.min(0, f.z + 22 * dt); if (f.poiseT > 0) f.poiseT -= dt; else f.poise = f.maxPoise; if (f.poiseGuard > 0) f.poiseGuard -= dt;
   if (f.stun > 0) { f.stun -= dt; f.vx = damp(f.vx, 0, 8, dt); f.vy = damp(f.vy, 0, 8, dt); f.moving = false; return; }
   if (f.dummy) { dummyTick(f, dt); return; } // the test room's foes only stand there
   if (!f.aware) { senses(f, dt); if (f.aware) return; idleFoe(f, dt); return; }

@@ -99,10 +99,11 @@ function torchCandles(t, on) { for (const c of t.candles || []) if (on) { c.lit 
 // its glow (the glow layer) and its light (the light map)
 function drawCandleGlows(c) {
   const A = ARENA; if (!A || !A.candles) return;
-  for (const k of A.candles) { if (!k.lit) continue; const f = 0.75 + 0.25 * noise1(G.time * 9 + k.ph) - 0.35 * k.gust; c.globalAlpha = Math.max(0.1, 0.3 * f); c.drawImage(GLOW.torch, k.x + k.w / 2 - 3, k.yb - k.wax - 5, 6, 6); }
+  for (const k of A.candles) { if (!k.lit || Math.abs(k.x - CAM.x) > 300 || Math.abs(k.yb - CAM.y) > 200) continue; const f = 0.75 + 0.25 * noise1(G.time * 9 + k.ph) - 0.35 * k.gust; c.globalAlpha = Math.max(0.1, 0.3 * f); c.drawImage(GLOW.torch, k.x + k.w / 2 - 3, k.yb - k.wax - 5, 6, 6); }
   c.globalAlpha = 1;
 }
 function candleLights(L) {
   const A = ARENA; if (!A || !A.candles) return;
-  for (const k of A.candles) { if (!k.lit || k.torch) continue; const f = 1 + 0.12 * noise1(G.time * 8 + k.ph) - 0.3 * k.gust; L(k.x + k.w / 2, k.yb - 2, 30 * f, 'torch', 0.42 * f); }
+  for (const k of A.candles) { if (!k.lit || k.torch || Math.abs(k.x - CAM.x) > 300 || Math.abs(k.yb - CAM.y) > 200) continue; // (only those near enough the view to be seen)
+    const f = 1 + 0.12 * noise1(G.time * 8 + k.ph) - 0.3 * k.gust; L(k.x + k.w / 2, k.yb - 2, 30 * f, 'torch', 0.42 * f); }
 }
