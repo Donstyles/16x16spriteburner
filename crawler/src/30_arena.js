@@ -54,14 +54,29 @@ function wallPiece(isF, x, y) {
 // they are missing follows a slow noise of its own, so the gaps gather into worn patches; the corridors are the more
 // broken
 function cryptFloor(g, W, H, near, inRoom) {
-  const S = 3, gw = Math.ceil(W / S) + 2, gh = Math.ceil(H / S) + 2, N = Float32Array.from({ length: gw * gh }, () => Math.random());
+  // the wear: a soft noise per quarter tile (an 8 px brick), gone where it runs high; big patches, few lone holes
+  const S = 4.5, gw = Math.ceil(W / S) + 2, gh = Math.ceil(H / S) + 2, N = Float32Array.from({ length: gw * gh }, () => Math.random());
   const noise = (x, y) => { const fx = x / S, fy = y / S, ix = Math.floor(fx), iy = Math.floor(fy), u = fx - ix, v = fy - iy, s = t => t * t * (3 - 2 * t), a = N[iy * gw + ix], b = N[iy * gw + ix + 1], c = N[(iy + 1) * gw + ix], d = N[(iy + 1) * gw + ix + 1];
     return (a + (b - a) * s(u)) * (1 - s(v)) + (c + (d - c) * s(u)) * s(v); };
+  const QW = W * 2, Q = new Int8Array(QW * H * 2).fill(-1), slab = new Map(); /* -1 not floor, 0 brick, 1 bare earth */
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    if (!near(x, y)) continue; const room = inRoom(x, y), cut = room ? 0.3 : 0.5; // (how much of it is worn away)
-    if (Math.random() < (room ? 0.07 : 0.1)) { cryptAt(g, ...pick(CRYPT_BROKEN), x * TS, y * TS); continue; } // (a broken grave slab in the pavement)
-    for (let q = 0; q < 4; q++) { const qx = q & 1, qy = q >> 1, n = noise(x + qx * 0.5, y + qy * 0.5) - 0.5 + cut * 0.9 + (Math.random() - 0.5) * 0.25, earth = n > 0.36;
-      g.drawImage(IMG.crypt, 10 * TS + qx * 8, (earth ? 1 : 0) * TS + qy * 8, 8, 8, x * TS + qx * 8, y * TS + qy * 8, 8, 8); }
+    if (!near(x, y)) continue; const room = inRoom(x, y), cut = room ? 0.36 : 0.46; /* how much of it is worn away */
+    let bare = 0; const e = [];
+    for (let q = 0; q < 4; q++) { const qx = q & 1, qy = q >> 1, n = noise(x + qx * 0.5, y + qy * 0.5) - 0.5 + cut * 0.9 + (Math.random() - 0.5) * 0.06;
+      e[q] = n > 0.36 || Math.random() < 0.025 ? 1 : 0; bare += e[q]; }
+    if (bare === 0 && Math.random() < (room ? 0.1 : 0.14)) { slab.set(x + ',' + y, pick(CRYPT_BROKEN)); e.fill(0); } /* a broken grave slab in the pavement */
+    for (let q = 0; q < 4; q++) Q[(y * 2 + (q >> 1)) * QW + x * 2 + (q & 1)] = e[q];
+  }
+  const at = (qx, qy) => qx < 0 || qy < 0 || qx >= QW || qy >= H * 2 ? -1 : Q[qy * QW + qx];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!near(x, y)) continue; const sl = slab.get(x + ',' + y); if (sl) { cryptAt(g, sl[0], sl[1], x * TS, y * TS); continue; }
+    for (let q = 0; q < 4; q++) { const qx = x * 2 + (q & 1), qy = y * 2 + (q >> 1), dx = qx * 8, dy = qy * 8;
+      if (!at(qx, qy)) { g.drawImage(IMG.crypt, 10 * TS + (q & 1) * 8, (q >> 1) * 8, 8, 8, dx, dy, 8, 8); continue; }
+      let edge = false; for (let j = -1; j <= 1 && !edge; j++) for (let i = -1; i <= 1; i++) if (at(qx + i, qy + j) === 0) { edge = true; break; }
+      if (edge) { g.drawImage(IMG.crypt, 10 * TS + (q & 1) * 8, TS + (q >> 1) * 8, 8, 8, dx, dy, 8, 8); continue; } /* the grout's print beside the bricks still down */
+      g.fillStyle = '#332919'; g.fillRect(dx, dy, 8, 8); /* bare earth: a speck of grit now and then */
+      if (Math.random() < 0.3) { g.fillStyle = Math.random() < 0.7 ? '#4c3e26' : '#261d1a'; g.fillRect(dx + ((Math.random() * 7) | 0), dy + ((Math.random() * 7) | 0), 1, 1); }
+    }
   }
 }
 // on the crypt's north walls, in place of the cellar's banners and windows: a burial niche (bones, skulls, urns, candles),
