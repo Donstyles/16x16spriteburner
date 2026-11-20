@@ -95,10 +95,20 @@ function drawbridge(A, r, g, near, adj) {
 // that can only be reached through the water's own room (across the causeway, past the sentinel, round the cistern, or
 // along the flooded way's ledge), so whoever finds it has met the water first. A piece only goes where such a room is.
 const hostOK = A => h => h !== A.start && h.kind !== 'treasure' && h.kind !== 'shop' && !h.chest && !h.set && !h.sluice && !h.pool && !h.shrine && !h.puz && h.w >= 6;
+// a secret room may hold the sluice (a hard find, and fair): but if its cracked wall is in the water's own room, that wall
+// must be reachable with the water still up (from the room's doorways over its dry floor, not across water or a pit),
+// or the plate that drains the water would be behind a wall only the drained water lets you reach
+function secretOpen(A, r, h) {
+  if (!h.secret) return true; const R = A.rooms.find(q => q.hidCrack && q.hidCrack.hall && q.hidCrack.hall.A === h); if (!R || R !== r) return true;
+  const c = R.hidCrack, W = A.w, inR = i => { const x = i % W, y = (i / W) | 0; return x >= r.fx0 && x <= r.fx1 && y >= r.fy0 && y <= r.fy1; };
+  const seen = new Set(), st = []; for (const d of r.doors) if (!d.hidden) for (const [x, y] of d.cells) { const i = y * W + x; if (FLOOR(A.fl[i])) { seen.add(i); st.push(i); } }
+  while (st.length) { const i = st.pop(); for (const j of [i - 1, i + 1, i - W, i + W]) if (!seen.has(j) && inR(j) && FLOOR(A.fl[j])) { seen.add(j); st.push(j); } }
+  for (let x = c.x; x <= c.x + 2; x++) if (seen.has((c.y + 2) * W + x)) return true; return false;
+}
 function beyondHost(A, r, within = null) { // (within: only one of these rooms)
   const adj = q => A.halls.filter(h => h.A === q || h.B === q).map(h => (h.A === q ? h.B : h.A));
   if (r === A.start) return null; const near = new Set([A.start]), q = [A.start]; while (q.length) { const a = q.shift(); for (const n of adj(a)) if (n !== r && !near.has(n)) { near.add(n); q.push(n); } }
-  const beyond = A.rooms.filter(h => h !== r && !near.has(h) && (!within || within.has(h))).filter(hostOK(A)).sort((a, b) => (adj(r).includes(a) ? 1 : 0) - (adj(r).includes(b) ? 1 : 0) || Math.random() - 0.5);
+  const beyond = A.rooms.filter(h => h !== r && !near.has(h) && (!within || within.has(h))).filter(hostOK(A)).filter(h => secretOpen(A, r, h)).sort((a, b) => (adj(r).includes(a) ? 1 : 0) - (adj(r).includes(b) ? 1 : 0) || Math.random() - 0.5);
   return beyond[0] || null;
 }
 function remoteSluice(A, r, p) { const h = beyondHost(A, r); if (!h) return false; hostSluice(A, h, p); return true; }
