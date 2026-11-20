@@ -203,7 +203,7 @@ function renderLight() {
 }
 // The world, its effects and its light are drawn at the game's own resolution (one canvas pixel per game pixel) and only then
 // enlarged to the screen, nearest-neighbour, through the camera. Every shadow, ring, glow and spark comes out in chunky pixels.
-let wb = null, wbc = null, PXO = { x: 0, y: 0 }, shb = null, shbc = null;
+let wb = null, wbc = null, PXO = { x: 0, y: 0 }, shb = null, shbc = null, shp = null, shpc = null;
 // What lies flat on the floor (a shadow) shows only on the floor: never on a wall (a north wall's bricks are a wall
 // standing up from the floor's edge), on water or down a pit. Everything that is not floor, opaque, over the whole map;
 // the strip of floor a south wall leaves showing along its top is floor. Made again when the floor changes (a cracked
@@ -216,13 +216,6 @@ function voidMask() {
   for (const d of A.doors || []) if (d.k > 0) for (const [x, y] of d.cells) { shut.add(y * A.w + x); if (d.side === 'N') shut.add((y - 1) * A.w + x); if (d.side === 'S') shut.add((y + 1) * A.w + x); }
   for (let ty = 0; ty < A.h; ty++) for (let tx = 0; tx < A.w; tx++) { const i = ty * A.w + tx; if (A.fl[i] === 0 && !A.wt[i] && !shut.has(i)) g.fillRect(tx * TS, ty * TS, TS, TS); }
   A.vmV = v; return c;
-}
-// a drained basin's tiles, whole (all) and the bed alone (the top row's first eight pixels, the north wall's face, left
-// out), as rectangles; kept until the floor changes (A.flv)
-function basinRects() {
-  const A = ARENA; if (!A.basin) return null; if (A.brC && A.brV === (A.flv || 0)) return A.brC; const all = [], bed = [];
-  for (let i = 0; i < A.basin.length; i++) if (A.basin[i]) { const x = (i % A.w) * TS, y = Math.floor(i / A.w) * TS, top = !A.basin[i - A.w] ? 8 : 0, l = !A.basin[i - 1] ? 2 : 0, r = !A.basin[i + 1] ? 2 : 0; all.push([x, y, TS, TS]); bed.push([x + l, y + top, TS - l - r, TS - top]); } // (and its side walls' two pixels)
-  A.brC = all.length ? { all, bed } : null; A.brV = A.flv || 0; return A.brC;
 }
 function noFloor() {
   const A = ARENA; if (A.nfC && A.nfV === (A.flv || 0)) return A.nfC; const c = A.nfC || (A.nfC = mkCanvas(A.pw, A.ph)), g = c.getContext('2d');
@@ -253,13 +246,22 @@ function render() {
   drawWorks(c); drawPits(c); drawWet(c); drawHazards(c); drawWake(c); drawRuns(c); drawDoors(c); drawTele(c); drawTelegraphs(c);
   // the shadows, on a layer of their own cut to the floor (noFloor), then laid down
   if (!shb) { shb = mkCanvas(1, 1); shbc = shb.getContext('2d'); } fitBuf(shb, bw, bh); const S = shbc; S.setTransform(1, 0, 0, 1, 0, 0); S.globalCompositeOperation = 'source-over'; S.clearRect(0, 0, bw, bh); X(S);
-  // (a drained basin: whoever stands outside it casts no shadow into it nor on its walls, whoever is down in it none out of
-  // it nor up its north wall's face: two passes, each clipped to its own side)
-  const BR = basinRects(), shadeOf = u => { const dp = u.team === 'hero' && u.dead ? deathPose(u) : null; if (dp && dp.lie) { const L = lieOf(u.spr, u.scale || 1); pxEllipse(S, u.x, u.y + 1, L.half + 4, 3); return; } pxShadow(S, u.x, u.y - (u.lift || 0), u.r * 1.3 * (1 - Math.min(0.6, u.z / 160))); }; // (lying dead: a long flat shadow, wider than he is)
+  // (a drained basin: whoever stands outside it casts no shadow on its walls' faces nor its bed, whoever is down in it
+  // only on its bed: each pass drawn on a layer of its own and cut to its side, pixel by pixel from the basin's art, 36_works basinMasks)
+  const shadeOf = (C, u) => { const dp = u.team === 'hero' && u.dead ? deathPose(u) : null; if (dp && dp.lie) { const L = lieOf(u.spr, u.scale || 1); pxEllipse(C, u.x, u.y + 1, L.half + 4, 3); return; } pxShadow(C, u.x, u.y - (u.lift || 0), u.r * 1.3 * (1 - Math.min(0.6, u.z / 160))); }; // (lying dead: a long flat shadow, wider than he is)
   const casters = G.units.filter(u => !(u.dead && u.team === 'foe') && !(u.team === 'foe' && !foeShown(u)) && !(u.under || u.z < -1 || u.fall || u.gone || u.hidden)); // (blown apart: nothing left to cast one)
-  for (const down of BR ? [false, true] : [false]) {
-    S.save(); if (BR) { S.beginPath(); if (!down) S.rect(-1e5, -1e5, 2e5, 2e5); for (const r of down ? BR.bed : BR.all) S.rect(r[0], r[1], r[2], r[3]); S.clip(down ? 'nonzero' : 'evenodd'); }
-    for (const u of casters) if (!BR || !!basinAt(u.x, u.y) === down) shadeOf(u); S.restore();
+  const dry = (ARENA.pools || []).filter(p => p.drain === 2 && p.mOut);
+  if (!dry.length) for (const u of casters) shadeOf(S, u);
+  else {
+    if (!shp) { shp = mkCanvas(1, 1); shpc = shp.getContext('2d'); } fitBuf(shp, bw, bh); const T = shpc;
+    const pass = (us, op, ps) => {
+      T.setTransform(1, 0, 0, 1, 0, 0); T.globalCompositeOperation = 'source-over'; T.clearRect(0, 0, bw, bh); X(T); T.save();
+      if (op === 'destination-in') { T.beginPath(); for (const p of ps) T.rect(p.px0, p.py0, p.bed.width, p.bed.height); T.clip(); } // (and nothing outside its art at all)
+      for (const u of us) shadeOf(T, u); T.globalCompositeOperation = op; for (const p of ps) T.drawImage(op === 'destination-in' ? p.mIn : p.mOut, p.px0, p.py0); T.restore();
+      S.save(); S.setTransform(1, 0, 0, 1, 0, 0); S.drawImage(shp, 0, 0); S.restore();
+    };
+    pass(casters.filter(u => !basinAt(u.x, u.y)), 'destination-out', dry);
+    for (const p of dry) { const us = casters.filter(u => basinAt(u.x, u.y) && p.cells.has(footTile(u.x, u.y))); if (us.length) pass(us, 'destination-in', [p]); }
   }
   if (ARENA.shop) pxShadow(S, ARENA.shop.keeper.x, ARENA.shop.keeper.y, 6.5); // (the shopkeeper's: 39_shop)
   S.globalCompositeOperation = 'destination-out'; S.drawImage(noFloor(), 0, 0); S.globalCompositeOperation = 'source-over';

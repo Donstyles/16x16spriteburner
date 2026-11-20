@@ -98,9 +98,14 @@ function waterBody(A, cells, set, W, dual) {
     dd[i] = Math.round(br * k); dd[i + 1] = Math.round(bgc * k); dd[i + 2] = Math.round(bb * k);
   }
   bg.putImageData(id, 0, 0);
+  // what each of its pixels is, read off its own art, for when it is drained (basinMasks, below): 1 a light rim (the lip,
+  // floor to look at), 2 a dark one (a wall's face above the waterline, an edge line), 3 a face's foot bared by the
+  // drain, 4 the bed
+  const d1 = g.getImageData(0, 0, BW, bed.height).data, cls = new Uint8Array(BW * bed.height);
+  for (let j = 0; j < cls.length; j++) { const o = j * 4, s = sub ? sub[j] : 0; if (!d1[o + 3]) continue; cls[j] = s === 4 ? 4 : s ? 3 : d1[o + 2] >= d1[o] + 30 ? 4 : d1[o] + d1[o + 1] + d1[o + 2] >= 300 ? 1 : 2; }
   for (const i of cells) A.fl[i] = 2;
   const cw = (x1 - x0 + 1) * TS + (dual ? TS : 0), ch = (y1 - y0 + 1) * TS + (dual ? TS : [...cells].some(i => swAt(i % A.w, ((i / A.w) | 0) + 1)) ? 4 : 0); // (what is drawn of it)
-  return { cells, x0, y0, x1, y1, px0, py0, cv, bed, cw, ch, level: 1, drain: 0 };
+  return { cells, x0, y0, x1, y1, px0, py0, cv, bed, cls, cw, ch, level: 1, drain: 0 };
 }
 
 // ---- building (called from buildArena): before the room is furnished, and after
@@ -398,6 +403,7 @@ function endDrain(p) {
   const A = ARENA; p.drain = 2; p.level = 0;
   A.basin = A.basin || new Uint8Array(A.w * A.h); // the dry basin: floor now, but a step below the walk and the bridge
   for (const i of p.cells) if (A.fl[i] === 2) { A.fl[i] = 1; A.basin[i] = 1; }
+  basinMasks(A, p);
   if (p.flooded && !p.drownedDone) { p.drownedDone = true; drownedRise(A, p); } // (the flooded way's dead: 37_levels)
   A.flv = (A.flv || 0) + 1;
   // what lay at the bottom: a scatter of coins (no treasure chest: the sheet has no chest standing in water, so none was there)
@@ -440,7 +446,7 @@ function dryOut(p) {
 // stands there again (wet), whatever the drain left at the bottom goes, and the plate rises for another go
 function refillPool(p) {
   const A = ARENA; if (!p || p.drain === 3) return;
-  for (const i of p.cells) if (A.basin && A.basin[i]) { A.basin[i] = 0; A.fl[i] = 2; }
+  for (const i of p.cells) { if (A.basin && A.basin[i]) { A.basin[i] = 0; A.fl[i] = 2; } if (A.faceAt) A.faceAt.delete(i); }
   A.flv = (A.flv || 0) + 1; p.drain = 3; p.dried = false;
   for (const u of G.units) if (!u.dead && !u.fly && p.cells.has(Math.floor(u.y / TS) * A.w + Math.floor(u.x / TS)) && A.fl[Math.floor(u.y / TS) * A.w + Math.floor(u.x / TS)] === 2) { // out of the water, onto the walk or the bridge
     let best = null, bd = 1e9; for (let ty = p.y0 - 1; ty <= p.y1 + 1; ty++) for (let tx = p.x0 - 1; tx <= p.x1 + 1; tx++) { const i = ty * A.w + tx; if (!FLOOR(A.fl[i]) || A.fl[i] === 2) continue; const d = Math.hypot(tx * TS + 8 - u.x, ty * TS + 8 - u.y); if (d < bd) { bd = d; best = [tx, ty]; } }
@@ -468,7 +474,33 @@ function bridgeAt(x, y) {
 // a point on a drained basin's bed well clear of its walls: a stranded fish flops only there, its fins never over the rim
 const bedOK = (x, y) => !!(basinAt(x, y) && basinAt(x, y - 11) && basinAt(x - 7, y) && basinAt(x + 7, y) && basinAt(x, y + 5));
 // whether a point is down in a drained basin
-function basinAt(x, y) { const A = ARENA; if (!A || !A.basin) return 0; const tx = Math.floor(x / TS), ty = Math.floor(y / TS); return tx >= 0 && ty >= 0 && tx < A.w && ty < A.h ? A.basin[footTile(x, y)] : 0; } // (a wall's open edge goes with the floor beside it)
+function basinAt(x, y) { const A = ARENA; if (!A || !A.basin) return 0; const tx = Math.floor(x / TS), ty = Math.floor(y / TS); if (tx < 0 || ty < 0 || tx >= A.w || ty >= A.h) return 0; const i = footTile(x, y); if (!A.basin[i]) return 0; const f = A.faceAt && A.faceAt.get(i); return f && y - Math.floor(i / A.w) * TS < f.top[clamp(Math.floor(x) - (i % A.w) * TS, 0, 15)] ? 0 : A.basin[i]; } // (a wall's open edge goes with the floor beside it; the lip over a north wall's face, floor to look at, is floor)
+// A DRAINED BASIN, PIXEL BY PIXEL, from its own art (waterBody's cls): where a shadow cast from the floor round it may not
+// fall (its walls' faces and its bed: mOut), where one cast down in it may (the bed alone: mIn), and down each pixel
+// column of its north wall where the face starts and ends (A.faceAt, for its top row of tiles: rows into the tile); and,
+// while there is water, the water alone (mWet: for the bridge's shadow). The
+// two tilesets draw it differently (the grey one with a lip of floor five pixels deep over its face, the face itself
+// deeper), so nothing here is a fixed number of pixels
+const FACE_GAP = 3; // (a foot comes no nearer the face's last pixel row than three rows below it: as near as to a north wall's, 31_walls)
+function poolMasks(A, p) {
+  if (p.mOut) return p; const w = p.bed.width, h = p.bed.height, C = p.cls, inCell = (x, y) => p.cells.has(Math.floor((p.py0 + y) / TS) * A.w + Math.floor((p.px0 + x) / TS));
+  const mk = () => { const c = mkCanvas(w, h), g = c.getContext('2d'); return [c, g, g.createImageData(w, h)]; }, [co, go, io] = mk(), [ci, gi, ii] = mk(), [cw, gw, iw] = mk();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const j = y * w + x, k = C[j]; if (k < 2 || !inCell(x, y)) continue; io.data[j * 4 + 3] = 255; if (k === 4) ii.data[j * 4 + 3] = 255; if (k >= 3) iw.data[j * 4 + 3] = 255; }
+  go.putImageData(io, 0, 0); gi.putImageData(ii, 0, 0); gw.putImageData(iw, 0, 0); p.mOut = co; p.mIn = ci; p.mWet = cw; return p; // (mWet: the water itself, while there is any)
+}
+function basinMasks(A, p) {
+  poolMasks(A, p); const w = p.bed.width, h = p.bed.height, C = p.cls;
+  A.faceAt = A.faceAt || new Map();
+  for (const i of p.cells) {
+    if (p.cells.has(i - A.w)) continue; const tx = i % A.w, ty = (i / A.w) | 0, top = new Int8Array(16), bot = new Int8Array(16);
+    for (let c = 0; c < 16; c++) {
+      const x = tx * TS + c - p.px0, y0 = ty * TS - p.py0, at = r => y0 + r >= 0 && y0 + r < h ? C[(y0 + r) * w + x] : 0, face = r => at(r) === 2 || at(r) === 3;
+      let r = 0; while (r < 16 && !face(r)) r++; if (r >= 16) { top[c] = 0; bot[c] = 7; continue; } // (none found down this column: the face's usual seven pixels)
+      top[c] = r; while (r < 31 && face(r + 1)) r++; bot[c] = r;
+    }
+    A.faceAt.set(i, { top, bot });
+  }
+}
 // a walker crossing a basin's rim, down into it or up out of it, hops (a puff of dust where it pushes off): up out of it a
 // high one, the face being twice as tall as it was (the water three pixels deep: the submerged face above), down into it
 // a lower one. Every crossing gets its own whole hop: one made just before the rim (the check, below) counts for it; one
@@ -483,12 +515,17 @@ function basinHop(u) {
     else { u.hopV = b ? HOP_DOWN : HOP_UP; u.hopDir = b ? 'down' : 'up'; hopNow(u); basinLeap(u); }
   }
   u.inBasin = b;
-  // nobody stands on the face of a basin's north wall (its first seven pixels): on the ground there, he is put on the
-  // side his hop was taking him to
-  if (!u.fly && !u.under && !u.dead && u.z <= 0.5 && !(u.vz > 0)) { const top = basinFace(u.x, u.y); if (top !== null) u.y = u.hopDir === 'up' ? top - 1 : top + 8; }
+  // nobody stands on the face of a basin's north wall, nor right at its foot: on the ground there, he is put on the side
+  // his hop was taking him to
+  if (!u.fly && !u.under && !u.dead && u.z <= 0.5 && !(u.vz > 0)) { const F = basinFace(u.x, u.y); if (F) u.y = u.hopDir === 'up' ? F[0] - 1 : F[1]; }
 }
-// the top of the north wall face a point is on in a drained basin (the first basin row's top seven pixels), or null
-function basinFace(x, y) { const A = ARENA; if (!A || !A.basin) return null; const W = A.w, tx = Math.floor(x / TS), ty = Math.floor(y / TS); if (tx < 0 || ty < 1 || tx >= W || ty >= A.h) return null; return A.basin[ty * W + tx] && !A.basin[(ty - 1) * W + tx] && y - ty * TS < 8 ? ty * TS : null; }
+// the north wall face of a drained basin a point is on, as [its top, the first row a foot may stand on below it], or null:
+// down this pixel column, from where the lip ends to FACE_GAP rows below the face's last pixel (basinMasks)
+function basinFace(x, y) {
+  const A = ARENA; if (!A || !A.faceAt || !A.faceAt.size) return null; const tx = Math.floor(x / TS); if (tx < 0 || tx >= A.w) return null; const c = clamp(Math.floor(x) - tx * TS, 0, 15);
+  for (const ty of [Math.floor(y / TS), Math.floor(y / TS) - 1]) { const f = A.faceAt.get(ty * A.w + tx); if (!f) continue; const t = ty * TS + f.top[c], b = ty * TS + f.bot[c] + FACE_GAP; return y >= t && y < b ? [t, b] : null; }
+  return null;
+}
 // a hop over a rim lands him clear of it, however slowly he came at it: where he will come down is worked out as he
 // pushes off (two pixels past the edge he crosses; over the north wall's face, off its foot onto the bed or over its top
 // onto the floor), and while he is in the air he is carried there evenly, so he never lands on the face nor snaps at the end
@@ -572,9 +609,10 @@ function drawWorks(c) {
     if (!p.bridge) continue; const W = wkOf(A), bc = p.bridge.cells;
     { // its shadow, cast straight down: on the water three pixels below it, on the drained bed six (seen that much further
       // south), dark between the slats and its two rows and out past its south edge; only on the water or the bed
-      const dn = Math.round(3 + 3 * (1 - p.level)); c.save(); c.beginPath(); for (const i of p.cells) c.rect((i % A.w) * TS, Math.floor(i / A.w) * TS, TS, TS); c.clip();
-      c.fillStyle = p.level > 0 ? `rgba(8,16,34,${(0.55 * Math.min(1, p.level * 1.6) + 0.42 * (1 - Math.min(1, p.level * 1.6))).toFixed(3)})` : 'rgba(10,8,6,0.42)';
-      for (const [x, y] of bc) c.fillRect(x * TS, y * TS + dn, TS, TS); c.restore();
+      const dn = Math.round(3 + 3 * (1 - p.level)), m = poolMasks(A, p)[p.level > 0 ? 'mWet' : 'mIn'], T = p.shC || (p.shC = mkCanvas(m.width, m.height)), t = T.getContext('2d'); // (pixel by pixel: never on a rim, poolMasks)
+      t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, T.width, T.height);
+      t.fillStyle = p.level > 0 ? `rgba(8,16,34,${(0.55 * Math.min(1, p.level * 1.6) + 0.42 * (1 - Math.min(1, p.level * 1.6))).toFixed(3)})` : 'rgba(10,8,6,0.42)';
+      for (const [x, y] of bc) t.fillRect(x * TS - p.px0, y * TS + dn - p.py0, TS, TS); t.globalCompositeOperation = 'destination-in'; t.drawImage(m, 0, 0); t.globalCompositeOperation = 'source-over'; c.drawImage(T, p.px0, p.py0);
     }
     if (p.bridge.art) c.drawImage(p.bridge.art, p.bridge.bx0, p.bridge.by0); else for (const [x, y] of bc) sheetTile(c, p.bridge.horiz ? W.slatH : W.slatV, x * TS, y * TS);
     if (p.bridge.cv) c.drawImage(p.bridge.cv, p.bridge.bx0, p.bridge.by0); // blood on its slats

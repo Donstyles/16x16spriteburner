@@ -15,7 +15,7 @@ function beginTest(kit) {
   for (const p of A.props) if (spots.some(s => Math.abs(p.x - s.x) < 18 && Math.abs(p.y - s.y) < 18) || (Math.abs(p.x - (cx + 0.5) * TS) < 20 && Math.abs(p.y - (cy + 0.5) * TS) < 20)) { p.dead = true; p.solid = false; }
   h.x = (cx + 0.5) * TS; h.y = (cy + 0.5) * TS + 4; h.enter = null; h.lightR = 170; CAM.x = h.x; CAM.y = h.y;
   A.lights = A.slit = null; // the fixed lights again, without any brazier just cleared away
-  for (const d of A.doors) if (d.room === r.i) shutDoor(A, d); // a closed arena: blood thrown at a doorway splashes on the door
+  for (const d of A.doors) if (d.room === r.i) shutDoor(A, d, r); // a closed arena
   for (const s of spots) spawnDummy(s, true);
   A.keepClean = true; if (A.chunks) keepClean(A);
   G.card = { t: 0, life: 3.2, a: 'BLOOD TEST ROOM', b: 'THEY STAND AND TAKE IT, AND COME BACK', c: 'THE CLEAN BUTTON AT THE TOP WIPES THE BLOOD' };
@@ -33,11 +33,20 @@ function dummyTick(f, dt) {
 function dummyDied(u) { const A = ARENA; G.sched.push({ t: 1.5, fn: () => { if (TEST.on && ARENA === A) spawnDummy(u.spot); } }); }
 // a door shut for good: its cells turn to wall, and a shutter (north and south) is painted into the floor picture, so
 // blood lands on it and runs down it like any wall; a side door's portcullis is drawn down in the wall line
-function shutDoor(A, d) {
+function shutDoor(A, d, r) {
   const th = A.th; for (const [x, y] of d.cells) { A.fl[y * A.w + x] = 0; if (d.side === 'N') A.fl[(y - 1) * A.w + x] = 0; }
-  // a side doorway gets its door; the floor behind the room's south wall runs on under it (31_walls), so where that row
-  // crosses the doorway it is rock now as well
-  if (d.side === 'E' || d.side === 'W') { const x = d.cells[0][0], y = Math.max(...d.cells.map(c => c[1])) + 1; A.wt[y * A.w + x] = 0; A.flv = (A.flv || 0) + 1; d.k = 1; return; }
+  // a north doorway gets a blast door, down: the game's own (drawn among the units by depth, its strut over it, 32_crawl)
+  if (d.side === 'N') { d.k = 1; d.strut = true; A.flv = (A.flv || 0) + 1; return; }
+  // a side doorway is walled up (no portcullis in the game for now: 41_puzzles PORTCULLIS): the room's side wall run on
+  // across it, the corridor's first stretch beyond it rock, its wall pieces and their trim made again from the floor as it
+  // is now (41_puzzles repaintTiles)
+  if (d.side === 'E' || d.side === 'W') {
+    const x = d.cells[0][0], ys = d.cells.map(c => c[1]), y0 = Math.min(...ys), y1 = Math.max(...ys), out = x < r.ix0 ? -1 : 1;
+    for (let k = 1; k <= 3; k++) for (let y = y0 - 1; y <= y1 + 1; y++) { const i = y * A.w + x + out * k; A.fl[i] = 0; }
+    const inside = (px, py) => Math.floor(px / TS) * out >= (x + out) * out && Math.floor(px / TS) * out <= (x + out * 3) * out && py >= (y0 - 1) * TS && py < (y1 + 2) * TS;
+    removeIf(A.props, q => inside(q.x, q.y)); if (A.spikes) removeIf(A.spikes, q => inside(q.x, q.y + 6));
+    repaintTiles(A, Math.min(x, x + out * 4), y0 - 2, Math.max(x, x + out * 4), y1 + 3); A.flv = (A.flv || 0) + 1; return;
+  }
   // a south doorway has no door (the sheet's shutters are blast doors for north walls): it is walled up, the room's own
   // south wall run on across it, and the first stretch of the corridor beyond it painted over as rock
   if (d.side === 'S') {
@@ -122,7 +131,7 @@ function beginWaterTest(kit) {
   TEST.on = true; Object.assign(TEST, { mode: 'water', god: true, label: 'STEP ON THE PLATE TO DRAIN IT' }); A.name = 'WATER TEST ROOM';
   G.foes.length = 0; G.units = G.heroes.slice(); G.sched.length = 0; G.drops.length = 0;
   removeIf(A.props, q => q.sunk === p && q.kind !== 'wetpillar'); const all = SUNK.concat(sunkStone(A)); sinkThings(A, p, all.length, all.slice().sort(() => Math.random() - 0.5)); // one of each, as many as fit
-  for (const d of A.doors) if (d.room === r.i) shutDoor(A, d);
+  for (const d of A.doors) if (d.room === r.i) shutDoor(A, d, r);
   const at = pl ? [pl.x + (pl.tx <= p.x0 ? -16 : pl.tx >= p.x1 ? 16 : 0), pl.y + (pl.ty <= p.y0 ? -16 : pl.ty >= p.y1 ? 16 : 0)] : [(p.x0 - 1) * TS + 8, (p.y0 - 1) * TS + 8];
   h.x = at[0]; h.y = at[1] + 2; h.enter = null; h.lightR = 220; CAM.x = h.x; CAM.y = h.y;
   A.keepClean = true; if (A.chunks) keepClean(A);
