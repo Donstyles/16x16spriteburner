@@ -61,7 +61,7 @@ function cryptDress(A, g) {
 function tombProp(prop, x, y, kind, lit) {
   const M = MOSS(); prop('tomb', x, y, { sheet: 'crypt', tile: [TOMBS[kind], M], th: 2, r: 7, box: [-7, 7, -17, 1], tombKind: kind, moss: M });
   if (!lit) return; const A = ARENA, p = A.props[A.props.length - 1], col = TOMBS[kind] * TS; // (its candles: those of the same tomb lit, rows 2-3, on the lidded one)
-  p.candles = addCandles(A, candleSrc(col, (2 + M) * TS, TS, 2 * TS, [col, M * TS]), p.x - 8, p.y - 14 - TS, p.y - 6, 300);
+  p.candles = addCandles(A, candleSrc(col, (2 + M) * TS, TS, 2 * TS, [col, M * TS]), p.x - 8, p.y - 14 - TS, p.y - 6, 480);
 }
 function tombHall(A, r, P) {
   const c2 = r.ix0 + r.ix1, xs = []; // (the columns: from the middle out, every second tile, the two halves mirrored)
@@ -107,9 +107,9 @@ function cryptWall(A, r, g, used) {
 // one niche at x on the wall face row y: a light niche, skulls, urns or chains
 function cryptNiche(A, r, g, xx, y, role, k) {
   const N = MOSSN(), NICHE = { skulls: [[6, 6 + N], [8, 6 + N], [9, 6 + N], [7, 7 + N]], urns: [[9, 7 + N], [10, 7 + N], [11, 6 + N]] }, nx = xx * TS, ny = y * TS + NICHE_Y, gy = (y + 1) * TS + 3;
-  if (role === 'light') { const S = candleSrc(7 * TS, (6 + N) * TS, TS, TS, [8 * TS, (7 + N) * TS]); g.drawImage(S.cv, nx, ny); A.torches.push({ x: nx + 8, y: y * TS + 9, tx: xx, f: (xx * 3) % 4, room: r.i, candles: addCandles(A, S, nx, ny, gy, 720, { wall: true, torch: true }) }); }
+  if (role === 'light') { const S = candleSrc(7 * TS, (6 + N) * TS, TS, TS, [8 * TS, (7 + N) * TS]); g.drawImage(S.cv, nx, ny); A.torches.push({ x: nx + 8, y: y * TS + 9, tx: xx, f: (xx * 3) % 4, room: r.i, candles: addCandles(A, S, nx, ny, gy, 1100, { wall: true, torch: true }) }); }
   else if (role === 'chains') cryptAt(g, 9 + (k >> 1) % 3, 2, nx, y * TS - 8);
-  else { const L = NICHE[role], t = L[(k >> 1) % L.length], S = candleSrc(t[0] * TS, t[1] * TS, TS, TS); g.drawImage(S.cv, nx, ny); const cs = addCandles(A, S, nx, ny, gy, 450, { wall: true }); if (role === 'skulls' && y === r.fy0 + 1) (r.niches = r.niches || []).push({ nx, ny, candles: cs }); }
+  else { const L = NICHE[role], t = L[(k >> 1) % L.length], S = candleSrc(t[0] * TS, t[1] * TS, TS, TS); g.drawImage(S.cv, nx, ny); const cs = addCandles(A, S, nx, ny, gy, 700, { wall: true }); if (role === 'skulls' && y === r.fy0 + 1) (r.niches = r.niches || []).push({ nx, ny, candles: cs }); }
 }
 // the face of a block of wall standing in a room: niches mirrored about its middle, a light niche at the middle and every
 // second tile out from it, niches of the dead between
@@ -400,7 +400,7 @@ function cryptFont(A, r, g, xx, y) {
   const liq = r.i % 2 ? 'blood' : 'water', col = FONT_COL[liq], nx = xx * TS, M = MOSS();
   cryptAt(g, col, 1 + M, nx, y * TS - 3); // (the skull in the brick)
   const p = { kind: 'font', sheet: 'crypt', liq, full: 1, moss: M, x: nx + 8, y: r.iy0 * TS + 14, cy: r.iy0 * TS + 10, r: 6, solid: true, hp: 1e9, room: r.i, box: [-7, 7, -9, 1], drinkT: 0 };
-  p.candles = addCandles(A, candleSrc(col * TS, (3 + M) * TS, TS, TS, [col * TS, (2 + M) * TS]), nx, r.iy0 * TS, r.iy0 * TS + 16, 600);
+  p.candles = addCandles(A, candleSrc(col * TS, (3 + M) * TS, TS, TS, [col * TS, (2 + M) * TS]), nx, r.iy0 * TS, r.iy0 * TS + 16, 900);
   A.props.push(p);
 }
 function drawFont(c, p) {
