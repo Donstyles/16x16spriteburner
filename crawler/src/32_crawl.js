@@ -46,6 +46,7 @@ function drawDoors(c) {
       for (const cy of [ty - 2, d.cells[2][1] + 1]) drawGround(c, x * TS, cy * TS, TS, TS);
     }
   }
+  drawExitSeal(c); // (the way down, shut: 36_works)
   const s = A.stairs; if (s && s.open) { const p = 0.5 + 0.5 * Math.sin(G.time * 3); c.globalAlpha = 0.25 + 0.2 * p; c.fillStyle = '#ffd27a'; c.fillRect(s.sx * TS + 8, (s.sy + 1) * TS + 10, TS * 2, 6); c.globalAlpha = 1; }
 }
 // The strut across the top of a blast door stays when the door is up (the frames' top rows: the bar and its dark

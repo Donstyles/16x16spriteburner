@@ -308,8 +308,45 @@ function lightUp(o, brazier) {
   sparks(x, y, 4, brazier ? 16 : 10, 'fire', 90, 90); smoke(x, y - 2, 2, 'dust', 5, 14, 0.8); flashLight(x, y, brazier ? 110 : 80, 'torch', 1.1, 0.6);
 }
 function exitTorches(A) { // (30_arena: one each side of the way down)
-  if (!A.stairs || A.exitLit) return; if (!G.heroes.some(h => alive(h) && dist(h.x, h.y, A.stairs.x, A.stairs.y + 12) < 84)) return; // (about five tiles off)
+  if (!A.stairs || A.exitLit || A.stairs.seal) return; // (a sealed way down: its torches light when its door has gone up, exitCine) if (!G.heroes.some(h => alive(h) && dist(h.x, h.y, A.stairs.x, A.stairs.y + 12) < 84)) return; // (about five tiles off)
   A.exitLit = true; const T = A.torches.filter(t => t.exit).sort((a, b) => a.x - b.x); T.forEach((t, i) => after(i * 0.35, () => { if (ARENA === A) lightUp(t); }));
+}
+
+// THE SEALED WAY DOWN. The stairs out of a floor are shut behind a blast door (one panel, in the stairwell's opening between
+// its two stone posts, the bar hidden up behind the lintel) while any creature that was in the exit room is still on its
+// feet, wherever it has gone. The last of them down, the door rumbles up into the lintel and then the torches either side
+// of the way down catch, one after the other, the view held on it all the while. A floor with nobody in its exit room (a
+// test room's) has it open from the start, its torches lit as a hero comes near as before
+function exitSeal(A) {
+  const s = A.stairs; if (!s || s.seal === null) return; const guards = G.foes.filter(f => f.guard);
+  if (s.seal === undefined) { s.seal = guards.length ? { k: 1, motif: pick([0, 5, 10]), guards } : null; return; }
+  if (s.seal.going) { if (s.seal.wait && !G.cine) { s.seal.wait = false; G.cine = { exit: s, x: s.x, y: s.y - 10, t: 0 }; } return; } const left = s.seal.guards.filter(f => !f.dead && G.foes.includes(f));
+  if (left.length) return; if (!s.seal.guards.some(f => f.dead)) { s.seal = null; return; } // (taken off the floor, not slain: a test room's)
+  s.seal.going = true; after(0.7, () => { if (ARENA === A && !G.cine) G.cine = { exit: s, x: s.x, y: s.y - 10, t: 0 }; else if (ARENA === A) s.seal.wait = true; });
+}
+function exitCine(C, dt) {
+  const s = C.exit, q = s.seal, A = ARENA, pan = panOf(s.x); updateSight(dt); updateProj(0);
+  if (!G.eyes) G.eyes = [{ x: s.x, y: s.y + 4, lightR: 70, eyeR: 6, dead: false, hush: 1, dir: 0 }];
+  if (C.t > 0.6 && q.k > 0) { // going up: a clank, the grind of it, a clink now and then, dust down off the lintel
+    if (q.k === 1) { SFX.stone(pan, true); SFX.quake(0.5); shake(0.12); }
+    q.k = Math.max(0, q.k - dt / 1.4); if ((q.chT = (q.chT || 0) - dt) <= 0) { q.chT = rand(0.05, 0.1); SFX.clink(rand(1500, 2600), 0.05, pan, 0); }
+    if (chance(dt * 8)) smoke(s.x + rand(-6, 6), (s.sy + 1) * TS - 4, 1, 'dust', 4, 6, 0.6);
+    if (q.k === 0) { C.upT = C.t; SFX.stone(pan, true); shake(0.08); for (let i = 0; i < 3; i++) smoke(s.x + rand(-6, 6), s.sy * TS + 12, 1, 'dust', 5, 9, 0.7); }
+  }
+  if (C.upT !== undefined) { // then the torches, one and the other
+    const T = A.torches.filter(t => t.exit && t.out).sort((a, b) => a.x - b.x); if (T.length && C.t - C.upT > 0.45 + (2 - T.length) * 0.4) lightUp(T[0]);
+    if (!T.length && C.endT === undefined) { C.endT = C.t; A.exitLit = true; }
+  }
+  const I = G.me && G.me.inp, skip = C.t > 1 && I && (I.atkP || I.dodgeP);
+  if (skip) { q.k = 0; for (const t of A.torches) if (t.exit && t.out) lightUp(t); A.exitLit = true; I.atkP = I.dodgeP = I.atkR = false; }
+  if (skip || (C.endT !== undefined && C.t - C.endT > 0.8)) { G.cine = null; G.eyes = null; }
+}
+// walking up to it shut: a dull knock, and what it is
+function sealedBump(s, h) { if ((s.bumpT || 0) > G.time) return; s.bumpT = G.time + 1.6; SFX.stone(panOf(s.x), false); textPop(h.x, h.y, headZ(h) + 6, 'SEALED', 'stone', false); }
+// drawn on the floor's picture (after the ground, under everyone): the panel's frames below their bar, in the opening
+function drawExitSeal(c) {
+  const A = ARENA, s = A.stairs; if (!s || !s.seal || s.seal.k <= 0) return; const col = (doorFrame(s.seal.k) + s.seal.motif) * TS;
+  c.drawImage(IMG.doors, col, A.th.door * TS + 11, TS, 21, (s.sx + 1) * TS, s.sy * TS + 11, TS, 21);
 }
 
 // ---- running
@@ -319,7 +356,7 @@ const spikeLook = W => [W.spike[0], W.spike[1] + pick([0, 0, 0, 1, 2])];
 const SPIKE_T = 2.6; // its beat: down 1.55 s, rising, up, sinking back
 function spikeFrame(s) { if (s.gate) return spikeGateFrame(s.gate); const t = (G.time + s.ph) % SPIKE_T; return t < 1.55 ? 0 : t < 1.62 ? 3 : t < 1.69 ? 2 : t < 2.3 ? 1 : t < 2.4 ? 2 : t < 2.48 ? 3 : 0; } // 0 hole, 3 tip, 2 half, 1 up
 function worksTick(dt) {
-  const A = ARENA; if (!A) return; const heroes = G.heroes.filter(h => !h.dead && !h.enter); exitTorches(A); shopTick(A, dt);
+  const A = ARENA; if (!A) return; const heroes = G.heroes.filter(h => !h.dead && !h.enter); exitSeal(A); exitTorches(A); shopTick(A, dt);
   for (const pl of A.plates || []) {
     if (pl.hidden) continue; // (behind a cracked wall: 41_puzzles)
     // The socket is a slab standing proud of the floor (its front face three pixels high), the button raised in it two more

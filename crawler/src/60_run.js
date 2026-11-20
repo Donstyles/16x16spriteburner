@@ -19,7 +19,7 @@ function startFloor() {
   buildArena(G.floor); clearUnderGates(ARENA); initSight(ARENA); G.proj = []; G.hz = []; G.drops = []; G.sched = []; for (const k in FX) FX[k].length = 0;
   const A = ARENA, sp = A.spawn;
   G.heroes.forEach((h, i) => { h.x = sp.x + (i - (G.heroes.length - 1) / 2) * 16; h.y = sp.from; h.enter = { y1: sp.y + i * 4 }; h.z = 0; h.vx = h.vy = h.kx = h.ky = 0; h.act = null; h.stun = 0; h.iframe = 0; h.dir = -Math.PI / 2; h.path = null; h.inBasin = undefined; h.fall = null; h.rise = 0; h.onPlat = h.platHop = null; h.lift = 0; h.safe = { x: sp.x, y: sp.y }; });
-  A.army = pickArmy(G.floor); G.foes = []; for (const r of A.rooms) if ((r.kind === 'room' || r.kind === 'end') && r.set !== 'flood') G.foes.push(...populateRoom(A, r, G.floor));
+  A.army = pickArmy(G.floor); G.foes = []; for (const r of A.rooms) if ((r.kind === 'room' || r.kind === 'end') && r.set !== 'flood') { const fs = populateRoom(A, r, G.floor); if (r === A.end) for (const f of fs) f.guard = true; G.foes.push(...fs); } // (the exit room's own: the stairs stay sealed till they are dead, 36_works exitSeal)
   G.foes.push(...chestGuards(A, G.floor));
   for (const r of A.rooms) if (r.islands) removeIf(G.foes, u => r.islands.some(([x, y]) => u.x >= x * TS - 8 && u.x <= (x + 2) * TS + 8 && u.y >= y * TS - 8 && u.y <= (y + 2) * TS + 8)); // (nobody stranded on an island but its archer)
   G.foes.push(...levelFoes(A, G.floor)); G.cine = null; G.eyes = null;
@@ -50,7 +50,9 @@ function updateRun(dt) {
   if (G.hurtFlash > 0) G.hurtFlash -= dt; if (G.tiredT > 0) G.tiredT -= dt;
   if (G.phase === 'play') {
     if (!G.heroes.some(alive)) { G.phase = 'dead'; G.phaseT = 0; G.best = Math.max(G.best, G.floor); saveBest(); G.summary = { floor: G.floor, kills: G.kills, gold: G.gold, kit: G.kit, name: ARENA.name }; G.fallenT = 0; return; } // (the title comes once his death has played out: below)
-    const s = ARENA.stairs; if (G.heroes.some(h => alive(h) && Math.abs(h.x - s.x) < 18 && h.y < s.y + 6 && h.y > s.y - 20)) { G.phase = 'descend'; G.phaseT = 0; SFX.whoosh(0); }
+    const s = ARENA.stairs, at = G.heroes.find(h => alive(h) && Math.abs(h.x - s.x) < 18 && h.y < s.y + 6 && h.y > s.y - 20);
+    if (at && s.seal && s.seal.k > 0) sealedBump(s, at); // (the way down shut: 36_works)
+    else if (at) { G.phase = 'descend'; G.phaseT = 0; SFX.whoosh(0); }
   } else if (G.phase === 'descend') {
     G.fade = Math.min(1, G.phaseT / 0.7);
     if (G.phaseT > 0.9) { G.floor++; G.best = Math.max(G.best, G.floor); saveBest(); for (const h of G.heroes) { if (h.dead) { h.dead = false; h.gone = h.dropped = false; h.hp = Math.round(h.maxHp * 0.3); } } startFloor(); }

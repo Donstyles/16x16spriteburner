@@ -359,7 +359,7 @@ function bridgeCine(C, dt) {
   if (skip || (C.endT !== undefined && C.t - C.endT > 1.1)) { G.cine = null; G.eyes = null; }
 }
 function cineTick(dt) {
-  const C = G.cine; C.t += dt; if (C.bridge) { bridgeCine(C, dt); return; } if (C.gate) { gateCine(C, dt); return; } if (C.echo) { echoCine(C, dt); return; } const p = C.pool;
+  const C = G.cine; C.t += dt; if (C.bridge) { bridgeCine(C, dt); return; } if (C.gate) { gateCine(C, dt); return; } if (C.exit) { exitCine(C, dt); return; } if (C.echo) { echoCine(C, dt); return; } const p = C.pool;
   if (C.t > 0.8 && !p.drain) startDrain(p);
   worksTick(dt); updateSight(dt); updateProj(0);
   for (const f of G.foes) if (f.drowned) foeTick(f, dt); // (the drowned settle where they lie)
