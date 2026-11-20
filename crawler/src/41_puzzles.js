@@ -39,9 +39,12 @@ const gateFree = A => A.gates && A.gates.length ? puzReach(A, null, true) : null
 function critHalls(A) { return A.halls.filter(h => !h.hidden && h.A.kind !== 'shop' && h.B.kind !== 'shop' && !h.gate && !h.spikeGate && !puzReach(A, h, false).has(A.end)); }
 const puzRoomOK = r => r && r.kind !== 'shop' && r.kind !== 'end' && !r.set && !r.pool && !r.shrine && !r.puz && !r.sluice && !r.chest;
 // ---- planning (37_levels levelPlan): one of the puzzles that stand in the way, wherever it fits
+// out of the game until they are reworked (the weight wants a recessed socket and a new block; the gap does not read):
+// never chosen for a floor, though PUZ.force can still build them
+const PUZ_SHELVED = new Set(['weight', 'gap']);
 function puzzleTry(A, g) {
   const T = { gate: () => tryGate(A, 'lever'), echo: () => tryGate(A, 'echo'), song: () => tryGate(A, 'song'), fires: () => tryGate(A, 'fires'), weight: () => tryGate(A, 'weight'), gap: () => tryGap(A, g), spikegate: () => trySpikeGate(A) };
-  const used = A.puzUsed = A.puzUsed || new Set(), ks = PUZ.force && T[PUZ.force] ? [PUZ.force] : pitShuffle(Object.keys(T)).sort((a, b) => used.has(a) - used.has(b)); // (a kind not yet on this floor first)
+  const used = A.puzUsed = A.puzUsed || new Set(), ks = PUZ.force && T[PUZ.force] ? [PUZ.force] : pitShuffle(Object.keys(T).filter(k => !PUZ_SHELVED.has(k))).sort((a, b) => used.has(a) - used.has(b)); // (a kind not yet on this floor first)
   for (const k of ks) if (T[k]()) { used.add(k); return true; } return false;
 }
 function tryGate(A, how) {
