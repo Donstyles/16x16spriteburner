@@ -90,8 +90,9 @@ function makeGate(A, h, near) { // (a corridor running north and south: the gate
 function gateCells(A, g) { const d = g.d, out = d.cells.map(([x, y]) => y * A.w + x); if (d.side === 'N') for (const [x, y] of d.cells) out.push((y - 1) * A.w + x); if (d.side === 'S') for (const [x, y] of d.cells) out.push((y + 1) * A.w + x); return out; }
 // shut, its cells are rock (and a side doorway's row behind the south wall, where it crosses the doorway); open, floor again
 function gateShut(A, g, shut) {
-  const d = g.d; for (const i of d.side === 'N' ? d.cells.map(([x, y]) => y * A.w + x) : gateCells(A, g)) A.fl[i] = shut ? 0 : 1; // (a north one: only its doorway's row is solid; the row behind it, under the door's top, can be walked into from the corridor)
-  if (d.side === 'N') { A.gateBox = A.gateBox || new Map(); for (const [x, y] of d.cells) { const i = (y - 1) * A.w + x; if (shut) A.gateBox.set(i, [[x * TS, (y - 1) * TS + 9, (x + 1) * TS, y * TS]]); else A.gateBox.delete(i); } } // (as far in as a south wall lets him: feet up to 8 px under the door's top, his head and shoulders over it)
+  const d = g.d, ns = d.side === 'N' || d.side === 'S', solid = d.side === 'N' ? d.cells.map(([x, y]) => y * A.w + x) : d.side === 'S' ? d.cells.map(([x, y]) => (y + 1) * A.w + x) : gateCells(A, g);
+  for (const i of solid) A.fl[i] = shut ? 0 : 1; // (a north or south door: only its far row is solid; the row on the near side of it, under the door's top, can be walked into: from the corridor behind a north one, from the room in front of a south one)
+  if (ns) { A.gateBox = A.gateBox || new Map(); for (const [x, y0] of d.cells) { const y = d.side === 'N' ? y0 - 1 : y0, i = y * A.w + x; if (shut) A.gateBox.set(i, [[x * TS, y * TS + 9, (x + 1) * TS, (y + 1) * TS]]); else A.gateBox.delete(i); } } // (as far in as a south wall lets him: feet up to 8 px under the door's top, his head and shoulders over it)
   if (d.side === 'E' || d.side === 'W') { const x = d.cells[0][0], y = Math.max(...d.cells.map(c => c[1])) + 1, i = y * A.w + x; if (shut) { if (!g.wt) g.wt = [i, A.wt[i]]; A.wt[i] = 0; } else if (g.wt) A.wt[i] = g.wt[1]; }
   g.shut = shut; A.flv = (A.flv || 0) + 1;
 }
@@ -99,6 +100,8 @@ function gateShut(A, g, shut) {
 const gateFoot = g => { const d = g.d; if (d.side === 'N') return d.cells.map(([x, y]) => [x * TS + 8, (y + 1) * TS + 1]); if (d.side === 'S') return d.cells.map(([x, y]) => [x * TS + 8, (y + 2) * TS + S_DROP - 2]); const [x, y] = d.cells[2]; return [[x * TS + 8, (y + 1) * TS + 4]]; };
 const gateTop = g => { const d = g.d; if (d.side === 'N') return d.cells.map(([x, y]) => [x * TS + 8, (y - 1) * TS + 11]); if (d.side === 'S') return d.cells.map(([x, y]) => [x * TS + 8, y * TS + S_DROP + 8]); const [x, y] = d.cells[0]; return [[x * TS + 8, (y - 1) * TS]]; };
 const gatePos = g => { const c = g.d.cells[1]; return [c[0] * TS + 8, c[1] * TS + (g.d.side === 'N' ? 0 : 8)]; };
+// nothing stands under a gate that is down when the floor is made (60_run startFloor)
+function clearUnderGates(A) { for (const g of A.gates || []) if (g.k >= 0.5) removeIf(A.props, p => !p.dead && p.kind !== 'crack' && underGate(A, g, { x: p.x, y: p.cy }, 2)); }
 // under a gate: within its cells (m: a margin round them)
 function underGate(A, g, u, m) { return gateCells(A, g).some(i => { const x = (i % A.w) * TS, y = Math.floor(i / A.w) * TS; return u.x > x - m && u.x < x + TS + m && u.y > y - m && u.y < y + TS + m; }); }
 // out from under it, along the way through the doorway, to whichever side is nearer (step: how far this frame)
@@ -123,7 +126,7 @@ function gatesTick(A, dt) {
     // it waits for no one: coming down, it shoves a hero under it out to the nearer side; a creature under it when it
     // touches the floor is burst apart. It blocks once it is down (the thud, below)
     if (g.k > was && g.k > 0.05) for (const u of G.units) if (!u.dead && !u.fall && u.team === 'hero' && underGate(A, g, u, 5)) shoveOut(A, g, u, g.k >= 1 ? 99 : 300 * dt);
-    if (g.k >= 1 && !g.shut) { for (const u of G.units) if (!u.dead && u.team !== 'hero' && underGate(A, g, u, 0)) crushUnder(u); gateShut(A, g, true); }
+    if (g.k >= 1 && !g.shut) { for (const u of G.units) if (!u.dead && u.team !== 'hero' && underGate(A, g, u, 0)) crushUnder(u); for (const p of A.props) if (!p.dead && p.hp < 1e8 && p.kind !== 'crack' && underGate(A, g, { x: p.x, y: p.cy }, 0)) for (let n = 0; n < 4 && !p.dead; n++) breakProp(p, { dm: 3 }); gateShut(A, g, true); } // (and what furniture stands under it is smashed)
     if (g.k !== was) {
       if ((g.chT = (g.chT || 0) - dt) <= 0) { g.chT = rand(0.05, 0.1); SFX.clink(rand(1500, 2600), 0.05, pan, 0); } if (was === 1 || was === 0) SFX.stone(pan, false);
       if (g.k === 1 && was < 1) { shake(0.06); SFX.stone(pan, true); for (const [x, y] of gateFoot(g)) smoke(x, y, 2, 'dust', 7, 14, 0.8); } // down: the thud, and dust off the floor right in front of it, all along it
