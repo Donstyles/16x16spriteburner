@@ -61,8 +61,10 @@ function shapeRoom(r, k, fl, W, H) {
       if (ys[0] < top || ys[ys.length - 1] + bh - 1 > r.iy1 - 2) continue;
       for (const x of xs) for (const y of ys) rect(rock, x, y, bw, bh);
     } else if (k === 'ring') { // one great block in the middle, a walk round it
-      const top = r.kind === 'end' ? 3 : 2, ws = [3, 4].filter(b => b <= r.w - 8 && b + 1 <= r.h - top - 2); if (!ws.length) return false; const bw = pick(ws), bh = bw + 1; // (a tile taller than wide: its top, drawn north of where it stands, then reads square)
-      const x0 = Math.round((r.ix0 + r.ix1 - bw + 1) / 2) + randi(-1, 1), y0 = Math.max(r.iy0 + (r.kind === 'end' ? 3 : 2), Math.round((r.iy0 + r.iy1 - bh + 1) / 2));
+      const top = r.kind === 'end' ? 3 : 2, ws = [3, 5].filter(b => b <= r.w - 8 && b + 1 <= r.h - top - 2); if (!ws.length) return false; const bw = pick(ws), bh = bw + 1; // (a tile taller than wide: its top, drawn north of where it stands, then reads square)
+      // lined up with the corridors: an odd width like theirs, centred on a north or south doorway (else the room's middle)
+      const nd = r.doors.filter(d => d.side === 'N' || d.side === 'S').map(d => d.cells[1][0]), ax = nd.length ? pick(nd) : Math.round((r.ix0 + r.ix1) / 2);
+      const x0 = ax - (bw - 1) / 2, y0 = Math.max(r.iy0 + (r.kind === 'end' ? 3 : 2), Math.round((r.iy0 + r.iy1 - bh + 1) / 2));
       if (x0 - r.ix0 < 3 || r.ix1 - (x0 + bw - 1) < 3 || r.iy1 - (y0 + bh - 1) < 2) continue; rect(rock, x0, y0, bw, bh);
     } else if (k === 'cuts') { // corners of rock left standing
       const n = pick([1, 1, 2, 2, 4]), cs = pitShuffle([[0, 0], [1, 0], [0, 1], [1, 1]]).slice(0, n);
