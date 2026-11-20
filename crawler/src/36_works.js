@@ -227,10 +227,11 @@ function placeRunes(A, r, v, vx, vy) {
     if (A.props.some(q => !q.dead && Math.abs(q.x - (tx * TS + 8)) < 14 && Math.abs(q.cy - (ty * TS + 10)) < 12) || (A.plates || []).some(p => p.tx === tx && p.ty === ty)) continue; cands.push([tx, ty]);
   }
   A.runes = A.runes || []; const nc = r.crack && r.crack.holds === 'rune' && !r.crack.used ? r.crack : null; // (THE HIDDEN RUNE: the third sealed in a niche behind a cracked wall, 41_puzzles)
-  if (nc) { nc.used = true; const x = nc.x + 1, y = nc.y + 1, rn = { tx: x, ty: y, x: x * TS + 8, y: y * TS + 8, tile: [W.rune[0] + 2, W.rune[1]], lit: [W.runeOn[0] + 2, W.runeOn[1]], on: false, t: 0, vault: v, room: r.i, hidden: true, niche: nc }; A.runes.push(rn); v.runes.push(rn); }
-  for (let i = 0; i < (nc ? 2 : 3) && cands.length; i++) {
+  const total = chance(0.5) ? 3 : 4; // (three runes or four)
+  if (nc) { nc.used = true; const x = nc.x + 1, y = nc.y + 1, k = (total - 1) % 3, rn = { tx: x, ty: y, x: x * TS + 8, y: y * TS + 8, tile: [W.rune[0] + k, W.rune[1]], lit: [W.runeOn[0] + k, W.runeOn[1]], on: false, t: 0, vault: v, room: r.i, hidden: true, niche: nc }; A.runes.push(rn); v.runes.push(rn); }
+  for (let i = 0; i < (nc ? total - 1 : total) && cands.length; i++) {
     const far = cands.filter(([x, y]) => v.runes.every(q => Math.hypot(q.tx - x, q.ty - y) >= 4)), [x, y] = pick(far.length ? far : cands);
-    const rn = { tx: x, ty: y, x: x * TS + 8, y: y * TS + 8, tile: [W.rune[0] + i, W.rune[1]], lit: [W.runeOn[0] + i, W.runeOn[1]], on: false, t: 0, vault: v, room: r.i }; A.runes.push(rn); v.runes.push(rn);
+    const rn = { tx: x, ty: y, x: x * TS + 8, y: y * TS + 8, tile: [W.rune[0] + i % 3, W.rune[1]], lit: [W.runeOn[0] + i % 3, W.runeOn[1]], on: false, t: 0, vault: v, room: r.i }; A.runes.push(rn); v.runes.push(rn);
     removeIf(cands, ([a, b]) => a === x && b === y);
   }
 }
@@ -338,7 +339,7 @@ function worksTick(dt) {
       // it wakes: a column of gold light shoots up out of it, sparks burst and climb, a ring runs out over the floor, and it
       // sounds its own note (the three rising to a chord); the last one sends a beam from every rune to the vault
       const v = rn.vault, n = v.runes.filter(q => q.on).length; rn.on = true; rn.t = 0; rn.flash = 1;
-      SFX.rune(panOf(rn.x), n); ring(rn.x, rn.y, 30, 'gold', 0.6, 3); ring(rn.x, rn.y, 16, 'white', 0.35, 2); flashLight(rn.x, rn.y, 90, 'gold', 1.4, 0.7); shake(0.08);
+      SFX.rune(panOf(rn.x), n, n >= v.runes.length - 1); ring(rn.x, rn.y, 30, 'gold', 0.6, 3); ring(rn.x, rn.y, 16, 'white', 0.35, 2); flashLight(rn.x, rn.y, 90, 'gold', 1.4, 0.7); shake(0.08);
       for (let i = 0; i < 22; i++) { const a = rand(TAU), sp = rand(20, 70); part({ k: 'glow', x: rn.x + rand(-5, 5), y: rn.y + rand(-3, 3), z: rand(0, 4), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.6, vz: rand(30, 90), drag: 2.2, life: rand(0.6, 1.2), s0: rand(1.4, 2.4), s1: 0, col: 'gold', a0: 1, a1: 0 }); }
       sparks(rn.x, rn.y, 6, 12, 'gold', 120, 80);
       if (v.runes.every(q => q.on) && !v.open && v.bridge) { v.open = true; if (v.dark) lightRoom(A, v.room); const br = v.bridge, x = rn.x; after(1.4, () => { if (ARENA === A) startBridgeCine({ bridge: br, x }); }); } // (a drawbridge's: 37_levels)

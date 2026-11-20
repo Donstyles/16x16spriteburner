@@ -138,7 +138,8 @@ function buildArena1(floor) {
   for (const r of rooms) {
     const n = Math.round(r.w * r.h / 70); for (let k = 0; k < n; k++) {
       const x = randi(r.ix0 + 1, r.ix1 - 2), y = randi(r.iy0 + 1, r.iy1 - 2); if (r.inlay && r.inlay.some(([a, b]) => Math.abs(a - x) < 4 && Math.abs(b - y) < 3)) continue; (r.inlay = r.inlay || []).push([x, y]);
-      if (chance(0.6)) { tileAt(g, 13, floorRow, x * TS, y * TS); tileAt(g, 11, floorRow, (x + 1) * TS, y * TS); tileAt(g, 14, floorRow, x * TS, (y + 1) * TS); tileAt(g, 12, floorRow, (x + 1) * TS, (y + 1) * TS); }
+      const four = chance(0.6); if (!(four ? isF(x, y) && isF(x + 1, y) && isF(x, y + 1) && isF(x + 1, y + 1) : isF(x, y))) { r.inlay.pop(); continue; } // (only on open floor: never on rock a room's shape left standing)
+      if (four) { tileAt(g, 13, floorRow, x * TS, y * TS); tileAt(g, 11, floorRow, (x + 1) * TS, y * TS); tileAt(g, 14, floorRow, x * TS, (y + 1) * TS); tileAt(g, 12, floorRow, (x + 1) * TS, (y + 1) * TS); }
       else tileAt(g, 15, floorRow, x * TS, y * TS);
     }
   }

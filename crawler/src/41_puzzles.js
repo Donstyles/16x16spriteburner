@@ -23,13 +23,13 @@
 // where it cannot help slides back to where it stood once nobody is in its room.
 const PUZ = { force: null }; // (a test: this one kind, wherever it fits)
 const MUST_KINDS = new Set(['flood', 'drawbridge', 'gate', 'gap', 'spikegate']);
-const PUZ_NAMES = { rune: 'THE HIDDEN RUNE', gate: 'THE PORTCULLIS', echo: 'THE ECHOING RUNES', fires: 'THE COLD BRAZIERS', weight: 'THE WEIGHT', gap: 'THE GAP', spikegate: 'THE SPIKE GATE', crack: 'THE CRACKED WALL', lever: 'THE HIDDEN LEVER' };
+const PUZ_NAMES = { song: 'THE SINGING RUNES', rune: 'THE HIDDEN RUNE', gate: 'THE PORTCULLIS', echo: 'THE ECHOING RUNES', fires: 'THE COLD BRAZIERS', weight: 'THE WEIGHT', gap: 'THE GAP', spikegate: 'THE SPIKE GATE', crack: 'THE CRACKED WALL', lever: 'THE HIDDEN LEVER' };
 const SPIKEGATE = { t: 7 };
 // ---- the room graph
 const puzAdj = (A, r) => A.halls.filter(h => h.A === r || h.B === r).map(h => (h.A === r ? h.B : h.A));
-function puzReach(A, cut, free) { // rooms reachable from the start without the hall cut (free: nor through a room a set piece cuts in two, nor a gate)
+function puzReach(A, cut, free, skip = null) { // rooms reachable from the start without the hall cut (free: nor through a room a set piece cuts in two, nor a gate; skip: nor into this room)
   const barrier = r => free && (r.set === 'flood' || r.set === 'drawbridge' || r.set === 'gap'), seen = new Set([A.start]), q = [A.start];
-  while (q.length) { const r = q.shift(); for (const h of A.halls) { if (h === cut || (h.A !== r && h.B !== r) || (free && (h.gate || h.spikeGate))) continue; const n = h.A === r ? h.B : h.A; if (seen.has(n) || barrier(n)) continue; seen.add(n); q.push(n); } }
+  while (q.length) { const r = q.shift(); for (const h of A.halls) { if (h === cut || (h.A !== r && h.B !== r) || (free && (h.gate || h.spikeGate))) continue; const n = h.A === r ? h.B : h.A; if (seen.has(n) || barrier(n) || n === skip) continue; seen.add(n); q.push(n); } }
   return seen;
 }
 // what can be reached before any gate is opened (a set piece's sluice or button is never put behind one: 37_levels), or
@@ -40,7 +40,7 @@ function critHalls(A) { return A.halls.filter(h => h.A.kind !== 'shop' && h.B.ki
 const puzRoomOK = r => r && r.kind !== 'shop' && r.kind !== 'end' && !r.set && !r.pool && !r.shrine && !r.puz && !r.sluice && !r.chest;
 // ---- planning (37_levels levelPlan): one of the puzzles that stand in the way, wherever it fits
 function puzzleTry(A, g) {
-  const T = { gate: () => tryGate(A, 'lever'), echo: () => tryGate(A, 'echo'), fires: () => tryGate(A, 'fires'), weight: () => tryGate(A, 'weight'), gap: () => tryGap(A, g), spikegate: () => trySpikeGate(A) };
+  const T = { gate: () => tryGate(A, 'lever'), echo: () => tryGate(A, 'echo'), song: () => tryGate(A, 'song'), fires: () => tryGate(A, 'fires'), weight: () => tryGate(A, 'weight'), gap: () => tryGap(A, g), spikegate: () => trySpikeGate(A) };
   const used = A.puzUsed = A.puzUsed || new Set(), ks = PUZ.force && T[PUZ.force] ? [PUZ.force] : pitShuffle(Object.keys(T)).sort((a, b) => used.has(a) - used.has(b)); // (a kind not yet on this floor first)
   for (const k of ks) if (T[k]()) { used.add(k); return true; } return false;
 }
@@ -48,12 +48,15 @@ function tryGate(A, how) {
   for (const h of pitShuffle(critHalls(A))) {
     const near = puzReach(A, h, false), X = near.has(h.A) ? h.A : h.B; // (X: the room before the gate)
     let host = null;
-    if (how === 'lever') host = pitShuffle([...puzReach(A, h, true)].filter(hostOK(A)).filter(r => r !== X || chance(0.3)))[0];
+    // THE OBSTACLE BEFORE ITS ANSWER: the gate is always met before its button. The button is in the gate's own room, or in
+    // a room that can only be reached through it (a branch off it), never in one passed on the way to the gate.
+    if (how === 'lever') { const before = X === A.start ? new Set() : puzReach(A, h, false, X), past = [...puzReach(A, h, true)].filter(r => r !== X && !before.has(r)).filter(hostOK(A)), xOK = hostOK(A)(X); host = past.length && (!xOK || chance(0.75)) ? pick(past) : xOK ? X : null; }
     else host = puzRoomOK(X) && !X.shape && X.w >= 10 && X.h >= 7 && (how !== 'weight' || X !== A.start) ? X : null;
     if (!host) continue;
     const g = makeGate(A, h, near); if (!g) continue;
     g.how = how; host.puz = how; host.gateOf = g; g.host = host; A.sets.push('gate'); (A.puzNames = A.puzNames || []).push(PUZ_NAMES[how === 'lever' ? 'gate' : how]);
     if (how === 'weight') g.hold = true;
+    if (how === 'echo' || how === 'song') { g.runeN = PUZ.hidden ? 4 : chance(0.5) ? 3 : 4; if (g.runeN === 4 && (PUZ.hidden || chance(0.4)) && !host.crack) crackIn(A, host, 'rune'); } // (three runes or four; with four, now and then the fourth sealed behind a cracked wall)
     return true;
   }
   return false;
@@ -162,12 +165,13 @@ function secretPlan(A) {
     if (crackIn(A, r, 'chest')) n++;
   }
 }
-// a cracked stretch of a room's north wall, a niche to be behind it (holds: 'chest', 'lever' or 'rune'); false if none fits
+// a cracked stretch of a room's north wall, a niche to be behind it (holds: 'chest', 'lever' or 'rune'); false if none fits.
+// Two tiles of rock stay either side of the niche: a corridor or room one tile away would leave a wall a tile thin.
 function crackIn(A, r, holds) {
   const W = A.w, nd = r.doors.filter(d => d.side === 'N').flatMap(d => d.cells.map(c => c[0])), used = x => nd.some(c => c >= x - 3 && c <= x + 5) || (r.stairX !== undefined && x + 3 >= r.stairX - 1 && x <= r.stairX + 4) || (r.sluiceX !== undefined && Math.abs(r.sluiceX - x - 1) <= 3);
   for (let t = 0; t < 10; t++) {
     const x = randi(r.ix0 + 1, r.ix1 - 3), y = r.fy0; if (used(x) || y - 3 < 0) continue;
-    let ok = true; for (let yy = y - 3; yy <= y + 1 && ok; yy++) for (let xx = x - 1; xx <= x + 3; xx++) if (A.fl[yy * W + xx] || (yy === y + 1 && !faceAt(A, xx, yy) && xx >= x && xx <= x + 2)) { ok = false; break; }
+    let ok = true; for (let yy = y - 3; yy <= y + 1 && ok; yy++) for (let xx = x - 2; xx <= x + 4; xx++) if (A.fl[yy * W + xx] || (yy === y + 1 && !faceAt(A, xx, yy) && xx >= x && xx <= x + 2)) { ok = false; break; }
     if (!ok) continue; for (let k = x; k <= x + 2; k++) if (!FLOOR(A.fl[(y + 2) * W + k])) ok = false; if (!ok) continue;
     r.crack = { x, y, hp: 3, stage: 0, open: false, room: r.i, holds }; r.crackX = x; (A.cracks = A.cracks || []).push(r.crack); return true;
   }
@@ -189,7 +193,7 @@ function puzzleAfter(A, r) {
     const c = cands.length ? pick(cands) : null; if (c) { plate(c[0], c[1], { hold: true, gate: g }); for (let j = 1; j <= 4; j++) clear(c[0] - c[4] * j, c[1] - c[5] * j, 16); block(c[2], c[3]); }
     else { plate(Math.round((r.ix0 + r.ix1) / 2), r.iy1 - 1, { hold: true, gate: g }); block(Math.round((r.ix0 + r.ix1) / 2), r.iy0 + 2); }
   }
-  if (r.gateOf && r.puz === 'echo') placeEcho(A, r, r.gateOf);
+  if (r.gateOf && (r.puz === 'echo' || r.puz === 'song')) placeEcho(A, r, r.gateOf);
   if (r.gateOf && r.puz === 'fires') placeFires(A, r, r.gateOf);
   if (r.gap) { for (const i of r.gap.lanes) clear(i % W, (i / W) | 0, 16); for (const [x, y] of r.gap.blocks) { const b = block(x, y); b.fill = true; } }
   if (r.spikeGate) { const sg = r.spikeGate; plate(sg.at[0], sg.at[1], { timer: sg }); }
@@ -197,26 +201,33 @@ function puzzleAfter(A, r) {
 }
 // ---- THE ECHOING RUNES
 function placeEcho(A, r, g) {
-  const Wk = wkOf(A), n = A.floor >= 4 ? 4 : 3, cands = [], e = { runes: [], order: [], step: 0, shown: false, play: null, gate: g, room: r.i };
+  const Wk = wkOf(A), n = g.runeN || 3, cands = [], e = { runes: [], order: [], step: 0, shown: false, play: null, gate: g, room: r.i, song: g.how === 'song' }, nc = r.crack && r.crack.holds === 'rune' && !r.crack.used ? r.crack : null;
   for (let ty = r.iy0 + 1; ty <= r.iy1 - 1; ty++) for (let tx = r.ix0 + 1; tx <= r.ix1 - 1; tx++) { if (A.fl[ty * A.w + tx] !== 1 || r.doors.some(d => d.cells.some(([x, y]) => Math.abs(x - tx) + Math.abs(y - ty) < 4)) || A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (tx * TS + 8)) < 16 && Math.abs(q.cy - (ty * TS + 10)) < 14)) continue; cands.push([tx, ty]); }
-  for (let i = 0; i < n && cands.length; i++) { const far = cands.filter(([x, y]) => e.runes.every(q => Math.hypot(q.tx - x, q.ty - y) >= 4)), [x, y] = pick(far.length ? far : cands); e.runes.push({ tx: x, ty: y, x: x * TS + 8, y: y * TS + 8, tile: [Wk.rune[0] + i % 3, Wk.rune[1]], lit: [Wk.runeOn[0] + i % 3, Wk.runeOn[1]], on: false, flash: 0, under: false, i }); removeIf(cands, ([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 2); }
+  if (nc) nc.used = true;
+  for (let i = 0; i < n; i++) { if (nc && i === n - 1) { const x = nc.x + 1, y = nc.y + 1; e.runes.push({ tx: x, ty: y, x: x * TS + 8, y: y * TS + 8, tile: [Wk.rune[0] + i % 3, Wk.rune[1]], lit: [Wk.runeOn[0] + i % 3, Wk.runeOn[1]], on: false, flash: 0, under: false, i, hidden: true, niche: nc }); break; } if (!cands.length) break; const far = cands.filter(([x, y]) => e.runes.every(q => Math.hypot(q.tx - x, q.ty - y) >= 4)), [x, y] = pick(far.length ? far : cands); e.runes.push({ tx: x, ty: y, x: x * TS + 8, y: y * TS + 8, tile: [Wk.rune[0] + i % 3, Wk.rune[1]], lit: [Wk.runeOn[0] + i % 3, Wk.runeOn[1]], on: false, flash: 0, under: false, i }); removeIf(cands, ([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 2); }
   e.order = pitShuffle(e.runes.map((_, i) => i)); (A.echoes = A.echoes || []).push(e);
 }
+// Each rune has its own note (C, E, G, the high C), sounded whenever it lights. THE ECHOING RUNES show the order: each
+// lights in turn with its note. THE SINGING RUNES only sing it: the notes in turn and nothing to see, so the order is found
+// by ear, stepping on the runes to hear which sings which. The order is given again after a wrong step, and whenever a hero
+// comes back into the room with none lit. A rune sealed behind a cracked wall (with four, now and then) still sounds its
+// note in the order; shown, its light glows through the cracks.
 function echoTick(A, e, dt, heroes) {
   for (const rn of e.runes) rn.flash = Math.max(0, rn.flash - dt);
-  const r = A.rooms[e.room]; if (!e.solved && !e.play && !e.shown && heroes.some(h => roomAt(h.x, h.y) === r)) e.play = { i: 0, t: -0.5 };
-  if (e.play) { // the order, shown: each lights a moment with its note
-    const P = e.play; P.t += dt; while (P.i < e.order.length && P.t >= P.i * 0.7) { const rn = e.runes[e.order[P.i]]; rn.flash = 0.5; SFX.rune(panOf(rn.x), P.i); ring(rn.x, rn.y, 16, 'gold', 0.4, 2); P.i++; }
-    if (P.i >= e.order.length && P.t > e.order.length * 0.7 + 0.2) { e.play = null; e.shown = true; } return;
+  const r = A.rooms[e.room], inside = heroes.some(h => roomAt(h.x, h.y) === r), came = inside && !e.inside; e.inside = inside;
+  if (!e.solved && !e.play && came && (!e.shown || e.step === 0)) { e.play = { i: 0, t: -0.5 }; if (e.song && !e.shown) { const h = heroes.find(q => roomAt(q.x, q.y) === r); if (h) textPop(h.x, h.y, headZ(h) + 6, 'LISTEN', 'gold', false); } }
+  if (e.play) { // the order, given: each rune's note in turn (lit as well, unless they only sing)
+    const P = e.play, gap = e.song ? 0.85 : 0.7; P.t += dt; while (P.i < e.order.length && P.t >= P.i * gap) { const rn = e.runes[e.order[P.i]]; SFX.rune(panOf(rn.x), rn.i, false); if (!e.song) { if (rn.hidden) { const c = rn.niche; flashLight((c.x + 1.5) * TS, (c.y + 1) * TS + 8, 40, 'gold', 0.9, 0.45); } else { rn.flash = 0.5; ring(rn.x, rn.y, 16, 'gold', 0.4, 2); } } P.i++; }
+    if (P.i >= e.order.length && P.t > e.order.length * gap + 0.2) { e.play = null; e.shown = true; } return;
   }
   if (e.solved) return;
   for (const rn of e.runes) {
-    const under = heroes.some(h => Math.abs(h.x - rn.x) < 8 && Math.abs(h.y - rn.y) < 7), step = under && !rn.under; rn.under = under; if (!step || rn.on) continue;
+    if (rn.hidden) continue; const under = heroes.some(h => Math.abs(h.x - rn.x) < 8 && Math.abs(h.y - rn.y) < 7), step = under && !rn.under; rn.under = under; if (!step || rn.on) continue;
     if (e.order[e.step] === rn.i) {
-      rn.on = true; SFX.rune(panOf(rn.x), e.step); ring(rn.x, rn.y, 26, 'gold', 0.5, 3); flashLight(rn.x, rn.y, 70, 'gold', 1.1, 0.5); e.step++;
+      rn.on = true; e.step++; SFX.rune(panOf(rn.x), rn.i, e.step >= e.runes.length); ring(rn.x, rn.y, 26, 'gold', 0.5, 3); flashLight(rn.x, rn.y, 70, 'gold', 1.1, 0.5);
       if (e.step >= e.runes.length) { e.solved = true; const gx = gatePos(e.gate); for (const q of e.runes) FX.beams.push({ x0: q.x, y0: q.y - 2, x1: gx[0], y1: gx[1], w: 1.4, col: 'gold', life: 1, t: 0, steady: true, cap: true }); after(0.9, () => { if (ARENA === A) startGateCine(rn, e.gate); }); }
-    } else { // wrong: all dark again, and the order shown once more
-      for (const q of e.runes) q.on = false; e.step = 0; SFX.clang(panOf(rn.x)); SFX.stone(panOf(rn.x), false); shake(0.06); smoke(rn.x, rn.y, 2, 'dust', 6, 10, 0.6); e.play = { i: 0, t: -1.1 };
+    } else { // wrong: its own note, then a dull knock, all dark again, and the order given once more
+      for (const q of e.runes) q.on = false; e.step = 0; rn.flash = 0.35; SFX.rune(panOf(rn.x), rn.i, false); after(0.3, () => { SFX.clang(panOf(rn.x)); SFX.stone(panOf(rn.x), false); shake(0.06); smoke(rn.x, rn.y, 2, 'dust', 6, 10, 0.6); }); e.play = { i: 0, t: -1.4 };
     }
   }
 }
@@ -299,7 +310,7 @@ function openCrack(A, p) {
   repaintTiles(A, c.x - 1, c.y - 3, c.x + 3, c.y + 2);
   const x = (c.x + 1.5) * TS, y = (c.y + 1) * TS + 8; shake(0.25); SFX.quake(0.9); SFX.stone(panOf(x), true);
   for (let i = 0; i < 3; i++) debris(x + rand(-16, 16), y + rand(-6, 6), 14, ['#6e665c', '#8a8076', '#4a443e', '#a69a8c', '#3a342e'], 120, 140, 2); smoke(x, y, 10, 'dust', 12, 26, 1.4);
-  if (c.holds === 'rune') { for (const rn of A.runes || []) if (rn.niche === c) rn.hidden = false; textPop(x, y, 26, 'A HIDDEN RUNE', 'gold', true); }
+  if (c.holds === 'rune') { for (const rn of (A.runes || []).concat(...(A.echoes || []).map(e => e.runes))) if (rn.niche === c) rn.hidden = false; textPop(x, y, 26, 'A HIDDEN RUNE', 'gold', true); }
   else if (c.holds === 'lever') { const pl = (A.plates || []).find(q => q.hidden && q.tx === c.x + 1 && q.ty === c.y); if (pl) pl.hidden = false; textPop(x, y, 26, 'A HIDDEN LEVER', 'gold', true); }
   else { A.props.push({ kind: 'chest', tile: [pick([28, 30]), 8], th: 1, x: (c.x + 1) * TS + 8, y: c.y * TS + 14, cy: c.y * TS + 10, r: 5, solid: true, hp: 40, room: c.room, rich: true }); textPop(x, y, 26, 'A HIDDEN NICHE', 'gold', true); }
   A.lights = A.slit = null;
@@ -342,5 +353,5 @@ function puzzlesTick(dt) {
 }
 // ---- drawn with the works (36_works drawWorks): the echoing runes
 function drawPuzzles(c) {
-  for (const e of ARENA.echoes || []) for (const rn of e.runes) { const lit = rn.on || rn.flash > 0; sheetTile(c, lit ? rn.lit : rn.tile, rn.x - 8, rn.y - 8); if (lit) light(rn.x, rn.y, 40 + (rn.flash > 0 ? 20 : 0), 'gold', rn.flash > 0 ? 0.8 : 0.5); }
+  for (const e of ARENA.echoes || []) for (const rn of e.runes) { if (rn.hidden) continue; const lit = rn.on || rn.flash > 0; sheetTile(c, lit ? rn.lit : rn.tile, rn.x - 8, rn.y - 8); if (lit) light(rn.x, rn.y, 40 + (rn.flash > 0 ? 20 : 0), 'gold', rn.flash > 0 ? 0.8 : 0.5); }
 }

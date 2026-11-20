@@ -78,7 +78,7 @@ function shapeRoom(r, k, fl, W, H) {
       for (let i = 0; i < n; i++) {
         const s = ser ? from[i] : pick(['N', 'S', 'N', 'S', 'E', 'W']), x = xs[i];
         if (s === 'N' || s === 'S') { const L = ser ? r.h - 3 : randi(2, Math.max(2, r.h - 4)); rect(rock, x, s === 'N' ? r.iy0 : r.iy1 - L + 1, 3, L); } // (three tiles thick: two read as a thin line)
-        else { if (side(s)) { bad = true; break; } const L = randi(2, Math.max(2, Math.floor(r.w / 2) - 2)), y = randi(r.iy0 + 1, r.iy1 - 3); rect(rock, s === 'W' ? r.ix0 : r.ix1 - L + 1, y, L, 3); }
+        else { if (side(s)) { bad = true; break; } const L = randi(2, Math.max(2, Math.floor(r.w / 2) - 2)), t = L >= 3 ? 4 : 3, y = randi(r.iy0 + 1, r.iy1 - t); if (y < r.iy0 + 1) { bad = true; break; } rect(rock, s === 'W' ? r.ix0 : r.ix1 - L + 1, y, L, t); } // (four tiles thick, its top then reads two wide; a short stub stays three)
       }
       if (bad) continue;
       // bays two tiles wide at least between spurs

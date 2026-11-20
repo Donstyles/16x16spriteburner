@@ -56,7 +56,7 @@ function levelPlan(A, g) {
 // THE DRAWBRIDGE: a chasm across a room the way down runs through (the end room, between its doors and the stairs, or a
 // room on the way), wall to wall and two or three tiles wide, with no way over it. Its bridge (the sheet's wooden one, two
 // tiles wide, fresh or green with age) is laid by a button in a room of its own: down a side branch that leaves this room
-// on the near side of the chasm when there is one (so it is found after the chasm), or else some other room on this side.
+// on the near side of the chasm, so it is always found after the chasm (no such branch, no drawbridge here).
 // Stepping on it takes the view to the chasm while the bridge goes across, plank by plank from the near side.
 function drawbridge(A, r, g, near, adj) {
   const W = A.w, other = d => (d.hall.A === r ? d.hall.B : d.hall.A), nearDoors = r.doors.filter(d => near.has(other(d))); if (!nearDoors.length) return false;
@@ -77,9 +77,9 @@ function drawbridge(A, r, g, near, adj) {
     if (lost) continue;
     const ends = b => [b, b + 1].every(s => { const [ax, ay, bx, by] = o.v ? [o.at - 1, s, o.at + H, s] : [s, o.at - 1, s, o.at + H]; return FLOOR(A.fl[ay * W + ax]) && FLOOR(A.fl[by * W + bx]); });
     const bs = []; for (let b = (o.v ? r.iy0 : r.ix0) + 1; b <= (o.v ? r.iy1 : r.ix1) - 2; b++) bs.push(b); const b = pitShuffle(bs).find(ends); if (b === undefined) continue;
-    // the button's room: off a door of this room on the near side (a branch beyond it), else any room on this side
+    // the button's room: off a door of this room on the near side (a branch beyond it), never one passed before it
     const branch = new Set(); for (const d of r.doors) { if (near.has(other(d)) || !d.cells.some(([x, y]) => S.has(y * W + x))) continue; const seen = new Set([other(d)]), st = [other(d)]; while (st.length) { const a = st.pop(); for (const n of adj(a)) if (n !== r && !seen.has(n)) { seen.add(n); st.push(n); } } seen.forEach(h => branch.add(h)); }
-    const GF = gateFree(A), ok = h => hostOK(A)(h) && (!GF || GF.has(h)), hosts = [...branch].filter(ok), host = (hosts.length ? hosts : [...near].filter(ok)).sort((a, c) => adj(a).length - adj(c).length || Math.random() - 0.5)[0]; if (!host) continue;
+    const GF = gateFree(A), ok = h => hostOK(A)(h) && (!GF || GF.has(h)), host = [...branch].filter(ok).sort((a, c) => adj(a).length - adj(c).length || Math.random() - 0.5)[0]; if (!host) continue; // (only beyond: the chasm is met before its button)
     for (const i of band) A.fl[i] = PIT; for (const i of band) pitPaint(A, g, i); A.pitN = (A.pitN || 0) + band.size;
     const cells = []; for (let k = 0; k < H; k++) for (const s of [b, b + 1]) cells.push(o.v ? [o.at + k, s] : [s, o.at + k]);
     const lowNear = o.v ? S.has(b * W + o.at - 1) : S.has((o.at - 1) * W + b); // (laid from the near side)

@@ -50,6 +50,11 @@ function drawDoors(c) {
   }
   const s = A.stairs; if (s && s.open) { const p = 0.5 + 0.5 * Math.sin(G.time * 3); c.globalAlpha = 0.25 + 0.2 * p; c.fillStyle = '#ffd27a'; c.fillRect(s.sx * TS + 8, (s.sy + 1) * TS + 10, TS * 2, 6); c.globalAlpha = 1; }
 }
+// The strut across the top of a blast door stays when the door is up (the frames' top rows: the bar and its dark
+// underside). It is drawn among the units by depth, the depth of the wall's face where it meets the floor: whoever walks
+// through the doorway passes under it, whoever stands in the room in front of the wall stays in front of it.
+const STRUTS = d => d.side === 'N' ? [(d.cells[0][1] + 1) * TS, 6, d] : null;
+function drawStrut(c, d) { const th = ARENA.th; for (const [x, y] of d.cells) c.drawImage(IMG.doors, 4 * TS, th.door * TS, TS, 11, x * TS, (y - 1) * TS, TS, 11); }
 // the map in the corner: every tile the party has seen, where it came down, the way down once the map is read, every hero
 let MINI = null;
 function drawMinimap(c, xr, y0) {

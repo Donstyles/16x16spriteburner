@@ -73,6 +73,8 @@ function flyTick(u, dt) {
 }
 // creatures that already go on all fours (bugs, beasts, crawlers, a bat, a hand): asleep they stay on their feet and settle,
 // where the upright ones lie down on their backs
+// the undead never sleep: found idle, they stand about or wander their room (the mutilated stumblers shuffle about it aimlessly: 56_gaits)
+const UNDEAD = new Set(['DecrepitBones', 'GraveRevenant', 'GrapplerMummy', 'BrittleArcher', 'UnravelingCrawler', 'SkitteringHand', 'MutilatedStumbler', 'SandGhoul', 'BoundCadaver', 'FleshGolem', 'RottingArcher', 'DismemberedCrawler']);
 const FLAT_SLEEPERS = new Set(['BloatedBedbug', 'EngorgedTick', 'TunnelingMole', 'CarcassFeeder', 'DismemberedCrawler', 'DungBeetle', 'SoldierAnt', 'PygmyWyvern', 'MudWyvern', 'WaterElemental', 'GrizzledTreant', 'GoblinWolfRider', 'FlutteringPixie', 'InfectedMouse', 'TaintedCockroach', 'FamishedTick', 'SkitteringHand', 'SwoopingBat', 'ForagingMaggot', 'AcidAnt', 'LavaAnt', 'RhinoBeetle', 'MawingBeaver', 'ToxicHound', 'UnravelingCrawler', 'VoraciousMouse', 'GiantRat', 'MonstrousRat']);
 const zoneAt = f => ZONES.find(z => f <= z.to) || ZONES[ZONES.length - 1];
 function floorName(f) { const z = zoneAt(f), first = ZONES.indexOf(z) ? ZONES[ZONES.indexOf(z) - 1].to + 1 : 1; return z.name + ' · ' + ['I', 'II', 'III', 'IV', 'V', 'VI'][Math.min(5, f - first)]; }
@@ -103,7 +105,7 @@ function populateRoom(A, r, f) {
     if (!G0) G0 = pick(GROUPS.filter(G1 => (G1.min || 1) <= f && cost(G1.g) <= budget + 1 && G1.g.every(has) && (f > 1 || !G1.g.includes('brute') || chance(0.3))));
     if (!G0) break; const g = G0.g, wide = G0.horde ? 1.5 : 1; budget -= cost(g);
     const ax = rand(r.ix0 + 2, r.ix1 - 1) * TS, ay = rand(r.iy0 + 1.5, r.iy1) * TS, sleepy = !G0.horde && chance(0.45);
-    for (const t of g) { let x, y, k = 0; do { x = ax + rand(-24, 24) * wide; y = ay + rand(-16, 16) * wide; } while (!ok(x, y) && k++ < 20); if (k > 20) continue; spots.push({ x, y }); const u = mkFoe(t, f, x, y, G0.spr); if (sleepy && chance(1 - (FOE_TYPES[t].sleepy || 0)) && GAIT[u.spr] !== 'shuffle') u.state = 'sleep'; u.room = r.i; out.push(u); }
+    for (const t of g) { let x, y, k = 0; do { x = ax + rand(-24, 24) * wide; y = ay + rand(-16, 16) * wide; } while (!ok(x, y) && k++ < 20); if (k > 20) continue; spots.push({ x, y }); const u = mkFoe(t, f, x, y, G0.spr); if (sleepy && chance(1 - (FOE_TYPES[t].sleepy || 0)) && !UNDEAD.has(u.spr)) u.state = 'sleep'; u.room = r.i; out.push(u); }
   }
   return out;
 }

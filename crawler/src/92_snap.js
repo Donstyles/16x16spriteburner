@@ -8,7 +8,7 @@ function snapArea(px0, py0, w, h, units = true) {
   drawWorks(c); drawPits(c); drawDoors(c);
   for (const p of A.props) if (!p.dead && !p.flat && propSplit(p)) drawPropPart(c, p, true);
   const list = []; if (units) for (const u of G.units) if (!u.dead) list.push([u.y, 0, u]); for (const p of A.props) if (!p.dead && !p.flat) { const S = propSplit(p); list.push([S ? S.mid : p.y, 1, p]); } for (const d of G.drops) list.push([d.y, 2, d]);
-  list.sort((a, b) => a[0] - b[0]); for (const [, k, o] of list) if (k === 0) drawUnit(c, o); else if (k === 1) { if (propSplit(o)) drawPropPart(c, o, false); else drawProp(c, o); } else drawDrop(c, o);
+  for (const d of A.doors || []) { const s = STRUTS(d); if (s) list.push(s); } list.sort((a, b) => a[0] - b[0]); for (const [, k, o] of list) if (k === 0) drawUnit(c, o); else if (k === 1) { if (propSplit(o)) drawPropPart(c, o, false); else drawProp(c, o); } else if (k === 6) drawStrut(c, o); else drawDrop(c, o);
   drawCeil(c, px0, py0, w, h);
   return cv.toDataURL('image/png');
 }

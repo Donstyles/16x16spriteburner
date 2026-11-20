@@ -205,11 +205,11 @@ const SFX = {
   sizzle(pan = 0) { if (!this.ok('sizzle', 0.1)) return; this.noise(this.white, 0.38, 'highpass', 5200, 2400, 0.7, 0.12, pan, 0, 0.01); this.noise(this.white, 0.1, 'bandpass', 1800, 900, 4, 0.07, pan, 0.06, 0.004); },
   // a rune plate waking: a bell-like note, its octave and a shimmer; n: how many were lit before it, so three in turn climb
   // a chord (C, E, G), and the third rings out with all three under it
-  rune(pan = 0, n = 0) {
+  rune(pan = 0, n = 0, chord = n >= 2) { // (n: which note, C E G or the high C; chord: the three ringing out under it, for a set completed)
     if (!this.ok('rune', 0.08)) return; const F = [523.25, 659.25, 783.99, 1046.5], f = F[Math.min(3, n)];
     this.tone('sine', f, f, 1.6, 0.16, pan, 0, 0.004); this.tone('sine', f * 2, f * 2, 1.1, 0.06, pan, 0.01, 0.004); this.tone('triangle', f / 2, f / 2, 1.2, 0.05, pan, 0, 0.02);
     this.noise(this.white, 0.5, 'highpass', 7000, 9000, 0.7, 0.03, pan, 0, 0.01);
-    if (n >= 2) for (let i = 0; i < 3; i++) this.tone('sine', F[i] * 2, F[i] * 2, 2.2, 0.07, pan, 0.18 + i * 0.07, 0.01);
+    if (chord) for (let i = 0; i < 3; i++) this.tone('sine', F[i] * 2, F[i] * 2, 2.2, 0.07, pan, 0.18 + i * 0.07, 0.01);
   },
   // someone dropping into a pit: the rush of air as they fall away, a low groan of it sinking with them, and far below
   // a few stones still falling, and nothing else
