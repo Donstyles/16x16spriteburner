@@ -9,7 +9,7 @@ const FLOOR_NAMES = ['THE ROOT CELLAR', 'THE SALT VAULT', 'THE DROWNED STORES', 
 let ARENA = null;
 const CW = 24, CH = 17; // one grid cell, in tiles
 const FORCE_SHOP = { on: false }; // (the shop test: 39_shop)
-const HIDDEN = { force: false }; // (a test: a hidden wing on the floor; 'exit': with the way down in it)
+const HIDDEN = { force: false, nest: null }; // (nest: 'alcove' or 'leg' forces a second cracked wall inside) // (a test: a hidden wing on the floor; 'exit': with the way down in it)
 const GREAT = { force: false }; // (a test: a great hall on every floor)
 // The tops of the south, east and west walls are at the ceiling: nothing in the room passes over them, so their painted
 // trim is drawn into a ceiling layer over everything else (31_walls).
@@ -92,19 +92,20 @@ function buildArena1(floor) {
     if (cand.length) {
       const exit = HIDDEN.force === 'exit' || (!HIDDEN.force && floor >= 3 && chance(0.25)); cand.sort((a, b) => (far.get(b[0]) || 0) - (far.get(a[0]) || 0));
       const [rk, [x, y]] = exit ? cand[randi(0, Math.min(2, cand.length - 1))] : pick(cand), sk = key(x, y - 1);
-      hid = { r: rk, s: sk, x, kind: exit ? 'end' : chance(0.35) ? 'room' : 'treasure' }; cells.set(sk, [x, y - 1]); if (exit) endK = sk;
+      hid = { r: rk, s: sk, x, kind: exit ? 'end' : chance(0.35) ? 'room' : 'treasure', nest: HIDDEN.nest || (!HIDDEN.force && floor >= 3 && chance(0.4)) }; cells.set(sk, [x, y - 1]); if (exit) endK = sk;
     }
   }
   for (const [k, [gx, gy]] of cells) {
     if (second.has(k)) continue; const k2 = great.get(k), kind = k2 !== undefined && kindOf(k2) === 'end' ? 'end' : kindOf(k);
     const big = kind === 'end'; let w = big ? randi(18, 20) : kind === 'start' ? randi(13, 14) : kind === 'treasure' ? randi(10, 12) : kind === 'shop' ? 9 : randi(12, 18), h = big ? randi(10, 12) : kind === 'start' || kind === 'treasure' ? randi(7, 8) : kind === 'shop' ? 7 : randi(7, 11);
+    const nestS = hid && hid.nest && k === hid.s, nestR = hid && hid.nest && k === hid.r; if (nestS) h = Math.min(h, big ? 10 : 8); // (a nested wing wants rows between the two rooms: the one behind as far north as it goes, the one in front as far south)
     const X0 = gx * CW, Y0 = gy * CH; let cx = X0 + CW / 2, cy = Y0 + 9, ix0, iy0, hz = null;
     if (k2 !== undefined) { // (across two cells: it covers both their middles, so the corridors still run straight)
       hz = cells.get(k2)[1] === gy;
       if (hz) { w = randi(30, 36); h = randi(10, 12); ix0 = randi(Math.max(X0 + 2, cx + CW + 3 - w), Math.min(cx - 2, X0 + 2 * CW - 2 - w)); iy0 = randi(Math.max(Y0 + 3, cy + 3 - h), Math.min(cy - 2, Y0 + CH - 2 - h)); }
       else { w = randi(13, 18); h = randi(24, 28); ix0 = randi(Math.max(X0 + 2, cx + 3 - w), Math.min(cx - 2, X0 + CW - 2 - w)); iy0 = randi(Math.max(Y0 + 3, cy + CH + 3 - h), Math.min(cy - 2, Y0 + 2 * CH - 2 - h)); }
       cx = Math.round(ix0 + (w - 1) / 2); cy = Math.round(iy0 + (h - 1) / 2);
-    } else { ix0 = randi(Math.max(X0 + 2, cx + 3 - w), Math.min(cx - 2, X0 + CW - 2 - w)); iy0 = kind === 'shop' ? cy - 4 : randi(Math.max(Y0 + 3, cy + 3 - h), Math.min(cy - 2, Y0 + CH - 2 - h)); } // (a shop: its side doors come in below its counter)
+    } else { ix0 = randi(Math.max(X0 + 2, cx + 3 - w), Math.min(cx - 2, X0 + CW - 2 - w)); const lo = Math.max(Y0 + 3, cy + 3 - h), hi = Math.min(cy - 2, Y0 + CH - 2 - h); iy0 = kind === 'shop' ? cy - 4 : nestS ? lo : nestR ? hi : randi(lo, hi); } // (a shop: its side doors come in below its counter)
     const r = { i: rooms.length, k, gx, gy, kind, cx, cy, ix0, iy0, ix1: ix0 + w - 1, iy1: iy0 + h - 1, fx0: ix0 - 1, fx1: ix0 + w, fy0: iy0 - 2, fy1: iy0 + h, w, h, doors: [] };
     if (k2 !== undefined) { r.great = hz ? 'h' : 'v'; byKey.set(k2, r); }
     r.px0 = r.fx0 * TS; r.py0 = r.fy0 * TS; r.px1 = (r.fx1 + 1) * TS; r.py1 = (r.fy1 + 1) * TS;
@@ -136,11 +137,21 @@ function buildArena1(floor) {
     }
   }
   if (hid) { // its corridor: from the hidden room's south doorway to three rows short of the room it hangs off, whose wall stands whole across it
-    const S = byKey.get(hid.s), R = byKey.get(hid.r), x0 = hid.x * CW + CW / 2 - 1; carve(x0, S.fy1, x0 + 2, R.fy0 - 2);
-    const hl = { dir: 'v', A: S, B: R, x0, y0: S.fy1, y1: R.fy0 + 1, bent: false, wide: false, ym: Math.floor((S.fy1 + R.fy0) / 2), xb: x0, hidden: true, px0: (x0 - 1) * TS, py0: S.fy1 * TS, px1: (x0 + 4) * TS, py1: (R.fy0 + 2) * TS };
+    const S = byKey.get(hid.s), R = byKey.get(hid.r), x0 = hid.x * CW + CW / 2 - 1, F = R.fy0, gap = F - S.fy1; let x1 = x0, P0 = null;
+    // NESTED: behind the cracked wall a pocket with a second cracked wall in it, three rows of rock like any wall (a rim and
+    // two of face) between the pocket and the corridor on to the room. The pocket is an alcove straight on, two to four
+    // rows deep, or a leg running off sideways along the room's wall (the first wall broken off to one side), an L
+    if (hid.nest) {
+      const offs = [-6, -5, -4, 4, 5, 6].filter(s => x0 + s >= R.ix0 + 1 && x0 + s + 2 <= R.ix1 - 1);
+      if (gap >= 9 && offs.length && hid.nest !== 'alcove' && (hid.nest === 'leg' || chance(0.5))) { x1 = x0 + pick(offs); P0 = F - 4; }
+      else if (gap >= 8 && hid.nest !== 'leg') P0 = F - 1 - randi(2, Math.min(4, gap - 6));
+    }
+    if (P0 === null) carve(x0, S.fy1, x0 + 2, F - 2); else { carve(x0, S.fy1, x0 + 2, P0 - 4); carve(Math.min(x0, x1), P0, Math.max(x0, x1) + 2, F - 2); }
+    const hl = { dir: 'v', A: S, B: R, x0, y0: S.fy1, y1: F + 1, bent: false, wide: false, ym: Math.floor((S.fy1 + F) / 2), xb: x1, hidden: true, px0: (Math.min(x0, x1) - 1) * TS, py0: S.fy1 * TS, px1: (Math.max(x0, x1) + 4) * TS, py1: (F + 2) * TS };
     halls.push(hl); S.doors.push({ side: 'S', cells: [[x0, S.fy1], [x0 + 1, S.fy1], [x0 + 2, S.fy1]], hall: hl }); S.secret = true;
-    R.doors.push({ side: 'N', cells: [[x0, R.fy0 + 1], [x0 + 1, R.fy0 + 1], [x0 + 2, R.fy0 + 1]], hall: hl, hidden: true }); // (a doorway as far as the room's other works go: its landing kept clear; walled up, so no door of its own)
-    R.hiddenN = true; R.hidCrack = { x: x0, y: R.fy0, hp: 3, stage: 0, open: false, room: R.i, holds: 'hall', hall: hl };
+    R.doors.push({ side: 'N', cells: [[x1, F + 1], [x1 + 1, F + 1], [x1 + 2, F + 1]], hall: hl, hidden: true }); // (a doorway as far as the room's other works go: its landing kept clear; walled up, so no door of its own)
+    R.hiddenN = true; R.hidCrack = { x: x1, y: F, hp: 3, stage: 0, open: false, room: R.i, holds: 'hall', hall: hl };
+    if (P0 !== null) { R.hidCrack.inner = { x: x0, y: P0 - 2, hp: 3, stage: 0, open: false, room: R.i, holds: 'hall', hall: hl, deep: true }; hl.nest = x1 === x0 ? 'alcove' : 'leg'; }
   }
   shapeRooms(rooms, fl, W, H, floor); // pillared halls, rings, cut corners, alcoves, spurs (33_shapes)
   // ---- paint, the way the tileset is built: dark is solid rock, the beige rim is the top edge of the rock, and a brick face
@@ -176,7 +187,7 @@ function buildArena1(floor) {
   paintCeil(A, cg, cv); // the painted trim, as drawn on the ground: the ceiling over everyone (31_walls)
   A.doors = rooms.flatMap(r => r.doors.filter(d => !d.hidden).map(d => Object.assign(d, { room: r.i, k: 0, strut: d.side === 'S' && chance(0.16), motif: pick([0, 5, 10]) }))); // (strut: a south doorway's, now and then: 32_crawl)
   A.start = rooms.find(r => r.kind === 'start'); A.end = rooms.find(r => r.kind === 'end');
-  for (const r of rooms) if (r.hidCrack) { r.crack = r.hidCrack; r.crackX = r.crack.x; (A.cracks = A.cracks || []).push(r.crack); } // (the hidden wing's walled-up doorway)
+  for (const r of rooms) if (r.hidCrack) { r.crack = r.hidCrack; r.crackX = r.crack.x; (A.cracks = A.cracks || []).push(r.crack); if (r.crack.inner) A.cracks.push(r.crack.inner); } // (the hidden wing's walled-up doorway)
   // ---- furnishing (the stairways' places first, so no torch or banner hangs on them)
   // three free tiles of north wall, clear of any doorway by a tile, as near the middle as they come
   const wallSpot = r => { const nd = r.doors.filter(d => d.side === 'N').flatMap(d => d.cells.map(c => c[0])); let best = r.cx - 1, bd = 1e9; for (let x = r.ix0 + 1; x + 2 <= r.ix1 - 1; x++) { if (nd.some(c => c >= x - 1 && c <= x + 3)) continue; const d = Math.abs(x + 1 - (r.ix0 + r.ix1) / 2); if (d < bd) { bd = d; best = x; } } return best; };

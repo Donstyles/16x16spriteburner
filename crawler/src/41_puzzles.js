@@ -226,7 +226,7 @@ function puzzleAfter(A, r) {
   if (r.gap) { for (const i of r.gap.lanes) clear(i % W, (i / W) | 0, 16); for (const [x, y] of r.gap.blocks) { const b = block(x, y); b.fill = true; } }
   if (r.spikeGate) { const sg = r.spikeGate; plate(sg.at[0], sg.at[1], { timer: sg, hidden: sg.hidden }); } // (hidden: in a cracked wall's niche, THE HIDDEN SWITCH)
   if (r.crack) { const c = r.crack; removeIf(A.props, q => q.solid && q.hp >= 1e8 && q.kind !== 'crack' && Math.abs(q.cy - ((c.y + 2) * TS + 10)) < 12 && q.x > c.x * TS - 6 && q.x < (c.x + 3) * TS + 6); } // (nothing unbreakable stands in front of a cracked wall)
-  if (r.crack) { const c = r.crack; A.props.push({ kind: 'crack', crack: c, x: (c.x + 1.5) * TS, y: (c.y + 1) * TS + 15, cy: (c.y + 1) * TS + 12, r: 18, solid: false, hp: 3, room: r.i }); }
+  if (r.crack) for (const c of [r.crack, r.crack.inner]) if (c) A.props.push({ kind: 'crack', crack: c, x: (c.x + 1.5) * TS, y: (c.y + 1) * TS + 15, cy: (c.y + 1) * TS + 12, r: 18, solid: false, hp: 3, room: r.i }); // (and a hidden wing's second one, in its pocket)
   // half the time, tall stock stands right in front of it: crate stacks two high along the cracks, so the wall is
   // half hidden and must be cleared before it can be struck (it all breaks)
   if (r.crack && chance(0.5)) { const c = r.crack, y = c.y + 2, TALL = [[27, 12, 'crate'], [28, 12, 'crate'], [29, 12, 'crate']];
