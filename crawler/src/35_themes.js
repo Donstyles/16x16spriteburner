@@ -9,8 +9,8 @@
 // - THE LOCKED WAYS: one more puzzle, and more cracked walls.
 // ROOM THEMES (a free room: no set piece, water, shrine, sluice or puzzle; some shapes take some of them): THE WAREHOUSE, rows of crate stacks
 // and crates across the room, a narrow aisle between each two, a gap or two in every row and the doors' ways left clear (all of it breaks); THE POTTERY, islands of
-// pots to smash; THE CART SHED, mine carts nose to tail in rows, junk about them; THE STATUE GALLERY, statues on their
-// pedestals in a row along the north and the south of the room facing an aisle, a burning brazier at each end.
+// pots to smash; THE CART SHED, mine carts nose to tail in rows, junk about them; THE COLONNADE, round columns on their plinths (once statues on their
+// pedestals) in a row along the north and the south of the room facing an aisle, a burning brazier at each end.
 const ARCHES = [
   { k: 'plain', w: 3, first: true },
   { k: 'stores', name: 'THE STOREHOUSES', w: 1, first: true, themes: { warehouse: 0.35, pottery: 0.25, carts: 0.25 } },
@@ -26,7 +26,7 @@ function pickArch(floor) {
   const ok = ARCHES.filter(a => floor >= 2 || a.first), tot = ok.reduce((s, a) => s + a.w, 0); let x = Math.random() * tot;
   for (const a of ok) { x -= a.w; if (x <= 0) return a; } return ok[0];
 }
-const THEME_NAMES = { warehouse: 'THE WAREHOUSE', pottery: 'THE POTTERY', carts: 'THE CART SHED', statues: 'THE STATUE GALLERY' };
+const THEME_NAMES = { warehouse: 'THE WAREHOUSE', pottery: 'THE POTTERY', carts: 'THE CART SHED', statues: 'THE COLONNADE' };
 const THEMES_BASE = { warehouse: 0.07, pottery: 0.05, carts: 0.05, statues: 0.05 };
 // which shaped rooms each may dress (rows of crates or carts only where the room is whole, or nearly)
 const THEME_SHAPES = { warehouse: ['none', 'cuts', 'alcoves'], carts: ['none', 'cuts', 'alcoves'], pottery: ['none', 'cuts', 'alcoves', 'ring', 'hall', 'great'], statues: ['none', 'cuts', 'alcoves', 'great'] };
@@ -57,7 +57,7 @@ function themeRoom(A, r, prop, nearDoor) {
       for (let y = y0; y <= y0 + 1; y++) for (let x = x0; x <= x0 + 2; x++) if (!lane(x, y) && !nearDoor(x, y, 2) && chance(0.8)) prop('barrel', x, y, { tile: pick(FURN.pot), th: 1, hp: 40 });
     }
   } else if (k === 'statues') { // a row along the north and the south, facing an aisle; braziers at its ends
-    for (const y of [r.iy0 + 1, r.iy1 - 1]) for (let x = r.ix0 + 2; x <= r.ix1 - 2; x += 3) if (!lane(x, y) && !nearDoor(x, y, 2)) prop('stone', x, y, { tile: [25, 2 + d], th: 2, hp: 1e9 });
+    for (const y of [r.iy0 + 1, r.iy1 - 1]) for (let x = r.ix0 + 2; x <= r.ix1 - 2; x += 3) if (!lane(x, y) && !nearDoor(x, y, 2)) prop('stone', x, y, { tile: [24, 2 + d], th: 2, hp: 1e9 }); // (round columns on their plinths)
     const my = Math.round((r.iy0 + r.iy1) / 2); for (const x of [r.ix0, r.ix1]) if (!nearDoor(x, my, 2) && !lane(x, my)) prop('brazier', x, my, { f: randi(0, 3) });
   }
   r.theme = k; (A.themes = A.themes || []).push(THEME_NAMES[k]); return true;

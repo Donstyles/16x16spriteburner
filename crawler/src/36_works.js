@@ -105,7 +105,7 @@ function waterBody(A, cells, set, W, dual) {
 
 // ---- building (called from buildArena): before the room is furnished, and after
 function worksBefore(A, r, g) {
-  if (r.sunkHost) { if (beyondHost(A, r, r.sunkHost.preReach || null)) cistern(A, r, g, r.sunkHost.preReach || null); else r.sunkHost = null; return; } // (a set piece's button to be sunk in it: THE SUNKEN BUTTON; only where the cistern's own drain can be in a room beyond it: never its drain in its own room, the button then standing dry in this room as ever)
+  if (r.sunkHost) { const w = r.sunkHost.preReach || null; if (beyondHost(A, r, w)) cistern(A, r, g, w); else if (r.crack || crackIn(A, r, 'drain')) { r.crack.holds = 'drain'; cistern(A, r, g, w); } else r.sunkHost = null; return; } // (a set piece's button to be sunk in it: THE SUNKEN BUTTON; only where the cistern's own drain can be in a room beyond it, or else sealed behind a cracked wall in its own room: never out in the open in its own room; with neither, the button stands dry in this room as ever)
   if (r.kind !== 'room' || r.chest || r.set || r.sluice || r.shape || r.puz) return; // (nor a puzzle's room: 41_puzzles) // (a set piece's room, or the room with its sluice: 37_levels)
   if (!A.cistern && !A.sunkPlanned && r.w >= 12 && r.h >= 8 && beyondHost(A, r) && chance(ARCH.cur.water ? 0.95 : 0.6)) cistern(A, r, g); // (THE WATERWORKS: 35_themes) // (only where its sluice can be beyond it: 37_levels)
   else if (!A.shrine && r.w >= 12 && r.h >= 8 && chance(0.55)) { A.shrine = r; r.shrine = true; r.dark = A.floor >= 2 && chance(0.5); if (!r.crack && (PUZ.force === 'rune' || chance(0.5))) crackIn(A, r, 'rune'); } // (dark: its runes hidden; half the time one of them sealed behind a cracked wall: 41_puzzles)
@@ -186,7 +186,7 @@ const SUNK = [
   [[5, 22], [22, 8], 'sacks', 2], [[7, 22], [24, 14], 'crate', 2, 2], [[9, 22], [26, 14], 'crate', 2, 2], [[11, 22], [28, 14], 'crate', 2, 2],
 ];
 const sunkStone = A => { const d = A.th === THEMES.brown ? 3 : 0, br = d ? 2 : 0; return [
-  [[0, 16 + d], [22, 2 + d], 'stone', 1, 2], [[2, 16 + d], [25, 2 + d], 'stone', 1, 2], [[2, 18 + d], [25, 4 + d], 'stone'],
+  [[0, 16 + d], [22, 2 + d], 'stone', 1, 2], [[2, 18 + d], [25, 4 + d], 'stone'],
   [[3, 16 + d], [26, 2 + d], 'stone'], // (not the two small blocks, the button's own stone, nor the two slabs with a socket's dark well: under water they read as a button without its socket, or a socket that lost its button; nor the plain slab beside them, [4, 16] / [4, 19]: it has no waterline, a floor slab, not a thing standing in the water)
   [[br + 1, 22], [31, 3 + d], 'stone']]; }; // (the cold brazier with its dead coals; not the empty one, a plain block that reads as a button)
 // n of them about the water, each on open water clear of the bridge, the drain, the pillars and each other
@@ -224,7 +224,8 @@ function cisternAfter(A, r) {
   for (let y = p.y0; y <= p.y1; y++) ring.push([p.x0 - 1, y], [p.x1 + 1, y]);
   const ok = ([x, y]) => !nearDoor(x, y, 2) && !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 14 && Math.abs(q.cy - (y * TS + 10)) < 12) && FLOOR(A.fl[y * A.w + x]);
   const at = pick(ring.filter(ok)) || ring.find(([x, y]) => FLOOR(A.fl[y * A.w + x]));
-  p.localAt = at; if (at && !p.host) { A.plates = A.plates || []; A.plates.push({ x: at[0] * TS + 8, y: at[1] * TS + 8, tx: at[0], ty: at[1], tile: W.plate, f: 0, down: false, pool: p, room: r.i }); } // (on the walk only when no other room took its sluice)
+  p.localAt = at; const c = r.crack && r.crack.holds === 'drain' ? r.crack : null; // (the water test room puts its plate at localAt: 64_testroom)
+  if (!p.host && c) { A.plates = A.plates || []; A.plates.push({ x: (c.x + 1) * TS + 8, y: c.y * TS + 8, tx: c.x + 1, ty: c.y, tile: W.plate, f: 0, down: false, pool: p, room: r.i, hidden: true }); } // (no room beyond took its drain: it is sealed in a niche behind a cracked wall in this room, THE HIDDEN DRAIN; never out on the walk)
 }
 function shrine(A, r) {
   const W = wkOf(A), vx = Math.round((r.ix0 + r.ix1) / 2), vy = Math.round((r.iy0 + r.iy1) / 2) + 1;

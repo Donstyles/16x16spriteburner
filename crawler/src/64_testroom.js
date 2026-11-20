@@ -129,10 +129,34 @@ function beginWaterTest(kit) {
   G.card = { t: 0, life: 3.2, a: 'WATER TEST ROOM', b: 'STEP ON THE PLATE TO DRAIN THE CISTERN', c: 'REFILL AT THE TOP BRINGS THE WATER BACK' };
 }
 function waterTick(dt) { const h = G.me; if (h && !h.dead) h.hp = Math.min(h.maxHp, h.hp + 6 * dt); }
+// ===================== the door test room =====================
+// From the test rooms screen: a room with a doorway in its north wall and one in its south wall (and its side ones, where it
+// has them), nobody on the floor but the hero, in its middle. DOORS at the top shuts them all, or opens them: blast doors
+// in the north and south doorways (each with its strut), portcullises in the side ones, as a gate goes (41_puzzles), with
+// its chains and its thud; none comes down on anyone. MOTIF gives the blast doors the sheet's next motif (the cross, the
+// chevron, the emblem); COLOUR builds the room again in the other floor colour (brown or grey).
+const DOOR_MOTIFS = ['THE CROSS', 'THE CHEVRON', 'THE EMBLEM'];
+function beginDoorTest(kit, tone) {
+  beginRun(kit); let r = null; const ok = q => (q.kind === 'room' || q.kind === 'start') && !q.set && !q.pool && !q.puz && !q.shrine && ['N', 'S'].every(s => q.doors.some(d => d.side === s && !d.hall.bent && !d.gate)) && !q.doors.some(d => d.gate);
+  for (let n = 0; n < 160 && !r; n++) { G.floor = 1 + (n % 6); if (tone && (G.floor % 2 ? 'brown' : 'grey') !== tone) continue; startFloor(); r = ARENA.rooms.filter(ok).sort((a, b) => b.doors.length - a.doors.length)[0] || null; }
+  if (!r) { beginTest(kit); return; }
+  const A = ARENA, h = G.me; TEST.on = true; Object.assign(TEST, { mode: 'doors', god: true, kit, motif: 0, shut: false, tone: A.th === THEMES.grey ? 'grey' : 'brown', gates: [] }); A.name = 'DOOR TEST ROOM';
+  G.foes.length = 0; G.units = G.heroes.slice(); G.sched.length = 0; G.drops.length = 0;
+  for (const d of r.doors) { const g = { d, hall: d.hall, k: 0, target: 0, going: false, test: true }; d.gate = g; d.motif = 0; if (d.side === 'S') d.strut = true; (A.gates = A.gates || []).push(g); TEST.gates.push(g); }
+  h.x = (r.ix0 + r.ix1 + 1) / 2 * TS; h.y = (r.iy0 + r.iy1 + 1) / 2 * TS + 4; h.enter = null; h.lightR = 220; CAM.x = h.x; CAM.y = h.y;
+  for (const p of A.props) if (Math.abs(p.x - h.x) < 18 && Math.abs(p.y - h.y) < 18) { p.dead = true; p.solid = false; }
+  doorLabel(); A.keepClean = true; if (A.chunks) keepClean(A);
+  G.card = { t: 0, life: 3.2, a: 'DOOR TEST ROOM', b: 'DOORS SHUTS THEM OR OPENS THEM', c: 'MOTIF: THE NEXT BLAST DOOR · COLOUR: BROWN OR GREY' };
+}
+function doorLabel() { TEST.label = (TEST.shut ? 'SHUT' : 'OPEN') + ' · ' + DOOR_MOTIFS[TEST.motif] + ' · ' + TEST.tone.toUpperCase(); }
+function doorToggle() { TEST.shut = !TEST.shut; for (const g of TEST.gates) g.target = TEST.shut ? 1 : 0; doorLabel(); }
+function doorMotif() { if (!TEST.on || TEST.mode !== 'doors') return; TEST.motif = (TEST.motif + 1) % 3; for (const g of TEST.gates) g.d.motif = TEST.motif * 5; doorLabel(); SFX.whoosh(0); }
+function doorTone() { if (!TEST.on || TEST.mode !== 'doors') return; const m = TEST.motif, shut = TEST.shut; beginDoorTest(TEST.kit, TEST.tone === 'grey' ? 'brown' : 'grey'); if (TEST.mode !== 'doors') return; TEST.motif = m; for (const g of TEST.gates) g.d.motif = m * 5; if (shut) doorToggle(); doorLabel(); G.card = null; }
 // the second button at the top: the next creature, or the water back in
 function testNext() {
   if (TEST.mode === 'creatures' || TEST.mode === 'armour') nextCreature();
   else if (TEST.mode === 'water' && ARENA.cistern) { refillPool(ARENA.cistern.pool); SFX.whoosh(0); }
+  else if (TEST.mode === 'doors') doorToggle();
 }
 // ===================== the armour and death room =====================
 // From the kit screen: the blood test room's room, its doors shut, the hero in a gambeson and a fresh one lying by the

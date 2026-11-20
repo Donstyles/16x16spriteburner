@@ -257,7 +257,7 @@ function groundChunks(A) {
 // painted only where it is drawn (45_blood onStone), or they show up as spots in the black
 function groundSeen(cv) {
   const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, m = new Uint8Array(cv.width * cv.height);
-  for (let i = 0, j = 0; j < m.length; i += 4, j++) m[j] = d[i + 3] > 0 && d[i] + d[i + 1] + d[i + 2] > 12 ? 1 : 0;
+  for (let i = 0, j = 0; j < m.length; i += 4, j++) m[j] = d[i + 3] > 0 && d[i] + d[i + 1] + d[i + 2] > 90 ? 1 : 0; // (the black behind it all, #121418, and the wall tops' near-black, #141619, are not ground: the darkest stone is #332c22)
   return m;
 }
 // fn paints in map coordinates into every square the box touches

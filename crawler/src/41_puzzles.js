@@ -311,6 +311,7 @@ function openCrack(A, p) {
   const x = (c.x + 1.5) * TS, y = (c.y + 1) * TS + 8; shake(0.25); SFX.quake(0.9); SFX.stone(panOf(x), true);
   for (let i = 0; i < 3; i++) debris(x + rand(-16, 16), y + rand(-6, 6), 14, ['#6e665c', '#8a8076', '#4a443e', '#a69a8c', '#3a342e'], 120, 140, 2); smoke(x, y, 10, 'dust', 12, 26, 1.4);
   if (c.holds === 'rune') { for (const rn of (A.runes || []).concat(...(A.echoes || []).map(e => e.runes))) if (rn.niche === c) rn.hidden = false; textPop(x, y, 26, 'A HIDDEN RUNE', 'gold', true); }
+  else if (c.holds === 'drain') { const pl = (A.plates || []).find(q => q.hidden && q.tx === c.x + 1 && q.ty === c.y); if (pl) pl.hidden = false; textPop(x, y, 26, 'A HIDDEN DRAIN', 'gold', true); }
   else if (c.holds === 'lever') { const pl = (A.plates || []).find(q => q.hidden && q.tx === c.x + 1 && q.ty === c.y); if (pl) pl.hidden = false; textPop(x, y, 26, 'A HIDDEN LEVER', 'gold', true); }
   else { A.props.push({ kind: 'chest', tile: [pick([28, 30]), 8], th: 1, x: (c.x + 1) * TS + 8, y: c.y * TS + 14, cy: c.y * TS + 10, r: 5, solid: true, hp: 40, room: c.room, rich: true }); textPop(x, y, 26, 'A HIDDEN NICHE', 'gold', true); }
   A.lights = A.slit = null;
@@ -329,7 +330,7 @@ function repaintTiles(A, x0, y0, x1, y1) {
   const px = x0 * TS, py = y0 * TS, pw = (x1 - x0 + 1) * TS, ph = (y1 - y0 + 1) * TS, tmp = mkCanvas(pw, ph), tg = tmp.getContext('2d'); tg.translate(-px, -py); drawGround(tg, px, py, pw, ph);
   const cg = A.ceil.getContext('2d'), cn = A.ceilN.getContext('2d'); cg.clearRect(px, py, pw, ph); cn.clearRect(px, py, pw, ph);
   for (const [x, y, pc] of P) { const i = y * W + x; for (const [rx, ry, rw, rh] of paintAt(A, i).tr) cg.drawImage(tmp, x * TS + rx - px, y * TS + ry - py, rw, rh, x * TS + rx, y * TS + ry, rw, rh); const m = CEIL_N[pc[0] + ',' + pc[1]]; if (m) { cn.save(); cn.beginPath(); for (const [mx, my, mw, mh] of m) cn.rect(x * TS + (pc[2] ? TS - mx - mw : mx), y * TS + my, mw, mh); cn.clip(); put(cn, pc[0], pc[1], x, y, pc[2]); cn.restore(); } }
-  const d = tg.getImageData(0, 0, pw, ph).data; if (A.lum) for (let yy = 0; yy < ph; yy++) for (let xx = 0; xx < pw; xx++) { const o = (yy * pw + xx) * 4; A.lum[(py + yy) * A.pw + px + xx] = d[o + 3] > 0 && d[o] + d[o + 1] + d[o + 2] > 12 ? 1 : 0; }
+  const d = tg.getImageData(0, 0, pw, ph).data; if (A.lum) for (let yy = 0; yy < ph; yy++) for (let xx = 0; xx < pw; xx++) { const o = (yy * pw + xx) * 4; A.lum[(py + yy) * A.pw + px + xx] = d[o + 3] > 0 && d[o] + d[o + 1] + d[o + 2] > 90 ? 1 : 0; }
   A.flv = (A.flv || 0) + 1;
 }
 // the cracks in a stretch of wall: jagged dark lines in its bricks, more of them with every blow; a crumb drops off it now

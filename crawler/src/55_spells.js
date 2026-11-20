@@ -76,7 +76,7 @@ function spellEnd(p) {
   if (p.k === 'laser') { sparks(p.x, p.y, p.z, 8, 'poison', 110, 60); flashLight(p.x, p.y, 26, 'poison', 0.6, 0.1); }
   else if (p.k === 'wave') { splash(p.x, p.y, 4, 26, { spd: 0.9 }); puddle(p.x, p.y, 7, 10); SFX.splash(panOf(p.x), true); }
   else if (p.k === 'hex' || p.k === 'soul') glows(p.x, p.y, p.z, 8, SPELL[p.k].col, 50, 3, 0.5);
-  else if (p.k === 'spit') acidSplat(p.x, p.y);
+  else if (p.k === 'spit') { let x = p.x, y = p.y; for (let k = 0; k < 16 && solidAt(x, y); k++) { x -= p.vx * 0.003; y -= p.vy * 0.003; } acidSplat(x, y); } // (from just outside the wall it struck: begun inside it, its drops would mark the black rock)
   else sparks(p.x, p.y, p.z, 3, 'heal', 60, 40);
 }
 // a bolt reached someone: what it does besides the blow
@@ -274,7 +274,7 @@ function wardBreaks(u) {
   sparks(u.x, u.y, 10, 16, 'heal', 150, 90); ring(u.x, u.y - 6, 18, 'heal', 0.35, 3); SFX.shatter(panOf(u.x)); return true;
 }
 // acid splashing: green drops thrown out, a hiss, a sizzle of smoke
-function acidSplat(x, y) { for (let i = 0; i < 10; i++) { const a = rand(TAU), v = rand(20, 70); part({ k: 'gore', x, y, z: rand(2, 6), vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.7, vz: rand(20, 60), g: 420, life: 5, s0: chance(0.4) ? 2 : 1, col: pick(['#7cc030', '#a6e040', '#4c8a18']), kind: 'bug' }); } smoke(x, y, 2, 'green', 5, 10, 0.7, 12); SFX.hex(panOf(x), true); }
+function acidSplat(x, y) { if (solidAt(x, y)) return; for (let i = 0; i < 10; i++) { const a = rand(TAU), v = rand(20, 70); part({ k: 'gore', x, y, z: rand(2, 6), vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.7, vz: rand(20, 60), g: 420, life: 5, s0: chance(0.4) ? 2 : 1, col: pick(['#7cc030', '#a6e040', '#4c8a18']), kind: 'bug' }); } smoke(x, y, 2, 'green', 5, 10, 0.7, 12); SFX.hex(panOf(x), true); }
 // cursed: the stamina comes back slowly, violet motes rising off the hero
 function curseTick(h, dt) {
   if (!(h.curseT > 0)) return; h.curseT -= dt;

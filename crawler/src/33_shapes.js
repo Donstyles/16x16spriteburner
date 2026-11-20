@@ -136,7 +136,7 @@ function shapeAfter(A, r) {
   const put = (kind, tx, ty, o) => A.props.push(Object.assign({ kind, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o));
   for (const a of r.alcoves) {
     const mx = a.side === 'N' ? a.x + 1 : a.x + (a.side === 'E' ? 1 : 0), my = a.side === 'N' ? a.y : a.y + 1, what = pick(['statue', 'statue', 'brazier', 'chest', 'column', 'chest']);
-    if (what === 'statue') put('stone', mx, my, { tile: [25, 2 + d], th: 2 });
+    if (what === 'statue') put('stone', mx, my, { tile: [24, 2 + d], th: 2 }); // (a round column on its plinth: the sheet's stepped pedestal is not used)
     else if (what === 'column') put('stone', mx, my, { tile: [22, 2 + d], th: 2 });
     else if (what === 'brazier') put('brazier', mx, my, { f: randi(0, 3) });
     else put('chest', mx, my, { tile: [pick([28, 30]), 8], th: 1, hp: 40, nook: true });
