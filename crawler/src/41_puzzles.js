@@ -101,7 +101,8 @@ function underGate(A, g, u, m) { return gateCells(A, g).some(i => { const x = (i
 // out from under it, along the way through the doorway, to whichever side is nearer (step: how far this frame)
 function shoveOut(A, g, u, step) {
   const cs = gateCells(A, g), xs = cs.map(i => i % A.w), ys = cs.map(i => Math.floor(i / A.w)), ns = g.d.side === 'N' || g.d.side === 'S';
-  const lo = (ns ? Math.min(...ys) : Math.min(...xs)) * TS - 7, hi = ((ns ? Math.max(...ys) : Math.max(...xs)) + 1) * TS + 7, v = ns ? u.y : u.x, to = v - lo < hi - v ? lo : hi;
+  const lo = (ns ? Math.min(...ys) : Math.min(...xs)) * TS - 7, hi = ((ns ? Math.max(...ys) : Math.max(...xs)) + 1) * TS + 7, v = ns ? u.y : u.x, free = t => FLOOR(A.fl[Math.floor((ns ? t : u.y) / TS) * A.w + Math.floor((ns ? u.x : t) / TS)]);
+  let to = v - lo < hi - v ? lo : hi; if (!free(to)) to = to === lo ? hi : lo; // (the nearer side, if there is floor there to put him on)
   const nv = to < v ? Math.max(to, v - step) : Math.min(to, v + step); if (ns) { u.y = nv; u.ky = 0; } else { u.x = nv; u.kx = 0; }
   if (!u.shovedT || G.time - u.shovedT > 0.6) { u.shovedT = G.time; SFX.stone(panOf(u.x), false); debris(u.x, u.y, 3, DUST, 50, 60, 1); }
 }
@@ -116,15 +117,13 @@ function gatesTick(A, dt) {
     if (g.hold) g.target = g.held ? 0 : 1; const was = g.k, [gx, gy] = gatePos(g), pan = panOf(gx);
     if (g.k > g.target) g.k = Math.max(g.target, g.k - dt / 1.3); else if (g.k < g.target) g.k = Math.min(g.target, g.k + dt / 0.3);
     if (g.k < 0.5 && g.shut) gateShut(A, g, false);
-    // it waits for no one: coming down, it shoves a hero under it out to the nearer side; a creature still under it when
-    // it blocks (halfway down) is held there, and when it hits the floor it is burst apart
-    if (g.k > was && g.k > 0.05) for (const u of G.units) if (!u.dead && !u.fall && u.team === 'hero' && underGate(A, g, u, 5)) shoveOut(A, g, u, g.k >= 0.5 ? 99 : 300 * dt);
-    if (g.k >= 0.5 && !g.shut) { g.crush = G.units.filter(u => !u.dead && u.team !== 'hero' && underGate(A, g, u, 0)).map(u => [u, u.x, u.y]); gateShut(A, g, true); } // (blocks from halfway down; the thud when it is down, below)
-    if (g.crush) for (const [u, x, y] of g.crush) if (!u.dead) { u.x = x; u.y = y; u.kx = u.ky = 0; u.stun = Math.max(u.stun || 0, 0.25); } // (held where it was caught)
+    // it waits for no one: coming down, it shoves a hero under it out to the nearer side; a creature under it when it
+    // touches the floor is burst apart. It blocks once it is down (the thud, below)
+    if (g.k > was && g.k > 0.05) for (const u of G.units) if (!u.dead && !u.fall && u.team === 'hero' && underGate(A, g, u, 5)) shoveOut(A, g, u, g.k >= 1 ? 99 : 300 * dt);
+    if (g.k >= 1 && !g.shut) { for (const u of G.units) if (!u.dead && u.team !== 'hero' && underGate(A, g, u, 0)) crushUnder(u); gateShut(A, g, true); }
     if (g.k !== was) {
       if ((g.chT = (g.chT || 0) - dt) <= 0) { g.chT = rand(0.05, 0.1); SFX.clink(rand(1500, 2600), 0.05, pan, 0); } if (was === 1 || was === 0) SFX.stone(pan, false);
       if (g.k === 1 && was < 1) { shake(0.06); SFX.stone(pan, true); for (const [x, y] of gateFoot(g)) smoke(x, y, 2, 'dust', 7, 14, 0.8); } // down: the thud, and dust off the floor right in front of it, all along it
-      if (g.k === 1 && was < 1 && g.crush) { for (const [u] of g.crush) if (!u.dead) crushUnder(u); g.crush = null; }
       if (g.k === 0 && was > 0) { SFX.stone(pan, true); for (const [x, y] of gateTop(g)) smoke(x, y, 1, 'dust', 5, 9, 0.6); } // up: a puff from under the strut over every panel
     }
     g.d.k = g.k;

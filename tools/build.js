@@ -4,7 +4,7 @@
 //   node tools/build.js crawler   Cellar of Ruin II         (crawler/src/ -> crawler/index.html, crawler/dist/, crawler/version.txt)
 const fs = require('fs'), path = require('path'), root = path.join(__dirname, '..');
 const T = process.argv[2] === 'crawler'
-  ? { dir: path.join(root, 'crawler'), title: 'Cellar of Ruin II', short: 'Cellar II', aria: 'Cellar of Ruin II, a dungeon crawl for one to four heroes', extra: { doors: 'crawler/assets/cellar_doors.png', items: 'crawler/assets/items.png', ores: 'crawler/assets/ores.png', scrolls: 'crawler/assets/scrolls.png' }, pwa: 'crawler' }
+  ? { dir: path.join(root, 'crawler'), title: 'Cellar of Ruin II', short: 'Cellar II', aria: 'Cellar of Ruin II, a dungeon crawl for one to four heroes', extra: { doors: 'crawler/assets/cellar_doors.png', items: 'crawler/assets/items.png', ores: 'crawler/assets/ores.png', scrolls: 'crawler/assets/scrolls.png', ends: 'crawler/assets/beam_ends.png' }, pwa: 'crawler' }
   : { dir: root, title: 'Cellar of Ruin', short: 'Cellar of Ruin', aria: 'Cellar of Ruin, a dungeon battle for one to four heroes', extra: {}, pwa: 'root' };
 const rd = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8');
 const srcDir = path.join(T.dir, 'src');
