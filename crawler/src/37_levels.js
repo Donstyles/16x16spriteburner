@@ -94,7 +94,7 @@ function drawbridge(A, r, g, near, adj) {
 // Every body of water that drains has its sluice in another room, and the order is in the layout: the sluice is in a room
 // that can only be reached through the water's own room (across the causeway, past the sentinel, round the cistern, or
 // along the flooded way's ledge), so whoever finds it has met the water first. A piece only goes where such a room is.
-const hostOK = A => h => h !== A.start && !h.secret && h.kind !== 'treasure' && h.kind !== 'shop' && !h.chest && !h.set && !h.sluice && !h.pool && !h.shrine && !h.puz && h.w >= 6;
+const hostOK = A => h => h !== A.start && h.kind !== 'treasure' && h.kind !== 'shop' && !h.chest && !h.set && !h.sluice && !h.pool && !h.shrine && !h.puz && h.w >= 6;
 function beyondHost(A, r, within = null) { // (within: only one of these rooms)
   const adj = q => A.halls.filter(h => h.A === q || h.B === q).map(h => (h.A === q ? h.B : h.A));
   if (r === A.start) return null; const near = new Set([A.start]), q = [A.start]; while (q.length) { const a = q.shift(); for (const n of adj(a)) if (n !== r && !near.has(n)) { near.add(n); q.push(n); } }
