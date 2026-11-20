@@ -30,7 +30,7 @@ function makeFloor() {
   A.army = pickArmy(G.floor); G.foes = []; for (const r of A.rooms) if ((r.kind === 'room' || r.kind === 'end') && r.set !== 'flood') { const fs = populateRoom(A, r, G.floor); if (r === A.end) for (const f of fs) f.exitGuard = true; G.foes.push(...fs); } // (the exit room's own: the stairs stay sealed till they are dead, 36_works exitSeal)
   G.foes.push(...chestGuards(A, G.floor));
   for (const r of A.rooms) if (r.islands) removeIf(G.foes, u => r.islands.some(([x, y]) => u.x >= x * TS - 8 && u.x <= (x + 2) * TS + 8 && u.y >= y * TS - 8 && u.y <= (y + 2) * TS + 8)); // (nobody stranded on an island but its archer)
-  G.foes.push(...levelFoes(A, G.floor)); G.cine = null; G.eyes = null;
+  G.foes.push(...levelFoes(A, G.floor)); if (A.th.sheet === 'crypt') cryptBury(A); G.cine = null; G.eyes = null; // (the crypt's buried dead: 43_crypt)
   G.units = G.heroes.concat(G.foes);
   G.phase = 'play'; G.phaseT = 0; G.fade = 1;
   CAM.x = sp.x; CAM.y = sp.y; CAM.z = exploreZoom();
@@ -53,7 +53,7 @@ function updateRun(dt) {
   if (TEST.on && TEST.mode === 'creatures') creatureTick(dt);
   if (TEST.on && TEST.mode === 'water') waterTick(dt);
   if (TEST.on && TEST.mode === 'armour') armourTick(dt);
-  updateProj(dt); updateHazards(dt); worksTick(dt); candlesTick(dt); tombsTick(dt); heapsTick(dt); levelTick(dt); updateDrops(dt); updateSight(dt);
+  updateProj(dt); updateHazards(dt); worksTick(dt); candlesTick(dt); tombsTick(dt); heapsTick(dt); buriedTick(dt); nicheAmbush(dt); levelTick(dt); updateDrops(dt); updateSight(dt);
   removeIf(G.foes, f => f.dead); removeIf(G.units, u => u.dead && u.team === 'foe');
   if (G.hurtFlash > 0) G.hurtFlash -= dt; if (G.tiredT > 0) G.tiredT -= dt;
   if (G.phase === 'play') {

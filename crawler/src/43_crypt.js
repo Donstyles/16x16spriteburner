@@ -100,7 +100,7 @@ function cryptWall(A, r, g, used) {
       used.add(xx); const nx = xx * TS, ny = y * TS + NICHE_Y;
       if (role === 'light') { const S = candleSrc(...LIGHT_NICHE); g.drawImage(S.cv, nx, ny); A.torches.push({ x: nx + 8, y: y * TS + 9, tx: xx, f: (xx * 3) % 4, candles: addCandles(A, S, nx, ny, gy, 720, { wall: true, torch: true }) }); }
       else if (role === 'chains') cryptAt(g, 9 + (k >> 1) % 3, 2, nx, y * TS - 8);
-      else { const L = NICHE[role], t = L[(k >> 1) % L.length], S = candleSrc(t[0] * TS, t[1] * TS, TS, TS); g.drawImage(S.cv, nx, ny); addCandles(A, S, nx, ny, gy, 450, { wall: true }); }
+      else { const L = NICHE[role], t = L[(k >> 1) % L.length], S = candleSrc(t[0] * TS, t[1] * TS, TS, TS); g.drawImage(S.cv, nx, ny); const cs = addCandles(A, S, nx, ny, gy, 450, { wall: true }); if (role === 'skulls') (r.niches = r.niches || []).push({ nx, ny, candles: cs }); }
     }
   }
 }
@@ -212,4 +212,47 @@ const HEAP_TILES = [[13, 14], [12, 14]];
 function drawHeaps(c) {
   const A = ARENA; if (!A || !A.heaps) return;
   for (const q of A.heaps) { const t = HEAP_TILES[q.big ? 0 : 1], j = q.t >= HEAP_T ? (((G.time * 30) | 0) % 2 ? 1 : -1) : 0; c.drawImage(IMG.crypt, t[0] * TS, t[1] * TS, TS, TS, q.x - 8 + j, q.y - 12, TS, TS); }
+}
+
+// ===================== out of the ground, out of the walls =====================
+// THE BURIED: the dead of a crypt floor whose place is on bare earth in the dark (the worn paths are earth: where the
+// living walk, the dead lie under them) lie buried there instead of standing about, two in three of them by their
+// place: nothing shows but, as the hero comes near, the earth twitching; when he comes within a few steps they claw up
+// through it (dormantTick, as the drowned do). Skeletons and grave revenants, stumblers and ghouls; never the archers,
+// brutes or flyers, and never in light.
+const BURIABLE = new Set(['DecrepitBones', 'GraveRevenant', 'MutilatedStumbler', 'SandGhoul']);
+function cryptBury(A) {
+  for (const f of G.foes) {
+    if (!BURIABLE.has(f.spr) || f.guard || f.dormant || f.horde) continue;
+    const tx0 = Math.floor(f.x / TS), ty0 = Math.floor(f.y / TS); if (hash2(tx0 * 13 + 5, ty0 * 29 + 1) > 0.67) continue;
+    let best = null, bd = 9;
+    for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) { const x = tx0 + i, y = ty0 + j, d = Math.hypot(i, j); if (d < bd && A.fl[y * A.w + x] === 1 && worn(x, y) > 0.2 && !litAt(A, x * TS + 8, y * TS + 10) && !A.props.some(p => !p.dead && p.solid && Math.abs(p.x - (x * TS + 8)) < 14 && Math.abs(p.cy - (y * TS + 10)) < 14)) { best = [x, y]; bd = d; } }
+    if (!best) continue;
+    Object.assign(f, { x: best[0] * TS + 8, y: best[1] * TS + 10, dormant: true, buried: true, z: -11, aware: false, twitchT: 1 + hash2(best[0], best[1]) });
+  }
+}
+// the earth over one of them twitching as the hero comes near (a puff of grit, now and then)
+function buriedTick(dt) {
+  const h = G.me; if (!h || h.dead) return;
+  for (const f of G.foes) { if (!f.buried || !f.dormant || f.dead) continue; if (dist(h.x, h.y, f.x, f.y) > 100 || (f.twitchT -= dt) > 0) continue; f.twitchT = 1.2 + hash2(G.time * 7 | 0, f.x | 0) * 1.4; debris(f.x + rand(-3, 3), f.y, 2, ['#4c3e26', '#665333', '#332919'], 18, 26, 0.6); }
+}
+// THE NICHE AMBUSH: in some crypt rooms (one in two by its place, if it has two or more niches of skulls) the dead wait
+// in the north wall's niches. The hero two steps in, the niches burst one after another, candles, skulls and brick
+// coming down, and out of each drops a skeleton (a stumbler, on a floor of the rot).
+function nicheAmbush(dt) {
+  const A = ARENA, h = G.me; if (!A || !h || h.dead || A.th.sheet !== 'crypt' || G.cine) return;
+  for (const r of A.rooms) {
+    if (!r.niches || r.niches.length < 2 || r.ambushed || r.kind !== 'room' || hash2(r.i * 7 + 3, A.floor * 11 + 1) > 0.5) continue;
+    if (!(h.x > (r.ix0 + 1) * TS && h.x < r.ix1 * TS && h.y > (r.iy0 + 2) * TS && h.y < (r.iy1 + 1) * TS)) continue;
+    r.ambushed = true; SFX.groan(panOf(h.x));
+    r.niches.forEach((n, i) => after(0.35 + i * 0.3, () => { if (ARENA === A) burstNiche(A, r, n); }));
+  }
+}
+function burstNiche(A, r, n) {
+  for (const c of n.candles || []) { snuff(c, true); const i = A.wallCandles.indexOf(c); if (i >= 0) A.wallCandles.splice(i, 1); const j = A.candles.indexOf(c); if (j >= 0) A.candles.splice(j, 1); }
+  groundPaint(n.nx, n.ny, n.nx + TS, n.ny + TS, g => { g.drawImage(IMG.crypt, 8 * TS, 7 * TS, TS, TS, n.nx, n.ny); }); // (an empty niche now)
+  const x = n.nx + 8, y = (r.fy0 + 2) * TS + 5;
+  debris(x, y - 10, 12, ['#3a2f11', '#33240f', '#cfc6b0', '#a49a84'], 80, 120, 1.4); smoke(x, y - 8, 3, 'dust', 6, 16, 0.9); SFX.stone(panOf(x), true); SFX.clatter(panOf(x)); shake(0.12);
+  const spr = A.army === 'rot' ? 'MutilatedStumbler' : 'DecrepitBones'; if (!MOBS[spr]) return;
+  const u = mkFoe('grunt', G.floor, x, y, spr); Object.assign(u, { z: 14, vz: 20, room: r.i, face: hash2(n.nx, 3) < 0.5 ? 1 : -1, stun: 0.6 }); G.foes.push(u); G.units.push(u); wakeFoe(u, G.me, 'noise');
 }
