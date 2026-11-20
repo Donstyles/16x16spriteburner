@@ -404,7 +404,8 @@ function endDrain(p) {
   const s = p.spots.filter(([x, y]) => !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 14 && Math.abs(q.cy - (y * TS + 10)) < 12));
   for (let i = 0; i < 5; i++) { const q = pick(s) || p.drainAt; G.drops.push({ k: 'gold', v: randi(1, 4), x: q[0] * TS + 8, y: q[1] * TS + 8, z: 1, vx: 0, vy: 0, vz: 30, t: 0, hold: 0.3 }); }
   // in a big one, now and then a fish or two left behind, flopping on the wet stone
-  if (p.cells.size >= 40 && chance(0.55)) for (let i = randi(1, 2); i > 0; i--) { const q = pick(s) || p.drainAt; G.drops.push({ k: 'fish', x: q[0] * TS + 8 + rand(-3, 3), y: q[1] * TS + 9, z: 0, vx: 0, vy: 0, vz: 0, t: 0, flop: true }); }
+  const bed = s.filter(([x, y]) => bedOK(x * TS + 8, y * TS + 9));
+  if (p.cells.size >= 40 && chance(0.55) && bed.length) for (let i = randi(1, 2); i > 0; i--) { const q = pick(bed); G.drops.push({ k: 'fish', x: q[0] * TS + 8 + rand(-3, 3), y: q[1] * TS + 9, z: 0, vx: 0, vy: 0, vz: 0, t: 0, flop: true }); }
 }
 // THE SUNKEN BUTTON: a set piece's button (the flooded way's sluice, a drawbridge's, a gauntlet's or a sentinel's) on the
 // floor of a cistern, under its water, with a full tile of water between it and every edge and walkway, so it can only be
@@ -464,6 +465,8 @@ function bridgeAt(x, y) {
   for (const p of A.pools) { const B = p.bridge; if (!B || !B.solid) continue; const lx = Math.floor(x - B.bx0), ly = Math.floor(y - B.by0); if (lx < 0 || ly < 0 || lx >= B.w || ly >= B.h) continue; return { p, at: B.solid[ly * B.w + lx] ? 'slat' : 'gap' }; }
   return null;
 }
+// a point on a drained basin's bed well clear of its walls: a stranded fish flops only there, its fins never over the rim
+const bedOK = (x, y) => !!(basinAt(x, y) && basinAt(x, y - 11) && basinAt(x - 7, y) && basinAt(x + 7, y) && basinAt(x, y + 5));
 // whether a point is down in a drained basin
 function basinAt(x, y) { const A = ARENA; if (!A || !A.basin) return 0; const tx = Math.floor(x / TS), ty = Math.floor(y / TS); return tx >= 0 && ty >= 0 && tx < A.w && ty < A.h ? A.basin[footTile(x, y)] : 0; } // (a wall's open edge goes with the floor beside it)
 // a walker crossing a basin's rim, down into it or up out of it, hops (a puff of dust where it pushes off): up out of it a
@@ -477,23 +480,31 @@ function basinHop(u) {
   if (u.inBasin !== undefined && b !== u.inBasin && !u.fly && !u.under && !u.dead) {
     if (u.hopFor && G.time - u.hopFor < 0.6) u.hopFor = 0; // (the hop made at the check was for this crossing)
     else if (u.z > 0.5 || u.vz > 0) (u.hopQ = u.hopQ || []).push(b ? HOP_DOWN : HOP_UP);
-    else { u.hopV = b ? HOP_DOWN : HOP_UP; hopNow(u); }
+    else { u.hopV = b ? HOP_DOWN : HOP_UP; u.hopDir = b ? 'down' : 'up'; hopNow(u); basinLeap(u); }
   }
   u.inBasin = b;
+  // nobody stands on the face of a basin's north wall (its first seven pixels): on the ground there, he is put on the
+  // side his hop was taking him to
+  if (!u.fly && !u.under && !u.dead && u.z <= 0.5 && !(u.vz > 0)) { const top = basinFace(u.x, u.y); if (top !== null) u.y = u.hopDir === 'up' ? top - 1 : top + 8; }
 }
+// the top of the north wall face a point is on in a drained basin (the first basin row's top seven pixels), or null
+function basinFace(x, y) { const A = ARENA; if (!A || !A.basin) return null; const W = A.w, tx = Math.floor(x / TS), ty = Math.floor(y / TS); if (tx < 0 || ty < 1 || tx >= W || ty >= A.h) return null; return A.basin[ty * W + tx] && !A.basin[(ty - 1) * W + tx] && y - ty * TS < 8 ? ty * TS : null; }
+// a hop over a rim carries him over it, however slowly he came at it (a walker creeping up would otherwise land on the face)
+function basinLeap(u) { const sp = Math.hypot(u.vx, u.vy); let dx = 0, dy = u.hopDir === 'up' ? -1 : 1; if (sp > 1) { dx = u.vx / sp; dy = u.vy / sp; } const L = 70 - Math.min(50, sp * 0.6); u.kx += dx * L; u.ky += dy * L; }
 function hopNow(u) { u.vz = u.hopV || 70; u.z = 0.01; u.hopT = G.time; u.hopV = 0; u.brakeK = 0; smoke(u.x, u.y, 2, 'dust', 4, 8, 0.5); }
 // Coming up to the rim, a walker checks for a moment (a fifth of its pace for a beat) and then hops, so the hop is seen
 // over the edge and not after it, however fast it was going. The answer scales this frame's move.
 function basinBrake(u, dt) {
-  if (u.brake > 0) { u.brake -= dt; const k = u.brakeK || 0.2; if (u.brake <= 0) { if (u.basinCheck) { u.basinCheck = false; u.hopFor = G.time; } hopNow(u); } return k; } // (a plate's stop and hop too: 36_works plates)
+  if (u.brake > 0) { u.brake -= dt; const k = u.brakeK || 0.2; if (u.brake <= 0) { const bc = u.basinCheck; if (bc) { u.basinCheck = false; u.hopFor = G.time; } hopNow(u); if (bc) basinLeap(u); } return k; } // (a plate's stop and hop too: 36_works plates)
   const A = ARENA; if (!A || !A.basin || u.fly || u.under || u.dead || u.enter) return 1;
-  const gk = u.gaitK === undefined ? 1 : u.gaitK, vx = u.vx * gk + u.kx, vy = u.vy * gk + u.ky, sp = Math.hypot(vx, vy); if (sp < 20) return 1;
+  const gk = u.gaitK === undefined ? 1 : u.gaitK, vx = u.vx * gk + u.kx, vy = u.vy * gk + u.ky, sp = Math.hypot(vx, vy); if (sp < 2) return 1; // (however slowly he comes at the rim)
   const ahead = clamp(sp * 0.1, 3, 10), ax = u.x + vx / sp * ahead, ay = u.y + vy / sp * ahead, here = basinAt(u.x, u.y);
-  if (basinAt(ax, ay) === here || !FLOOR(A.fl[Math.floor(ay / TS) * A.w + Math.floor(ax / TS)])) return 1;
+  const there = basinFace(ax, ay) !== null ? !here : !!basinAt(ax, ay); // (the north wall's face counts as the far side, from either side: it is never stood on)
+  if (there === !!here || !FLOOR(A.fl[Math.floor(ay / TS) * A.w + Math.floor(ax / TS)])) return 1;
   if (((u.z > 0.5 || u.vz > 0) && !(u.hopFor && G.time - u.hopFor < 0.6)) || (u.hopQ && u.hopQ.length)) return 0.15; // (still in the air from the last hop, the one for the rim behind him: held back till he lands, so each is seen whole)
   if (u.hopFor && G.time - u.hopFor < 0.6) return 1; // (the hop for this rim is under way: on over it)
   if ((u.hopCool || 0) > G.time) return 1;
-  const up = !!here; u.brake = up ? 0.12 : 0.06; u.hopV = up ? HOP_UP : HOP_DOWN; u.basinCheck = true; u.hopCool = G.time + 0.3; return 0.2; // (a crouch before the climb out)
+  const up = !!here; u.brake = up ? 0.12 : 0.06; u.hopV = up ? HOP_UP : HOP_DOWN; u.hopDir = up ? 'up' : 'down'; u.basinCheck = true; u.hopCool = G.time + 0.3; return 0.2; // (a crouch before the climb out)
 }
 // a drop landing in full water: a ring on the water instead of a mark on the floor
 function wetAt(x, y) { const A = ARENA; if (!A || !A.fl) return false; const tx = Math.floor(x / TS), ty = Math.floor(y / TS); return tx >= 0 && ty >= 0 && tx < A.w && ty < A.h && A.fl[ty * A.w + tx] === 2; }

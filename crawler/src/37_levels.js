@@ -377,7 +377,7 @@ function dormantTick(f, dt) {
 }
 // ---- the trickle from a sluice's outlet while its water is up: the hint that the plate under it does something
 function levelTick(dt) {
-  for (const d of G.drops) if (d.flop && d.z <= 0 && !d.dead && chance(dt * 1.4)) { d.vz = rand(35, 65); d.vx = rand(-18, 18); d.vy = rand(-8, 8); } // a fish out of water
+  for (const d of G.drops) if (d.flop && d.z <= 0 && !d.dead && chance(dt * 1.4)) { d.vz = rand(35, 65); d.vx = d.vy = 0; for (let t = 0; t < 8; t++) { const vx = rand(-18, 18), vy = rand(-8, 8); if (bedOK(d.x + vx * 0.45, d.y + vy * 0.45)) { d.vx = vx; d.vy = vy; break; } } } // a fish out of water (flopping only where the bed is, well off its walls: bedOK, 36_works)
   // an island's archer is watching the water: it sees anyone in its sight across it
   for (const f of G.foes) if (f.turret && !f.aware && !f.dead) { const h = G.heroes.find(h => alive(h) && dist(h.x, h.y, f.x, f.y) < 150 && lineOfSight(f.x, f.y - 4, h.x, h.y - 4)); if (h) wakeFoe(f, h, 'sight'); }
   for (const pl of ARENA.plates || []) if (pl.outlet && !pl.down && pl.pool && !pl.pool.drain && chance(dt * 5)) water(pl.outlet.x + rand(-2, 2), pl.outlet.y, 8, rand(-4, 4), rand(2, 8), 0);
