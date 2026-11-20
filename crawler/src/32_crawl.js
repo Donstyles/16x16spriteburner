@@ -74,13 +74,7 @@ function drawSouthDoor(c, d) {
 }
 // now and then a south doorway (which has no door) has a strut across it too: the same bar (the sheet has none seen from
 // behind), along the top of the south wall at the ceiling, over everyone passing under it (drawn with the ceiling)
-function drawSouthStruts(c) { const A = ARENA; if (!A.doors) return; for (const d of A.doors) if (d.side === 'N') strutEnds(c, d, (4 + (d.motif || 0)) * TS, A.th.door * TS + 3, (d.cells[0][1] - 1) * TS + 3); /* (a north strut's two ends again, over the ceiling: the posts' dark outline is part of the ceiling's trim) */ for (const d of A.doors) if (d.side === 'S' && d.strut) { const sx = (4 + (d.motif || 0)) * TS; for (const [x, y] of d.cells) c.drawImage(IMG.doors, sx, A.th.door * TS + 3, TS, 8, x * TS, y * TS + S_DROP, TS, 8); strutEnds(c, d, sx, A.th.door * TS + 3, d.cells[0][1] * TS + S_DROP, S_GAP); southStrutBlend(c, d, sx); } }
-// blended into the south wall's trim at its two ends: its top line and top face (five rows) run on over the doorway's posts
-// to the trim either side (its own colours kept)
-function southStrutBlend(c, d, sx) {
-  const A = ARENA, xs = d.cells.map(q => q[0]), x0 = Math.min(...xs), x1 = Math.max(...xs), dy = d.cells[0][1] * TS + S_DROP, sy = A.th.door * TS + 3, B = 5, L = x0 * TS - S_GAP - B, R = (x1 + 1) * TS + S_GAP;
-  c.drawImage(IMG.doors, sx + TS - S_GAP - B, sy, B, 5, L, dy, B, 5); c.drawImage(IMG.doors, sx + S_GAP, sy, B, 5, R, dy, B, 5);
-}
+function drawSouthStruts(c) { const A = ARENA; if (!A.doors) return; for (const d of A.doors) if (d.side === 'N') strutEnds(c, d, (4 + (d.motif || 0)) * TS, A.th.door * TS + 3, (d.cells[0][1] - 1) * TS + 3); /* (a north strut's two ends again, over the ceiling: the posts' dark outline is part of the ceiling's trim) */ for (const d of A.doors) if (d.side === 'S' && d.strut) { const sx = (4 + (d.motif || 0)) * TS; for (const [x, y] of d.cells) c.drawImage(IMG.doors, sx, A.th.door * TS + 3, TS, 8, x * TS, y * TS + S_DROP, TS, 8); strutEnds(c, d, sx, A.th.door * TS + 3, d.cells[0][1] * TS + S_DROP, S_GAP); } }
 // the map in the corner: every tile the party has seen, where it came down, the way down once the map is read, every hero
 let MINI = null;
 function drawMinimap(c, xr, y0) {
