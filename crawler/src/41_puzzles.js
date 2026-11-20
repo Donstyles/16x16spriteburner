@@ -369,6 +369,10 @@ function wallBurst(A, c, top) {
   g.translate(-bx, -by); drawGround(g, bx, by, bw, bh); for (const C of [A.ceil, A.ceilN]) if (C) g.drawImage(C, bx, by, bw, bh, bx, by, bw, bh);
   const id = g.getImageData(0, 0, bw, bh), d = id.data; for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] < 70) d[i + 3] = 0; // (not the black of the rock behind it)
   breakSprite({ w: bw, d }, 0, 0, bw, bh, bx, by, (c.y + 2) * TS + 2, 26, { away: Math.PI / 2, spd: 1.35, edge: ['#2c2620', '#3a332b'] });
+  if (A.th.sheet === 'crypt') { // (the crypt's walls are full of its dead: out with the brick come skulls and bones, 46_bits)
+    const NAMES = ['skull', 'long', 'rib', 'short', 'skull', 'slant', 'long', 'rib']; for (let i = 0; i < 16; i++) tossBit(NAMES[i % NAMES.length], bx + 6 + (i * 37) % (bw - 12), (c.y + 1) * TS + 4, { ang: Math.PI / 2 + ((i % 5) - 2) * 0.35, v: 50 + (i * 13) % 50, up: 70 + (i * 29) % 60 });
+    SFX.clatter(panOf(bx + 24)); SFX.bone(panOf(bx + 24), true);
+  }
 }
 function openCrack(A, p) {
   const c = p.crack, W = A.w; c.open = true; p.dead = true; logEv('wall broken', { holds: c.holds, at: c.x + ',' + c.y });
