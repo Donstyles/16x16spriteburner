@@ -38,17 +38,32 @@ const GALLERY = [
   ['WATERWORKS', 'arch', 'water', 'CISTERNS, PONDS, THE FLOODED WAY', '#a8d8b0'],
   ['BROKEN FLOORS', 'arch', 'pits', 'MORE PITS THAN USUAL', '#a8d8b0'],
   ['LOCKED WAYS', 'arch', 'locks', 'MORE PUZZLES, MORE CRACKED WALLS', '#a8d8b0'],
+  // the catacombs (43_crypt, 44_candles): built as a crypt floor (the fourth; the sixth for the mossy deep)
+  ['TOMB HALL', 'crypt', 'hall', 'KEEP THE CANDLES BURNING: A TOMB WHOSE LAST ONE GOES OUT OPENS', '#e89a90'],
+  ['BURIAL CHAMBER', 'crypt', 'sarc', 'COME NEAR THE SARCOPHAGUS IN THE DARK, OR STRIKE IT, AND ITS LORD RISES', '#e89a90'],
+  ['CHARNEL PIT', 'crypt', 'charnel', 'THE DEAD CLIMB OUT WHILE A BRAZIER BESIDE IT IS DARK: STAND AT EACH TO LIGHT IT', '#e89a90'],
+  ['SKULL FONT', 'crypt', 'font', 'STAND AT IT TO DRINK: BLOOD HEALS, AND CURSES', '#e89a90'],
+  ['THRONE CRYPT', 'crypt', 'throne', 'THE LORD OF THE DEAD HOLDS THE WAY DOWN', '#e89a90'],
+  ['THE SHADE', 'crypt', 'shade', 'IT CANNOT MOVE WHILE YOU FACE IT IN YOUR LAMP. LIGHT BURNS IT', '#e89a90'],
+  ['NICHE AMBUSH', 'crypt', 'ambush', 'STEP IN: THE DEAD IN THE WALL COME DOWN', '#e89a90'],
+  ['THE BURIED', 'crypt', 'buried', 'THE EARTH OF THE WORN PATHS STIRS IN THE DARK', '#e89a90'],
+  ['BLOOD SEAL', 'crypt', 'blood', 'THE FONT THIRSTS: STAND AT IT, OR KILL SOMETHING THAT BLEEDS BESIDE IT', '#e89a90'],
+  ['THE VIGIL', 'crypt', 'vigil', 'LIGHT EVERY NICHE OF THE ROOM AT ONCE', '#e89a90'],
+  ['BLOOD CISTERN', 'crypt', 'pool', 'NO WATER IN THE CRYPT: BLOOD, BLACK BLOOD, ROT', '#e89a90'],
+  ['BURIAL GALLERY', 'crypt', 'gallery', 'A CORRIDOR OF NICHES: LIGHT AND BONES IN TURN', '#e89a90'],
+  ['MOSSY DEEP', 'crypt', 'moss', 'THE LOWEST CRYPT FLOOR: ITS DEAD GROWN OVER', '#e89a90'],
 ];
 // (on a gallery floor: PREV and NEXT at the top step through them all, its name and number under them; 61_input)
 const GAL = { on: false, i: 0, kit: null };
 function galleryStep(d) { const n = GALLERY.length; beginGallery(GAL.kit, ((GAL.i + d) % n + n) % n); }
 function beginGallery(kit, i) {
-  const [label, kind, what, line] = GALLERY[i]; beginRun(kit); G.floor = kind === 'puz' || kind === 'crack' ? 4 : chance(0.5) ? 3 : 4; let at = null; // (brown or grey; the puzzles at their fullest on the fourth)
+  const [label, kind, what, line] = GALLERY[i]; beginRun(kit); G.floor = kind === 'crypt' ? (what === 'moss' ? 6 : 4) : kind === 'puz' || kind === 'crack' ? 4 : chance(0.5) ? 3 : 4; let at = null, keep = null; // (brown or grey; the puzzles at their fullest on the fourth)
   const room = r => { const W = ARENA.w, cx = Math.round((r.ix0 + r.ix1) / 2); for (let d = 0; d < 12; d++) for (const y of [r.iy1 - d, r.iy1 - d + 1]) for (const x of [cx, cx - d, cx + d]) if (y >= r.iy0 && y <= r.iy1 && FLOOR(ARENA.fl[y * W + x])) return [x * TS + 8, y * TS + 10]; return [(cx + 0.5) * TS, (r.iy1 + 0.5) * TS]; };
   const doorIn = (r, d) => { const [x, y] = d.cells[1]; return d.side === 'N' ? [x, y + 2] : d.side === 'S' ? [x, y - 2] : d.side === 'W' ? [x + 2, y] : [x - 2, y]; };
   for (let n = 0; n < 60 && !at; n++) {
+    if (kind === 'crypt') { CRYPT.force = true; if (what === 'blood' || what === 'vigil') PUZ.force = what; }
     if (kind === 'shape') SHAPES.force = what; if (kind === 'great') GREAT.force = true; if (kind === 'theme') ARCH.theme = what; if (kind === 'puz') { PUZ.force = what === 'songhidden' ? 'song' : what === 'spikehidden' ? 'spikegate' : what; PUZ.hidden = what === 'songhidden'; PUZ.spikeHidden = what === 'spikehidden'; } if (kind === 'crack') { PUZ.force = what === 'lever' ? 'gate' : what === 'rune' ? 'rune' : null; HIDDEN.force = what === 'hall' || what.startsWith('nest') ? true : what === 'hallexit' ? 'exit' : false; HIDDEN.nest = what === 'nestalcove' ? 'alcove' : what === 'nestleg' ? 'leg' : null; } if (kind === 'arch') ARCH.force = what;
-    try { startFloor(); } finally { SHAPES.force = null; GREAT.force = false; ARCH.theme = null; PUZ.force = null; PUZ.hidden = false; PUZ.spikeHidden = false; HIDDEN.force = false; HIDDEN.nest = null; ARCH.force = null; }
+    try { startFloor(); } finally { SHAPES.force = null; GREAT.force = false; ARCH.theme = null; PUZ.force = null; PUZ.hidden = false; PUZ.spikeHidden = false; HIDDEN.force = false; HIDDEN.nest = null; ARCH.force = null; CRYPT.force = false; }
     const A = ARENA;
     if (kind === 'shape') { const r = A.rooms.find(q => q.shape === what); if (r) at = room(r); }
     else if (kind === 'great') { const r = A.rooms.find(q => q.great); if (r) at = room(r); }
@@ -60,12 +75,13 @@ function beginGallery(kit, i) {
       else if (r && what === 'gap') { const b = A.props.find(q => q.push && q.fill); at = b ? [b.x + 30, b.cy + 4] : room(r); } else if (r) at = room(r);
     } else if (kind === 'crack') { const nest = what.startsWith('nest') ? what.slice(4) : null, c = (A.cracks || []).find(q => q.holds === (what === 'hallexit' || nest ? 'hall' : what) && (what !== 'hallexit' || q.hall.A === A.end) && (!nest || (q.inner && q.hall.nest === nest))); if (c) at = [(c.x + 1.5) * TS, (c.y + 2) * TS + 8]; }
     else if (kind === 'arch') at = [A.spawn.x, A.spawn.y];
+    else if (kind === 'crypt') { const r = galleryCrypt(A, what); if (r) { at = r.at; keep = r.keep || null; } }
   }
   // a quiet floor to look round: no foes, the hero right there
-  for (const f of G.foes) f.dead = true; G.foes.length = 0; G.units = G.heroes.slice();
+  for (const f of G.foes) if (!(keep && keep(f))) f.dead = true; removeIf(G.foes, f => f.dead); G.units = G.heroes.concat(G.foes);
   const h = G.me; if (at) { h.x = at[0]; h.y = at[1]; h.enter = null; } CAM.x = h.x; CAM.y = h.y; G.fade = 0.6;
   Object.assign(GAL, { on: true, i, kit });
-  G.card = { t: 0, life: 4.5, a: 'NIGHT GALLERY', b: label, c: line, d: kind === 'arch' ? (ARENA.arch.name || '') + ' · NO FOES' : 'NO FOES · THE STAIRS LEAD ON AS EVER' };
+  G.card = { t: 0, life: 4.5, a: 'NIGHT GALLERY', b: label, c: line, d: kind === 'arch' ? (ARENA.arch.name || '') + ' · NO FOES' : kind === 'crypt' ? 'THE DEAD STILL STIR · THE STAIRS LEAD ON AS EVER' : 'NO FOES · THE STAIRS LEAD ON AS EVER' };
 }
 // the gallery's screen: a grid of buttons, three columns (63_menu)
 function drawGalleryMenu(c, W, H, big, btn, k) {
@@ -74,4 +90,23 @@ function drawGalleryMenu(c, W, H, big, btn, k) {
   const cols = Math.max(3, Math.ceil(GALLERY.length / 10)), rows = Math.ceil(GALLERY.length / cols), gx = 10, gy = 5, x0 = 14 + VIEW.safe.l + 86, x1 = W - 14 - VIEW.safe.r, bw = Math.min(230, (x1 - x0 - gx * (cols - 1)) / cols), y0 = H * 0.11 + 22, bh = clamp((H - y0 - 10 - VIEW.safe.b) / rows - gy, 22, 34), ox = (x0 + x1 - (bw * cols + gx * (cols - 1))) / 2;
   GALLERY.forEach(([txt, , , , col], i) => { const cx = Math.floor(i / rows), cy = i % rows; // (down each column: rooms and corridors, then themes and puzzles, then puzzles and floors)
     btn(c, ox + cx * (bw + gx), y0 + cy * (bh + gy), bw, bh, txt, () => beginGallery(k, i), { size: bh < 28 ? 12 : 14, col }); });
+}
+// a crypt gallery entry: where the hero stands to see it (and which creatures stay: the Shade, the lord on his throne, the
+// buried, those are the thing to see)
+function galleryCrypt(A, what) {
+  const P = k => A.props.find(q => q.kind === k && !q.dead), below = (q, n) => [q.x, q.y + n * TS], inR = (r, x, y) => x >= r.ix0 * TS && x < (r.ix1 + 1) * TS && y >= r.iy0 * TS && y < (r.iy1 + 1) * TS;
+  if (what === 'hall') { const by = {}; for (const q of A.props) if (q.kind === 'tomb') by[q.room] = (by[q.room] || 0) + 1; const k = Object.keys(by).find(k => by[k] >= 8); const r = k !== undefined && A.rooms.find(q => q.i === +k); return r ? { at: [(r.ix0 + r.ix1 + 1) / 2 * TS, (r.iy1 + 0.5) * TS] } : null; }
+  if (what === 'sarc') { const q = P('sarc'); return q ? { at: below(q, 3) } : null; }
+  if (what === 'charnel') { const q = P('charnel'); return q ? { at: [q.x + 4 * TS, q.y] } : null; }
+  if (what === 'font') { const q = A.props.find(q => q.kind === 'font' && !q.seal); return q ? { at: below(q, 2) } : null; }
+  if (what === 'blood') { const q = A.props.find(q => q.kind === 'font' && q.seal); return q ? { at: below(q, 2) } : null; }
+  if (what === 'throne') { const q = P('throne'); return q ? { at: below(q, 5), keep: f => f.seated } : null; }
+  if (what === 'shade') { const S = G.foes.find(f => f.shade); if (!S) return null; for (const d of [6, 5, 7, 4]) for (const sx of [1, -1]) { const x = S.x + sx * d * TS; if (FLOOR(A.fl[Math.floor(S.y / TS) * A.w + Math.floor(x / TS)]) && !solidAt(x, S.y)) return { at: [x, S.y], keep: f => f === S }; } return null; }
+  if (what === 'buried') { const b = G.foes.find(f => f.buried && !litAt(A, f.x, f.y)); if (!b) return null; for (const d of [5, 4, 6]) for (const sx of [1, -1]) { const x = b.x + sx * d * TS; if (FLOOR(A.fl[Math.floor(b.y / TS) * A.w + Math.floor(x / TS)]) && !solidAt(x, b.y)) return { at: [x, b.y], keep: f => f.buried }; } return null; }
+  if (what === 'ambush') { const r = A.rooms.find(r => r.niches && r.niches.length >= 2 && r.kind === 'room' && hash2(r.i * 7 + 3, A.floor * 11 + 1) <= 0.5); const d = r && r.doors.find(d => !d.hidden && d.side === 'S') || r && r.doors.find(d => !d.hidden); if (!d) return null; const [x, y] = d.cells[1], o = { N: [0, -1], S: [0, 1], W: [-1, 0], E: [1, 0] }[d.side]; return { at: [(x + o[0]) * TS + 8, (y + o[1]) * TS + 10] }; }
+  if (what === 'vigil') { const v = A.vigils && A.vigils[0]; if (!v) return null; return { at: [v.ts[0].x, v.ts[0].y + 3 * TS] }; }
+  if (what === 'pool') { const q = (A.pools || []).find(q => !q.flooded); return q ? { at: [(q.x1 + 1.5) * TS + 8, (q.y0 + q.y1 + 1) / 2 * TS] } : null; }
+  if (what === 'gallery') { const t = A.torches.find(t => t.candles && !A.rooms.some(r => inR(r, t.x, t.y + 24)) && FLOOR(A.fl[Math.floor((t.y + 24) / TS) * A.w + Math.floor(t.x / TS)])); return t ? { at: [t.x + 20, t.y + 26] } : null; }
+  if (what === 'moss') return { at: [A.spawn.x, A.spawn.y] };
+  return null;
 }
