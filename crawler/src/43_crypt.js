@@ -353,7 +353,7 @@ function shadeTick(f, dt) {
     if (!f.frozen && d < 70) { SFX.hex(panOf(f.x), true); shake(0.05); } f.frozen = true; f.vx = f.vy = 0; return;
   }
   if (f.frozen && d < 90) SFX.whisper(clamp((f.x - h.x) / 120, -0.9, 0.9), true); // (turned from it: it is coming)
-  f.frozen = false; let tx = h.x, ty = h.y, spd = 78;
+  f.frozen = false; let tx = h.x, ty = h.y, spd = 78; if (Math.random() < dt * 7) smoke(f.x + rand(-3, 3), f.y - rand(5, 16), 1, 'dark', 3, 6, 0.9, 5); // (it leaves wisps of itself behind as it comes, seen only in light)
   if ((f.snuffT = (f.snuffT || 3) - dt) <= 0) { // it puts the candles out ahead of it, one at a time, so the dark spreads
     f.snuffT = 4.5; const c = (A.candles || []).filter(k => k.lit && !k.torch && Math.hypot(k.x - f.x, k.yb - f.y) < 46).sort((a, b) => Math.hypot(a.x - f.x, a.yb - f.y) - Math.hypot(b.x - f.x, b.yb - f.y))[0]; if (c) snuff(c);
   }
