@@ -352,7 +352,7 @@ function buildArena1(floor) {
     cng.save(); cng.beginPath(); for (const [rx, ry, rw, rh] of R) cng.rect(rx, ry, rw, rh); cng.clip(); put(cng, tx, ty, x, y, flip); cng.restore();
   };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const P = wallPiece(isF, x, y); if (P) T(P[0], P[1], x, y, P[2]); }
-  if (th.sheet === 'crypt') { g.fillStyle = '#261d1a'; for (const r of rooms) for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) if (!wt[y * W + x] && !isF(x, y)) g.fillRect(x * TS, y * TS, TS, TS); } // (the inside of a block of wall standing in a crypt room is the wall's dark top, as its edges are)
+  if (th.sheet === 'crypt') { g.fillStyle = '#121418'; for (const r of rooms) for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) if (!wt[y * W + x] && !isF(x, y)) g.fillRect(x * TS, y * TS, TS, TS); } // (the inside of a block of wall standing in a crypt room is the wall's dark top, as its edges are)
   const A = ARENA = { arch: ARCH.cur, w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilN: cn, fl, wt, wf, rooms, halls, props: [], torches: [], name: floorName(floor), floor, liq, moss: th.sheet === 'crypt' && floor >= 6 }; // (liq: what the crypt's pools hold, 36_works LIQUIDS; moss: the deepest crypt's dead grown over, 43_crypt)
   paintCeil(A, cg, cv); // the painted trim, as drawn on the ground: the ceiling over everyone (31_walls)
   for (const i of hidMask) fl[i] = 1;
