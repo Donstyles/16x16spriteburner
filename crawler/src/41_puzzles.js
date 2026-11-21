@@ -266,8 +266,20 @@ function placeEcho(A, r, g) {
   const Wk = wkOf(A), n = g.runeN || 3, cands = [], e = { runes: [], order: [], step: 0, shown: false, play: null, gate: g, room: r.i, song: g.how === 'song' }, nc = r.crack && r.crack.holds === 'rune' && !r.crack.used ? r.crack : null;
   for (let ty = r.iy0 + 1; ty <= r.iy1 - 1; ty++) for (let tx = r.ix0 + 1; tx <= r.ix1 - 1; tx++) { if (A.fl[ty * A.w + tx] !== 1 || r.doors.some(d => d.cells.some(([x, y]) => Math.abs(x - tx) + Math.abs(y - ty) < 4)) || A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (tx * TS + 8)) < 16 && Math.abs(q.cy - (ty * TS + 10)) < 14)) continue; cands.push([tx, ty]); }
   if (nc) nc.used = true;
-  for (let i = 0; i < n; i++) { if (nc && i === n - 1) { const x = nc.x + 1, y = nc.y + 1; e.runes.push({ tx: x, ty: y, x: x * TS + 8, y: y * TS + 8, tile: [Wk.rune[0] + i % 3, Wk.rune[1]], lit: [Wk.runeOn[0] + i % 3, Wk.runeOn[1]], on: false, flash: 0, under: false, i, hidden: true, niche: nc }); break; } if (!cands.length) break; const far = cands.filter(([x, y]) => e.runes.every(q => Math.hypot(q.tx - x, q.ty - y) >= 4)), [x, y] = pick(far.length ? far : cands); e.runes.push({ tx: x, ty: y, x: x * TS + 8, y: y * TS + 8, tile: [Wk.rune[0] + i % 3, Wk.rune[1]], lit: [Wk.runeOn[0] + i % 3, Wk.runeOn[1]], on: false, flash: 0, under: false, i }); removeIf(cands, ([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 2); }
+  const sym = A.th.sheet === 'crypt' && !e.song ? echoSym(r, cands, n - (nc ? 1 : 0)) : null; // (the crypt's echoing runes: laid out mirrored, below)
+  for (let i = 0; i < n; i++) { if (sym && i < sym.length) { const [x, y] = sym[i]; e.runes.push({ tx: x, ty: y, x: x * TS + 8, y: y * TS + 8, tile: [Wk.rune[0] + i % 3, Wk.rune[1]], lit: [Wk.runeOn[0] + i % 3, Wk.runeOn[1]], on: false, flash: 0, under: false, i }); continue; }
+    if (nc && i === n - 1) { const x = nc.x + 1, y = nc.y + 1; e.runes.push({ tx: x, ty: y, x: x * TS + 8, y: y * TS + 8, tile: [Wk.rune[0] + i % 3, Wk.rune[1]], lit: [Wk.runeOn[0] + i % 3, Wk.runeOn[1]], on: false, flash: 0, under: false, i, hidden: true, niche: nc }); break; } if (!cands.length) break; const far = cands.filter(([x, y]) => e.runes.every(q => Math.hypot(q.tx - x, q.ty - y) >= 4)), [x, y] = pick(far.length ? far : cands); e.runes.push({ tx: x, ty: y, x: x * TS + 8, y: y * TS + 8, tile: [Wk.rune[0] + i % 3, Wk.rune[1]], lit: [Wk.runeOn[0] + i % 3, Wk.runeOn[1]], on: false, flash: 0, under: false, i }); removeIf(cands, ([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 2); }
   e.order = pitShuffle(e.runes.map((_, i) => i)); (A.echoes = A.echoes || []).push(e);
+}
+// the crypt's echoing runes stand mirrored about the room's middle line: with four, the corners of a rectangle; with
+// three, a pair and one on the line; with two, a pair. Each at least four tiles from the next. Where the free floor
+// allows no such layout (an odd count in a room with no middle column, or nothing mirrored free), they fall as anywhere.
+function echoSym(r, cands, k) {
+  const mx = r.ix0 + r.ix1, has = (x, y) => cands.some(([a, b]) => a === x && b === y), P = cands.filter(([x, y]) => 2 * x <= mx - 4 && has(mx - x, y)); // (P: the west one of each free mirrored pair, four or more from its twin)
+  if (k >= 4) { const R = []; for (const [x, y] of P) for (const [x2, y2] of P) if (x2 === x && y2 >= y + 4) R.push([x, y, y2]); if (!R.length) return null; const [x, y, y2] = pick(R); return [[x, y], [mx - x, y], [mx - x, y2], [x, y2]]; }
+  if (k === 3) { if (mx % 2) return null; const R = []; for (const [x, y] of P) for (const [a, b] of cands) if (2 * a === mx && Math.abs(b - y) >= 3 && Math.hypot(a - x, b - y) >= 4) R.push([x, y, b]); if (!R.length) return null; const [x, y, b] = pick(R); return [[x, y], [mx / 2, b], [mx - x, y]]; }
+  if (k === 2) { if (!P.length) return null; const [x, y] = pick(P); return [[x, y], [mx - x, y]]; }
+  return null;
 }
 // Each rune has its own note (C, E, G, the high C), sounded whenever it lights. THE ECHOING RUNES show the order: each
 // lights in turn with its note. THE SINGING RUNES only sing it: the notes in turn and nothing to see, so the order is found

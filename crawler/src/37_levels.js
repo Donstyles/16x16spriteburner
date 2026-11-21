@@ -267,8 +267,20 @@ function wayArrows(A, g) {
     const free = (x, y) => A.fl[y * A.w + x] === 1 && !(A.basin && A.basin[y * A.w + x]) && !(A.crumbles || []).some(c => c.i === y * A.w + x) && !(r.pool && r.pool.cells.has(y * A.w + x))
       && !A.props.some(p => !p.dead && Math.abs(p.x - (x * TS + 8)) < 16 && p.y > y * TS && p.y < (y + 2) * TS + 6)
       && !(A.plates || []).some(p => p.tx === x && p.ty === y) && !(A.runes || []).some(p => p.tx === x && p.ty === y) && !(r.inlay || []).some(([a, b]) => x >= a && x <= a + 1 && y >= b && y <= b + 1);
-    const at = cands.find(([x, y]) => free(x, y)); if (at) tileAt(g, COL[door.side], row, at[0] * TS, at[1] * TS);
+    const crypt = A.th.sheet === 'crypt', mid = [Math.round(cx), Math.round(cy)]; // (the crypt's: where its worn paths meet, the middle cell its wear runs to (30_arena), when that is free)
+    const at = crypt && free(mid[0], mid[1]) ? mid : cands.find(([x, y]) => free(x, y)); if (at) { if (crypt) wayStone(g, COL[door.side], row, at[0] * TS, at[1] * TS); else tileAt(g, COL[door.side], row, at[0] * TS, at[1] * TS); }
   }
+}
+// the crypt's way-stone: no pale slab of the cellar's, but the crypt's own plain slab with the arrow cut into it (the cellar
+// arrow slab's own glyph: its dark pixels inside the rim, in the same tones)
+const WAY_GLYPH = {};
+function wayStone(g, col, row, dx, dy) {
+  g.drawImage(IMG.crypt, 6 * TS, 0, TS, TS, dx, dy, TS, TS);
+  const key = col + ',' + row; let cv = WAY_GLYPH[key];
+  if (!cv) { cv = WAY_GLYPH[key] = mkCanvas(TS, TS); const c = cv.getContext('2d'), [img, sx, sy] = srcOf(col, row); c.drawImage(img, sx, sy, TS, TS, 0, 0, TS, TS); const D = c.getImageData(0, 0, TS, TS), d = D.data;
+    for (let i = 0; i < TS * TS; i++) { const x = i % TS, y = (i / TS) | 0, l = 0.3 * d[i * 4] + 0.59 * d[i * 4 + 1] + 0.11 * d[i * 4 + 2]; if (x < 1 || x > TS - 2 || y < 1 || y > TS - 3 || l >= 128) d[i * 4 + 3] = 0; }
+    c.putImageData(D, 0, 0); }
+  g.drawImage(cv, dx, dy);
 }
 // ---- the corridors: some barricaded across with wooden furniture (it all breaks: smash a way through), some cluttered
 // along both sides with the middle lane left clear, and smashed crates lying about on their floors. The sheet's wood:

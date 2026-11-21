@@ -445,7 +445,7 @@ function brazierLamp(dt) {
 // curses him (his blows go wide two times in three for twenty seconds). Drunk, the basin
 // empties, and fills again from the skull's mouth over a minute and a half, a thin stream running down the whole while.
 const FONT_COL = { blood: 23, water: 24 }, FONT_RGB = { blood: '#8a1418', water: '#2f7fcc' };
-const fontRoom = r => r.kind === 'room' && hash2(r.i * 5 + 2, 77) < 0.34;
+const fontRoom = r => r.kind === 'room' && !r.pool && !r.ledge && hash2(r.i * 5 + 2, 77) < 0.34; // (never over a room's liquid: a flooded way's ledge runs along that wall, and a font on it would wall off the way round)
 function cryptFont(A, r, g, xx, y) {
   const liq = 'blood', col = FONT_COL[liq], nx = xx * TS, M = MOSS();
   cryptAt(g, col, 1 + M, nx, y * TS - 3); // (the skull in the brick)
