@@ -114,11 +114,17 @@ function greatHall(r, fl, W, H) {
   const keep = landingKeep(r, W), bh = 3, step = randi(5, 6);
   for (let t = 0; t < 12; t++) {
     const rock = new Set(), add = (x0, y0, w, h) => { const c = []; for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) c.push(y * W + x); if (c.some(i => keep.has(i))) return; for (const i of c) rock.add(i); };
+    const C = TH && TH.sheet === 'crypt', group = bs => { const cs = bs.map(([x0, y0, w, h]) => { const c = []; for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) c.push(y * W + x); return c; }); if (cs.some(c => c.some(i => keep.has(i)))) return; for (const c of cs) for (const i of c) rock.add(i); }; // (the crypt's: a block and its mirrors stand together or not at all)
     if (r.great === 'h') { // two rows with a nave between them, or (no room for two) one row down the middle
       const h2 = bh, yt = r.iy0 + (r.kind === 'end' ? 3 : 2) + (t % 2), yb = r.iy0 + r.iy1 - yt - h2 + 1, two = yb - (yt + h2) >= 2, ym = Math.max(r.iy0 + (r.kind === 'end' ? 4 : 3), Math.round((r.iy0 + r.iy1 - h2 + 1) / 2));
-      for (let x = r.ix0 + 3 + randi(0, 1); x + 1 <= r.ix1 - 3; x += step) { if (two) { add(x, yt, 2, h2); add(x, yb, 2, h2); } else add(x, ym, 2, h2); }
+      const x00 = r.ix0 + 3 + randi(0, 1);
+      if (C) { // (the crypt's colonnade: laid out from the hall's middle, mirrored)
+        const c2 = r.ix0 + r.ix1, rowsOf = x => two ? [[x, yt, 2, h2], [x, yb, 2, h2]] : [[x, ym, 2, h2]];
+        let x = c2 % 2 ? (c2 - 1) / 2 : c2 / 2 - 1 - Math.floor(step / 2); if (c2 % 2) { group(rowsOf(x)); x -= step; }
+        for (; x >= r.ix0 + 3; x -= step) group(rowsOf(x).concat(rowsOf(c2 - x - 1)));
+      } else for (let x = x00; x + 1 <= r.ix1 - 3; x += step) { if (two) { add(x, yt, 2, h2); add(x, yb, 2, h2); } else add(x, ym, 2, h2); }
     }
-    else { const xl = r.ix0 + 2 + randi(0, 1), xr = r.ix0 + r.ix1 - xl - 1; if (xr - (xl + 2) < 3) return; for (let y = r.iy0 + (r.kind === 'end' ? 4 : 3); y + bh - 1 <= r.iy1 - 3; y += step) { add(xl, y, 2, bh); add(xr, y, 2, bh); } }
+    else { const xl = r.ix0 + 2 + randi(0, 1), xr = r.ix0 + r.ix1 - xl - 1; if (xr - (xl + 2) < 3) return; for (let y = r.iy0 + (r.kind === 'end' ? 4 : 3); y + bh - 1 <= r.iy1 - 3; y += step) { if (C) group([[xl, y, 2, bh], [xr, y, 2, bh]]); else { add(xl, y, 2, bh); add(xr, y, 2, bh); } } }
     if (rock.size && shapeOK(r, rock, new Set(), fl, W, keep)) { for (const i of rock) fl[i] = 0; r.rock = rock; return; }
   }
 }
