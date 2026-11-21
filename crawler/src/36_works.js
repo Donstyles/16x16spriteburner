@@ -27,7 +27,7 @@ const WK = {
   grey: { square: [[20, 19], [20, 16]], round: [[16, 19], [16, 16]], deep: [[24, 19], [24, 16]], slatV: [17, 29], slatH: [16, 30], plate: [10, 26], socket: [13, 26], wetSocket: [3, 18], rune: [27, 3], runeOn: [27, 4], block: [10, 28], spike: [0, 28], drain: [18, 4], wetPillar: [1, 16], dryPillar: [24, 2], basin: [54, 56, 62] },
   brown: { square: [[20, 26], [20, 23]], round: [[16, 26], [16, 23]], deep: [[24, 26], [24, 23]], slatV: [21, 29], slatH: [20, 30], plate: [10, 27], socket: [13, 27], wetSocket: [3, 21], rune: [27, 6], runeOn: [27, 7], block: [10, 29], spike: [5, 28], drain: [18, 7], wetPillar: [1, 19], dryPillar: [24, 5], basin: [64, 54, 44] },
 };
-WK.crypt = Object.assign({}, WK.grey, { basin: [62, 50, 42] }); // (the crypt: the grey set's pieces, from its recoloured sheet; a drained bed of its earth)
+WK.crypt = Object.assign({}, WK.grey, { basin: [62, 50, 42], slatV: WK.brown.slatV, slatH: WK.brown.slatH }); // (the crypt: the grey set's pieces, from its recoloured sheet; a drained bed of its earth; the brown set's slats, a darker sandstone, not a row of pale teeth over the blood)
 const wkOf = A => WK[A.th.sheet === 'crypt' ? 'crypt' : A.th.tone === 'grey' ? 'grey' : 'brown'];
 const sheetTile = (g, [tx, ty], x, y, dx = 0, dy = 0) => g.drawImage(IMG.cellar, (tx + dx) * TS, (ty + dy) * TS, TS, TS, x, y, TS, TS);
 // The sheet's wooden bridges, two tiles wide, fresh (orange) or green with age: for a way running east and west the planks
@@ -115,7 +115,7 @@ function waterBody(A, cells, set, W, dual) {
 // liquid's own colour, each pixel as much lighter or darker as it was in the water (liquify), and its glints,
 // its whirl over the drain, the drops thrown up, the rings and the wet it leaves take the liquid's colours (liq, below).
 const LIQUIDS = {
-  blood: { base: [104, 16, 20], glintC: [176, 70, 66], drops: ['#7a1418', '#5e0f12', '#96262a', '#4a0a0d'], glint: '214,120,110', wet: '74,10,12' },
+  blood: { base: [84, 12, 16], glintC: [158, 58, 54], drops: ['#661115', '#4e0c0f', '#7e2024', '#3c080b'], glint: '200,108,98', wet: '62,8,10' }, // (deep: old blood pooled, not paint)
   black: { base: [33, 19, 22], glintC: [104, 74, 80], drops: ['#22141a', '#190e12', '#311c22', '#100709'], glint: '156,118,124', wet: '8,3,5' }, // (old blood gone black: a red in its dark)
   rot: { base: [44, 62, 26], glintC: [112, 140, 70], drops: ['#2c3e1a', '#223014', '#3e5626', '#18220e'], glint: '160,196,110', wet: '18,34,10' },
 };

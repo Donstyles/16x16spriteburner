@@ -273,7 +273,7 @@ function nicheAmbush(dt) {
 }
 function burstNiche(A, r, n) {
   for (const c of n.candles || []) { snuff(c, true); const i = A.wallCandles.indexOf(c); if (i >= 0) A.wallCandles.splice(i, 1); const j = A.candles.indexOf(c); if (j >= 0) A.candles.splice(j, 1); }
-  groundPaint(n.nx, n.ny, n.nx + TS, n.ny + TS, g => { g.drawImage(IMG.crypt, 8 * TS, 7 * TS, TS, TS, n.nx, n.ny); }); // (an empty niche now)
+  groundPaint(n.nx, n.ny, n.nx + TS, n.ny + TS, g => { g.drawImage(IMG.crypt, 8 * TS, (7 + MOSSN()) * TS, TS, TS, n.nx, n.ny, TS, TS); }); // (an empty niche now)
   const x = n.nx + 8, y = (r.fy0 + 2) * TS + 5;
   debris(x, y - 10, 12, ['#3a2f11', '#33240f', '#cfc6b0', '#a49a84'], 80, 120, 1.4); smoke(x, y - 8, 3, 'dust', 6, 16, 0.9); SFX.stone(panOf(x), true); SFX.clatter(panOf(x)); shake(0.12);
   const spr = A.army === 'rot' ? 'MutilatedStumbler' : 'DecrepitBones'; if (!MOBS[spr]) return;
