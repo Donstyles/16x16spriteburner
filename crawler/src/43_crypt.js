@@ -26,7 +26,7 @@ const BONES_BIG = [[13, 14], [12, 14], [11, 14]], BONES_SMALL = [[9, 14], [10, 1
 
 // (furnish, before the floor's puzzles are laid: only the treasure room's chest and its urns)
 function cryptFurnish(A, r, g, prop, nearDoor) {
-  if (r.kind === 'treasure' || r.chest) { const at = chestSpot(r); prop('tchest', at[0], at[1], { tier: chestTier(A.floor), hp: 1, r: 6, open: false }); for (const s of [-2, 2]) if (FLOOR(A.fl[at[1] * A.w + at[0] + s]) && !nearDoor(at[0] + s, at[1], 2)) prop('barrel', at[0] + s, at[1], { tile: URNS[(Math.abs(at[0] + s) + at[1]) % 4], th: 1, hp: 40 }); }
+  if (r.kind === 'treasure' || r.chest) { const at = chestSpot(r); prop('tchest', at[0], at[1], { tier: chestTier(A.floor), hp: 1, r: 6, open: false }); const side = s => FLOOR(A.fl[at[1] * A.w + at[0] + s]) && !nearDoor(at[0] + s, at[1], 2) && !(A.noProp && A.noProp.has(at[1] * A.w + at[0] + s)); if (side(-2) && side(2)) for (const s of [-2, 2]) prop('barrel', at[0] + s, at[1], { tile: URNS[(Math.abs(at[0] + s) + at[1]) % 4], th: 1, hp: 40, pair: 'chest' + r.i }); } // (an urn either side of the chest, or none)
 }
 // THE DRESSING, after everything else on the floor is in place (its set pieces, pools, puzzles, spikes): the dead go
 // only on floor nobody needs. A tile is free when it is plain floor off the worn paths, a tile or more from anything the
@@ -34,6 +34,7 @@ function cryptFurnish(A, r, g, prop, nearDoor) {
 // before a cracked wall nor under a stairway; a room with blocks to push, or a set piece, a pool or a shrine, gets none.
 // Each pair is set down only if every tile of the room that could be reached before can still be reached after.
 function cryptDress(A, g) {
+  { const n = {}; for (const p of A.props) if (p.pair && !p.dead) n[p.pair] = (n[p.pair] || 0) + 1; removeIf(A.props, p => p.pair && n[p.pair] !== 2); } // (a pair that lost one of its two to whatever came after: the other goes too)
   for (const r of A.rooms) {
     if (r.kind === 'shop' || r.kind === 'start' || (r.kind !== 'end' && r.set) || r.pool || r.shrine || r.sluice || A.props.some(p => p.push && !p.dead && p.x >= r.ix0 * TS && p.x <= (r.ix1 + 1) * TS && p.y >= r.iy0 * TS && p.y <= (r.iy1 + 1) * TS)) continue;
     const W = A.w, inR = (x, y) => x >= r.ix0 && x <= r.ix1 && y >= r.iy0 && y <= r.iy1, keep = new Set(), near = (x, y, m) => { for (let j = -m; j <= m; j++) for (let i = -m; i <= m; i++) keep.add((y + j) * W + x + i); };
