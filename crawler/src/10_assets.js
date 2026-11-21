@@ -11,6 +11,14 @@ function tallCrypt(img) {
   for (const [tx, ty] of [[4, 2], [3, 2], [5, 2], [2, 4], [0, 4]]) { const x = tx * T, y = ty * T; g.clearRect(x, y, T, T); g.drawImage(img, x, y + 8, T, 8, x, y, T, 8); g.drawImage(img, x, y + T, T, 8, x, y + 8, T, 8); }
   return c;
 }
+// THE CRYPT'S WALL TOPS: the dark inside its walls' frames (its room frames and wall blocks, the sheet's first six columns,
+// rows 0 to 6) is the sheet's dark brown; the rock between the rooms is the floor's near-black (30_arena), as the cellar's
+// wall tops are. Drawn in the rock's own colour, a wall's top runs on into the rock with no seam where the one meets the other
+function cryptTops(img) {
+  const c = mkCanvas(img.width, img.height), g = c.getContext('2d'); g.drawImage(img, 0, 0); const w = 6 * 16, h = 7 * 16, id = g.getImageData(0, 0, w, h), d = id.data;
+  for (let i = 0; i < d.length; i += 4) if (d[i] === 38 && d[i + 1] === 29 && d[i + 2] === 26 && d[i + 3] === 255) { d[i] = 18; d[i + 1] = 20; d[i + 2] = 24; } // (#121418)
+  g.putImageData(id, 0, 0); return c;
+}
 function trimEdgeBars(img) {
   const c = mkCanvas(img.width, img.height), g = c.getContext('2d'); g.drawImage(img, 0, 0);
   for (const [row, f, t] of [[1, [60, 69, 76], [81, 93, 102]], [7, [76, 67, 52], [102, 90, 70]]]) { const d = g.getImageData(0, row * 16 + 3, img.width, 1), p = d.data; for (let i = 0; i < p.length; i += 4) if (p[i] === f[0] && p[i + 1] === f[1] && p[i + 2] === f[2] && p[i + 3] === 255) { p[i] = t[0]; p[i + 1] = t[1]; p[i + 2] = t[2]; } g.putImageData(d, 0, row * 16 + 3); }
@@ -20,7 +28,7 @@ function loadImage(src) { return new Promise((res, rej) => { const i = new Image
 async function loadAssets() {
   const A = window.__ASSETS;
   for (const k of ['cellar', 'mobs', 'doors', 'items', 'ores', 'scrolls', 'ends', 'crypt', 'cryptAnim', 'cellarCrypt', 'doorsCrypt', 'endsCrypt']) IMG[k] = await loadImage(A ? A[k] : 'assets/' + ({ doors: 'cellar_doors', ends: 'beam_ends', cryptAnim: 'crypt_anim', cellarCrypt: 'cellar_crypt', doorsCrypt: 'doors_crypt', endsCrypt: 'ends_crypt' }[k] || k) + '.png'); // (ends: a south strut's two ends where it meets the posts, grey left and right, then brown, as painted in the Item Painter)
-  IMG.doors = trimEdgeBars(IMG.doors); IMG.crypt = tallCrypt(IMG.crypt);
+  IMG.doors = trimEdgeBars(IMG.doors); IMG.crypt = cryptTops(tallCrypt(IMG.crypt));
   MOBS = A ? A.mobsJson : await (await fetch('assets/mobs.json')).json();
   padMobs();
   IMG.mobsW = silhouette(IMG.mobs); IMG.oresW = silhouette(IMG.ores); IMG.cellarW = silhouette(IMG.cellar); PIX.ores = pixelData(IMG.ores); PIX.mobs = pixelData(IMG.mobs); PIX.cellar = pixelData(IMG.cellar); cutWeapons();

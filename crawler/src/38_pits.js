@@ -181,8 +181,14 @@ function pitSpikeway(A, r) {
   const deep = A.floor >= 3, D = randi(2, 3), len = l => Math.abs(l.to - l.from) + 1, fit = legs.filter(l => len(l) >= D + 3);
   const leg = (deep && fit.filter(l => l.turn).sort((a, b) => len(b) - len(a))[0]) || fit.sort((a, b) => len(b) - len(a))[0]; if (!leg) return null;
   const turnAt = deep && leg.turn, end = leg.ax === 'y' ? (leg.s > 0 ? cy : cy + 1) : (leg.s > 0 ? cx : cx + 1); // (the junction's near edge along the way)
-  const m0 = turnAt ? end - leg.s * D : Math.round((leg.from + leg.to) / 2 - leg.s * (D - 1) / 2), lo = Math.min(m0, m0 + leg.s * (D - 1)), spikes = [];
-  for (let j = 0; j < D; j++) for (let k = 0; k < 2; k++) { const a = lo + j, tx = leg.ax === 'y' ? leg.lane + k : a, ty = leg.ax === 'y' ? a : leg.lane + k; spikes.push([tx, ty]); }
+  const m0 = turnAt ? end - leg.s * D : Math.round((leg.from + leg.to) / 2 - leg.s * (D - 1) / 2), lo0 = Math.min(m0, m0 + leg.s * (D - 1)), spikes = [];
+  // (where the way is two wide and no other crosses it: there, or as near as the leg allows; a field that has to stand where
+  // it is wider, by a door's landing, takes in the third lane too, or that lane is a way past)
+  const at = (a, k) => (leg.ax === 'y' ? [leg.lane + k, a] : [a, leg.lane + k]), walk = ([x, y]) => x >= r.ix0 && x <= r.ix1 && y >= r.iy0 && y <= r.iy1 && FLOOR(A.fl[y * W + x]) && !cells.has(y * W + x);
+  const a0 = Math.min(leg.from, leg.to), a1 = Math.max(leg.from, leg.to), clean = l => { for (let j = 0; j < D; j++) if (!walk(at(l + j, 0)) || !walk(at(l + j, 1)) || walk(at(l + j, -1)) || walk(at(l + j, 2))) return false; return true; };
+  let lo = lo0; for (let d = 0; d <= a1 - a0; d++) { const c = [lo0 - leg.s * d, lo0 + leg.s * d].find(l => l >= a0 && l + D - 1 <= a1 && clean(l)); if (c !== undefined) { lo = c; break; } }
+  for (let j = 0; j < D; j++) for (let k = 0; k < 2; k++) spikes.push(at(lo + j, k));
+  if (!clean(lo)) for (let j = 0; j < D; j++) for (const k of [-1, 2]) if (walk(at(lo + j, k))) spikes.push(at(lo + j, k));
   if (spikes.some(([x, y]) => cells.has(y * W + x) || !FLOOR(A.fl[y * W + x]))) return null;
   return { cells, spikes, spikeAx: leg.ax, spikeC: (lo + D / 2) * TS, guard: deep ? [(cx + 1) * TS, (cy + 1) * TS + 4] : null };
 }
