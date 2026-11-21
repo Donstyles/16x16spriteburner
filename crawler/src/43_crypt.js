@@ -47,11 +47,11 @@ function cryptDress(A, g) {
       const Q = [st]; S.add(st[1] * W + st[0]); while (Q.length) { const [x, y] = Q.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy, k = ny * W + nx; if (inR(nx, ny) && !S.has(k) && FLOOR(A.fl[k]) && !blocked.has(k)) { S.add(k); Q.push([nx, ny]); } } } return S; };
     const before = reach(), fits = tiles => { for (const k of tiles) blocked.add(k); const after = reach(); for (const k of before) if (!blocked.has(k) && !after.has(k)) { for (const t of tiles) blocked.delete(t); return false; } return true; };
     const prop = (kind, tx, ty, o) => A.props.push(Object.assign({ kind, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o));
-    const mir = x => r.ix0 + r.ix1 - x, w = r.ix1 - r.ix0 + 1, h = r.iy1 - r.iy0 + 1, put = { prop, ok, fits, mir, W };
+    const mir = x => r.ix0 + r.ix1 - x, w = r.ix1 - r.ix0 + 1, h = r.iy1 - r.iy0 + 1, put = { prop, ok, fits, mir, W, unfit: tiles => { for (const k of tiles) blocked.delete(k); } };
     charnelPit(A, r, g, put); throneRoom(A, r, g, put); // (one a floor: below)
     if (r.kind === 'room' || r.kind === 'end') {
-      if (r.charnel) ossuary(A, r, g, put); else if (w >= 10 && h >= 7) tombHall(A, r, put);
-      else if (w >= 6 && h >= 6 && w % 2 === 0) { if (!burialChamber(A, r, put)) ossuary(A, r, g, put); }
+      if (r.charnel) ossuary(A, r, g, put); else if (w >= 10 && h >= 7 && tombHall(A, r, put)) { /* (a tomb hall) */ }
+      else if (w >= 6 && h >= 6 && w % 2 === 0 && burialChamber(A, r, put)) { /* (a burial chamber) */ }
       else ossuary(A, r, g, put);
     }
     for (const [x, y] of [[r.ix0 + 1, r.iy0 + 1], [r.ix0 + 1, r.iy1 - 1]]) if (ok(x, y) && ok(mir(x), y) && fits([y * W + x, y * W + mir(x)])) for (const xx of [x, mir(x)]) prop('barrel', xx, y, { tile: URNS[(xx + y) % 4], th: 1, hp: 40 }); // (urns in its corners, a pair at a time)
@@ -66,14 +66,20 @@ function tombProp(prop, x, y, kind, lit) {
 function tombHall(A, r, P) {
   const c2 = r.ix0 + r.ix1, xs = []; // (the columns: from the middle out, every second tile, the two halves mirrored)
   for (let x = Math.floor(c2 / 2); x > r.ix0; x -= 2) xs.push(x);
-  const ys = []; for (let y = r.iy0 + 2; y <= r.iy1 - 1; y += 3) ys.push(y); if (!ys.length) return;
+  const ys = []; for (let y = r.iy0 + 2; y <= r.iy1 - 1; y += 3) ys.push(y); if (!ys.length) return false;
   const shift = Math.floor(((r.iy1 - ys[ys.length - 1]) - (ys[0] - 1 - r.iy0)) / 2); // (the rows centred top to bottom)
+  // (laid out first, set down after: a row of fewer than two tombs is no row, and a hall of fewer than four no hall)
+  const plan = [], cellsOf = (x, yy) => (x === P.mir(x) ? [x] : [x, P.mir(x)]).flatMap(xx => [yy * P.W + xx, (yy - 1) * P.W + xx]);
   ys.forEach((y, k) => {
     const yy = y + shift, kind = ROW_TOMBS[k % ROW_TOMBS.length], cols = xs.filter(x => P.ok(x, yy) && P.ok(x, yy - 1) && P.ok(P.mir(x), yy) && P.ok(P.mir(x), yy - 1));
-    const placed = []; for (const x of cols) { const pair = x === P.mir(x) ? [x] : [x, P.mir(x)]; if (P.fits(pair.flatMap(xx => [yy * P.W + xx, (yy - 1) * P.W + xx]))) placed.push(x); }
-    const inner = Math.max(...placed); // (the row's tombs nearest the middle carry its candles)
-    for (const x of placed) for (const xx of x === P.mir(x) ? [x] : [x, P.mir(x)]) tombProp(P.prop, xx, yy, kind, x === inner);
+    const placed = []; for (const x of cols) if (P.fits(cellsOf(x, yy))) placed.push(x);
+    const n = placed.reduce((m, x) => m + (x === P.mir(x) ? 1 : 2), 0);
+    if (n < 2) { for (const x of placed) P.unfit(cellsOf(x, yy)); return; } plan.push([yy, kind, placed, n]);
   });
+  if (plan.reduce((m, q) => m + q[3], 0) < 4) { for (const [yy, , placed] of plan) for (const x of placed) P.unfit(cellsOf(x, yy)); return false; }
+  for (const [yy, kind, placed] of plan) { const inner = Math.max(...placed); // (the row's tombs nearest the middle carry its candles)
+    for (const x of placed) for (const xx of x === P.mir(x) ? [x] : [x, P.mir(x)]) tombProp(P.prop, xx, yy, kind, x === inner); }
+  return true;
 }
 function burialChamber(A, r, P) {
   const bx = (r.ix0 + r.ix1 - 1) / 2, cy = Math.round((r.iy0 + r.iy1) / 2); // (bx, bx + 1: its two columns)

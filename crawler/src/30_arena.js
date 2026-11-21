@@ -131,10 +131,13 @@ function cryptFloor(g, W, H, near, inRoom, rooms, halls) {
   const chipped = new Map(); /* quarter tile -> [slab kind, corner] */
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const slab = lay[y * W + x], qx = x * 2, qy = y * 2; if (!slab || !near(x, y) || at(qx, qy) !== 0) continue;
+    const edge = []; /* (corners along a band's edge: at most one a side, the one the wear has nearly reached) */
     for (const [cx, cy, c] of [[0, 0, 'tl'], [1, 0, 'tr'], [0, 1, 'bl'], [1, 1, 'br']]) {
-      const ox = cx ? qx + 2 : qx - 1, oy = cy ? qy + 2 : qy - 1, a = at(ox, qy + cy) === 1, b = at(qx + cx, oy) === 1, d = at(ox, oy) === 1;
-      if ((a && b && d) || (d && (a || b) && vAt(ox, oy) > 0.3)) chipped.set((qy + cy) * QW + qx + cx, [slab, c]); /* (out into the earth; or along a deep band's edge) */
+      const ox = cx ? qx + 2 : qx - 1, oy = cy ? qy + 2 : qy - 1, a = at(ox, qy + cy) === 1, b = at(qx + cx, oy) === 1, d = at(ox, oy) === 1, i = (qy + cy) * QW + qx + cx;
+      if (a && b && d) chipped.set(i, [slab, c]); /* (out into the earth) */
+      else if (d && (a || b) && QV[i] > 0.55) edge.push([i, c, a ? 'v' + cx : 'h' + cy, QV[i]]); /* (its own corner all but worn through) */
     }
+    for (const e of edge) if (!edge.some(f => f !== e && f[2] === e[2] && (f[3] > e[3] || (f[3] === e[3] && f[0] < e[0])))) chipped.set(e[0], [slab, e[1]]);
   }
   /* the grout's print on bare earth (a brick's, n 1, or a slab's, n 2, from the sheet's bare piece at sx, sy): only along the
      sides where stone is still down (a chipped corner is open earth to it), so the lines open out into the dirt wherever the earth runs on */
@@ -162,7 +165,7 @@ function cryptFloor(g, W, H, near, inRoom, rooms, halls) {
       if (at(qx, qy) === 1) { print(6 * TS, TS, 2, qx, qy, dx, dy); continue; } /* a slab gone */
       cryptAt(g, slab === 'plain' ? 6 : 7, 0, dx, dy);
       for (const [cx, cy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) { const ch = chipped.get((qy + cy) * QW + qx + cx); if (!ch) continue;
-        const oh = at(qx + cx, cy ? qy + 2 : qy - 1) === 1, ov = at(cx ? qx + 2 : qx - 1, qy + cy) === 1;
+        const hy = cy ? qy + 2 : qy - 1, vx = cx ? qx + 2 : qx - 1, oh = at(qx + cx, hy) === 1 || chipped.has(hy * QW + qx + cx), ov = at(vx, qy + cy) === 1 || chipped.has((qy + cy) * QW + vx); /* (a chipped corner across is earth too) */
         g.drawImage(chipQuarter(ch[0], ch[1], oh, ov), dx + cx * 8, dy + cy * 8); }
       continue;
     }
