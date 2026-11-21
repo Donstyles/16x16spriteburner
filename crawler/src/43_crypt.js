@@ -123,12 +123,6 @@ function cryptWall(A, r, g, used) {
     x = next;
   }
 }
-// the way down's own two niches (30_arena puts them either side of it): real candles, dark until it opens; then they catch
-// one by one (36_works lightUp)
-function cryptExitNiches(A, g) {
-  for (const t of A.torches) { if (!t.exit || t.candles) continue; const y = Math.floor(t.y / TS), N = MOSSN(), S = candleSrc(7 * TS, (6 + N) * TS, TS, TS, [8 * TS, (7 + N) * TS]), nx = t.tx * TS, ny = y * TS + NICHE_Y;
-    g.drawImage(S.cv, nx, ny); t.candles = addCandles(A, S, nx, ny, (y + 1) * TS + 3, 1100, { wall: true, torch: true }); for (const c of t.candles) c.lit = false; t.cf = 0; t.room = A.end.i; }
-}
 // one niche at x on the wall face row y: a light niche, skulls, urns or chains
 function cryptNiche(A, r, g, xx, y, role, k) {
   const N = MOSSN(), NICHE = { skulls: [[6, 6 + N], [8, 6 + N], [9, 6 + N], [7, 7 + N]], urns: [[9, 7 + N], [10, 7 + N], [11, 6 + N]] }, nx = xx * TS, ny = y * TS + NICHE_Y, gy = (y + 1) * TS + 3;
@@ -551,7 +545,7 @@ function relightTick(dt) {
   const A = ARENA, h = G.me; if (!A || A.th.sheet !== 'crypt' || !h || h.dead) return;
   const relight = (o, list) => { if ((o.relightT = (o.relightT || 0) + dt) < 0.9) return; o.relightT = 0; let n = 0; for (const c of list) if (!c.lit) { c.lit = true; c.sput = 0; if (c.wax < 2) c.wax = Math.max(2, Math.round(c.h0 * 0.4)); n++; } /* (every candle lights again, a burnt-down one as a stub) */ if (n) { SFX.fire(panOf(o.x)); sparks(o.x, o.y - 6, 2, 5, 'fire', 40, 40); A.lights = A.slit = null; } };
   for (const q of A.cgroups || []) { // (every lot of candles: a niche's, a burial shelf's, a font's, a tomb's that has not woken; snuffed or burnt down)
-    if (!q.list.some(c => !c.lit)) { q.relightT = 0; continue; } if (q.exitT === undefined) q.exitT = A.torches.find(t => t.exit && t.candles === q.list) || null; if (q.exitT && !A.exitLit) continue; // (the way down's niches light when it opens, not before) if (q.owner === undefined) q.owner = A.props.find(p => p.candles === q.list) || null; const o = q.owner; if (o && (o.dead || o.opened || o.wake !== undefined)) continue;
+    if (!q.list.some(c => !c.lit)) { q.relightT = 0; continue; } if (q.owner === undefined) q.owner = A.props.find(p => p.candles === q.list) || null; const o = q.owner; if (o && (o.dead || o.opened || o.wake !== undefined)) continue;
     if (q.wall ? Math.abs(h.x - q.x) < 13 && h.y > q.y - 6 && h.y < q.y + 22 : dist(h.x, h.y, q.x, q.y) < 22) relight(q, q.list); else q.relightT = 0; }
 }
 
