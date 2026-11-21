@@ -50,8 +50,10 @@ function cryptDress(A, g) {
     const mir = x => r.ix0 + r.ix1 - x, w = r.ix1 - r.ix0 + 1, h = r.iy1 - r.iy0 + 1, put = { prop, ok, fits, mir, W, unfit: tiles => { for (const k of tiles) blocked.delete(k); } };
     charnelPit(A, r, g, put); throneRoom(A, r, g, put); // (one a floor: below)
     if (r.kind === 'room' || r.kind === 'end') {
-      if (r.charnel) ossuary(A, r, g, put); else if (w >= 10 && h >= 7 && tombHall(A, r, put)) { /* (a tomb hall) */ }
-      else if (w >= 6 && h >= 6 && w % 2 === 0 && burialChamber(A, r, put)) { /* (a burial chamber) */ }
+      const chamber = w >= 6 && h >= 6 && w % 2 === 0, chamberFirst = chamber && (w < 10 || h < 7 || hash2(r.i * 3 + 1, A.floor * 5 + 2) < 0.4); // (an even-width room: a burial chamber, or a tomb hall two in five times when it is big enough)
+      if (r.charnel) ossuary(A, r, g, put); else if (chamberFirst && burialChamber(A, r, put)) { /* (a burial chamber) */ }
+      else if (w >= 10 && h >= 7 && tombHall(A, r, put)) { /* (a tomb hall) */ }
+      else if (chamber && !chamberFirst && burialChamber(A, r, put)) { /* (a burial chamber after all) */ }
       else ossuary(A, r, g, put);
     }
     for (const [x, y] of [[r.ix0 + 1, r.iy0 + 1], [r.ix0 + 1, r.iy1 - 1]]) if (ok(x, y) && ok(mir(x), y) && fits([y * W + x, y * W + mir(x)])) for (const xx of [x, mir(x)]) prop('barrel', xx, y, { tile: URNS[(xx + y) % 4], th: 1, hp: 40 }); // (urns in its corners, a pair at a time)
@@ -83,9 +85,9 @@ function tombHall(A, r, P) {
 }
 function burialChamber(A, r, P) {
   const bx = (r.ix0 + r.ix1 - 1) / 2, cy = Math.round((r.iy0 + r.iy1) / 2); // (bx, bx + 1: its two columns)
-  for (const by of [cy - 2, cy + 2]) { // (its bottom row: north of the paths' crossing, else south)
+  for (const by of [cy - 2, cy + 2, r.iy0 + 2, r.iy1 - 1]) { // (its bottom row: north of the paths' crossing, else south; else against the north wall, else the south)
     const cells = [[bx, by], [bx + 1, by], [bx, by - 1], [bx + 1, by - 1]];
-    if (!cells.every(([x, y]) => P.ok(x, y, -0.4)) || !P.fits(cells.map(([x, y]) => y * P.W + x))) continue;
+    if (!cells.every(([x, y]) => P.ok(x, y, -0.05)) || !P.fits(cells.map(([x, y]) => y * P.W + x))) continue;
     P.prop('sarc', bx + 0.5, by, { sheet: 'crypt', tile: [(bx + by) % 2 ? 18 : 16, 6 + MOSS()], tw: 2, th: 2, r: 12, box: [-15, 15, -22, 1] });
     if ([bx - 2, bx + 3].every(gx => P.ok(gx, by) && P.ok(gx, by - 1)) && P.fits([by * P.W + bx - 2, by * P.W + bx + 3])) for (const gx of [bx - 2, bx + 3]) P.prop('grave', gx, by, { sheet: 'crypt', tile: [24, 6 + MOSS()], th: 2, r: 5, box: [-5, 5, -7, 1] });
     return true;
@@ -159,10 +161,10 @@ function tombOccupant(A, p) {
 function tombsTick(dt) {
   const A = ARENA; if (!A || A.th.sheet !== 'crypt' || G.cine) return; const h = G.me;
   for (const p of A.props) {
-    if (p.kind !== 'tomb' || p.opened || p.dead) continue;
+    if ((p.kind !== 'tomb' && p.kind !== 'sarc') || p.opened || p.dead) continue;
     if (p.wake === undefined) {
       if (p.candles) { if (!p.candles.some(c => c.lit)) p.wake = 1.5; }
-      else if (h && !h.dead && Math.hypot(h.x - p.x, (h.y - (p.y - 6)) * 1.2) < 30 && !litAt(A, p.x, p.y - 8)) p.wake = 0.8;
+      else if (h && !h.dead && Math.hypot(h.x - p.x, (h.y - (p.y - 6)) * 1.2) < (p.kind === 'sarc' ? 40 : 30) && !litAt(A, p.x, p.y - 8)) p.wake = p.kind === 'sarc' ? 1.4 : 0.8;
       if (p.wake !== undefined) { SFX.stone(panOf(p.x)); smoke(p.x, p.y - 6, 1, 'dust', 4, 10, 0.5); }
       continue;
     }
@@ -174,14 +176,15 @@ function tombsTick(dt) {
     for (const L of A.lids) {
       L.vz -= 520 * dt; L.z += L.vz * dt; L.x += L.vx * dt; L.y += L.vy * dt;
       if (L.z <= 0 && L.vz < 0) { // it comes down and breaks
-        L.done = true; breakSprite(L.lid.pix, 0, 0, TS, 2 * TS, Math.round(L.x), Math.round(L.y), L.y + 2 * TS - 2, 8, { spd: 0.7 });
-        smoke(L.x + 8, L.y + 24, 4, 'dust', 8, 22, 0.9); debris(L.x + 8, L.y + 26, 10, ['#897873', '#ab9c94', '#4c403d'], 70, 90, 1.2); SFX.stone(panOf(L.x), true); shake(0.12);
+        const lw = L.lid.w || TS; L.done = true; breakSprite(L.lid.pix, 0, 0, lw, 2 * TS, Math.round(L.x), Math.round(L.y), L.y + 2 * TS - 2, 8, { spd: 0.7 });
+        smoke(L.x + lw / 2, L.y + 24, 4, 'dust', 8, 22, 0.9); debris(L.x + lw / 2, L.y + 26, 10, ['#897873', '#ab9c94', '#4c403d'], 70, 90, 1.2); SFX.stone(panOf(L.x), true); shake(0.12);
       }
     }
     A.lids = A.lids.filter(L => !L.done);
   }
 }
 function popLid(A, p, h) {
+  if (p.kind === 'sarc') { popSarc(A, p, h); return; }
   p.opened = true; p.wake = undefined; p.jx = 0; p.tile = [p.tile[0], OPEN_ROW + (p.moss || 0)]; p.candles = null; // (its candles stood on the lid: they go with it)
   const away = h ? Math.sign(p.x - h.x) || 1 : 1;
   (A.lids = A.lids || []).push({ lid: lidOf(p.tombKind, p.moss || 0), x: p.x - 8, y: p.y - 14 - TS, vx: away * 38, vy: 6, z: 0, vz: 150 });
@@ -192,6 +195,32 @@ function popLid(A, p, h) {
 }
 // the lids in the air: over everything
 function drawLids(c) { const A = ARENA; if (!A || !A.lids) return; for (const L of A.lids) c.drawImage(L.lid.cv, Math.round(L.x), Math.round(L.y - L.z)); }
+// THE SARCOPHAGUS: a burial chamber's lord lies in it, and it is no quieter than the tombs. In the dark, come near it and
+// it grinds, shudders and its lid is shoved off (the sheet's opened sarcophagus four columns on: the plain lid slid
+// aside, the carved one broken); a blow on it wakes it in light or dark. What climbs out is the floor's heavy dead (its
+// army's brute: a mummy of the bone legion, a bound cadaver of the rot).
+function sarcLid(col, M) {
+  const key = 's' + col + M; if (LIDS[key]) return LIDS[key];
+  const P = PIX.crypt, w = 2 * TS, h = 2 * TS, sy = (6 + M) * TS, cv = mkCanvas(w, h), g = cv.getContext('2d'), id = g.createImageData(w, h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const a = ((sy + y) * P.w + col * TS + x) * 4, b = ((sy + y) * P.w + (col + 4) * TS + x) * 4, j = (y * w + x) * 4;
+    if (P.d[a + 3] && (!P.d[b + 3] || P.d[a] !== P.d[b] || P.d[a + 1] !== P.d[b + 1] || P.d[a + 2] !== P.d[b + 2])) { id.data[j] = P.d[a]; id.data[j + 1] = P.d[a + 1]; id.data[j + 2] = P.d[a + 2]; id.data[j + 3] = 255; }
+  }
+  g.putImageData(id, 0, 0); return (LIDS[key] = { cv, pix: { w, d: id.data }, w, h });
+}
+function popSarc(A, p, h) {
+  const col = p.tile[0], M = p.tile[1] - 6; p.opened = true; p.wake = undefined; p.jx = 0; p.tile = [col + 4, p.tile[1]];
+  const away = h ? Math.sign(p.x - h.x) || 1 : 1;
+  (A.lids = A.lids || []).push({ lid: sarcLid(col, M), x: p.x - TS, y: p.y - 14 - TS, vx: away * 26, vy: 4, z: 0, vz: 120, w: 2 * TS });
+  smoke(p.x, p.y - 8, 5, 'dust', 8, 22, 1); SFX.stone(panOf(p.x), true); SFX.groan(panOf(p.x)); shake(0.18);
+  const spr = A.army === 'rot' ? 'BoundCadaver' : (ARMIES[A.army] && ARMIES[A.army].brute && MOBS[ARMIES[A.army].brute[0]] ? ARMIES[A.army].brute[0] : 'GrapplerMummy'); if (!MOBS[spr]) return;
+  const u = mkFoe('brute', G.floor, p.x, p.y - 8, spr); Object.assign(u, { z: -16, room: p.room, face: -away, ghostT: 2.2 }); G.foes.push(u); G.units.push(u); if (h) wakeFoe(u, h, 'noise');
+}
+// a blow that passes over a sealed sarcophagus wakes it
+function sarcBlow(src, mv, dir) {
+  const A = ARENA; if (!A || A.th.sheet !== 'crypt') return;
+  for (const p of A.props) if (p.kind === 'sarc' && !p.opened && p.wake === undefined && hitsShape(src, { x: p.x, y: p.cy, r: 14 }, mv, dir)) { p.wake = 0.5; SFX.stone(panOf(p.x)); smoke(p.x, p.y - 6, 1, 'dust', 4, 10, 0.5); }
+}
 
 // ===================== they do not stay down =====================
 // In the crypt a skeleton cut down falls into a heap of its bones, and in the dark the heap pulls itself together again:
