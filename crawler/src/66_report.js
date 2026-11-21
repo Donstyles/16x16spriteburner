@@ -22,7 +22,7 @@ function buildReport() {
   L.push(`build ${BUILD} | seed ${hex8(G.seed)} | floor ${G.floor} | floor seed ${hex8(G.floorSeed || 0)} | kit ${G.kit} | heroes ${G.heroes.length} | army ${A.army} | army before ${G.prevArmy || '-'} | theme ${A.th.name}`);
   L.push(`time ${(G.time || 0).toFixed(1)} | phase ${G.phase}${TEST.on ? ' | test room ' + TEST.mode : ''}${GAL.on ? ' | gallery' : ''} | kills ${G.kills} | gold ${G.gold}`);
   if (h) L.push(`hero at ${Math.round(h.x)},${Math.round(h.y)} (tile ${tileOf(h)}) | hp ${Math.round(h.hp)}/${h.maxHp} | flasks ${h.flasks}${h.dead ? ' | dead' : ''}`);
-  L.push(`floor: ${A.name}${A.arch && A.arch.name ? ' | ' + A.arch.name : ''} | sets ${(A.sets || []).join(',') || '-'} | puzzles ${(A.puzNames || []).join(',') || '-'}`);
+  L.push(`floor: ${A.name}${archName(A) ? ' | ' + archName(A) : ''} | sets ${(A.sets || []).join(',') || '-'} | puzzles ${(A.puzNames || []).join(',') || '-'}`);
   if (s) { const g = s.seal, left = g && g.guards ? g.guards.filter(f => !f.dead && G.foes.includes(f)) : []; L.push(`way down: tile ${s.sx + 1},${s.sy + 1} | ${g ? (g.k > 0 ? 'SEALED' : 'open') : 'open'}${g ? ' | exit guards left ' + left.length + (left.length ? ': ' + left.map(f => f.spr + '@' + tileOf(f) + (f.aware ? '' : ' asleep')).join(', ') : '') : ''}`); }
   for (const g of A.gates || []) L.push(`gate ${g.how || 'gate'} ${g.d.side} at ${g.d.cells[1].join(',')} | k ${g.k.toFixed(2)}${g.hold ? ' | held' : ''}`);
   for (const p of A.plates || []) L.push(`plate at ${p.tx},${p.ty}${p.down ? ' | down' : ''}${p.hidden ? ' | hidden' : ''}${p.remote ? ' | remote' : ''}${p.gate ? ' | gate' : ''}${p.pool ? ' | drains water' : ''}`);
