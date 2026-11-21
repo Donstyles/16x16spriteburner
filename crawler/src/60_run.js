@@ -34,7 +34,7 @@ function makeFloor() {
   G.units = G.heroes.concat(G.foes);
   G.phase = 'play'; G.phaseT = 0; G.fade = 1;
   CAM.x = sp.x; CAM.y = sp.y; CAM.z = exploreZoom();
-  G.card = { t: 0, life: 3.2, a: 'FLOOR ' + G.floor, b: A.name, c: 'HELD BY ' + ARMIES[A.army].name, d: archName(A) ? archName(A) : G.floor === 1 ? 'THE WAY DOWN LIES IN THE FARTHEST ROOM' : '' }; // (what the floor is like: 35_themes)
+  G.card = { t: 0, life: 3.2, a: 'FLOOR ' + G.floor, b: A.name, c: 'HELD BY ' + ARMIES[A.army].name, d: archName(A) ? archName(A) : A.th.sheet === 'crypt' ? 'KEEP TO THE LIGHT · THE DEAD WAIT IN THE DARK' : G.floor === 1 ? 'THE WAY DOWN LIES IN THE FARTHEST ROOM' : '' }; // (what the floor is like: 35_themes)
   SFX.boom(0.6, 0);
 }
 function updateRun(dt) {
