@@ -382,7 +382,7 @@ function drawShadeEyes(c) {
 // ===================== the charnel pit =====================
 // One crypt room a floor (the first one with room for it) has the pit the dead were thrown into: the sheet's ragged pit,
 // three tiles square, off the worn paths and as near the room's middle as it fits, a cold brazier either side of it.
-// While the hero is in its room and either brazier is dark, the dead climb out of it, one every few seconds (no more
+// While the hero is in its room and either brazier is dark, the dead leap out of it, one every few seconds (no more
 // than three of its own up at once, eight in all). Stand at a brazier a moment and his lamp lights it; with both
 // burning, the pit is quiet for good (and the light keeps the heaps of those cut down there down: 43_crypt litAt).
 function charnelPit(A, r, g, P) {
@@ -404,13 +404,16 @@ function charnelTick(dt) {
   for (const p of C.fires) if (p.out) { if (dist(h.x, h.y, p.x, p.y) < 20) { p.lightT = (p.lightT || 0) + dt; if (p.lightT > 0.8) { lightUp(p, true); } } else p.lightT = 0; }
   const r = A.rooms[C.room]; if (C.fires.every(p => !p.out) || C.made >= 8) return;
   if (!(h.x > r.ix0 * TS && h.x < (r.ix1 + 1) * TS && h.y > r.iy0 * TS && h.y < (r.iy1 + 1) * TS)) return;
+  for (const u of C.kids) if (u.leap && !u.dead) { const L = u.leap; L.t = Math.min(1, L.t + dt / 0.75); u.x = L.x0 + (L.x1 - L.x0) * L.t; u.y = L.y0 + (L.y1 - L.y0) * L.t; if (L.t >= 1) { u.leap = null; smoke(u.x, u.y, 1, 'dust', 4, 10, 0.6); SFX.bone(panOf(u.x)); } } // (in the air: carried from the pit's middle to where it lands)
   C.kids = C.kids.filter(u => !u.dead); if (C.kids.length >= 3 || (C.t -= dt) > 0) return;
   C.t = 4.5; C.made++;
   const spr = A.army === 'rot' ? (C.made % 2 ? 'MutilatedStumbler' : 'DismemberedCrawler') : (C.made % 3 ? 'DecrepitBones' : 'UnravelingCrawler'); if (!MOBS[spr]) return;
-  const side = C.made % 4, x = (C.x0 + 0.5 + (side % 2 ? 2 : 0)) * TS + (side < 2 ? 4 : 0), y = (C.y0 + 2.6) * TS;
-  const u = mkFoe(spr === 'UnravelingCrawler' || spr === 'DismemberedCrawler' ? 'flanker' : 'grunt', G.floor, x, y, spr);
-  Object.assign(u, { z: -16, room: C.room, ghostT: 2.2, face: x < (C.x0 + 1.5) * TS ? -1 : 1 }); G.foes.push(u); G.units.push(u); wakeFoe(u, h, 'noise'); C.kids.push(u);
-  SFX.clatter(panOf(x)); debris(x, y - 4, 5, ['#cfc6b0', '#a49a84', '#332919'], 40, 70, 1); smoke(x, y - 6, 1, 'dust', 4, 10, 0.6);
+  // (it leaps out: up from the pit's middle, over its rim, toward the side the hero is on, now one way, now the other)
+  const cx = (C.x0 + 1.5) * TS, cy = (C.y0 + 1.7) * TS, a = Math.atan2(h.y - cy, h.x - cx) + [0, 0.7, -0.7, 0.35][C.made % 4], dx = Math.cos(a), dy = Math.sin(a);
+  const u = mkFoe(spr === 'UnravelingCrawler' || spr === 'DismemberedCrawler' ? 'flanker' : 'grunt', G.floor, cx, cy, spr);
+  let lx = cx + dx * 36, ly = cy + dy * 30; for (const t of [0.7, -0.7, 1.4, -1.4, Math.PI]) { if (FLOOR(A.fl[Math.floor(ly / TS) * A.w + Math.floor(lx / TS)]) && !solidAt(lx, ly)) break; const b2 = a + t; lx = cx + Math.cos(b2) * 36; ly = cy + Math.sin(b2) * 30; } // (where it lands: clear of the rim, on open floor)
+  G.foes.push(u); G.units.push(u); wakeFoe(u, h, 'noise'); C.kids.push(u); Object.assign(u, { z: 0, vz: 210, stun: 0.8, room: C.room, ghostT: 1.4, face: lx < cx ? -1 : 1, leap: { x0: cx, y0: cy, x1: lx, y1: ly, t: 0 } }); // (after its waking: that has its own little start)
+  SFX.clatter(panOf(cx)); SFX.bone(panOf(cx), true); debris(cx, cy - 4, 7, ['#cfc6b0', '#a49a84', '#332919'], 60, 110, 1.1); smoke(cx, cy - 6, 2, 'dust', 5, 12, 0.7);
 }
 
 // ===================== the crypt's sounds =====================

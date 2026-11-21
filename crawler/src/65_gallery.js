@@ -41,7 +41,7 @@ const GALLERY = [
   // the catacombs (43_crypt, 44_candles): built as a crypt floor (the fourth; the sixth for the mossy deep)
   ['TOMB HALL', 'crypt', 'hall', 'KEEP THE CANDLES BURNING: A TOMB WHOSE LAST ONE GOES OUT OPENS', '#e89a90'],
   ['BURIAL CHAMBER', 'crypt', 'sarc', 'COME NEAR THE SARCOPHAGUS IN THE DARK, OR STRIKE IT, AND ITS LORD RISES', '#e89a90'],
-  ['CHARNEL PIT', 'crypt', 'charnel', 'THE DEAD CLIMB OUT WHILE A BRAZIER BESIDE IT IS DARK: STAND AT EACH TO LIGHT IT', '#e89a90'],
+  ['CHARNEL PIT', 'crypt', 'charnel', 'THE DEAD LEAP OUT WHILE A BRAZIER BESIDE IT IS DARK: STAND AT EACH TO LIGHT IT', '#e89a90'],
   ['SKULL FONT', 'crypt', 'font', 'STAND AT IT TO DRINK: BLOOD HEALS, AND CURSES', '#e89a90'],
   ['THRONE CRYPT', 'crypt', 'throne', 'THE LORD OF THE DEAD HOLDS THE WAY DOWN', '#e89a90'],
   ['THE SHADE', 'crypt', 'shade', 'IT CANNOT MOVE WHILE YOU FACE IT IN YOUR LAMP. LIGHT BURNS IT', '#e89a90'],
