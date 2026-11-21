@@ -195,13 +195,32 @@ function tombsTick(dt) {
 }
 function popLid(A, p, h) {
   if (p.kind === 'sarc') { popSarc(A, p, h); return; }
-  p.opened = true; p.wake = undefined; p.jx = 0; p.tile = [p.tile[0], OPEN_ROW + (p.moss || 0)]; p.candles = null; // (its candles stood on the lid: they go with it)
-  const away = h ? Math.sign(p.x - h.x) || 1 : 1;
-  (A.lids = A.lids || []).push({ lid: lidOf(p.tombKind, p.moss || 0), x: p.x - 8, y: p.y - 14 - TS, vx: away * 38, vy: 6, z: 0, vz: 150 });
+  const away = h ? Math.sign(p.x - h.x) || 1 : 1, lx = p.x - 8, ly = p.y - 14 - TS; let lid = lidOf(p.tombKind, p.moss || 0);
+  if (p.candles && p.candles.length) { // (its candles stood on the lid, burnt out: they go with it, and break with it)
+    const cv = mkCanvas(TS, 2 * TS), g = cv.getContext('2d'); g.drawImage(lid.cv, 0, 0); g.translate(-lx, -ly); drawCandles(g, p.candles);
+    lid = { cv, pix: { w: TS, d: g.getImageData(0, 0, TS, 2 * TS).data } }; const gone = new Set(p.candles); removeIf(A.candles, c => gone.has(c)); if (A.cgroups) removeIf(A.cgroups, q => q.list === p.candles);
+  }
+  p.opened = true; p.wake = undefined; p.jx = 0; p.tile = [p.tile[0], OPEN_ROW + (p.moss || 0)]; p.candles = null;
+  (A.lids = A.lids || []).push({ lid, x: lx, y: ly, vx: away * 38, vy: 6, z: 0, vz: 150 });
   smoke(p.x, p.y - 8, 3, 'dust', 6, 16, 0.8); SFX.stone(panOf(p.x), true); SFX.groan(panOf(p.x)); shake(0.1);
   const who = tombOccupant(A, p); if (!who || !MOBS[who.spr]) return;
-  const u = mkFoe(who.role, G.floor, p.x, p.y - 7, who.spr); Object.assign(u, { z: -14, room: p.room, face: -away, ghostT: 1.8 });
-  G.foes.push(u); G.units.push(u); if (h) wakeFoe(u, h, 'noise');
+  const u = mkFoe(who.role, G.floor, p.x, p.y - 5, who.spr); Object.assign(u, { room: p.room, face: -away });
+  G.foes.push(u); G.units.push(u); climbOut(A, p, u, h, p.y - 4, 8); if (h) wakeFoe(u, h, 'noise');
+}
+// CLIMBING OUT: what lay in a tomb or a sarcophagus stands up in its open box (drawn only above the box's front wall,
+// front: as anything rising out of the floor is, 70_render), then steps up over the front onto the floor before it (or
+// beside it, toward the hero, or behind it: the first of them that is open floor). Until it is out it is drawn after the
+// box it stands in (sortY) and nothing moves it but this
+function climbOut(A, p, u, h, front, half) {
+  const free = (x, y) => FLOOR(A.fl[Math.floor(y / TS) * A.w + Math.floor(x / TS)]) && !solidAt(x, y) && !A.props.some(q => q !== p && !q.dead && q.solid && Math.abs(q.x - x) < 11 && Math.abs(q.cy - y) < 9);
+  const side = h && h.x < p.x ? -1 : 1, land = [[p.x, p.y + 10], [p.x + side * (half + 9), p.y - 3], [p.x - side * (half + 9), p.y - 3], [p.x, p.y - 34]].find(([x, y]) => free(x, y)) || [p.x, p.y + 10];
+  const inY = front - 1, R = 0.9, J = 0.42; Object.assign(u, { x: p.x, y: inY, z: -22, sortY: p.y + 0.5, ghostT: 9, stun: 0 });
+  u.script = { t: 0, tick(f, dt) {
+    const S = f.script; S.t += dt; f.anim = (f.anim || 0) + dt; if (h) f.face = h.x < f.x ? -1 : 1;
+    if (S.t < R) { const k = S.t / R; f.z = -22 * (1 - k * (2 - k)); f.x = p.x; f.y = inY; f.moving = k > 0.25; return; } // (up out of the dark of the box)
+    const k = Math.min(1, (S.t - R) / J); f.x = p.x + (land[0] - p.x) * k; f.y = inY + (land[1] - inY) * k; f.z = Math.sin(Math.PI * k) * 9; f.moving = true; // (over the front, onto the floor)
+    if (k >= 1) { Object.assign(f, { z: 0, script: null, sortY: undefined, ghostT: 0.3, moving: false }); smoke(f.x, f.y, 1, 'dust', 4, 8, 0.5); SFX.bone(panOf(f.x)); }
+  } };
 }
 // the lids in the air: over everything
 function drawLids(c) { const A = ARENA; if (!A || !A.lids) return; for (const L of A.lids) c.drawImage(L.lid.cv, Math.round(L.x), Math.round(L.y - L.z)); }
@@ -224,7 +243,7 @@ function popSarc(A, p, h) {
   (A.lids = A.lids || []).push({ lid: sarcLid(col, M), x: p.x - TS, y: p.y - 14 - TS, vx: away * 26, vy: 4, z: 0, vz: 120, w: 2 * TS });
   smoke(p.x, p.y - 8, 5, 'dust', 8, 22, 1); SFX.stone(panOf(p.x), true); SFX.groan(panOf(p.x)); shake(0.18);
   const spr = A.army === 'rot' ? 'BoundCadaver' : (ARMIES[A.army] && ARMIES[A.army].brute && MOBS[ARMIES[A.army].brute[0]] ? ARMIES[A.army].brute[0] : 'GrapplerMummy'); if (!MOBS[spr]) return;
-  const u = mkFoe('brute', G.floor, p.x, p.y - 8, spr); Object.assign(u, { z: -16, room: p.room, face: -away, ghostT: 2.2 }); G.foes.push(u); G.units.push(u); if (h) wakeFoe(u, h, 'noise');
+  const u = mkFoe('brute', G.floor, p.x, p.y - 7, spr); Object.assign(u, { room: p.room, face: -away }); G.foes.push(u); G.units.push(u); climbOut(A, p, u, h, p.y - 6, 16); if (h) wakeFoe(u, h, 'noise');
 }
 // a blow that passes over a sealed sarcophagus wakes it
 function sarcBlow(src, mv, dir) {
@@ -562,7 +581,7 @@ function loculus(A, g, x, y, k, side) {
 // candle tomb, a moment
 function relightTick(dt) {
   const A = ARENA, h = G.me; if (!A || A.th.sheet !== 'crypt' || !h || h.dead) return;
-  const relight = (o, list) => { if ((o.relightT = (o.relightT || 0) + dt) < 0.9) return; o.relightT = 0; let n = 0; for (const c of list) if (!c.lit) { c.lit = true; c.sput = 0; if (c.wax < 2) c.wax = Math.max(2, Math.round(c.h0 * 0.4)); n++; } /* (every candle lights again, a burnt-down one as a stub) */ if (n) { SFX.fire(panOf(o.x)); sparks(o.x, o.y - 6, 2, 5, 'fire', 40, 40); A.lights = A.slit = null; } };
+  const relight = (o, list) => { if ((o.relightT = (o.relightT || 0) + dt) < 0.9) return; o.relightT = 0; let n = 0; for (const c of list) if (!c.lit) { c.lit = true; c.sput = 0; if (c.wax <= (c.stub || 0) + 0.01) c.wax = Math.min(c.h0, Math.max((c.stub || 0) + 2, Math.round(c.h0 * 0.4))); n++; } /* (every candle lights again, a burnt-down one as a stub) */ if (n) { SFX.fire(panOf(o.x)); sparks(o.x, o.y - 6, 2, 5, 'fire', 40, 40); A.lights = A.slit = null; } };
   for (const q of A.cgroups || []) { // (every lot of candles: a niche's, a burial shelf's, a font's, a tomb's that has not woken; snuffed or burnt down)
     if (!q.list.some(c => !c.lit)) { q.relightT = 0; continue; } if (q.owner === undefined) q.owner = A.props.find(p => p.candles === q.list) || null; const o = q.owner; if (o && (o.dead || o.opened || o.wake !== undefined)) continue;
     if (q.wall ? Math.abs(h.x - q.x) < 13 && h.y > q.y - 6 && h.y < q.y + 22 : dist(h.x, h.y, q.x, q.y) < 22) relight(q, q.list); else q.relightT = 0; }

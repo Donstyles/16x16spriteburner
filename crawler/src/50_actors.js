@@ -141,7 +141,7 @@ function moveActor(u, dt) {
   if (!u.fly && !u.under && (u.z || 0) <= 2 && pitAt(u.x, u.y)) { PITPASS = false; startFall(u); return; }
   if (!u.fly && (u.z > 0 || u.vz > 0)) { u.vz -= 560 * dt; u.z += u.vz * dt; if (u.z <= 0) { u.z = 0; u.vz = 0; } }
   for (const p of ARENA.props) {
-    if (!p.solid || p.dead || (u.ghostT > 0 && (p.kind === 'tomb' || p.kind === 'charnel'))) continue; const F = propFoot(p); // (ghostT: climbing out of a tomb, 43_crypt)
+    if (!p.solid || p.dead || (u.ghostT > 0 && (p.kind === 'tomb' || p.kind === 'sarc' || p.kind === 'charnel'))) continue; const F = propFoot(p); // (ghostT: climbing out of a tomb, 43_crypt)
     if (F) { // a column's plinth: a box where it meets the floor, so nobody stands half inside it from the side
       const hw = Math.max(3, u.r * 0.8), hh = Math.max(2, u.r * 0.45), ox = Math.min(u.x + hw - F.x0, F.x1 - (u.x - hw)), oy = Math.min(u.y + hh - F.y0, F.y1 - (u.y - hh));
       if (ox > 0 && oy > 0) { if (ox < oy) u.x += u.x < (F.x0 + F.x1) / 2 ? -ox : ox; else u.y += u.y < (F.y0 + F.y1) / 2 ? -oy : oy; }

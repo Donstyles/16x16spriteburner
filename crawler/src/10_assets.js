@@ -35,6 +35,28 @@ function cryptBlockAtlas(img) {
   }
   return c;
 }
+// THE OPENED TOMBS: the sheet opens some of its tombs with no more than a crack in the lid (the cross, the framed, the
+// tall one with the cross) and its sarcophagi with a lid slid a little aside, no way for anything to climb out. Here every
+// tomb opens to the whole box: those three take the open box of their like (the plain one's, the tall plain one's), and
+// the sarcophagi's open box is made from the tombs' (their rim and dark inside, stretched to its width, under its own
+// front). The lid that flies off (43_crypt lidOf, sarcLid: what of the lidded one is not in the opened) is then the
+// whole lid. For the mossy deep's twins too (eight rows down)
+function openTombs(c) {
+  const T = 16, g = c.getContext('2d');
+  for (const M of [0, 8]) {
+    for (const [to, from] of [[16, 18], [17, 18], [21, 20]]) { g.clearRect(to * T, (4 + M) * T, T, 2 * T); g.drawImage(c, from * T, (4 + M) * T, T, 2 * T, to * T, (4 + M) * T, T, 2 * T); }
+    const box = g.getImageData(18 * T, (4 + M) * T, T, 2 * T).data, edge = (d, w, y, dir) => { for (let x = dir > 0 ? 0 : w - 1; x >= 0 && x < w; x += dir) if (d[(y * w + x) * 4 + 3]) return x; return -1; };
+    for (const col of [16, 18]) {
+      const L = g.getImageData(col * T, (6 + M) * T, 2 * T, 2 * T), d = L.data, W = 2 * T;
+      for (let y = 9; y <= 20; y++) {
+        const xl = edge(d, W, y, 1), xr = edge(d, W, y, -1), tl = edge(box, T, y, 1), tr = edge(box, T, y, -1); if (xl < 0 || tl < 0) continue;
+        for (let x = xl; x <= xr; x++) { const dl = x - xl, dr = xr - x, tx = dl < 5 ? tl + dl : dr < 5 ? tr - dr : 8, a = (y * T + tx) * 4, o = (y * W + x) * 4; for (let k = 0; k < 4; k++) d[o + k] = box[a + k]; }
+      }
+      g.putImageData(L, (col + 4) * T, (6 + M) * T);
+    }
+  }
+  return c;
+}
 function trimEdgeBars(img) {
   const c = mkCanvas(img.width, img.height), g = c.getContext('2d'); g.drawImage(img, 0, 0);
   for (const [row, f, t] of [[1, [60, 69, 76], [81, 93, 102]], [7, [76, 67, 52], [102, 90, 70]]]) { const d = g.getImageData(0, row * 16 + 3, img.width, 1), p = d.data; for (let i = 0; i < p.length; i += 4) if (p[i] === f[0] && p[i + 1] === f[1] && p[i + 2] === f[2] && p[i + 3] === 255) { p[i] = t[0]; p[i + 1] = t[1]; p[i + 2] = t[2]; } g.putImageData(d, 0, row * 16 + 3); }
@@ -44,7 +66,7 @@ function loadImage(src) { return new Promise((res, rej) => { const i = new Image
 async function loadAssets() {
   const A = window.__ASSETS;
   for (const k of ['cellar', 'mobs', 'doors', 'items', 'ores', 'scrolls', 'ends', 'crypt', 'cryptAnim', 'cellarCrypt', 'doorsCrypt', 'endsCrypt']) IMG[k] = await loadImage(A ? A[k] : 'assets/' + ({ doors: 'cellar_doors', ends: 'beam_ends', cryptAnim: 'crypt_anim', cellarCrypt: 'cellar_crypt', doorsCrypt: 'doors_crypt', endsCrypt: 'ends_crypt' }[k] || k) + '.png'); // (ends: a south strut's two ends where it meets the posts, grey left and right, then brown, as painted in the Item Painter)
-  IMG.doors = trimEdgeBars(IMG.doors); IMG.crypt = cryptTops(tallCrypt(IMG.crypt)); IMG.cryptBlock = cryptBlockAtlas(IMG.crypt);
+  IMG.doors = trimEdgeBars(IMG.doors); IMG.crypt = openTombs(cryptTops(tallCrypt(IMG.crypt))); IMG.cryptBlock = cryptBlockAtlas(IMG.crypt);
   MOBS = A ? A.mobsJson : await (await fetch('assets/mobs.json')).json();
   padMobs();
   IMG.mobsW = silhouette(IMG.mobs); IMG.oresW = silhouette(IMG.ores); IMG.cellarW = silhouette(IMG.cellar); PIX.ores = pixelData(IMG.ores); PIX.mobs = pixelData(IMG.mobs); PIX.cellar = pixelData(IMG.cellar); cutWeapons();

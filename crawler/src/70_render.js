@@ -139,7 +139,7 @@ function drawProp(c, p) {
   else { // (th: how many tiles tall; struck, a tall crate flashes white and fades back)
     const w = (p.tw || 1) * TS, n = p.th || 1, fl = (p.flashUntil || 0) - G.time, im = p.sheet === 'crypt' ? IMG.crypt : IMG.cellar; // (sheet: the crypt's own pieces, 43_crypt)
     for (let i = 0; i < n; i++) c.drawImage(im, p.tile[0] * TS, (p.tile[1] + i) * TS, w, TS, p.x - w / 2 + (p.jx || 0), p.y - 14 - (n - 1 - i) * TS, w, TS); // (jx: a tomb shuddering, 43_crypt)
-    if (p.candles) drawCandles(c, p.candles); // (its candles: 44_candles)
+    if (p.candles) { if (p.jx) { c.save(); c.translate(p.jx, 0); drawCandles(c, p.candles); c.restore(); } else drawCandles(c, p.candles); } // (its candles: 44_candles; a tomb's shudder with it)
     if (fl > 0) { c.globalAlpha = Math.min(1, fl * 9); c.drawImage(p.sheet === 'crypt' ? IMG.cryptW : IMG.cellarW, p.tile[0] * TS, p.tile[1] * TS, w, n * TS, p.x - w / 2, p.y - 14 - (n - 1) * TS, w, n * TS); c.globalAlpha = 1; }
   }
 }
@@ -275,7 +275,7 @@ function render() {
   // everything standing, lying or flying, drawn back to front by where it meets the floor
   for (const p of ARENA.props) if (!p.dead && !p.flat && propSplit(p)) drawPropPart(c, p, true); // (the columns' plinths, under everyone)
   for (const h of G.heroes) if (h.dead && h.death && (h.death.kind === 'vermin' || h.death.kind === 'bats')) verminCover(h); // (to bones only in a frame the heap hides him wholly: 48_deaths)
-  const list = []; for (const u of G.units) list.push([u.y, 0, u]); if (ARENA.shop) { list.push([ARENA.shop.keeper.y, 0, ARENA.shop.keeper]); } for (const p of ARENA.props) if (!p.dead && !p.flat) { const S = propSplit(p); list.push([S ? S.mid : p.y, 1, p]); } // (the shopkeeper, his wares on the counter: 39_shop)
+  const list = []; for (const u of G.units) list.push([u.sortY !== undefined ? u.sortY : u.y, 0, u]); /* (sortY: climbing out of a tomb, after it: 43_crypt climbOut) */ if (ARENA.shop) { list.push([ARENA.shop.keeper.y, 0, ARENA.shop.keeper]); } for (const p of ARENA.props) if (!p.dead && !p.flat) { const S = propSplit(p); list.push([S ? S.mid : p.y, 1, p]); } // (the shopkeeper, his wares on the counter: 39_shop)
   for (const d of G.drops) list.push([d.y, 2, d]); for (const p of G.proj) list.push([p.y, 3, p]); for (const r of FX.rocks) list.push([r.y, 4, r]); for (const w of ARENA.warrows || []) list.push([w.y, 5, w]); for (const d of ARENA.doors || []) { const s = STRUTS(d); if (s) list.push(s); if (d.side === 'S' && d.k > 0) list.push([(d.cells[0][1] + 2) * TS + S_DROP - 3, 7, d]); } list.sort((a, b) => a[0] - b[0]);
   for (const [, k, o] of list) if (k === 0) { if (o.fall) drawFalling(c, o); else if (!(o.rise > 0 && ((G.time * 18) | 0) % 2)) drawUnit(c, o); } else if (k === 1) { if (propSplit(o)) drawPropPart(c, o, false); else drawProp(c, o); } else if (k === 2) drawDrop(c, o); else if (k === 3) drawProj(c, o); else if (k === 5) drawWallArrow(c, o); else if (k === 6) drawStrut(c, o); else if (k === 7) drawSouthDoor(c, o); else drawRock(c, o);
   if (ARENA.shop) for (const w of ARENA.shop.wares) drawWare(c, w); // (his wares, over everyone: they never hide behind a customer, 39_shop)
