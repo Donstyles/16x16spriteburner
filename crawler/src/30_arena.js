@@ -330,6 +330,9 @@ function buildArena1(floor) {
   const inRoomRect = (x, y) => rooms.some(r => x >= r.fx0 && x <= r.fx1 && y >= r.fy0 && y <= r.fy1);
   const near = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (O(x + dx, y + dy)) return true; return false; };
   const floorRow = th.floors[0][1], hallRow = floorRow + 2; // the plain slab, light in the rooms and its darker twin in the corridors
+  // three free tiles of north wall, clear of any doorway by a tile, as near the middle as they come
+  const wallSpot = r => { const nd = r.doors.filter(d => d.side === 'N').flatMap(d => d.cells.map(c => c[0])); let best = r.cx - 1, bd = 1e9; for (let x = r.ix0 + 1; x + 2 <= r.ix1 - 1; x++) { if (nd.some(c => c >= x - 1 && c <= x + 3)) continue; const d = Math.abs(x + 1 - (r.ix0 + r.ix1) / 2); if (d < bd) { bd = d; best = x; } } return best; };
+  for (const r of rooms) if (r.kind === 'start' || r.kind === 'end') r.stairX = wallSpot(r); // (before the floor is laid: the crypt's wear runs from the stairs too)
   if (th.sheet === 'crypt') cryptFloor(g, W, H, near, inRoomRect, rooms, halls);
   else for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (near(x, y)) tileAt(g, 10, inRoomRect(x, y) ? floorRow : hallRow, x * TS, y * TS);
   // an inlaid square now and then: four corner slabs that only make sense together, or the small one-slab square
@@ -358,9 +361,6 @@ function buildArena1(floor) {
   A.start = rooms.find(r => r.kind === 'start'); A.end = rooms.find(r => r.kind === 'end');
   for (const r of rooms) if (r.hidCrack) { r.crack = r.hidCrack; r.crackX = r.crack.x; (A.cracks = A.cracks || []).push(r.crack); if (r.crack.inner) A.cracks.push(r.crack.inner); A.secret = A.secret || new Uint8Array(W * H); for (const c of [r.crack, r.crack.inner]) if (c) for (const i of c.secret) A.secret[i] = 1; } // (the hidden wing's walled-up doorway)
   // ---- furnishing (the stairways' places first, so no torch or banner hangs on them)
-  // three free tiles of north wall, clear of any doorway by a tile, as near the middle as they come
-  const wallSpot = r => { const nd = r.doors.filter(d => d.side === 'N').flatMap(d => d.cells.map(c => c[0])); let best = r.cx - 1, bd = 1e9; for (let x = r.ix0 + 1; x + 2 <= r.ix1 - 1; x++) { if (nd.some(c => c >= x - 1 && c <= x + 3)) continue; const d = Math.abs(x + 1 - (r.ix0 + r.ix1) / 2); if (d < bd) { bd = d; best = x; } } return best; };
-  A.start.stairX = wallSpot(A.start); A.end.stairX = wallSpot(A.end);
   if (!rooms.some(q => q.kind === 'treasure')) { const q = pick(rooms.filter(q => q.kind === 'room' && !q.shape)) || pick(rooms.filter(q => q.kind === 'room')); if (q) q.chest = true; } // no dead end: a guarded room keeps the chest
   levelPlan(A, g); // the floor's set pieces: a flooded way, a gauntlet, a sentinel (37_levels)
   pitPlan(A, g); // a chasm, broken floor, the ledges (38_pits)
