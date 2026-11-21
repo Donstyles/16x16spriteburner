@@ -112,6 +112,14 @@ function cryptWall(A, r, g, used) {
     if (k === 0 && both.length === 1 && fontRoom(r) && FLOOR(A.fl[r.iy0 * A.w + x])) { used.add(x); cryptFont(A, r, g, x, y); continue; } // (a font at its middle: below)
     for (const xx of both) { used.add(xx); cryptNiche(A, r, g, xx, y, role, k); }
   }
+  // the runs of plain wall the mirrored pass had to leave bare (a doorway or an alcove off the room's middle has no mirror):
+  // each run of two tiles or more not yet used is dressed the same way from its own middle out
+  const free = xx => xx > r.ix0 && xx < r.ix1 && plainWall(A, xx, y) && !used.has(xx); // (used: the niches, and the margins kept by doorways, stairs, outlets and cracks)
+  for (let x = r.ix0 + 1; x <= r.ix1 - 1;) {
+    if (!free(x)) { x++; continue; } let b = x; while (free(b + 1)) b++;
+    if (b - x >= 1) { const c2r = x + b; let kk = 0; for (let xx = Math.floor(c2r / 2); xx >= x; xx -= 2, kk++) { const two = xx === c2r - xx ? [xx] : [xx, c2r - xx], role = kk % 2 === 0 ? 'light' : ['skulls', 'urns', 'chains'][(kk >> 1) % 3]; for (const q of two) { used.add(q); cryptNiche(A, r, g, q, y, role, kk); } } }
+    x = b + 1;
+  }
 }
 // one niche at x on the wall face row y: a light niche, skulls, urns or chains
 function cryptNiche(A, r, g, xx, y, role, k) {
