@@ -24,7 +24,7 @@ function startFloor() {
   withSeed(fs, makeFloor); logEv('floor', { seed: hex8(G.seed), army: ARENA.army });
 }
 function makeFloor() {
-  buildArena(G.floor); clearUnderGates(ARENA); initSight(ARENA); G.proj = []; G.hz = []; G.drops = []; G.sched = []; for (const k in FX) FX[k].length = 0;
+  buildArena(G.floor); clearUnderGates(ARENA); initSight(ARENA); G.proj = []; G.hz = []; G.drops = []; G.sched = []; G.lampDim = 0; for (const k in FX) FX[k].length = 0;
   const A = ARENA, sp = A.spawn;
   G.heroes.forEach((h, i) => { h.x = sp.x + (i - (G.heroes.length - 1) / 2) * 16; h.y = sp.from; h.enter = { y1: sp.y + i * 4 }; h.z = 0; h.vx = h.vy = h.kx = h.ky = 0; h.act = null; h.stun = 0; h.iframe = 0; h.dir = -Math.PI / 2; h.path = null; h.inBasin = undefined; h.fall = null; h.rise = 0; h.onPlat = h.platHop = null; h.lift = 0; h.safe = { x: sp.x, y: sp.y }; });
   A.army = pickArmy(G.floor); G.foes = []; for (const r of A.rooms) if ((r.kind === 'room' || r.kind === 'end') && r.set !== 'flood') { const fs = populateRoom(A, r, G.floor); if (r === A.end) for (const f of fs) f.exitGuard = true; G.foes.push(...fs); } // (the exit room's own: the stairs stay sealed till they are dead, 36_works exitSeal)
@@ -53,7 +53,7 @@ function updateRun(dt) {
   if (TEST.on && TEST.mode === 'creatures') creatureTick(dt);
   if (TEST.on && TEST.mode === 'water') waterTick(dt);
   if (TEST.on && TEST.mode === 'armour') armourTick(dt);
-  updateProj(dt); updateHazards(dt); worksTick(dt); candlesTick(dt); tombsTick(dt); heapsTick(dt); buriedTick(dt); nicheAmbush(dt); charnelTick(dt); cryptSounds(dt); brazierLamp(dt); fontsTick(dt); relightTick(dt); vigilTick(); cryptHints(); levelTick(dt); updateDrops(dt); updateSight(dt);
+  updateProj(dt); updateHazards(dt); worksTick(dt); candlesTick(dt); tombsTick(dt); heapsTick(dt); buriedTick(dt); nicheAmbush(dt); charnelTick(dt); cryptSounds(dt); brazierLamp(dt); fontsTick(dt); relightTick(dt); vigilTick(); lampDimTick(dt); cryptHints(); levelTick(dt); updateDrops(dt); updateSight(dt);
   removeIf(G.foes, f => f.dead); removeIf(G.units, u => u.dead && u.team === 'foe');
   if (G.hurtFlash > 0) G.hurtFlash -= dt; if (G.tiredT > 0) G.tiredT -= dt;
   if (G.phase === 'play') {

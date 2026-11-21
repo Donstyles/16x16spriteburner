@@ -582,3 +582,13 @@ function archName(A) {
   const a = A && A.arch; if (!a || !a.name) return ''; if (A.th.sheet !== 'crypt') return a.name;
   const n = CRYPT_ARCH[a.k]; return typeof n === 'object' ? n[A.liq] || a.name : n || a.name;
 }
+
+// ===================== the lamp falters =====================
+// While the Shade hunts close by, the hero's lamp gutters and draws in (lampK, 34_sight): the nearer it is, the less the
+// lamp reaches and the more it flickers (70_render), and the less of the dark it holds still (its freeze, above). It
+// comes back as the Shade draws off, or dies.
+function lampDimTick(dt) {
+  const A = ARENA, h = G.me; let want = 0;
+  if (A && A.th.sheet === 'crypt' && h && !h.dead) for (const f of G.foes) if (f.shade && !f.dead && f.hunting) { const d = dist(f.x, f.y, h.x, h.y); if (d < 150) want = Math.max(want, 1 - d / 150); }
+  G.lampDim = (G.lampDim || 0) + (want - (G.lampDim || 0)) * Math.min(1, dt * (want > (G.lampDim || 0) ? 2.5 : 0.8));
+}
