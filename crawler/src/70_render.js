@@ -200,7 +200,7 @@ function renderLight() {
   for (const h of G.heroes) { const hs = (h.hush || 1) * (h.dead ? Math.max(0.4, 1 - (h.deadT || 0) * 0.08) : 1), lp = h.dead && h.lampAt ? h.lampAt : h; const lk = lampK() * (1 - 0.09 * (G.lampDim || 0) * (0.5 + 0.5 * noise1(G.time * 13))); L(lp.x, lp.y - 6, h.lightR * 1.35 * hs * lk, 'hot', 1.15 * hs, 7); L(lp.x, lp.y - 6, h.lightR * 0.7 * hs * lk, 'torch', 0.35, 7); } // (lampK: the crypt's dark, 34_sight) // a fallen hero's lamp burns on, dimming
   for (const e of G.eyes || []) L(e.x, e.y - 6, e.lightR * 1.3, 'hot', 1.05); // (the sluice's view lights the water it drains)
   for (const t of ARENA.torches) if (!t.out) { const cf = t.candles ? 0.35 + 0.65 * (t.cf === undefined ? 1 : t.cf) : 1; L(t.x, t.y + 6, (62 + 6 * noise1(G.time * 7 + t.tx)) * (1 + 0.5 * litFlare(t)) * cf, 'torch', (0.85 * litK(t) + 0.6 * litFlare(t)) * cf); } // (just lit: it flares, then settles; a crypt niche as bright as its candles still burning)
-  candleLights(L); // (every other lit candle: 44_candles)
+  candleLights(L); rotGlow(L); // (every other lit candle, and the rot's glow: 44_candles)
   for (const p of ARENA.props) if (p.kind === 'brazier' && !p.dead && !p.out) L(p.x, p.y - 4, (90 + 8 * noise1(G.time * 6 + p.x)) * (1 + 0.4 * litFlare(p)), 'torch', 0.95 * litK(p) + 0.6 * litFlare(p));
   const A = FX.lights; for (let i = 0; i < A.length; i += 5) L(A[i], A[i + 1], A[i + 2], A[i + 3], A[i + 4]); A.length = 0;
   for (const f of FX.flights) { const u = f.t / f.life; L(f.x, f.y, f.r * (1 + u * 0.3), f.col, f.a * (1 - u) * (1 - u)); }

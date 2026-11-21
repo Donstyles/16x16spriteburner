@@ -108,6 +108,19 @@ function drawCandleGlows(c) {
   for (const k of A.candles) { if (!k.lit || Math.abs(k.x - CAM.x) > 300 || Math.abs(k.yb - CAM.y) > 200) continue; const f = 0.75 + 0.25 * noise1(G.time * 9 + k.ph) - 0.35 * k.gust; c.globalAlpha = Math.max(0.1, 0.3 * f); c.drawImage(GLOW.torch, k.x + k.w / 2 - 3, k.yb - k.wax - 5, 6, 6); }
   c.globalAlpha = 1;
 }
+// the green rot of the undead glows faintly where it pools: a slow, sickly breathing light over its cells, seen only on
+// tiles already seen (renderLight's memory mask) and not counted as light by the dead (43_crypt litAt), the Shade or the tombs
+function rotGlow(L) {
+  const A = ARENA; if (!A || A.liq !== 'rot') return;
+  for (const p of A.pools || []) {
+    if (!(p.level > 0) || p.x0 === undefined) continue;
+    for (let ty = p.y0; ty <= p.y1; ty += 3) for (let tx = p.x0; tx <= p.x1; tx += 3) {
+      const x = (Math.min(tx + 1, p.x1) + 0.5) * TS, y = (Math.min(ty + 1, p.y1) + 0.5) * TS; if (Math.abs(x - CAM.x) > 320 || Math.abs(y - CAM.y) > 220) continue;
+      if (!p.cells.has(Math.floor(y / TS) * A.w + Math.floor(x / TS))) continue;
+      L(x, y, 30, 'poison', (0.1 + 0.05 * noise1(G.time * 0.6 + tx * 1.7 + ty * 0.9)) * Math.min(1, p.level * 1.5));
+    }
+  }
+}
 function candleLights(L) {
   const A = ARENA; if (!A || !A.candles) return;
   for (const k of A.candles) { if (!k.lit || k.torch || Math.abs(k.x - CAM.x) > 300 || Math.abs(k.yb - CAM.y) > 200) continue; // (only those near enough the view to be seen)
