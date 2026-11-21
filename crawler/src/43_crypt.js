@@ -413,6 +413,9 @@ function fontsTick(dt) {
   const A = ARENA, h = G.me; if (!A || A.th.sheet !== 'crypt' || !h || h.dead) return;
   for (const p of A.props) {
     if (p.kind !== 'font') continue;
+    if (p.seal) { // (the blood seal's font: it never fills of itself; it takes a quarter of his life)
+      if (p.full >= 1) continue; if (Math.abs(h.x - p.x) < 10 && h.y > p.y - 2 && h.y < p.y + 14) { if ((p.drinkT += dt) > 1) { const n = Math.min(Math.round(h.maxHp * 0.25), Math.max(0, Math.ceil(h.hp) - 1)); h.hp -= n; textPop(h.x, h.y, headZ(h) + 4, '-' + n, 'red', true); spray(h, 14, {}); sealFill(p); } } else p.drinkT = 0; continue;
+    }
     if (p.full < 1) { p.full = Math.min(1, p.full + dt / 90); continue; }
     if (Math.abs(h.x - p.x) < 10 && h.y > p.y - 2 && h.y < p.y + 14) { if ((p.drinkT += dt) > 0.6) drinkFont(p, h); } else p.drinkT = 0;
   }
@@ -475,6 +478,28 @@ function relightTick(dt) {
 function cryptHints() {
   const A = ARENA, h = G.me; if (!A || A.th.sheet !== 'crypt' || !h || h.dead) return;
   const hint = (o, x, y, txt, col) => { if (o.hinted || dist(h.x, h.y, x, y) > 34) return; o.hinted = true; textPop(x, y, 14, txt, col, false); };
-  for (const p of A.props) { if (p.kind === 'font' && p.full >= 1) hint(p, p.x, p.y, p.liq === 'blood' ? 'DRINK: BLOOD' : 'DRINK: WATER', p.liq === 'blood' ? 'red' : 'heal'); else if (p.kind === 'brazier' && p.out && !p.dead) hint(p, p.x, p.y, 'STAND TO LIGHT', 'gold'); }
+  for (const p of A.props) { if (p.kind === 'font' && p.seal && p.full < 1) hint(p, p.x, p.y, 'IT THIRSTS', 'red'); else if (p.kind === 'font' && p.full >= 1 && !p.seal) hint(p, p.x, p.y, p.liq === 'blood' ? 'DRINK: BLOOD' : 'DRINK: WATER', p.liq === 'blood' ? 'red' : 'heal'); else if (p.kind === 'brazier' && p.out && !p.dead) hint(p, p.x, p.y, 'STAND TO LIGHT', 'gold'); }
   for (const t of A.torches) if (t.candles && t.candles.some(c => !c.lit && c.wax > 0.6)) hint(t, t.x, t.y + 22, 'STAND TO RELIGHT', 'gold');
+}
+
+// ===================== the blood seal =====================
+// A crypt puzzle (THE BLOOD SEAL, one of the gates that stand in the way on the crypt's floors): the door on is shut, and
+// in the room before it stands an empty font, its skull dry. Blood opens the way: stand at the font a moment and it takes
+// a quarter of the hero's life (never the last of it), or cut down something that bleeds beside it (bones and dust do
+// not count). Full, the door grinds up.
+function bloodSeal(A, r, bare) {
+  const g = r.gateOf, [gx, gy] = r.doors.find(d => d.hall === g.hall).cells[1], c = [];
+  for (let y = r.iy0 + 1; y <= r.iy1 - 1; y++) for (let x = r.ix0 + 1; x <= r.ix1 - 1; x++) { const d = Math.abs(x - gx) + Math.abs(y - gy); if (d >= 4 && d <= 7 && bare(x, y) && !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 20 && Math.abs(q.cy - (y * TS + 10)) < 20)) c.push([x, y, d]); }
+  c.sort((a, b) => a[2] - b[2] || a[0] - b[0] || a[1] - b[1]); const at = c[0]; if (!at) { g.how = 'lever'; return; } // (no room: a plain gate's lever instead)
+  const [x, y] = at, M = MOSS(), p = { kind: 'font', sheet: 'crypt', liq: 'blood', full: 0, moss: M, seal: g, x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 6, solid: true, hp: 1e9, room: r.i, box: [-7, 7, -9, 1], drinkT: 0 };
+  p.candles = addCandles(A, candleSrc(23 * TS, (3 + M) * TS, TS, TS, [23 * TS, (2 + M) * TS]), x * TS, y * TS, y * TS + 16, 900); A.props.push(p);
+}
+function sealFill(p) {
+  if (p.full >= 1) return; p.full = 1; const g = p.seal; SFX.squelch(panOf(p.x), true); SFX.groan(panOf(p.x)); logEv('blood seal', { at: tileOf(p) });
+  if (g && !g.going && g.k > 0) startGateCine({ x: p.x }, g);
+}
+// something that bleeds cut down beside an empty seal font fills it
+function sealBlood(u) {
+  const A = ARENA; if (!A || A.th.sheet !== 'crypt' || !bleeds(u)) return;
+  for (const p of A.props) if (p.kind === 'font' && p.seal && p.full < 1 && dist(u.x, u.y, p.x, p.y) < 30) { pool(p.x, p.y - 4, u.def.blood || 'red', 1.5); sealFill(p); }
 }

@@ -87,7 +87,7 @@ function stagger(u, t) {
 }
 function kill(u, src) {
   u.dead = true; u.hp = 0; u.act = null; u.stun = 0; logEv(u.team === 'foe' ? 'kill' : 'hero down', { who: u.spr, at: tileOf(u), exit: u.exitGuard ? 1 : null, treasure: u.guard ? 1 : null }); // (the report: 66_report)
-  if (u.team === 'foe') { if (!u.raisedBy && !u.reborn) G.kills++; deathFx(u); boneHeap(u, src); if (!u.raisedBy && !u.reborn) dropLoot(u); if (u.dummy) dummyDied(u); if (src && src.team === 'hero' && !u.raisedBy) src.killsT = (src.killsT || 0) + 1; } // the necromancer's raised dead are worth nothing
+  if (u.team === 'foe') { if (!u.raisedBy && !u.reborn) G.kills++; deathFx(u); boneHeap(u, src); sealBlood(u); if (!u.raisedBy && !u.reborn) dropLoot(u); if (u.dummy) dummyDied(u); if (src && src.team === 'hero' && !u.raisedBy) src.killsT = (src.killsT || 0) + 1; } // the necromancer's raised dead are worth nothing
   else { heroFalls(u); flashLight(u.x, u.y, 60, 'red', 1, 0.6); SFX.boom(0.5, panOf(u.x)); shake(0.4); slowmo(0.3, 1.4); } // (no words over it: his death plays out first, 48_deaths)
 }
 const BLOOD = { red: ['#7a0c14', '#a01420', '#5a0810'], bone: ['#cfc6b0', '#a49a84', '#7a705e'], stone: ['#9b9c9b', '#6e6e6e', '#625353'], water: ['#8cc8f0', '#5a9ad0', '#bfe4ff'], wood: ['#7a5230', '#5a3a1e', '#b08a58'], dust: ['#ffd6f5', '#c8f0ff', '#fff4b0'], slime: ['#3a8a30', '#60c040', '#2a5a20'], straw: ['#c8a040', '#e0c060', '#8a6a20'], bug: ['#7c8c1c', '#a6b630', '#4c5810'], sludge: ['#2a2219', '#40352a', '#120e0b'] }; // bug: green-yellow ichor; sludge: what the crypt dead have left

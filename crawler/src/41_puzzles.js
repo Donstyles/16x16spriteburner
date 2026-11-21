@@ -23,7 +23,7 @@
 // where it cannot help slides back to where it stood once nobody is in its room.
 const PUZ = { force: null }; // (a test: this one kind, wherever it fits)
 const MUST_KINDS = new Set(['flood', 'drawbridge', 'gate', 'gap', 'spikegate']);
-const PUZ_NAMES = { song: 'THE SINGING RUNES', rune: 'THE HIDDEN RUNE', gate: 'THE PORTCULLIS', echo: 'THE ECHOING RUNES', fires: 'THE COLD BRAZIERS', weight: 'THE WEIGHT', gap: 'THE GAP', spikegate: 'THE SPIKE GATE', crack: 'THE CRACKED WALL', lever: 'THE HIDDEN LEVER' };
+const PUZ_NAMES = { blood: 'THE BLOOD SEAL', song: 'THE SINGING RUNES', rune: 'THE HIDDEN RUNE', gate: 'THE PORTCULLIS', echo: 'THE ECHOING RUNES', fires: 'THE COLD BRAZIERS', weight: 'THE WEIGHT', gap: 'THE GAP', spikegate: 'THE SPIKE GATE', crack: 'THE CRACKED WALL', lever: 'THE HIDDEN LEVER' };
 const SPIKEGATE = { t: 7 };
 // ---- the room graph
 const puzAdj = (A, r) => A.halls.filter(h => h.A === r || h.B === r).map(h => (h.A === r ? h.B : h.A));
@@ -44,6 +44,7 @@ const puzRoomOK = r => r && r.kind !== 'shop' && r.kind !== 'end' && !r.set && !
 const PUZ_SHELVED = new Set(['weight', 'gap']);
 function puzzleTry(A, g) {
   const T = { gate: () => tryGate(A, 'lever'), echo: () => tryGate(A, 'echo'), song: () => tryGate(A, 'song'), fires: () => tryGate(A, 'fires'), weight: () => tryGate(A, 'weight'), gap: () => tryGap(A, g), spikegate: () => trySpikeGate(A) };
+  if (A.th.sheet === 'crypt') T.blood = () => tryGate(A, 'blood'); // (the crypt's own: THE BLOOD SEAL, 43_crypt)
   const used = A.puzUsed = A.puzUsed || new Set(), ks = PUZ.force && T[PUZ.force] ? [PUZ.force] : pitShuffle(Object.keys(T).filter(k => !PUZ_SHELVED.has(k))).sort((a, b) => used.has(a) - used.has(b)); // (a kind not yet on this floor first)
   for (const k of ks) if (T[k]()) { used.add(k); return true; } return false;
 }
@@ -241,6 +242,7 @@ function puzzleAfter(A, r) {
     if (r.crack && chance(0.5)) { r.crack.holds = 'lever'; const c = r.crack; plate(c.x + 1, c.y, { remote: true, gate: r.gateOf, hidden: true }); A.puzNames.push(PUZ_NAMES.lever); }
     else { const s = []; for (let y = r.iy0 + 1; y <= r.iy1 - 1; y++) for (let x = r.ix0 + 1; x <= r.ix1 - 1; x++) if (bare(x, y) && !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 20 && Math.abs(q.cy - (y * TS + 10)) < 18)) s.push([x, y]); const at = s.length ? pick(s) : [Math.round((r.ix0 + r.ix1) / 2), Math.round((r.iy0 + r.iy1) / 2)]; plate(at[0], at[1], { remote: true, gate: r.gateOf }); }
   }
+  if (r.gateOf && r.puz === 'blood') bloodSeal(A, r, bare); // (43_crypt)
   if (r.gateOf && r.puz === 'weight') { // its plate well away from the gate's door, a block three tiles from it in line, room to push from behind
     const g = r.gateOf, [gx, gy] = r.doors.find(d => d.hall === g.hall).cells[1], cands = [];
     for (let y = r.iy0 + 1; y <= r.iy1 - 1; y++) for (let x = r.ix0 + 1; x <= r.ix1 - 1; x++) { if (!bare(x, y) || Math.abs(x - gx) + Math.abs(y - gy) < 8) continue; for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = 3, bx = x - ax * k, by = y - ay * k; let ok = true; for (let j = 0; j <= k + 1; j++) { const cx = x - ax * j, cy = y - ay * j; if (cx < r.ix0 + (j > 0 && ax ? 1 : 0) || cx > r.ix1 - (j > 0 && ax ? 1 : 0) || cy < r.iy0 || cy > r.iy1 || !FLOOR(A.fl[cy * W + cx])) { ok = false; break; } } if (ok && bx > r.ix0 && bx < r.ix1 && by > r.iy0 && by < r.iy1) cands.push([x, y, bx, by, ax, ay]); } }
