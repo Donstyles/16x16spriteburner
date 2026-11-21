@@ -116,7 +116,7 @@ function waterBody(A, cells, set, W, dual) {
 // its whirl over the drain, the drops thrown up, the rings and the wet it leaves take the liquid's colours (liq, below).
 const LIQUIDS = {
   blood: { base: [104, 16, 20], glintC: [176, 70, 66], drops: ['#7a1418', '#5e0f12', '#96262a', '#4a0a0d'], glint: '214,120,110', wet: '74,10,12' },
-  black: { base: [30, 25, 34], glintC: [92, 86, 108], drops: ['#1e1a23', '#16131a', '#2c2633', '#0e0c11'], glint: '150,142,170', wet: '6,4,8' },
+  black: { base: [33, 19, 22], glintC: [104, 74, 80], drops: ['#22141a', '#190e12', '#311c22', '#100709'], glint: '156,118,124', wet: '8,3,5' }, // (old blood gone black: a red in its dark)
   rot: { base: [44, 62, 26], glintC: [112, 140, 70], drops: ['#2c3e1a', '#223014', '#3e5626', '#18220e'], glint: '160,196,110', wet: '18,34,10' },
 };
 const liq = () => (ARENA && ARENA.liq ? LIQUIDS[ARENA.liq] : null);

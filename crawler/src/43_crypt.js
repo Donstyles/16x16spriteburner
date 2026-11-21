@@ -396,14 +396,14 @@ function brazierLamp(dt) {
 
 // ===================== the skull fonts =====================
 // In one crypt room in three (by its place) the middle of the north wall holds a font instead of a light niche: a skull
-// set in the brick over a stone basin with candles at its corners, the basin full of blood (rooms of odd number) or of
-// water. Stand at it a moment to drink. The blood heals four tenths of the hero's life, and curses him (his blows go
-// wide two times in three for twenty seconds); the water washes a curse away and heals a little. Drunk, the basin
+// set in the brick over a stone basin with candles at its corners, the basin full of blood (no water in the crypt: the
+// sheet's water font is left unused). Stand at it a moment to drink. The blood heals four tenths of the hero's life, and
+// curses him (his blows go wide two times in three for twenty seconds). Drunk, the basin
 // empties, and fills again from the skull's mouth over a minute and a half, a thin stream running down the whole while.
 const FONT_COL = { blood: 23, water: 24 }, FONT_RGB = { blood: '#8a1418', water: '#2f7fcc' };
 const fontRoom = r => r.kind === 'room' && hash2(r.i * 5 + 2, 77) < 0.34;
 function cryptFont(A, r, g, xx, y) {
-  const liq = r.i % 2 ? 'blood' : 'water', col = FONT_COL[liq], nx = xx * TS, M = MOSS();
+  const liq = 'blood', col = FONT_COL[liq], nx = xx * TS, M = MOSS();
   cryptAt(g, col, 1 + M, nx, y * TS - 3); // (the skull in the brick)
   const p = { kind: 'font', sheet: 'crypt', liq, full: 1, moss: M, x: nx + 8, y: r.iy0 * TS + 14, cy: r.iy0 * TS + 10, r: 6, solid: true, hp: 1e9, room: r.i, box: [-7, 7, -9, 1], drinkT: 0 };
   p.candles = addCandles(A, candleSrc(col * TS, (3 + M) * TS, TS, TS, [col * TS, (2 + M) * TS]), nx, r.iy0 * TS, r.iy0 * TS + 16, 900);
