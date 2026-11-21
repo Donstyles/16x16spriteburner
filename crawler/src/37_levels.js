@@ -268,7 +268,8 @@ function wayArrows(A, g) {
       && !A.props.some(p => !p.dead && Math.abs(p.x - (x * TS + 8)) < 16 && p.y > y * TS && p.y < (y + 2) * TS + 6)
       && !(A.plates || []).some(p => p.tx === x && p.ty === y) && !(A.runes || []).some(p => p.tx === x && p.ty === y) && !(r.inlay || []).some(([a, b]) => x >= a && x <= a + 1 && y >= b && y <= b + 1);
     const crypt = A.th.sheet === 'crypt', mid = [Math.round(cx), Math.round(cy)]; // (the crypt's: where its worn paths meet, the middle cell its wear runs to (30_arena), when that is free)
-    const at = crypt && free(mid[0], mid[1]) ? mid : cands.find(([x, y]) => free(x, y)); if (at) { if (crypt) wayStone(g, COL[door.side], row, at[0] * TS, at[1] * TS); else tileAt(g, COL[door.side], row, at[0] * TS, at[1] * TS); }
+    const axis = crypt ? cands.filter(([x]) => x === mid[0]).sort((a, b) => Math.abs(a[1] - mid[1]) - Math.abs(b[1] - mid[1]) || a[1] - b[1]) : []; // (else the next free tile up or down its middle line)
+    const at = crypt && free(mid[0], mid[1]) ? mid : axis.find(([x, y]) => free(x, y)) || cands.find(([x, y]) => free(x, y)); if (at) { if (crypt) wayStone(g, COL[door.side], row, at[0] * TS, at[1] * TS); else tileAt(g, COL[door.side], row, at[0] * TS, at[1] * TS); }
   }
 }
 // the crypt's way-stone: no pale slab of the cellar's, but the crypt's own plain slab with the arrow cut into it (the cellar

@@ -393,10 +393,11 @@ function mapChest(A) {
   const away = ch.filter(p => p.room !== A.start.i); if (ch.length) pick(away.length ? away : ch).map = true;
 }
 // where a room's treasure chest stands: against the north wall, as near the middle as a spot clear of the doors comes, or
-// else in the middle of the room
+// else in the middle of the room (in the crypt never off its middle line)
 function chestSpot(r) {
   const nearDoor = (tx, ty) => r.doors.some(d => d.cells.some(([x, y]) => Math.abs(x - tx) <= 2 && Math.abs(y - ty) <= 2)), cx = Math.round((r.ix0 + r.ix1) / 2);
   const A = ARENA, fr = (x, y) => FLOOR(A.fl[y * A.w + x]) && FLOOR(A.fl[(y + 1) * A.w + x]);
+  if (TH && TH.sheet === 'crypt') { const cy = Math.round((r.iy0 + r.iy1) / 2), s = [[cx, r.iy0 + 1], [cx, cy], [cx, cy + 1], [cx, cy - 1], [cx, r.iy1 - 1]].find(([x, y]) => !nearDoor(x, y) && fr(x, y)); if (s) return s; } // (the crypt's: only on the room's middle line, against the north wall or else where its worn paths meet: the feet went to it)
   const spots = [0, 1, -1, 2, -2, 3, -3].map(k => [cx + k, r.iy0 + 1]).concat([[cx, Math.round((r.iy0 + r.iy1) / 2)]]); return spots.find(([x, y]) => !nearDoor(x, y) && fr(x, y)) || spots.find(([x, y]) => fr(x, y)) || spots[spots.length - 1];
 }
 // torches, banners, braziers, clutter and pillars for one room
