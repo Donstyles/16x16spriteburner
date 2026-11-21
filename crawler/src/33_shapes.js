@@ -54,14 +54,14 @@ function shapeRoom(r, k, fl, W, H) {
   for (let t = 0; t < 30; t++) {
     const rock = new Set(), open = new Set(), alc = [];
     if (k === 'hall') { // blocks two tiles wide, mirrored about the middle
-      const bw = 2, bh = 3, top = r.iy0 + (r.kind === 'end' ? 3 : 2), lay = pick(['pair', 'four', 'rows']);
+      const bw = 2, bh = TH && TH.sheet === 'crypt' ? 4 : 3, top = r.iy0 + (r.kind === 'end' ? 3 : 2), lay = pick(['pair', 'four', 'rows']); // (the crypt's two deeper: its top square, 30_arena cryptBlocks)
       const hi = Math.floor((r.ix0 + r.ix1) / 2) - 2 - bw; if (hi < r.ix0 + 2) return false; const xl = randi(r.ix0 + 2, hi), xr = r.ix0 + r.ix1 - xl - bw + 1; if (xr - (xl + bw) < 2) continue;
       const xs = lay === 'rows' ? [xl, Math.round((r.ix0 + r.ix1 - bw + 1) / 2), xr] : [xl, xr]; if (lay === 'rows' && (xs[1] - (xl + bw) < 2 || xr - (xs[1] + bw) < 2)) continue;
       let ys; if (lay === 'pair') ys = [Math.round((r.iy0 + r.iy1 - bh + 1) / 2)]; else { const yt = randi(top, top + 1), yb = r.iy0 + r.iy1 - yt - bh + 1; if (yb - (yt + bh) < 2) continue; ys = [yt, yb]; }
       if (ys[0] < top || ys[ys.length - 1] + bh - 1 > r.iy1 - 2) continue;
       for (const x of xs) for (const y of ys) rect(rock, x, y, bw, bh);
     } else if (k === 'ring') { // one great block in the middle, a walk round it
-      const top = r.kind === 'end' ? 3 : 2, ws = [3, 5].filter(b => b <= r.w - 8 && b + 1 <= r.h - top - 2); if (!ws.length) return false; const bw = pick(ws), bh = bw + 1; // (a tile taller than wide: its top, drawn north of where it stands, then reads square)
+      const top = r.kind === 'end' ? 3 : 2, dd = TH && TH.sheet === 'crypt' ? 2 : 1, ws = [3, 5].filter(b => b <= r.w - 8 && b + dd <= r.h - top - 2); if (!ws.length) return false; const bw = pick(ws), bh = bw + dd; // (a tile taller than wide: its top, drawn north of where it stands, then reads square; the crypt's two, 30_arena cryptBlocks)
       // lined up with the corridors: an odd width like theirs, centred on a north or south doorway (else the room's middle)
       const nd = r.doors.filter(d => d.side === 'N' || d.side === 'S').map(d => d.cells[1][0]), ax = nd.length ? pick(nd) : Math.round((r.ix0 + r.ix1) / 2);
       const x0 = ax - (bw - 1) / 2, y0 = Math.max(r.iy0 + (r.kind === 'end' ? 3 : 2), Math.round((r.iy0 + r.iy1 - bh + 1) / 2));
@@ -116,7 +116,7 @@ function shapeRoom(r, k, fl, W, H) {
 // THE GREAT HALL's colonnade: blocks of wall two tiles wide in two rows down its length (a long hall), or two columns
 // down a nave, every five or six tiles; any that would stand in a door's way is left out
 function greatHall(r, fl, W, H) {
-  const keep = landingKeep(r, W), bh = 3, step = randi(5, 6);
+  const keep = landingKeep(r, W), bh = TH && TH.sheet === 'crypt' ? 4 : 3, step = randi(5, 6);
   for (let t = 0; t < 12; t++) {
     const rock = new Set(), add = (x0, y0, w, h) => { const c = []; for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) c.push(y * W + x); if (c.some(i => keep.has(i))) return; for (const i of c) rock.add(i); };
     const C = TH && TH.sheet === 'crypt', group = bs => { const cs = bs.map(([x0, y0, w, h]) => { const c = []; for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) c.push(y * W + x); return c; }); if (cs.some(c => c.some(i => keep.has(i)))) return; for (const c of cs) for (const i of c) rock.add(i); }; // (the crypt's: a block and its mirrors stand together or not at all)

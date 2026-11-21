@@ -184,6 +184,30 @@ function cryptTorch(c, t) {
   const x = t.x - 8, y = t.y - 15; if (t.out) { c.drawImage(IMG.crypt, 8 * TS, 7 * TS, TS, TS, x, y, TS, TS); return; }
   const f = ((G.time * 7 + (t.f || 0)) | 0) % 4; c.drawImage(IMG.cryptAnim, 16 + f * 16, 256, TS, TS, x, y, TS, TS);
 }
+// THE CRYPT'S BLOCKS OF WALL: a block standing free in a room, floor all round it, as deep as it is wide and two more
+// (33_shapes) is drawn whole from the sheet's own block (10_assets cryptBlockAtlas): a strip of floor along its north
+// edge, then its top, square, then its face, as tall as the room's walls'. Feet coming from the north stop at the top's
+// rim, as at a south wall; the top is the ceiling, over anyone behind it. Which atlas tile each of its tiles takes
+function cryptBlocks(rooms, isF, W) {
+  const out = new Map();
+  for (const r of rooms) {
+    if (!r.rock || !r.rock.size) continue; const seen = new Set();
+    for (const s of r.rock) {
+      if (seen.has(s)) continue; const comp = [], st = [s]; seen.add(s);
+      while (st.length) { const c = st.pop(); comp.push(c); for (const d of [1, -1, W, -W]) if (r.rock.has(c + d) && !seen.has(c + d)) { seen.add(c + d); st.push(c + d); } }
+      const xs = comp.map(i => i % W), ys = comp.map(i => (i / W) | 0), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), w = x1 - x0 + 1, h = y1 - y0 + 1;
+      if (comp.length !== w * h || h !== w + 2 || w < 2) continue; // (a block of the crypt's proportions, whole)
+      let free = true; for (let x = x0 - 1; x <= x1 + 1 && free; x++) for (const y of [y0 - 1, y1 + 1]) if (!isF(x, y)) free = false; for (let y = y0; y <= y1 && free; y++) for (const x of [x0 - 1, x1 + 1]) if (!isF(x, y)) free = false;
+      if (!free) continue;
+      for (const i of comp) { const x = i % W, k = ((i / W) | 0) - y0; out.set(i, [x === x0 ? 0 : x === x1 ? 2 : 1, k === 0 ? 0 : k < w ? 1 : k === w ? 2 : 3]); }
+    }
+  }
+  return out;
+}
+// what of each such tile stops feet (w) and is the ceiling (t): the floor strip open, all the rest wall; the top's rims and
+// its dark the ceiling, the face not (31_walls paintAt takes these before the cellar piece's own)
+const BLOCK_PAINT = [[8, 8], [0, 0], [0, -8], [0, -16]].map(([w0, t0]) => { const w = new Uint16Array(16), t = new Uint16Array(16); for (let y = 0; y < 16; y++) { if (y >= w0) w[y] = 0xffff; if (t0 >= 0 ? y >= t0 : y < 16 + t0) t[y] = 0xffff; } return { w, t, tr: maskRects(t) }; }); // ([rows from which it is wall, rows of ceiling: from this row on, or (less than nothing) the first 16 less that many])
+function blockPaint(blk) { const m = new Map(); for (const [i, [, row]] of blk) m.set(i, BLOCK_PAINT[row]); return m; }
 function cryptAt(g, tx, ty, dx, dy) { g.drawImage(IMG.crypt, tx * TS, ty * TS, TS, TS, dx, dy, TS, TS); }
 function tileAt(g, tx, ty, dx, dy) { const [im, sx, sy] = srcOf(tx, ty); g.drawImage(im, sx, sy, TS, TS, dx, dy, TS, TS); }
 // A floor that cannot take the puzzles its depth asks for (37_levels levelPlan) is laid out again, a few times at most.
@@ -351,9 +375,11 @@ function buildArena1(floor) {
     const R = m.map(([mx, my, mw, mh]) => [x * TS + (flip ? TS - mx - mw : mx), y * TS + my, mw, mh]);
     cng.save(); cng.beginPath(); for (const [rx, ry, rw, rh] of R) cng.rect(rx, ry, rw, rh); cng.clip(); put(cng, tx, ty, x, y, flip); cng.restore();
   };
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const P = wallPiece(isF, x, y); if (P) T(P[0], P[1], x, y, P[2]); }
+  const blk = th.sheet === 'crypt' ? cryptBlocks(rooms, isF, W) : null; // (the crypt's blocks of wall standing in its rooms: drawn whole, below)
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const P = wallPiece(isF, x, y); if (!P) continue; if (blk && blk.has(y * W + x)) { wt[y * W + x] = P[0] * 64 + P[1] + 1; wf[y * W + x] = P[2] ? 1 : 0; } else T(P[0], P[1], x, y, P[2]); }
   if (th.sheet === 'crypt') { g.fillStyle = '#121418'; for (const r of rooms) for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) if (!wt[y * W + x] && !isF(x, y)) g.fillRect(x * TS, y * TS, TS, TS); } // (the inside of a block of wall standing in a crypt room is the wall's dark top, as its edges are)
-  const A = ARENA = { arch: ARCH.cur, w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilN: cn, fl, wt, wf, rooms, halls, props: [], torches: [], name: floorName(floor), floor, liq, moss: th.sheet === 'crypt' && floor >= 6 }; // (liq: what the crypt's pools hold, 36_works LIQUIDS; moss: the deepest crypt's dead grown over, 43_crypt)
+  if (blk) for (const [i, [cx, cy]] of blk) g.drawImage(IMG.cryptBlock, cx * TS, cy * TS, TS, TS, (i % W) * TS, ((i / W) | 0) * TS, TS, TS);
+  const A = ARENA = { arch: ARCH.cur, w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilN: cn, fl, wt, wf, pov: blk ? blockPaint(blk) : null, rooms, halls, props: [], torches: [], name: floorName(floor), floor, liq, moss: th.sheet === 'crypt' && floor >= 6 }; // (liq: what the crypt's pools hold, 36_works LIQUIDS; moss: the deepest crypt's dead grown over, 43_crypt)
   paintCeil(A, cg, cv); // the painted trim, as drawn on the ground: the ceiling over everyone (31_walls)
   for (const i of hidMask) fl[i] = 1;
   for (const h of halls) h.frame = shortHall(h) && chance(0.6);

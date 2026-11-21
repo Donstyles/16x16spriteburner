@@ -19,6 +19,22 @@ function cryptTops(img) {
   for (let i = 0; i < d.length; i += 4) if (d[i] === 38 && d[i + 1] === 29 && d[i + 2] === 26 && d[i + 3] === 255) { d[i] = 18; d[i + 1] = 20; d[i + 2] = 24; } // (#121418)
   g.putImageData(id, 0, 0); return c;
 }
+// THE CRYPT'S BLOCKS OF WALL (a pillar, a ring's great block, a colonnade's): drawn from the sheet's own block (its first
+// three columns, rows 2 to 5) as an atlas of three columns (its west edge, its middle, its east edge) and four rows: a strip
+// of floor then the top's north rim; the dark of its top; the top's south rim then the face's first rows; the face. A block
+// w tiles wide stands w + 2 deep and its top is w tiles square, with the same face as the room's walls (30_arena cryptBlocks)
+function cryptBlockAtlas(img) {
+  const T = 16, c = mkCanvas(3 * T, 4 * T), g = c.getContext('2d');
+  for (let i = 0; i < 3; i++) {
+    const x = i * T, sx = i * T;
+    g.drawImage(img, sx, 2 * T, T, 8, x, 8, T, 8); // (the north rim, eight rows down)
+    g.drawImage(img, sx, 3 * T, T, T, x, T, T, T); // (the dark)
+    if (i === 1) { g.drawImage(img, sx, 4 * T + 8, T, 8, x, 2 * T, T, 8); g.drawImage(img, sx, 5 * T, T, 8, x, 2 * T + 8, T, 8); } // (the middle's south rim, then the face's first rows: as tallCrypt made its edges)
+    else g.drawImage(img, sx, 4 * T, T, T, x, 2 * T, T, T);
+    g.drawImage(img, sx, 5 * T, T, T, x, 3 * T, T, T); // (the face)
+  }
+  return c;
+}
 function trimEdgeBars(img) {
   const c = mkCanvas(img.width, img.height), g = c.getContext('2d'); g.drawImage(img, 0, 0);
   for (const [row, f, t] of [[1, [60, 69, 76], [81, 93, 102]], [7, [76, 67, 52], [102, 90, 70]]]) { const d = g.getImageData(0, row * 16 + 3, img.width, 1), p = d.data; for (let i = 0; i < p.length; i += 4) if (p[i] === f[0] && p[i + 1] === f[1] && p[i + 2] === f[2] && p[i + 3] === 255) { p[i] = t[0]; p[i + 1] = t[1]; p[i + 2] = t[2]; } g.putImageData(d, 0, row * 16 + 3); }
@@ -28,7 +44,7 @@ function loadImage(src) { return new Promise((res, rej) => { const i = new Image
 async function loadAssets() {
   const A = window.__ASSETS;
   for (const k of ['cellar', 'mobs', 'doors', 'items', 'ores', 'scrolls', 'ends', 'crypt', 'cryptAnim', 'cellarCrypt', 'doorsCrypt', 'endsCrypt']) IMG[k] = await loadImage(A ? A[k] : 'assets/' + ({ doors: 'cellar_doors', ends: 'beam_ends', cryptAnim: 'crypt_anim', cellarCrypt: 'cellar_crypt', doorsCrypt: 'doors_crypt', endsCrypt: 'ends_crypt' }[k] || k) + '.png'); // (ends: a south strut's two ends where it meets the posts, grey left and right, then brown, as painted in the Item Painter)
-  IMG.doors = trimEdgeBars(IMG.doors); IMG.crypt = cryptTops(tallCrypt(IMG.crypt));
+  IMG.doors = trimEdgeBars(IMG.doors); IMG.crypt = cryptTops(tallCrypt(IMG.crypt)); IMG.cryptBlock = cryptBlockAtlas(IMG.crypt);
   MOBS = A ? A.mobsJson : await (await fetch('assets/mobs.json')).json();
   padMobs();
   IMG.mobsW = silhouette(IMG.mobs); IMG.oresW = silhouette(IMG.ores); IMG.cellarW = silhouette(IMG.cellar); PIX.ores = pixelData(IMG.ores); PIX.mobs = pixelData(IMG.mobs); PIX.cellar = pixelData(IMG.cellar); cutWeapons();

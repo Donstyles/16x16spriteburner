@@ -51,7 +51,7 @@ function maskRects(rows) {
   return out;
 }
 const pieceAt = (A, i) => A.fl[i] === 0 && A.wt && A.wt[i] > 0; // (a wall tile with a piece drawn on it)
-const paintAt = (A, i) => { const c = A.wt[i] - 1; return paintOf((c / 64) | 0, c % 64, A.wf && A.wf[i]); };
+const paintAt = (A, i) => { const o = A.pov && A.pov.get(i); if (o) return o; const c = A.wt[i] - 1; return paintOf((c / 64) | 0, c % 64, A.wf && A.wf[i]); }; // (pov: the crypt's blocks of wall, 30_arena cryptBlocks)
 // Which of the pieces' floor pixels really are floor: those the floor reaches, pixel by pixel from the floor tiles beside
 // them (a south wall's row behind a room is; a strip with no floor beside it is not). Behind a wall the floor is what lies
 // north of it: under a pit or a pool's water the row is pit or water too, none of it floor, so nobody walks round a chasm
