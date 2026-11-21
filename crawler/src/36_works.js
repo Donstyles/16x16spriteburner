@@ -694,7 +694,7 @@ function drawWorks(c) {
     sheetTile(c, rn.on ? rn.lit : rn.tile, rn.x - 8, rn.y - 8);
     if (rn.on) light(rn.x, rn.y, 46 + 4 * Math.sin(G.time * 3 + rn.x), 'gold', 0.55);
   }
-  for (const s of A.spikes || []) { const f = spikeFrame(s); if (!f && A.th.sheet === 'crypt') { c.globalAlpha = 0.3; cryptAt(c, 9, 4, s.x - 8, s.y - 8); c.globalAlpha = 1; continue; } /* (down: only the shards' tips, faint, in the earth) */ if (f && A.th.sheet === 'crypt') { const t = BONE_SHARDS[f][(s.tile[1] + s.tx) % 2]; cryptAt(c, t[0], t[1], s.x - 8, s.y - 8); } else sheetTile(c, s.tile, s.x - 8, s.y - 8, f, 0); } // (the crypt's: shards of bone, 43_crypt)
+  for (const s of A.spikes || []) { const f = spikeFrame(s); sheetTile(c, s.tile, s.x - 8, s.y - 8, f, 0); } // (the crypt's are the cellar's own spikes, from its recoloured sheet)
   drawPuzzles(c); // (the echoing runes: 41_puzzles)
 }
 function drawWorksGlow(c) { // the lit runes glow in the dark; just woken, a column of light stands on one

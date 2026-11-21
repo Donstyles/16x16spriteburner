@@ -136,8 +136,6 @@ function cryptFace(A, r, g, f) {
   const W = A.w, n = f.length, mid = (n - 1) / 2;
   f.forEach((c, i) => { const x = c % W, y = (c / W) | 0, d = Math.round(Math.abs(i - mid)); cryptNiche(A, r, g, x, y, d % 2 === 0 ? 'light' : 'skulls', d); });
 }
-// the crypt's floor spikes: rows of bone shards in three heights (sheet 9..10, 4..5), by the frame (3 tip, 2 half, 1 up)
-const BONE_SHARDS = { 3: [[9, 4], [9, 4]], 2: [[10, 4], [11, 4]], 1: [[10, 5], [9, 5]] };
 
 // ===================== the restless dead =====================
 // A tomb's candles keep its dead asleep: while one still burns, the lid stays on. When the last goes out (burnt down, or
