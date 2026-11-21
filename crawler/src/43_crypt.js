@@ -104,21 +104,23 @@ function ossuary(A, r, g, P) {
 // own candles (44_candles); the urns' niches have none
 const NICHE_Y = -6, LIGHT_NICHE = [7 * 16, 6 * 16, 16, 16, [8 * 16, 7 * 16]];
 function cryptWall(A, r, g, used) {
-  const c2 = r.ix0 + r.ix1, y = r.fy0 + 1;
+  const c2 = r.ix0 + r.ix1, y = r.fy0 + 1, held = new Set(r.kind === 'end' && r.stairX !== undefined ? [r.stairX - 1, r.stairX + 3] : []); // (held: the tiles with a niche, a font or a torch in them: the way down's own dead torches, either side of it, 30_arena)
   let k = 0;
   for (let x = Math.floor(c2 / 2); x > r.ix0; x -= 2, k++) {
-    const m = c2 - x, both = x === m ? [x] : [x, m]; if (both.some(xx => used.has(xx) || !plainWall(A, xx, y))) continue;
+    const m = c2 - x, both = x === m ? [x] : [x, m]; if (both.some(xx => used.has(xx) || !plainWall(A, xx, y) || held.has(xx - 1) || held.has(xx + 1))) continue; // (never right beside a torch already there)
     const role = k % 2 === 0 ? 'light' : ['skulls', 'urns', 'chains'][(k >> 1) % 3];
-    if (k === 0 && both.length === 1 && fontRoom(r) && FLOOR(A.fl[r.iy0 * A.w + x])) { used.add(x); cryptFont(A, r, g, x, y); continue; } // (a font at its middle: below)
-    for (const xx of both) { used.add(xx); cryptNiche(A, r, g, xx, y, role, k); }
+    if (k === 0 && both.length === 1 && fontRoom(r) && FLOOR(A.fl[r.iy0 * A.w + x])) { used.add(x); held.add(x); cryptFont(A, r, g, x, y); continue; } // (a font at its middle: below)
+    for (const xx of both) { used.add(xx); held.add(xx); cryptNiche(A, r, g, xx, y, role, k); }
   }
   // the runs of plain wall the mirrored pass had to leave bare (a doorway or an alcove off the room's middle has no mirror):
-  // each run of two tiles or more not yet used is dressed the same way from its own middle out
+  // each run of two tiles or more not yet used is dressed the same way from its own middle out (a tile of bare brick kept
+  // next to a niche already there, so the rhythm of every second tile holds across the two passes)
   const free = xx => xx > r.ix0 && xx < r.ix1 && plainWall(A, xx, y) && !used.has(xx); // (used: the niches, and the margins kept by doorways, stairs, outlets and cracks)
   for (let x = r.ix0 + 1; x <= r.ix1 - 1;) {
-    if (!free(x)) { x++; continue; } let b = x; while (free(b + 1)) b++;
-    if (b - x >= 1) { const c2r = x + b; let kk = 0; for (let xx = Math.floor(c2r / 2); xx >= x; xx -= 2, kk++) { const two = xx === c2r - xx ? [xx] : [xx, c2r - xx], role = kk % 2 === 0 ? 'light' : ['skulls', 'urns', 'chains'][(kk >> 1) % 3]; for (const q of two) { used.add(q); cryptNiche(A, r, g, q, y, role, kk); } } }
-    x = b + 1;
+    if (!free(x)) { x++; continue; } let b = x; while (free(b + 1)) b++; const next = b + 1;
+    let a0 = held.has(x - 1) ? x + 1 : x, b0 = held.has(b + 1) ? b - 1 : b; if (b - x >= 1 && (b0 - a0) % 2 === 1) { if (a0 + b0 > c2) b0--; else a0++; } // (an even run loses its tile toward the room's end: an odd one has a middle tile, and every second tile from it)
+    if (b - x >= 1 && b0 - a0 >= 0) { const c2r = a0 + b0; let kk = 0; for (let xx = Math.floor(c2r / 2); xx >= a0; xx -= 2, kk++) { const two = xx === c2r - xx ? [xx] : [xx, c2r - xx], role = kk % 2 === 0 ? 'light' : ['skulls', 'urns', 'chains'][(kk >> 1) % 3]; for (const q of two) { used.add(q); held.add(q); cryptNiche(A, r, g, q, y, role, kk); } } }
+    x = next;
   }
 }
 // one niche at x on the wall face row y: a light niche, skulls, urns or chains
@@ -384,14 +386,15 @@ function drawShadeEyes(c) {
 
 // ===================== the charnel pit =====================
 // One crypt room a floor (the first one with room for it) has the pit the dead were thrown into: the sheet's ragged pit,
-// three tiles square, off the worn paths and as near the room's middle as it fits, a cold brazier either side of it.
+// three tiles square, off the worn paths, on the room's middle line if it fits there (else as near the middle as it
+// fits), a cold brazier either side of it.
 // While the hero is in its room and either brazier is dark, the dead leap out of it, one every few seconds (no more
 // than three of its own up at once, eight in all). Stand at a brazier a moment and his lamp lights it; with both
 // burning, the pit is quiet for good (and the light keeps the heaps of those cut down there down: 43_crypt litAt).
 function charnelPit(A, r, g, P) {
   if (A.charnel || r.kind !== 'room' || r.ix1 - r.ix0 < 8 || r.iy1 - r.iy0 < 5) return;
   const cx = Math.round((r.ix0 + r.ix1) / 2), cy = Math.round((r.iy0 + r.iy1) / 2), tries = [];
-  for (let j = -3; j <= 3; j++) for (let i = -6; i <= 6; i++) tries.push([cx + i - 1, cy + j - 1, Math.abs(i) + Math.abs(j) * 1.5]);
+  for (let j = -5; j <= 5; j++) for (let i = -6; i <= 6; i++) if (i === 0 || Math.abs(j) <= 3) tries.push([cx + i - 1, cy + j - 1, (i ? 20 : 0) + Math.abs(i) + Math.abs(j) * 1.5]); // (on the room's middle line, north or south of the paths' crossing, wherever that fits; only else off it)
   tries.sort((a, b) => a[2] - b[2]);
   for (const [x0, y0] of tries) {
     const cells = []; for (let y = y0; y < y0 + 3; y++) for (let x = x0; x < x0 + 3; x++) cells.push([x, y]);
