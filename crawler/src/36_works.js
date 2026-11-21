@@ -330,12 +330,13 @@ function spikeHalls(A) {
 const litK = o => o.litT === undefined ? 1 : clamp((G.time - o.litT) / 0.3, 0, 1);
 const litFlare = o => o.litT === undefined ? 0 : Math.max(0, 1 - (G.time - o.litT) / 0.7);
 function lightUp(o, brazier) {
-  if (!o.out) return; const A = ARENA; o.out = false; o.litT = G.time; torchCandles(o, true); A.lights = A.slit = null; // (what the fixed lights reach, again: 34_sight)
+  if (!o.out) return; const A = ARENA; o.out = false; o.litT = G.time; A.lights = A.slit = null; // (what the fixed lights reach, again: 34_sight)
+  if (o.candles && o.candles.length) { o.candles.forEach((c, i) => after(i * 0.16, () => { if (ARENA !== A) return; c.lit = true; c.wax = Math.max(c.wax, c.h0 * 0.7); c.sput = 0; c.gust = 0.8; sparks(c.x + c.w / 2, c.yb - c.wax, 2, 4, 'fire', 30, 30); A.lights = A.slit = null; })); } // (a niche's candles catch one by one, each with its spark)
   const x = o.x, y = brazier ? o.y - 10 : o.y - 4; SFX.fire(panOf(x)); SFX.whoosh(panOf(x));
   sparks(x, y, 4, brazier ? 16 : 10, 'fire', 90, 90); smoke(x, y - 2, 2, 'dust', 5, 14, 0.8); flashLight(x, y, brazier ? 110 : 80, 'torch', 1.1, 0.6);
 }
 function exitTorches(A) { // (30_arena: one each side of the way down)
-  if (!A.stairs || A.exitLit || A.stairs.seal) return; // (a sealed way down: its torches light when its door has gone up, exitCine) if (!G.heroes.some(h => alive(h) && dist(h.x, h.y, A.stairs.x, A.stairs.y + 12) < 84)) return; // (about five tiles off)
+  if (!A.stairs || A.exitLit || A.stairs.seal) return; /* (a sealed way down: its torches light when its door has gone up, exitCine) */ if (!G.heroes.some(h => alive(h) && dist(h.x, h.y, A.stairs.x, A.stairs.y + 12) < 84)) return; // (about five tiles off)
   A.exitLit = true; const T = A.torches.filter(t => t.exit).sort((a, b) => a.x - b.x); T.forEach((t, i) => after(i * 0.35, () => { if (ARENA === A) lightUp(t); }));
 }
 
