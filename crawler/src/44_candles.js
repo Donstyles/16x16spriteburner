@@ -7,7 +7,8 @@
 //   its flame flickers, two pixels or one, and leans; wax runs down its side now and then and pools at its foot
 //   a blow that passes over it puts it out: a thread of smoke, the wick dark; a blow that only passes near makes it gutter
 //   when the hero runs or rolls past it, its flame gutters hard, leaning away from him; so it does when the Shade goes by
-//   (43_crypt), though nothing else shows where it is
+//   (43_crypt), though nothing else shows where it is; and near a cracked wall it leans toward the cracks, now and then,
+//   pulled by the draught from the hidden way behind them: the flames point at what the walls hide
 //   burnt down, it sputters a few breaths and goes out, a stub in its wax
 // The niches that light a crypt room hold three candles each (A.torches: the niche gives as much light as its candles
 // still burning), and every other lit candle lights a little round itself (70_render). Nothing here is left to chance:
@@ -61,6 +62,8 @@ function candlesTick(dt) {
     c.gust = Math.max(0, c.gust - dt * 1.6); if (c.smokeT > 0) c.smokeT -= dt;
     if (!c.lit) continue;
     if (h && !h.dead) { const d = Math.hypot(h.x - (c.x + c.w / 2), (h.y - c.gy) * 1.4); if (d < 34) c.gust = Math.max(c.gust, rush ? 1 - d / 60 : h.moving ? 0.25 * (1 - d / 34) : 0); c.lean = Math.sign(c.x - h.x) || 1; }
+    if (c.draft === undefined) { const k = (A.cracks || []).find(k => Math.abs((k.x + 1.5) * TS - (c.x + c.w / 2)) < 72 && Math.abs((k.y + 1) * TS - c.yb) < 44); c.draft = k ? Math.sign((k.x + 1.5) * TS - (c.x + c.w / 2)) || 1 : 0; c.draftK = k; } // (a cracked wall near: the draught from what lies behind it)
+    if (c.draft && !c.draftK.open) { const n = noise1(G.time * 3 + c.ph); if (n > -0.2) { c.gust = Math.max(c.gust, 0.5 + 0.35 * n); c.lean = c.draft; } }
     for (const S of shades) { const d = Math.hypot(S.x - (c.x + c.w / 2), (S.y - c.gy) * 1.4); if (d < 64) { c.gust = Math.max(c.gust, 0.95 * (1 - d / 64) + 0.3); c.lean = Math.sign(c.x - S.x) || 1; } }
     if (c.wax > 0) { c.wax = Math.max(0, c.wax - c.rate * dt); if (c.wax === 0) c.sput = 2.6; }
     else if ((c.sput -= dt) <= 0) { snuff(c); continue; } // (burnt down: it sputters a while, then it is out)
