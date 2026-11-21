@@ -491,13 +491,28 @@ function seatedTick(f) {
 // The crypt's corridors are its galleries: along the north wall of every straight one running east and west, from its
 // middle out and mirrored, a light niche every fourth tile and niches of skulls between, the dead stored in its walls.
 function cryptGalleries(A, g) {
+  // from the corridor's middle out, mirrored: a light niche, a tile of brick, a loculus (the sheet's two-wide burial shelf,
+  // a stone casket in the wall: rows 8-9, its plaque turned toward the middle), a tile of brick, a light niche... (an odd
+  // middle starts with a loculus astride it); every second loculus out from the middle has its candles
   for (const hl of A.halls) {
-    if (hl.dir !== 'h' || hl.bent || hl.hidden) continue; const y = hl.y0 - 1, c2 = hl.x0 + hl.x1, R = { i: -1, fy0: -99 }; let k = 0;
-    for (let x = Math.floor(c2 / 2); x > hl.x0 + 1; x -= 2, k++) {
-      const m = c2 - x, both = x === m ? [x] : [x, m]; if (both.some(xx => !plainWall(A, xx, y))) continue;
-      for (const xx of both) cryptNiche(A, R, g, xx, y, k % 2 === 0 ? 'light' : 'skulls', k);
+    if (hl.dir !== 'h' || hl.bent || hl.hidden) continue; const y = hl.y0 - 1, c2 = hl.x0 + hl.x1, R = { i: -1, fy0: -99 }, wall = xs => xs.every(x => x > hl.x0 + 1 && x < hl.x1 - 1 && plainWall(A, x, y));
+    const seq = c2 % 2 === 0 ? ['L', 'b', 'C', 'b'] : ['C', 'b', 'L', 'b']; let x = c2 % 2 === 0 ? c2 / 2 : (c2 - 1) / 2, n = 0, kl = 0, kc = 0;
+    for (let guard = 0; guard < 40; guard++, n++) {
+      const t = seq[n % 4];
+      if (t === 'b') { x -= 1; continue; }
+      if (t === 'L') { const m = c2 - x, both = x === m ? [x] : [x, m]; if (!wall(both)) break; for (const xx of both) cryptNiche(A, R, g, xx, y, 'light', kl); kl++; x -= 1; continue; }
+      const lx = x === (c2 - 1) / 2 ? x : x - 1, pairs = lx === (c2 - 1) / 2 ? [[lx, 'mid']] : [[lx, 'left'], [c2 - lx - 1, 'right']]; // (a loculus: its left tile at lx)
+      if (!wall(pairs.flatMap(([a]) => [a, a + 1]))) break;
+      for (const [a, side] of pairs) loculus(A, g, a, y, kc, side); kc++; x = lx - 1;
     }
   }
+}
+// a loculus at x, x + 1 on the wall face row y: k, its place out from the middle; side, which half of the wall (the plaque
+// turned toward the middle)
+function loculus(A, g, x, y, k, side) {
+  const N = MOSSN(), col = k % 2 === 0 ? (k % 4 === 0 ? 6 : 12) : side === 'left' ? 8 : 10, nx = x * TS, ny = y * TS + NICHE_Y, lit = k % 2 === 0;
+  if (!lit) { g.drawImage(IMG.crypt, col * TS, (8 + N) * TS, 2 * TS, TS, nx, ny, 2 * TS, TS); return; }
+  const S = candleSrc(col * TS, (9 + N) * TS, 2 * TS, TS, [col * TS, (8 + N) * TS]); g.drawImage(S.cv, nx, ny); addCandles(A, S, nx, ny, (y + 1) * TS + 3, 900, { wall: true });
 }
 // a snuffed candle (not a burnt-down one) lights again from the hero's lamp: stand under a light niche, or beside a
 // candle tomb, a moment

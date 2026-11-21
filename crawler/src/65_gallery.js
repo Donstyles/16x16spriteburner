@@ -50,7 +50,7 @@ const GALLERY = [
   ['BLOOD SEAL', 'crypt', 'blood', 'THE FONT THIRSTS: STAND AT IT, OR KILL SOMETHING THAT BLEEDS BESIDE IT', '#e89a90'],
   ['THE VIGIL', 'crypt', 'vigil', 'LIGHT EVERY NICHE OF THE ROOM AT ONCE', '#e89a90'],
   ['BLOOD CISTERN', 'crypt', 'pool', 'NO WATER IN THE CRYPT: BLOOD, BLACK BLOOD, ROT', '#e89a90'],
-  ['BURIAL GALLERY', 'crypt', 'gallery', 'A CORRIDOR OF NICHES: LIGHT AND BONES IN TURN', '#e89a90'],
+  ['BURIAL GALLERY', 'crypt', 'gallery', 'A CORRIDOR OF THE DEAD: LIGHT NICHES, CASKETS IN THE WALL BETWEEN', '#e89a90'],
   ['MOSSY DEEP', 'crypt', 'moss', 'THE LOWEST CRYPT FLOOR: ITS DEAD GROWN OVER', '#e89a90'],
 ];
 // (on a gallery floor: PREV and NEXT at the top step through them all, its name and number under them; 61_input)
