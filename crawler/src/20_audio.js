@@ -104,6 +104,7 @@ const SFX = {
   scrape(pan = 0) { if (!this.ok('scrape', 2)) return; this.noise(this.brown, 1.4, 'bandpass', 420, 180, 3, 0.07, pan, 0, 0.25); },
   drip(pan = 0) { if (!this.ok('drip', 0.4)) return; this.tone('sine', 1500, 820, 0.09, 0.05, pan); this.tone('sine', 1100, 700, 0.07, 0.025, pan, 0.11); },
   settle(pan = 0) { if (!this.ok('settle', 1.5)) return; for (let i = 0; i < 4; i++) this.tone('square', 900 - i * 120, 500 - i * 60, 0.03, 0.018, pan, i * 0.07); },
+  heart(lvl = 1) { if (!this.ok('heart', 0.3)) return; const g = 0.05 + 0.09 * lvl; this.tone('sine', 64, 38, 0.17, g, 0, 0, 0.01); this.tone('sine', 58, 36, 0.15, g * 0.7, 0, 0.21, 0.01); this.noise(this.brown, 0.12, 'lowpass', 160, 80, 0.7, g * 0.5, 0); }, // (the hero's heart, the Shade near: 43_crypt)
   puff(pan = 0) { if (!this.ok('puff', 0.05)) return; this.noise(this.white, 0.2, 'bandpass', 1400, 380, 0.9, 0.11, pan, 0, 0.16); }, // (a candle blown out: 44_candles)
   pop(pan = 0) { if (!this.ok('pop', 0.025)) return; this.noise(this.white, 0.12, 'lowpass', 3000, 300, 0.7, 0.35, pan); this.tone('square', 220, 60, 0.1, 0.12, pan); },
   // a coin: a bright two-note clink, a semitone higher for each coin scooped up in quick succession

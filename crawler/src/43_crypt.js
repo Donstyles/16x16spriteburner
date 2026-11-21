@@ -586,9 +586,10 @@ function archName(A) {
 // ===================== the lamp falters =====================
 // While the Shade hunts close by, the hero's lamp gutters and draws in (lampK, 34_sight): the nearer it is, the less the
 // lamp reaches and the more it flickers (70_render), and the less of the dark it holds still (its freeze, above). It
-// comes back as the Shade draws off, or dies.
+// comes back as the Shade draws off, or dies. And his heart is heard, louder and quicker the nearer it comes.
 function lampDimTick(dt) {
   const A = ARENA, h = G.me; let want = 0;
   if (A && A.th.sheet === 'crypt' && h && !h.dead) for (const f of G.foes) if (f.shade && !f.dead && f.hunting) { const d = dist(f.x, f.y, h.x, h.y); if (d < 150) want = Math.max(want, 1 - d / 150); }
   G.lampDim = (G.lampDim || 0) + (want - (G.lampDim || 0)) * Math.min(1, dt * (want > (G.lampDim || 0) ? 2.5 : 0.8));
+  if (G.lampDim > 0.2) { if ((G.heartT = (G.heartT || 0) - dt) <= 0) { SFX.heart(G.lampDim); G.heartT = 1.15 - 0.55 * G.lampDim; } } else G.heartT = 0; // (and his heart, louder and quicker the nearer it is)
 }
