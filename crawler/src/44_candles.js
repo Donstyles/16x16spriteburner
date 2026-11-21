@@ -83,8 +83,8 @@ function candleBlow(src, mv, dir) {
   }
 }
 // drawn where the piece is drawn (a niche's with the ground, a tomb's with the tomb)
-function drawCandles(c, list) {
-  for (const k of list) {
+function drawCandles(c, list, cull) { // (cull: only those near the view; the wall's, drawn each frame from the whole floor's list)
+  for (const k of list) { if (cull && (Math.abs(k.x - CAM.x) > 340 || Math.abs(k.yb - CAM.y) > 240)) continue;
     const top = k.yb - Math.ceil(k.wax) + 1; // (the wax's top row)
     for (let i = 0; i < k.pool; i++) { c.fillStyle = WAX.wax; c.fillRect(i % 2 ? k.x + k.w + (i >> 1) : k.x - 1 - (i >> 1), k.yb, 1, 1); } // its pool
     if (k.wax > 0) for (let y = top; y <= k.yb; y++) for (let x = 0; x < k.w; x++) { c.fillStyle = y === top && k.lit ? WAX.lit : x === k.w - 1 && k.w > 1 ? WAX.shade : WAX.wax; c.fillRect(k.x + x, y, 1, 1); }
