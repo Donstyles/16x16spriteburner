@@ -6,7 +6,8 @@
 //   it stands its own height (as drawn, or a pixel shorter, by its place) and burns down a pixel at a time over minutes
 //   its flame flickers, two pixels or one, and leans; wax runs down its side now and then and pools at its foot
 //   a blow that passes over it puts it out: a thread of smoke, the wick dark; a blow that only passes near makes it gutter
-//   when the hero runs or rolls past it, its flame gutters hard, leaning away from him
+//   when the hero runs or rolls past it, its flame gutters hard, leaning away from him; so it does when the Shade goes by
+//   (43_crypt), though nothing else shows where it is
 //   burnt down, it sputters a few breaths and goes out, a stub in its wax
 // The niches that light a crypt room hold three candles each (A.torches: the niche gives as much light as its candles
 // still burning), and every other lit candle lights a little round itself (70_render). Nothing here is left to chance:
@@ -55,10 +56,12 @@ function snuff(c, quiet) { if (!c.lit) return; c.lit = false; c.smokeT = 1.6; if
 function candlesTick(dt) {
   const A = ARENA; if (!A || !A.candles) return; const h = G.me;
   const rush = h && !h.dead && (h.sprint || (h.act && h.act.k === 'roll'));
+  const shades = A.th.sheet === 'crypt' ? G.foes.filter(f => f.shade && !f.dead && Math.hypot(f.vx || 0, f.vy || 0) > 6) : []; // (the Shade's passing: a cold draught the flames show, though nothing else does)
   for (const c of A.candles) {
     c.gust = Math.max(0, c.gust - dt * 1.6); if (c.smokeT > 0) c.smokeT -= dt;
     if (!c.lit) continue;
     if (h && !h.dead) { const d = Math.hypot(h.x - (c.x + c.w / 2), (h.y - c.gy) * 1.4); if (d < 34) c.gust = Math.max(c.gust, rush ? 1 - d / 60 : h.moving ? 0.25 * (1 - d / 34) : 0); c.lean = Math.sign(c.x - h.x) || 1; }
+    for (const S of shades) { const d = Math.hypot(S.x - (c.x + c.w / 2), (S.y - c.gy) * 1.4); if (d < 64) { c.gust = Math.max(c.gust, 0.95 * (1 - d / 64) + 0.3); c.lean = Math.sign(c.x - S.x) || 1; } }
     if (c.wax > 0) { c.wax = Math.max(0, c.wax - c.rate * dt); if (c.wax === 0) c.sput = 2.6; }
     else if ((c.sput -= dt) <= 0) { snuff(c); continue; } // (burnt down: it sputters a while, then it is out)
     if ((c.dripT -= dt) <= 0 && c.wax >= 2) { c.dripT = 6 + 9 * hash2(c.x + c.drips.length, c.yb + c.pool); c.drips.push({ side: (c.drips.length + c.pool) % 2, y: c.yb - Math.ceil(c.wax) + 1 }); }
