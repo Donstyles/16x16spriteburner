@@ -28,18 +28,18 @@ const SHOP_THANKS = ['A FINE CHOICE.', 'PLEASURE DOING BUSINESS.', 'MAY IT SERVE
 // tiles are relative to the room's top left corner (ix0, iy0)
 const SHOP_STOCK = [['crate', [27, 12], 0, 0, 1, 2], ['barrel', [24, 8], 1, 0], ['barrel', [26, 8], 2, 0], ['chest', [28, 8], 3, 0], ['crate', [24, 14], 5.5, 0, 2, 2], ['barrel', [25, 8], 7, 0], ['crate', [28, 12], 8, 0, 1, 2]];
 function shopFit(A, r, g) {
-  const X = r.ix0, Y = r.iy0, cx = X + 4;
+  const X = r.ix0, Y = r.iy0, cx = X + 4, C = A.th.sheet === 'crypt'; // (C: in the crypt his stock is urns, no crates, and over him a niche of skulls, no banner)
   const put = (kind, tile, x, y, o = {}) => A.props.push(Object.assign({ kind, tile, x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o));
   // the north wall: torches either side, a banner (one of the gold ones) between them
   for (const tx of [X + 2, X + 6]) A.torches.push({ x: tx * TS + 8, y: (r.fy0 + 1) * TS + 9, tx, f: randi(0, 3) });
-  { const b = pick([24, 25, 26, 27]); tileAt(g, b, 0, cx * TS, r.fy0 * TS); tileAt(g, b, 1, cx * TS, (r.fy0 + 1) * TS); }
+  if (C) cryptNiche(A, r, g, cx, r.fy0 + 1, 'skulls', 0); else { const b = pick([24, 25, 26, 27]); tileAt(g, b, 0, cx * TS, r.fy0 * TS); tileAt(g, b, 1, cx * TS, (r.fy0 + 1) * TS); }
   // his stock along the wall, the braziers, the counter
-  for (const [kind, tile, dx, dy, tw = 1, th = 1] of SHOP_STOCK) put(kind, tile, X + dx, Y + dy, { tw, th, r: tw > 1 ? 9 : 5 });
+  for (const [kind, tile, dx, dy, tw = 1, th = 1] of SHOP_STOCK) { if (C && kind === 'crate') { for (let i = 0; i < tw; i++) { const x = X + Math.floor(dx) + i; put('barrel', URNS[x % 4], x, Y + dy, { th: 1, hp: 1e9 }); } continue; } put(kind, tile, X + dx, Y + dy, { tw, th, r: tw > 1 ? 9 : 5 }); }
   for (const dx of [0, 8]) put('brazier', null, X + dx, Y + 1, { f: randi(0, 3) }); // (at the room's two ends, clear of the wares)
   for (let i = 0; i < 4; i++) put('counter', [29, 10], X + i * 2 + 0.5, Y + 2, { tw: 2, r: 9 });
   put('counter', [31, 10], X + 8, Y + 2);
   // the customers' corners
-  put('barrel', [27, 8], X, Y + 6); put('crate', [25, 12], X + 8, Y + 6);
+  put('barrel', [27, 8], X, Y + 6); if (C) put('barrel', [27, 8], X + 8, Y + 6); else put('crate', [25, 12], X + 8, Y + 6);
   // the keeper, behind the counter (his legs hidden by it), and his wares on it (two to his left, three to his right)
   const kp = { id: -1, team: 'npc', spr: SHOP.keeper, animK: SHOP.idle, x: cx * TS + 8, y: (Y + 2) * TS + 3, z: 0, vx: 0, vy: 0, kx: 0, ky: 0, r: 5, scale: 1, face: 1, anim: rand(0, 4), act: null, state: 'idle', moving: false, dead: false, hp: 1, maxHp: 1 };
   const wares = WARES.map((w, i) => Object.assign({}, w, { x: [X + 2, X + 3, X + 5, X + 6, X + 7][i] * TS + 8, y: (Y + 2) * TS + 14, stock: w.stock }));
