@@ -294,6 +294,11 @@ function hideRunes(A, r, v, vx, vy) {
     if (vx !== undefined && Math.abs(tx - vx) <= 2 && Math.abs(ty - vy) <= 2 || nearDoor(tx, ty) || A.fl[ty * A.w + tx] !== 1 || (A.plates || []).some(p => p.tx === tx && p.ty === ty)) continue;
     if (!A.props.some(q => !q.dead && Math.abs(q.x - (tx * TS + 8)) < 20 && Math.abs(q.cy - (ty * TS + 10)) < 18)) cands.push([tx, ty]);
   }
+  if (A.th.sheet === 'crypt') { // (the crypt's: no urn by chance; the decoys are the runes' own urns mirrored across the room, both ways, so the whole reads as one pattern)
+    const c2x = r.ix0 + r.ix1, c2y = r.iy0 + r.iy1, free = (x, y) => cands.some(([a, b]) => a === x && b === y) && !A.props.some(q => !q.dead && Math.abs(q.x - (x * TS + 8)) < 12 && Math.abs(q.cy - (y * TS + 10)) < 12);
+    for (const rn of v.runes) if (!rn.hidden) for (const [x, y] of [[c2x - rn.tx, rn.ty], [rn.tx, c2y - rn.ty], [c2x - rn.tx, c2y - rn.ty]]) if (free(x, y)) put(x, y);
+    return;
+  }
   for (let i = randi(7, 10); i > 0 && cands.length; i--) { const [x, y] = pick(cands); put(x, y); removeIf(cands, ([a, b]) => Math.abs(a - x) <= 1 && Math.abs(b - y) <= 1); }
 }
 // (lightable: its braziers will be lit again, by runes or by a hero standing by them, so they hold their dead coals, the
