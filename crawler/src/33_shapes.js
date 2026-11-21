@@ -21,7 +21,7 @@ function shapeRooms(rooms, fl, W, H, floor) {
     if (r.great) continue;
     if (r.kind !== 'room' && r.kind !== 'end') continue; if (r.hiddenN) continue; // (a hidden wing's doorway in its north wall: kept plain)
     if (!SHAPES.force && !chance(clamp((0.32 + floor * 0.04) * (ARCH.cur.shape || 1), 0.32, 0.8))) continue; // (more on THE HALLS OF STONE: 35_themes)
-    const kinds = SHAPES.force ? [SHAPES.force] : pitShuffle(r.kind === 'end' ? ['hall', 'ring'] : SHAPE_KINDS.slice());
+    const kinds = SHAPES.force ? [SHAPES.force] : pitShuffle(r.kind === 'end' ? ['hall', 'ring'] : TH && TH.sheet === 'crypt' ? ['hall', 'ring', 'cuts'] : SHAPE_KINDS.slice()); // (the crypt's: only the shapes that can stand mirrored; its cut corners go in mirrored pairs, below)
     for (const k of kinds) if (shapeRoom(r, k, fl, W, H)) { r.shape = k; break; }
   }
 }
@@ -67,10 +67,15 @@ function shapeRoom(r, k, fl, W, H) {
       const x0 = ax - (bw - 1) / 2, y0 = Math.max(r.iy0 + (r.kind === 'end' ? 3 : 2), Math.round((r.iy0 + r.iy1 - bh + 1) / 2));
       if (x0 - r.ix0 < 3 || r.ix1 - (x0 + bw - 1) < 3 || r.iy1 - (y0 + bh - 1) < 2) continue; rect(rock, x0, y0, bw, bh);
     } else if (k === 'cuts') { // corners of rock left standing
+      if (TH && TH.sheet === 'crypt') { // (the crypt's: the two corners of one end, or all four, each the same size, mirrored)
+        const four = chance(0.4), cyy = chance(0.5) ? 1 : 0, cw = randi(2, Math.max(2, Math.floor(r.w * 0.3))), ch = randi(2, Math.max(2, Math.floor(r.h * 0.4)));
+        for (const [cx, cy] of four ? [[0, 0], [1, 0], [0, 1], [1, 1]] : [[0, cyy], [1, cyy]]) rect(rock, cx ? r.ix1 - cw + 1 : r.ix0, cy ? r.iy1 - ch + 1 : r.iy0, cw, ch);
+      } else {
       const n = pick([1, 1, 2, 2, 4]), cs = pitShuffle([[0, 0], [1, 0], [0, 1], [1, 1]]).slice(0, n);
       for (const [cx, cy] of cs) {
         const cw = randi(2, Math.max(2, Math.floor(r.w * 0.4))), ch = randi(2, Math.max(2, Math.floor(r.h * 0.45)));
         rect(rock, cx ? r.ix1 - cw + 1 : r.ix0, cy ? r.iy1 - ch + 1 : r.iy0, cw, ch);
+      }
       }
     } else if (k === 'spurs' || k === 'serpent') { // walls run out into the room
       const ser = k === 'serpent', n = ser ? randi(2, 3) : randi(1, 2), from = ser ? (chance(0.5) ? ['N', 'S', 'N'] : ['S', 'N', 'S']) : null;
