@@ -37,7 +37,8 @@ function botDrive(h, dt) {
     // a button it has seen and not yet pressed (a sluice, a drawbridge's), if it can get there
     const pl = (A.plates || []).concat(A.runes || []).find(q => !q.down && !q.on && !(q.botNo > G.time) && A.mem[q.ty * A.w + q.tx] && findPath(h.x, h.y, q.x, q.y)); // (and a rune: a crate on it, it smashes)
     const sf = !pl && A.props.find(q => q.kind === 'font' && q.seal && q.full < 1 && A.mem[((q.y / TS) | 0) * A.w + ((q.x / TS) | 0)] && findPath(h.x, h.y, q.x, q.y + 6)); // (the blood seal's font: it gives its blood)
-    B.goal = pl ? { x: pl.x, y: pl.y, q: pl } : sf ? { x: sf.x, y: sf.y + 6 } : best || { x: A.stairs.x, y: A.stairs.y - 6 }; B.path = findPath(h.x, h.y, B.goal.x, B.goal.y) || [];
+    const vg = !pl && !sf && (A.vigils || []).flatMap(v => v.done ? [] : v.ts).find(t => t.candles.some(c => !c.lit) && A.mem[(((t.y + 22) / TS) | 0) * A.w + ((t.x / TS) | 0)] && findPath(h.x, h.y, t.x, t.y + 22)); // (THE VIGIL: under each dark niche)
+    B.goal = pl ? { x: pl.x, y: pl.y, q: pl } : sf ? { x: sf.x, y: sf.y + 6 } : vg ? { x: vg.x, y: vg.y + 22 } : best || { x: A.stairs.x, y: A.stairs.y - 6 }; B.path = findPath(h.x, h.y, B.goal.x, B.goal.y) || [];
     // behind a south wall (a wall tile, its floor open) there is no path from where it stands: from the floor tile it counts as on
     if (!B.path.length) { const ft = footTile(h.x, h.y), fx = (ft % A.w) * TS + 8, fy = ((ft / A.w) | 0) * TS + 8, q2 = findPath(fx, fy, B.goal.x, B.goal.y); if (q2) B.path = [{ x: fx, y: fy }].concat(q2); }
   }

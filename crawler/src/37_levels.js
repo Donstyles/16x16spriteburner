@@ -29,7 +29,7 @@ function levelPlan(A, g) {
     for (const d of r.doors) { const n = d.hall.A === r ? d.hall.B : d.hall.A; const seen = new Set([n]), q = [n]; while (q.length) { const a = q.shift(); for (const m of adj(a)) if (m !== r && !seen.has(m)) { seen.add(m); q.push(m); } } parts.set(d, seen.has(A.start) ? 'near' : seen.has(A.end) ? 'far' : seen); }
     const branches = [...parts.entries()].filter(([, v]) => v instanceof Set); if (!branches.length) continue;
     const GF = gateFree(A), hosts = branches.flatMap(([, v]) => [...v]).filter(hostOK(A)).filter(h => !GF || GF.has(h)); if (!hosts.length) continue; // (never behind a gate: 41_puzzles)
-    const host = hosts.sort((a, b) => adj(a).length - adj(b).length || Math.random() - 0.5)[0];
+    const host = pitShuffle(hosts).sort((a, b) => adj(a).length - adj(b).length)[0];
     const far = new Set([...parts.entries()].filter(([, v]) => v === 'far').map(([d]) => d));
     const p = floodedWay(A, r, g, far); if (!p) continue;
     p.preReach = new Set([...reach(r), ...branches.flatMap(([, v]) => [...v])]); // (what can be reached before it drains: THE SUNKEN BUTTON, 36_works)
@@ -79,7 +79,7 @@ function drawbridge(A, r, g, near, adj) {
     const bs = []; for (let b = (o.v ? r.iy0 : r.ix0) + 1; b <= (o.v ? r.iy1 : r.ix1) - 2; b++) bs.push(b); const b = pitShuffle(bs).find(ends); if (b === undefined) continue;
     // the button's room: off a door of this room on the near side (a branch beyond it), never one passed before it
     const branch = new Set(); for (const d of r.doors) { if (near.has(other(d)) || !d.cells.some(([x, y]) => S.has(y * W + x))) continue; const seen = new Set([other(d)]), st = [other(d)]; while (st.length) { const a = st.pop(); for (const n of adj(a)) if (n !== r && !seen.has(n)) { seen.add(n); st.push(n); } } seen.forEach(h => branch.add(h)); }
-    const GF = gateFree(A), ok = h => hostOK(A)(h) && (!GF || GF.has(h)), host = [...branch].filter(ok).sort((a, c) => adj(a).length - adj(c).length || Math.random() - 0.5)[0]; if (!host) continue; // (only beyond: the chasm is met before its button)
+    const GF = gateFree(A), ok = h => hostOK(A)(h) && (!GF || GF.has(h)), host = pitShuffle([...branch].filter(ok)).sort((a, c) => adj(a).length - adj(c).length)[0]; if (!host) continue; // (only beyond: the chasm is met before its button)
     for (const i of band) A.fl[i] = PIT; for (const i of band) pitPaint(A, g, i); A.pitN = (A.pitN || 0) + band.size;
     const cells = []; for (let k = 0; k < H; k++) for (const s of [b, b + 1]) cells.push(o.v ? [o.at + k, s] : [s, o.at + k]);
     const lowNear = o.v ? S.has(b * W + o.at - 1) : S.has((o.at - 1) * W + b); // (laid from the near side)
@@ -108,7 +108,7 @@ function secretOpen(A, r, h) {
 function beyondHost(A, r, within = null) { // (within: only one of these rooms)
   const adj = q => A.halls.filter(h => h.A === q || h.B === q).map(h => (h.A === q ? h.B : h.A));
   if (r === A.start) return null; const near = new Set([A.start]), q = [A.start]; while (q.length) { const a = q.shift(); for (const n of adj(a)) if (n !== r && !near.has(n)) { near.add(n); q.push(n); } }
-  const beyond = A.rooms.filter(h => h !== r && !near.has(h) && (!within || within.has(h))).filter(hostOK(A)).filter(h => secretOpen(A, r, h)).sort((a, b) => (adj(r).includes(a) ? 1 : 0) - (adj(r).includes(b) ? 1 : 0) || Math.random() - 0.5);
+  const beyond = pitShuffle(A.rooms.filter(h => h !== r && !near.has(h) && (!within || within.has(h))).filter(hostOK(A)).filter(h => secretOpen(A, r, h))).sort((a, b) => (adj(r).includes(a) ? 1 : 0) - (adj(r).includes(b) ? 1 : 0)); // (a shuffle, then a stable sort: never a random comparator, whose calls differ from engine to engine)
   return beyond[0] || null;
 }
 function remoteSluice(A, r, p) { const h = beyondHost(A, r); if (!h) return false; hostSluice(A, h, p); return true; }
@@ -129,7 +129,7 @@ function outletSpot(A, host) {
 function waterSet(A, r, cells, g, set, dual) {
   const W = wkOf(A), p = waterBody(A, cells, set, W, dual); p.room = r.i; (A.pools = A.pools || []).push(p); g.drawImage(p.bed, p.px0, p.py0);
   const cs = [...cells].map(i => [i % A.w, Math.floor(i / A.w)]), cx = (p.x0 + p.x1) / 2, cy = (p.y0 + p.y1) / 2;
-  cs.sort((a, b) => Math.hypot(a[0] - cx, a[1] - cy) - Math.hypot(b[0] - cx, b[1] - cy)); p.drainAt = cs.find(([x, y]) => cells.has((y - 1) * A.w + x)) || cs[0]; /* (the grate never on the north wall's face, the top row) */ p.spots = cs.filter(q => q !== p.drainAt).sort(() => Math.random() - 0.5);
+  cs.sort((a, b) => Math.hypot(a[0] - cx, a[1] - cy) - Math.hypot(b[0] - cx, b[1] - cy)); p.drainAt = cs.find(([x, y]) => cells.has((y - 1) * A.w + x)) || cs[0]; /* (the grate never on the north wall's face, the top row) */ p.spots = pitShuffle(cs.filter(q => q !== p.drainAt));
   const t = mkCanvas(TS, TS), tg = t.getContext('2d'), [br, bgc, bb] = W.basin; sheetTile(tg, W.drain, 0, 0);
   tg.globalCompositeOperation = 'source-atop'; tg.fillStyle = `rgba(${br},${bgc},${bb},0.45)`; tg.fillRect(0, 0, TS, TS); g.drawImage(t, p.drainAt[0] * TS, p.drainAt[1] * TS);
   return p;
@@ -184,7 +184,7 @@ function gauntlet(A, r, g) {
   // islands: two tiles square, two tiles of water at least between them and the causeway, archers on them
   const isl = [], taken = new Set(), want = clamp(1 + Math.floor(A.floor / 2), 1, 3), cands = [];
   for (let y = r.iy0 + 2; y <= r.iy1 - 3; y++) for (let x = r.ix0 + 2; x <= r.ix1 - 3; x++) { const d = Math.min(...[...way].map(i => Math.max(Math.abs(i % A.w - x - 0.5), Math.abs(Math.floor(i / A.w) - y - 0.5)))); if (!near(x, y, 3) && !near(x + 1, y + 1, 3) && !near(x + 1, y, 3) && !near(x, y + 1, 3) && d <= 7) cands.push([x, y, d]); } // (two tiles of water at least between: out of reach of a spear)
-  for (const [x, y] of cands.sort(() => Math.random() - 0.5)) {
+  for (const [x, y] of pitShuffle(cands)) {
     if (isl.length >= want) break; if ([[0, 0], [1, 0], [0, 1], [1, 1]].some(([a, b]) => { for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (taken.has((y + b + dy) * A.w + x + a + dx)) return true; return false; })) continue;
     isl.push([x, y]); for (const [a, b] of [[0, 0], [1, 0], [0, 1], [1, 1]]) taken.add((y + b) * A.w + x + a);
   }
@@ -246,7 +246,7 @@ function levelAfter(A, r) {
     const p = r.pool, way = r.way; if (!p.host) { clear(r.wayAt[0], r.wayAt[1]); plate(r.wayAt[0], r.wayAt[1], p); } // (only if no other room could take its sluice)
     // flooded pillars beside the causeway, a few tiles apart: cover from the islands
     const spots = []; for (const i of p.cells) { const x = i % A.w, y = Math.floor(i / A.w); if (y - 1 < p.y0 || !p.cells.has((y - 1) * A.w + x)) continue; if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => way.has((y + b) * A.w + x + a))) spots.push([x, y]); }
-    const put = []; for (const [x, y] of spots.sort(() => Math.random() - 0.5)) { if (put.length >= 3) break; if (put.some(([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 4)) continue; if (r.islands.some(([a, b]) => x >= a - 1 && x <= a + 2 && y >= b - 1 && y <= b + 2)) continue; put.push([x, y]); }
+    const put = []; for (const [x, y] of pitShuffle(spots)) { if (put.length >= 3) break; if (put.some(([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 4)) continue; if (r.islands.some(([a, b]) => x >= a - 1 && x <= a + 2 && y >= b - 1 && y <= b + 2)) continue; put.push([x, y]); }
     for (const [x, y] of put) A.props.push({ kind: 'wetpillar', tile: W.wetPillar, wetTile: W.wetPillar, dry: W.dryPillar, sunk: p, th: 2, x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 6, solid: true, hp: 1e9, room: r.i });
     sinkThings(A, p, randi(1, 2));
   }
@@ -376,7 +376,7 @@ const DROWNED = ['DecrepitBones', 'MutilatedStumbler'];
 function drownedRise(A, p) {
   const r = A.rooms[p.room], Ls = landings(r).flat(), n = clamp(3 + Math.floor(A.floor / 2), 3, 6), spots = [];
   const ok = (x, y) => Ls.every(([a, b]) => Math.max(Math.abs(a - x), Math.abs(b - y)) >= 3) && spots.every(([a, b]) => Math.hypot(a - x, b - y) >= 1.6) && !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 14 && Math.abs(q.cy - (y * TS + 10)) < 14);
-  for (const i of [...p.cells].sort(() => Math.random() - 0.5)) { if (spots.length >= n) break; const x = i % A.w, y = Math.floor(i / A.w); if (A.fl[i] === 1 && ok(x, y)) spots.push([x, y]); }
+  for (const i of pitShuffle([...p.cells])) { if (spots.length >= n) break; const x = i % A.w, y = Math.floor(i / A.w); if (A.fl[i] === 1 && ok(x, y)) spots.push([x, y]); }
   for (const [x, y] of spots) {
     const pool = (ARMIES.bones && ARMIES.bones.grunt.length ? ARMIES.bones.grunt : []).concat(ARMIES.rot && ARMIES.rot.grunt.length ? ARMIES.rot.grunt : []).filter(s => MOBS[s]);
     const u = mkFoe('grunt', G.floor, x * TS + 8 + rand(-3, 3), y * TS + 10, pick(pool.length ? pool : DROWNED.filter(s => MOBS[s])));

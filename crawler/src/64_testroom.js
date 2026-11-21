@@ -130,7 +130,7 @@ function beginWaterTest(kit) {
   if (pl && pl.remote && p.localAt) Object.assign(pl, { x: p.localAt[0] * TS + 8, y: p.localAt[1] * TS + 8, tx: p.localAt[0], ty: p.localAt[1], remote: false, outlet: null, room: r.i }); // (here the plate is on the cistern's walk)
   TEST.on = true; Object.assign(TEST, { mode: 'water', god: true, label: 'STEP ON THE PLATE TO DRAIN IT' }); A.name = 'WATER TEST ROOM';
   G.foes.length = 0; G.units = G.heroes.slice(); G.sched.length = 0; G.drops.length = 0;
-  removeIf(A.props, q => q.sunk === p && q.kind !== 'wetpillar'); const all = SUNK.concat(sunkStone(A)); sinkThings(A, p, all.length, all.slice().sort(() => Math.random() - 0.5)); // one of each, as many as fit
+  removeIf(A.props, q => q.sunk === p && q.kind !== 'wetpillar'); const all = SUNK.concat(sunkStone(A)); sinkThings(A, p, all.length, pitShuffle(all.slice())); // one of each, as many as fit
   for (const d of A.doors) if (d.room === r.i) shutDoor(A, d, r);
   const at = pl ? [pl.x + (pl.tx <= p.x0 ? -16 : pl.tx >= p.x1 ? 16 : 0), pl.y + (pl.ty <= p.y0 ? -16 : pl.ty >= p.y1 ? 16 : 0)] : [(p.x0 - 1) * TS + 8, (p.y0 - 1) * TS + 8];
   h.x = at[0]; h.y = at[1] + 2; h.enter = null; h.lightR = 220; CAM.x = h.x; CAM.y = h.y;

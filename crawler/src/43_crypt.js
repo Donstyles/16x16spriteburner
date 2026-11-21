@@ -485,7 +485,8 @@ function cryptHints() {
   const A = ARENA, h = G.me; if (!A || A.th.sheet !== 'crypt' || !h || h.dead) return;
   const hint = (o, x, y, txt, col) => { if (o.hinted || dist(h.x, h.y, x, y) > 34) return; o.hinted = true; textPop(x, y, 14, txt, col, false); };
   for (const p of A.props) { if (p.kind === 'font' && p.seal && p.full < 1) hint(p, p.x, p.y, 'IT THIRSTS', 'red'); else if (p.kind === 'font' && p.full >= 1 && !p.seal) hint(p, p.x, p.y, p.liq === 'blood' ? 'DRINK: BLOOD' : 'DRINK: WATER', p.liq === 'blood' ? 'red' : 'heal'); else if (p.kind === 'brazier' && p.out && !p.dead) hint(p, p.x, p.y, 'STAND TO LIGHT', 'gold'); }
-  for (const t of A.torches) if (t.candles && t.candles.some(c => !c.lit && c.wax > 0.6)) hint(t, t.x, t.y + 22, 'STAND TO RELIGHT', 'gold');
+  for (const t of A.torches) if (!t.hinted && t.candles && t.candles.some(c => !c.lit && c.wax > 0.6) && dist(h.x, h.y, t.x, t.y + 22) <= 34) { // (one word for a room's dark niches, not one each)
+    hint(t, t.x, t.y + 22, t.vigil ? 'LIGHT EVERY NICHE' : 'STAND TO RELIGHT', 'gold'); for (const u of A.torches) if (u.room === t.room) u.hinted = true; break; }
 }
 
 // ===================== the blood seal =====================
@@ -493,10 +494,10 @@ function cryptHints() {
 // in the room before it stands an empty font, its skull dry. Blood opens the way: stand at the font a moment and it takes
 // a quarter of the hero's life (never the last of it), or cut down something that bleeds beside it (bones and dust do
 // not count). Full, the door grinds up.
-function bloodSeal(A, r, bare) {
+function bloodSeal(A, r, bare, plate) {
   const g = r.gateOf, [gx, gy] = r.doors.find(d => d.hall === g.hall).cells[1], c = [];
   for (let y = r.iy0 + 1; y <= r.iy1 - 1; y++) for (let x = r.ix0 + 1; x <= r.ix1 - 1; x++) { const d = Math.abs(x - gx) + Math.abs(y - gy); if (d >= 4 && d <= 7 && bare(x, y) && !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 20 && Math.abs(q.cy - (y * TS + 10)) < 20)) c.push([x, y, d]); }
-  c.sort((a, b) => a[2] - b[2] || a[0] - b[0] || a[1] - b[1]); const at = c[0]; if (!at) { g.how = 'lever'; return; } // (no room: a plain gate's lever instead)
+  c.sort((a, b) => a[2] - b[2] || a[0] - b[0] || a[1] - b[1]); const at = c[0]; if (!at) { leverInstead(A, r, bare, plate); return; } // (no room: a plain gate's lever instead)
   const [x, y] = at, M = MOSS(), p = { kind: 'font', sheet: 'crypt', liq: 'blood', full: 0, moss: M, seal: g, x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 6, solid: true, hp: 1e9, room: r.i, box: [-7, 7, -9, 1], drinkT: 0 };
   p.candles = addCandles(A, candleSrc(23 * TS, (3 + M) * TS, TS, TS, [23 * TS, (2 + M) * TS]), x * TS, y * TS, y * TS + 16, 900); A.props.push(p);
 }
@@ -508,4 +509,38 @@ function sealFill(p) {
 function sealBlood(u) {
   const A = ARENA; if (!A || A.th.sheet !== 'crypt' || !bleeds(u)) return;
   for (const p of A.props) if (p.kind === 'font' && p.seal && p.full < 1 && dist(u.x, u.y, p.x, p.y) < 30) { pool(p.x, p.y - 4, u.def.blood || 'red', 1.5); sealFill(p); }
+}
+
+// a crypt puzzle with no place for its answer gets a plain gate's lever instead (a button free in the room)
+function leverInstead(A, r, bare, plate) {
+  const g = r.gateOf, cx = Math.round((r.ix0 + r.ix1) / 2), cy = Math.round((r.iy0 + r.iy1) / 2), s = [];
+  for (let y = r.iy0 + 1; y <= r.iy1 - 1; y++) for (let x = r.ix0 + 1; x <= r.ix1 - 1; x++) if (bare(x, y) && !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 20 && Math.abs(q.cy - (y * TS + 10)) < 18)) s.push([x, y]);
+  s.sort((a, b) => Math.abs(a[0] - cx) + Math.abs(a[1] - cy) - Math.abs(b[0] - cx) - Math.abs(b[1] - cy) || a[0] - b[0] || a[1] - b[1]);
+  const [x, y] = s[0] || [cx, cy]; plate(x, y, { remote: true, gate: g }); g.how = 'lever'; r.puz = 'lever'; A.puzNames[A.puzNames.lastIndexOf(PUZ_NAMES.blood) >= 0 ? A.puzNames.lastIndexOf(PUZ_NAMES.blood) : A.puzNames.lastIndexOf(PUZ_NAMES.vigil)] = PUZ_NAMES.gate;
+}
+
+// ===================== the vigil =====================
+// A crypt puzzle (THE VIGIL): a gate shut across the way out of a room whose every light has gone out. Its candle niches
+// stand dark (snuffed, not burnt down: they will take a flame), its braziers cold. Light every niche of the room again
+// (stand under one a moment and the lamp lights its candles: relightTick) and, the moment all of them burn at once, the
+// gate grinds up. Until then the room is the dark the dead wait in: tombs open on whoever comes near them, the buried
+// rise, the heaps get up; a swing that passes over a niche's candles puts them out again, and the Shade, if it is near,
+// puts them out as it comes. Light is the way through, and the way through is lit one niche at a time.
+function vigil(A, r, bare, plate) {
+  const ts = A.torches.filter(t => t.room === r.i && t.candles && t.candles.length);
+  if (ts.length < 2) { leverInstead(A, r, bare, plate); return; }
+  for (const t of ts) { for (const c of t.candles) { c.lit = false; c.smokeT = 0; } t.out = true; t.cf = 0; t.vigil = true; }
+  for (const p of A.props) if (p.kind === 'brazier' && p.room === r.i && !p.out) { p.out = true; p.ember = true; }
+  r.vigil = { gate: r.gateOf, ts }; A.vigils = (A.vigils || []).concat([r.vigil]);
+}
+function vigilTick() {
+  const A = ARENA; if (!A || !A.vigils) return;
+  for (const v of A.vigils) {
+    if (v.done || v.gate.going || v.gate.k <= 0) continue;
+    const lit = v.ts.filter(t => t.candles.every(c => c.lit)).length; if (lit !== v.lit) { if (v.lit !== undefined && lit > v.lit) SFX.chime(panOf(G.me ? G.me.x : 0)); v.lit = lit; }
+    if (lit < v.ts.length) continue;
+    v.done = true; const gx = gatePos(v.gate); logEv('vigil', { niches: lit });
+    for (const t of v.ts) FX.beams.push({ x0: t.x, y0: t.y - 4, x1: gx[0], y1: gx[1], w: 1.2, col: 'fire', life: 1, t: 0, steady: true, cap: true });
+    after(0.9, () => { if (ARENA === A) startGateCine(v.ts[0], v.gate); });
+  }
 }
