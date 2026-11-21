@@ -110,17 +110,14 @@ function drawCandleGlows(c) {
   for (const k of A.candles) { if (!k.lit || Math.abs(k.x - CAM.x) > 300 || Math.abs(k.yb - CAM.y) > 200) continue; const f = 0.75 + 0.25 * noise1(G.time * 9 + k.ph) - 0.35 * k.gust; c.globalAlpha = Math.max(0.1, 0.3 * f); c.drawImage(GLOW.torch, k.x + k.w / 2 - 3, k.yb - k.wax - 5, 6, 6); }
   c.globalAlpha = 1;
 }
-// the green rot of the undead glows faintly where it pools: a slow, sickly breathing light over its cells, seen only on
-// tiles already seen (renderLight's memory mask) and not counted as light by the dead (43_crypt litAt), the Shade or the tombs
-function rotGlow(L) {
+// the green rot of the undead glows faintly where it pools: a slow, sickly breathing light on the liquid itself, seen only
+// on tiles already seen (renderLight's memory mask) and not counted as light by the dead (43_crypt litAt), the Shade or the tombs
+function rotGlow(g) {
   const A = ARENA; if (!A || A.liq !== 'rot') return;
   for (const p of A.pools || []) {
-    if (!(p.level > 0) || p.x0 === undefined) continue;
-    for (let ty = p.y0; ty <= p.y1; ty += 3) for (let tx = p.x0; tx <= p.x1; tx += 3) {
-      const x = (Math.min(tx + 1, p.x1) + 0.5) * TS, y = (Math.min(ty + 1, p.y1) + 0.5) * TS; if (Math.abs(x - CAM.x) > 320 || Math.abs(y - CAM.y) > 220) continue;
-      if (!p.cells.has(Math.floor(y / TS) * A.w + Math.floor(x / TS))) continue;
-      L(x, y, 30, 'poison', (0.1 + 0.05 * noise1(G.time * 0.6 + tx * 1.7 + ty * 0.9)) * Math.min(1, p.level * 1.5));
-    }
+    if (!(p.level > 0) || !p.cv) continue; const w = p.cw || p.cv.width, h = p.ch || p.cv.height; if (p.px0 > CAM.x + 330 || p.px0 + w < CAM.x - 330 || p.py0 > CAM.y + 230 || p.py0 + h < CAM.y - 230) continue;
+    if (!p.glow) { const m = mkCanvas(w, h), c = m.getContext('2d'); c.drawImage(p.cv, 0, 0, w, h, 0, 0, w, h); const D = c.getImageData(0, 0, w, h), d = D.data; for (let k = 0; k < d.length; k += 4) { const on = d[k + 3] > 0 && d[k + 1] - d[k] > 8; d[k] = 130; d[k + 1] = 255; d[k + 2] = 60; d[k + 3] = on ? 255 : 0; } c.putImageData(D, 0, 0); p.glow = m; } // (the liquid's own pixels only: never its rim, the floor or the walls beside it)
+    g.globalAlpha = (0.1 + 0.04 * noise1(G.time * 0.6 + p.px0 * 0.01)) * Math.min(1, p.level * 1.5); g.drawImage(p.glow, p.px0, p.py0); g.globalAlpha = 1;
   }
 }
 function candleLights(L) {
