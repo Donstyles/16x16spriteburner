@@ -48,7 +48,7 @@ function cryptDress(A, g) {
       const Q = [st]; S.add(st[1] * W + st[0]); while (Q.length) { const [x, y] = Q.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy, k = ny * W + nx; if (inR(nx, ny) && !S.has(k) && FLOOR(A.fl[k]) && !blocked.has(k)) { S.add(k); Q.push([nx, ny]); } } } return S; };
     const before = reach(), fits = tiles => { for (const k of tiles) blocked.add(k); const after = reach(); for (const k of before) if (!blocked.has(k) && !after.has(k)) { for (const t of tiles) blocked.delete(t); return false; } return true; };
     const prop = (kind, tx, ty, o) => A.props.push(Object.assign({ kind, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o));
-    const mir = x => r.ix0 + r.ix1 - x, w = r.ix1 - r.ix0 + 1, h = r.iy1 - r.iy0 + 1, put = { prop, ok, fits, mir, W, unfit: tiles => { for (const k of tiles) blocked.delete(k); } };
+    const mir = x => r.ix0 + r.ix1 - x, w = r.ix1 - r.ix0 + 1, h = r.iy1 - r.iy0 + 1, put = { prop, ok, fits, mir, W, unfit: tiles => { for (const k of tiles) blocked.delete(k); }, hold: k => keep.add(k) };
     charnelPit(A, r, g, put); throneRoom(A, r, g, put); // (one a floor: below)
     if (r.kind === 'room' || r.kind === 'end') {
       const chamber = w >= 6 && h >= 6 && w % 2 === 0, chamberFirst = chamber && (w < 10 || h < 7 || hash2(r.i * 3 + 1, A.floor * 5 + 2) < 0.4); // (an even-width room: a burial chamber, or a tomb hall two in five times when it is big enough)
@@ -59,6 +59,7 @@ function cryptDress(A, g) {
     }
     for (const [x, y] of [[r.ix0 + 1, r.iy0 + 1], [r.ix0 + 1, r.iy1 - 1]]) if (ok(x, y) && ok(mir(x), y) && fits([y * W + x, y * W + mir(x)])) for (const xx of [x, mir(x)]) prop('barrel', xx, y, { tile: URNS[(xx + y) % 4], th: 1, hp: 40 }); // (urns in its corners, a pair at a time)
   }
+  for (const f of A.fires || []) if (f.pit && !f.braziers.length) { f.pit = false; firesLay(A, A.rooms[f.room], f, 4); } // (a puzzle room for the pit that was not dressed after all: its cold braziers as anywhere else)
 }
 // a tomb: two tiles tall (its bottom tile at x, y), solid from its foot to its lid's back edge
 function tombProp(prop, x, y, kind, lit) {
@@ -383,29 +384,46 @@ function drawShadeEyes(c) {
 }
 
 // ===================== the charnel pit =====================
-// One crypt room a floor (the first one with room for it) has the pit the dead were thrown into: the sheet's ragged pit,
-// three tiles square, off the worn paths, on the room's middle line if it fits there (else as near the middle as it
-// fits), a cold brazier either side of it.
-// While the hero is in its room and either brazier is dark, the dead leap out of it, one every few seconds (no more
-// than three of its own up at once, eight in all). Stand at a brazier a moment and his lamp lights it; with both
-// burning, the pit is quiet for good (and the light keeps the heaps of those cut down there down: 43_crypt litAt).
+// The pit the dead were thrown into: the sheet's ragged pit, three tiles square, in the middle of its room where the worn
+// paths meet (they lead to it: the dead were carried there), with four cold braziers round it a tile clear of its rim, at
+// its corners (in a room too low for that: two either side of it). One crypt room a floor has it, the first with room
+// for it; where the floor's puzzle is the cold braziers and its room will hold it, it is that puzzle, THE CHARNEL PIT:
+// the four burning at once open the way on (41_puzzles firesTick: each burns half a minute once lit). Anywhere else,
+// once lit they burn for good.
+// While the hero is in its room and any of its braziers is dark, the dead leap out of it, one every few seconds (no
+// more than three of its own up at once, eight in all). Each lights as the cellar's do: stand at it a while, it smokes,
+// then catches (41_puzzles FIRES). With all four burning, the pit is quiet (and the light keeps the heaps of those cut
+// down there down: 43_crypt litAt).
+const charnelRoom = r => r.kind === 'room' && r.ix1 - r.ix0 >= 8 && r.iy1 - r.iy0 >= 6; // (nine tiles wide, seven deep)
+const CHARNEL_LAYS = { // (the braziers about the pit's corner tile, x0 y0; and the tiles kept clear round it to walk)
+  corners: { at: [[-2, -2], [4, -2], [-2, 4], [4, 4]], y: [-2, 4] },
+  sides: { at: [[-2, 0], [-2, 2], [4, 0], [4, 2]], y: [-1, 3] },
+};
 function charnelPit(A, r, g, P) {
-  if (A.charnel || r.kind !== 'room' || r.ix1 - r.ix0 < 8 || r.iy1 - r.iy0 < 5) return;
-  const cx = Math.round((r.ix0 + r.ix1) / 2), cy = Math.round((r.iy0 + r.iy1) / 2), tries = [];
-  for (let j = -5; j <= 5; j++) for (let i = -6; i <= 6; i++) if (i === 0 || Math.abs(j) <= 3) tries.push([cx + i - 1, cy + j - 1, (i ? 20 : 0) + Math.abs(i) + Math.abs(j) * 1.5]); // (on the room's middle line, north or south of the paths' crossing, wherever that fits; only else off it)
-  tries.sort((a, b) => a[2] - b[2]);
-  for (const [x0, y0] of tries) {
-    const cells = []; for (let y = y0; y < y0 + 3; y++) for (let x = x0; x < x0 + 3; x++) cells.push([x, y]);
-    if (!cells.every(([x, y]) => P.ok(x, y, 0)) || !P.ok(x0 - 2, y0 + 2) || !P.ok(x0 + 4, y0 + 2) || !P.fits(cells.map(([x, y]) => y * P.W + x).concat([(y0 + 2) * P.W + x0 - 2, (y0 + 2) * P.W + x0 + 4]))) continue;
-    for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) cryptAt(g, 3 + i, 13 + j, (x0 + i) * TS, (y0 + j) * TS);
-    P.prop('charnel', x0 + 1, y0 + 1, { flat: true, r: 18, box: [-23, 23, -24, 18], draw: false });
-    const fires = [x0 - 2, x0 + 4].map(bx => { P.prop('brazier', bx, y0 + 2, { f: bx % 4, out: true, ember: true, pitFire: true, r: 6 }); return A.props[A.props.length - 1]; });
-    A.charnel = { x0, y0, room: r.i, fires, t: 3, made: 0, kids: [] }; r.charnel = true; return;
+  const f = r.charnelFire; if (A.charnel || (!f && (A.fires || []).some(q => q.pit && !q.braziers.length))) return; // (a floor whose puzzle is the pit keeps it for that room)
+  if (charnelRoom(r)) {
+    const cx = Math.round((r.ix0 + r.ix1) / 2), cy = Math.round((r.iy0 + r.iy1) / 2), tries = [];
+    for (const k of r.iy1 - r.iy0 >= 7 ? ['corners', 'sides'] : ['sides']) for (let j = -3; j <= 3; j++) for (let i = -4; i <= 4; i++) tries.push([cx + i - 1, cy + j - 1, CHARNEL_LAYS[k], Math.abs(i) + Math.abs(j) * 1.2 + (k === 'sides' ? 2.5 : 0)]); // (in the middle; the corners unless that puts it well off it)
+    tries.sort((a, b) => a[3] - b[3]);
+    for (const [x0, y0, L] of tries) {
+      const area = []; for (let y = y0 + L.y[0]; y <= y0 + L.y[1]; y++) for (let x = x0 - 2; x <= x0 + 4; x++) area.push([x, y]);
+      if (!area.every(([x, y]) => P.ok(x, y, 9))) continue; // (all of it plain floor, worn or not, nothing near it)
+      const cells = []; for (let y = y0; y < y0 + 3; y++) for (let x = x0; x < x0 + 3; x++) cells.push(y * P.W + x);
+      const at = L.at.map(([i, j]) => [x0 + i, y0 + j]); if (!P.fits(cells.concat(at.map(([x, y]) => y * P.W + x)))) continue;
+      for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) cryptAt(g, 3 + i, 13 + j, (x0 + i) * TS, (y0 + j) * TS);
+      P.prop('charnel', x0 + 1, y0 + 1, { flat: true, r: 18, box: [-23, 23, -24, 18], draw: false });
+      const fires = at.map(([bx, by]) => { P.prop('brazier', bx, by, { f: (bx + by) % 4, out: true, ember: true, pitFire: true, r: 6 }); const p = A.props[A.props.length - 1]; if (f) { p.fire = f; f.braziers.push(p); } return p; });
+      for (const [x, y] of area) P.hold(y * P.W + x); // (nothing else set down round it: the way round the pit and to each brazier stays clear)
+      A.charnel = { x0, y0, room: r.i, fires, t: 3, made: 0, kids: [], riddle: f || null, area: new Set(area.map(([x, y]) => y * P.W + x)) }; r.charnel = true;
+      if (f && A.puzNames) { const k = A.puzNames.indexOf(PUZ_NAMES.fires); if (k >= 0) A.puzNames[k] = PUZ_NAMES.charnel; }
+      return;
+    }
   }
+  if (f) { f.pit = false; firesLay(A, r, f, 4); for (const p of f.braziers) for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) P.hold((Math.floor(p.cy / TS) + j) * P.W + Math.floor(p.x / TS) + i); } // (no room for the pit after all: the cold braziers as anywhere else)
 }
 function charnelTick(dt) {
   const A = ARENA, C = A && A.charnel, h = G.me; if (!C || !h || h.dead || G.cine) return;
-  for (const p of C.fires) if (p.out) { if (dist(h.x, h.y, p.x, p.y) < 20) { p.lightT = (p.lightT || 0) + dt; if (p.lightT > 0.8) { lightUp(p, true); } } else p.lightT = 0; }
+  // (its braziers light as any cold one does: 41_puzzles coalsTick, or firesTick for the puzzle's)
   const r = A.rooms[C.room]; if (C.fires.every(p => !p.out) || C.made >= 8) return;
   if (!(h.x > r.ix0 * TS && h.x < (r.ix1 + 1) * TS && h.y > r.iy0 * TS && h.y < (r.iy1 + 1) * TS)) return;
   for (const u of C.kids) if (u.leap && !u.dead) { const L = u.leap; L.t = Math.min(1, L.t + dt / 0.75); u.x = L.x0 + (L.x1 - L.x0) * L.t; u.y = L.y0 + (L.y1 - L.y0) * L.t; if (L.t >= 1) { u.leap = null; smoke(u.x, u.y, 1, 'dust', 4, 10, 0.6); SFX.bone(panOf(u.x)); } } // (in the air: carried from the pit's middle to where it lands)
@@ -433,10 +451,11 @@ function cryptSounds(dt) {
   const n = A.soundN = (A.soundN || 0) + 1, k = CRYPT_SOUNDS[n % CRYPT_SOUNDS.length], pan = (hash2(n, A.floor) - 0.5) * 1.6;
   A.soundT = 8 + 8 * hash2(n * 3 + 1, A.floor + 7); if (SFX[k]) SFX[k](pan);
 }
-// a cold brazier anywhere in the crypt lights from the hero's lamp when he stands at it a moment (the charnel pit's too)
+// a cold brazier anywhere in the crypt lights from the hero's lamp when he stands at it a moment (not the charnel pit's
+// nor a cold braziers puzzle's: those take as long as the cellar's, 41_puzzles)
 function brazierLamp(dt) {
   const A = ARENA, h = G.me; if (!A || A.th.sheet !== 'crypt' || !h || h.dead) return;
-  for (const p of A.props) { if (p.kind !== 'brazier' || !p.out || p.dead || p.pitFire) continue; if (dist(h.x, h.y, p.x, p.y) < 20) { p.lightT = (p.lightT || 0) + dt; if (p.lightT > 0.8) lightUp(p, true); } else p.lightT = 0; }
+  for (const p of A.props) { if (p.kind !== 'brazier' || !p.out || p.dead || p.pitFire || p.fire) continue; /* (the charnel pit's and a puzzle's: as the cellar's, 41_puzzles) */ if (dist(h.x, h.y, p.x, p.y) < 20) { p.lightT = (p.lightT || 0) + dt; if (p.lightT > 0.8) lightUp(p, true); } else p.lightT = 0; }
 }
 
 // ===================== the skull fonts =====================

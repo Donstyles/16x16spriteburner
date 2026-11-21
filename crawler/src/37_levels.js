@@ -266,7 +266,7 @@ function wayArrows(A, g) {
     cands.sort((a, b) => a[2] - b[2]);
     const free = (x, y) => A.fl[y * A.w + x] === 1 && !(A.basin && A.basin[y * A.w + x]) && !(A.crumbles || []).some(c => c.i === y * A.w + x) && !(r.pool && r.pool.cells.has(y * A.w + x))
       && !A.props.some(p => !p.dead && Math.abs(p.x - (x * TS + 8)) < 16 && p.y > y * TS && p.y < (y + 2) * TS + 6)
-      && !(A.plates || []).some(p => p.tx === x && p.ty === y) && !(A.runes || []).some(p => p.tx === x && p.ty === y) && !(r.inlay || []).some(([a, b]) => x >= a && x <= a + 1 && y >= b && y <= b + 1);
+      && !(A.plates || []).some(p => p.tx === x && p.ty === y) && !(A.runes || []).some(p => p.tx === x && p.ty === y) && !(r.inlay || []).some(([a, b]) => x >= a && x <= a + 1 && y >= b && y <= b + 1) && !(A.charnel && A.charnel.area.has(y * A.w + x)); // (not on the way round the charnel pit: 43_crypt)
     const crypt = A.th.sheet === 'crypt', mid = [Math.round(cx), Math.round(cy)]; // (the crypt's: where its worn paths meet, the middle cell its wear runs to (30_arena), when that is free)
     const axis = crypt ? cands.filter(([x]) => x === mid[0]).sort((a, b) => Math.abs(a[1] - mid[1]) - Math.abs(b[1] - mid[1]) || a[1] - b[1]) : []; // (else the next free tile up or down its middle line)
     const at = crypt && free(mid[0], mid[1]) ? mid : axis.find(([x, y]) => free(x, y)) || cands.find(([x, y]) => free(x, y)); if (at) { if (crypt) wayStone(g, COL[door.side], row, at[0] * TS, at[1] * TS); else tileAt(g, COL[door.side], row, at[0] * TS, at[1] * TS); }

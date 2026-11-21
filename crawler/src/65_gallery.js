@@ -41,7 +41,7 @@ const GALLERY = [
   // the catacombs (43_crypt, 44_candles): built as a crypt floor (the fourth; the sixth for the mossy deep)
   ['TOMB HALL', 'crypt', 'hall', 'KEEP THE CANDLES BURNING: A TOMB WHOSE LAST ONE GOES OUT OPENS', '#e89a90'],
   ['BURIAL CHAMBER', 'crypt', 'sarc', 'COME NEAR THE SARCOPHAGUS IN THE DARK, OR STRIKE IT, AND ITS LORD RISES', '#e89a90'],
-  ['CHARNEL PIT', 'crypt', 'charnel', 'THE DEAD LEAP OUT WHILE A BRAZIER BESIDE IT IS DARK: STAND AT EACH TO LIGHT IT', '#e89a90'],
+  ['CHARNEL PIT', 'crypt', 'charnel', 'THE DEAD LEAP OUT TILL ITS FOUR BRAZIERS BURN AT ONCE: THEY OPEN THE WAY ON', '#e89a90'],
   ['SKULL FONT', 'crypt', 'font', 'STAND AT IT TO DRINK: BLOOD HEALS, AND CURSES', '#e89a90'],
   ['THRONE CRYPT', 'crypt', 'throne', 'THE LORD OF THE DEAD HOLDS THE WAY DOWN', '#e89a90'],
   ['THE SHADE', 'crypt', 'shade', 'IT CANNOT MOVE WHILE YOU FACE IT IN YOUR LAMP. LIGHT BURNS IT', '#e89a90'],
@@ -61,7 +61,7 @@ function beginGallery(kit, i) {
   const room = r => { const W = ARENA.w, cx = Math.round((r.ix0 + r.ix1) / 2); for (let d = 0; d < 12; d++) for (const y of [r.iy1 - d, r.iy1 - d + 1]) for (const x of [cx, cx - d, cx + d]) if (y >= r.iy0 && y <= r.iy1 && FLOOR(ARENA.fl[y * W + x])) return [x * TS + 8, y * TS + 10]; return [(cx + 0.5) * TS, (r.iy1 + 0.5) * TS]; };
   const doorIn = (r, d) => { const [x, y] = d.cells[1]; return d.side === 'N' ? [x, y + 2] : d.side === 'S' ? [x, y - 2] : d.side === 'W' ? [x + 2, y] : [x - 2, y]; };
   for (let n = 0; n < 60 && !at; n++) {
-    if (kind === 'crypt') { CRYPT.force = true; if (what === 'blood' || what === 'vigil') PUZ.force = what; }
+    if (kind === 'crypt') { CRYPT.force = true; if (what === 'blood' || what === 'vigil') PUZ.force = what; if (what === 'charnel') PUZ.force = 'fires'; } // (the pit as the floor's puzzle: THE CHARNEL PIT)
     if (kind === 'shape') SHAPES.force = what; if (kind === 'great') GREAT.force = true; if (kind === 'theme') ARCH.theme = what; if (kind === 'puz') { PUZ.force = what === 'songhidden' ? 'song' : what === 'spikehidden' ? 'spikegate' : what; PUZ.hidden = what === 'songhidden'; PUZ.spikeHidden = what === 'spikehidden'; } if (kind === 'crack') { PUZ.force = what === 'lever' ? 'gate' : what === 'rune' ? 'rune' : null; HIDDEN.force = what === 'hall' || what.startsWith('nest') ? true : what === 'hallexit' ? 'exit' : false; HIDDEN.nest = what === 'nestalcove' ? 'alcove' : what === 'nestleg' ? 'leg' : null; } if (kind === 'arch') ARCH.force = what;
     try { startFloor(); } finally { SHAPES.force = null; GREAT.force = false; ARCH.theme = null; PUZ.force = null; PUZ.hidden = false; PUZ.spikeHidden = false; HIDDEN.force = false; HIDDEN.nest = null; ARCH.force = null; CRYPT.force = false; }
     const A = ARENA;

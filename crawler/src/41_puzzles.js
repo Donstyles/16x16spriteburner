@@ -23,7 +23,7 @@
 // where it cannot help slides back to where it stood once nobody is in its room.
 const PUZ = { force: null }; // (a test: this one kind, wherever it fits)
 const MUST_KINDS = new Set(['flood', 'drawbridge', 'gate', 'gap', 'spikegate']);
-const PUZ_NAMES = { vigil: 'THE VIGIL', blood: 'THE BLOOD SEAL', song: 'THE SINGING RUNES', rune: 'THE HIDDEN RUNE', gate: 'THE PORTCULLIS', echo: 'THE ECHOING RUNES', fires: 'THE COLD BRAZIERS', weight: 'THE WEIGHT', gap: 'THE GAP', spikegate: 'THE SPIKE GATE', crack: 'THE CRACKED WALL', lever: 'THE HIDDEN LEVER' };
+const PUZ_NAMES = { vigil: 'THE VIGIL', blood: 'THE BLOOD SEAL', song: 'THE SINGING RUNES', rune: 'THE HIDDEN RUNE', gate: 'THE PORTCULLIS', echo: 'THE ECHOING RUNES', fires: 'THE COLD BRAZIERS', charnel: 'THE CHARNEL PIT', weight: 'THE WEIGHT', gap: 'THE GAP', spikegate: 'THE SPIKE GATE', crack: 'THE CRACKED WALL', lever: 'THE HIDDEN LEVER' };
 const SPIKEGATE = { t: 7 };
 // ---- the room graph
 const puzAdj = (A, r) => A.halls.filter(h => h.A === r || h.B === r).map(h => (h.A === r ? h.B : h.A));
@@ -307,7 +307,11 @@ function echoTick(A, e, dt, heroes) {
 // ---- THE COLD BRAZIERS (smoke: how long a hero stands by one before it smokes; catch: before it lights)
 const FIRES = { smoke: 1.0, catch: 2.4 };
 function placeFires(A, r, g) {
-  const n = A.floor >= 4 ? 4 : 3, f = { braziers: [], gate: g, burn: 30, room: r.i }; darkRoom(A, r); r.dark = true;
+  const n = A.floor >= 4 ? 4 : 3, f = { braziers: [], gate: g, burn: 30, room: r.i }; darkRoom(A, r); r.dark = true; (A.fires = A.fires || []).push(f); A.lights = A.slit = null;
+  if (A.th.sheet === 'crypt' && charnelRoom(r)) { f.pit = true; r.charnelFire = f; return; } // (the crypt's: the four fires round the charnel pit, set with it when the room is dressed, 43_crypt charnelPit)
+  firesLay(A, r, f, n);
+}
+function firesLay(A, r, f, n) { // (the braziers of a cold braziers puzzle: those already standing in its room, then more to make n)
   for (const p of A.props) if (p.kind === 'brazier' && p.room === r.i && !p.dead) { p.out = true; f.braziers.push(p); }
   const cands = []; for (let y = r.iy0 + 1; y <= r.iy1 - 1; y++) for (let x = r.ix0 + 1; x <= r.ix1 - 1; x++) { if (!FLOOR(A.fl[y * A.w + x]) || r.doors.some(d => d.cells.some(([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 4)) || A.props.some(q => !q.dead && Math.abs(q.x - (x * TS + 8)) < 20 && Math.abs(q.cy - (y * TS + 10)) < 18)) continue; cands.push([x, y]); }
   if (A.th.sheet === 'crypt') { // (the crypt's: in mirrored pairs across the room, the pair farthest from those already standing first; nothing by chance)
@@ -318,10 +322,10 @@ function placeFires(A, r, g) {
       for (const xx of [x, c2 - x]) { const p = { kind: 'brazier', x: xx * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i, f: xx % 4, out: true, ember: false }; A.props.push(p); f.braziers.push(p); }
       removeIf(pairs, ([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 4);
     }
-    cands.length = 0;
+    if (f.braziers.length) cands.length = 0; // (no mirrored pair free at all: where they fit, as anywhere else)
   }
   while (f.braziers.length < n && cands.length) { const far = cands.filter(([x, y]) => f.braziers.every(q => Math.hypot(q.x - (x * TS + 8), q.y - (y * TS + 14)) >= 80)), [x, y] = pick(far.length ? far : cands); const p = { kind: 'brazier', x: x * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i, f: randi(0, 3), out: true, ember: false }; A.props.push(p); f.braziers.push(p); removeIf(cands, ([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 4); }
-  for (const p of f.braziers) { p.ember = true; p.fire = f; } /* (the coals in it: a brazier that can be lit, 36_works darkRoom) */ A.lights = A.slit = null; (A.fires = A.fires || []).push(f);
+  for (const p of f.braziers) { p.ember = true; p.fire = f; } /* (the coals in it: a brazier that can be lit, 36_works darkRoom) */ A.lights = A.slit = null;
 }
 // Every brazier with dead coals in it can be lit, wherever it stands, the same way: stand by it a while. (A dark rune
 // room's, a cistern's sunken one once the water is gone, a cold braziers puzzle's; that last burns only so long.) An
