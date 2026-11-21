@@ -48,14 +48,15 @@ function addCandles(A, src, ox, oy, gy, life, o = {}) { // (o.wall: drawn with t
   const out = [];
   for (const s of src.list) {
     const x = ox + s.x, yb = oy + s.y1, H = s.y1 - s.y0 + 1, u = hash2(x * 7 + 3, yb * 13 + 1), v = hash2(yb * 5 + 11, x * 3 + 7), h0 = Math.max(2, H - (u < 0.4 ? 1 : 0));
-    const c = { x, yb, w: s.w, h0, wax: h0, lit: true, rate: h0 / (life * (0.8 + 0.4 * v)), drips: [], pool: 0, dripT: 4 + 8 * u, gust: 0, ph: u * 40, gy, sput: 0, smokeT: 0, torch: !!o.torch };
+    const c = { x, yb, w: s.w, h0, wax: h0, lit: true, rate: h0 / (60 + 120 * v), drips: [], pool: 0, dripT: 4 + 8 * u, gust: 0, ph: u * 40, gy, sput: 0, smokeT: 0, torch: !!o.torch, started: false }; // (burnt down one to three minutes, by its place, from when the hero first comes into its room: candlesTick)
     out.push(c); (A.candles = A.candles || []).push(c); if (o.wall) (A.wallCandles = A.wallCandles || []).push(c);
   }
+  if (out.length) (A.cgroups = A.cgroups || []).push({ list: out, x: ox + (src.cv ? src.cv.width : TS) / 2, y: gy, wall: !!o.wall || !!o.torch }); // (each lot of candles, lit again together: 43_crypt relightTick)
   return out;
 }
 function snuff(c, quiet) { if (!c.lit) return; c.lit = false; c.smokeT = 1.6; if (ARENA) ARENA.lights = ARENA.slit = null; if (!quiet) { smoke(c.x + c.w / 2, c.yb - c.wax - 1, 1, 'grey', 2, 6, 0.6, 14); if (SFX.puff) SFX.puff(panOf(c.x)); } }
 function candlesTick(dt) {
-  const A = ARENA; if (!A || !A.candles) return; const h = G.me;
+  const A = ARENA; if (!A || !A.candles) return; const h = G.me; if (h && !h.dead) { const hr = roomAt(h.x, h.y); if (hr) hr.entered = true; }
   const rush = h && !h.dead && (h.sprint || (h.act && h.act.k === 'roll'));
   const shades = A.th.sheet === 'crypt' ? G.foes.filter(f => f.shade && !f.dead && Math.hypot(f.vx || 0, f.vy || 0) > 6) : []; // (the Shade's passing: a cold draught the flames show, though nothing else does)
   for (const c of A.candles) {
@@ -65,7 +66,8 @@ function candlesTick(dt) {
     if (c.draft === undefined) { const k = (A.cracks || []).find(k => Math.abs((k.x + 1.5) * TS - (c.x + c.w / 2)) < 72 && Math.abs((k.y + 1) * TS - c.yb) < 44); c.draft = k ? Math.sign((k.x + 1.5) * TS - (c.x + c.w / 2)) || 1 : 0; c.draftK = k; } // (a cracked wall near: the draught from what lies behind it)
     if (c.draft && !c.draftK.open) { const n = noise1(G.time * 3 + c.ph); if (n > -0.2) { c.gust = Math.max(c.gust, 0.5 + 0.35 * n); c.lean = c.draft; } }
     for (const S of shades) { const d = Math.hypot(S.x - (c.x + c.w / 2), (S.y - c.gy) * 1.4); if (d < 64) { c.gust = Math.max(c.gust, 0.95 * (1 - d / 64) + 0.3); c.lean = Math.sign(c.x - S.x) || 1; } }
-    if (c.wax > 0) { c.wax = Math.max(0, c.wax - c.rate * dt); if (c.wax === 0) c.sput = 2.6; }
+    if (!c.started) { if (c.room === undefined) c.room = roomAt(c.x + c.w / 2, c.gy + 2) || null; if (c.room ? c.room.entered : h && Math.hypot(h.x - (c.x + c.w / 2), h.y - c.gy) < 130) c.started = true; } // (a room's candles start to burn down when the hero first comes in; a corridor's as he comes near)
+    if (c.wax > 0) { if (c.started && !(c.hold && !c.hold.done)) { c.wax = Math.max(0, c.wax - c.rate * dt); if (c.wax === 0) c.sput = 2.6; } } // (hold: a vigil's niches burn only once its gate is open)
     else if ((c.sput -= dt) <= 0) { snuff(c); continue; } // (burnt down: it sputters a while, then it is out)
     if ((c.dripT -= dt) <= 0 && c.wax >= 2) { c.dripT = 6 + 9 * hash2(c.x + c.drips.length, c.yb + c.pool); c.drips.push({ side: (c.drips.length + c.pool) % 2, y: c.yb - Math.ceil(c.wax) + 1 }); }
     for (const d of c.drips) d.y += dt * 2.5;

@@ -304,12 +304,12 @@ function nicheAmbush(dt) {
   const A = ARENA, h = G.me; if (!A || !h || h.dead || A.th.sheet !== 'crypt' || G.cine) return;
   for (const r of A.rooms) {
     if (!r.niches || r.niches.length < 2 || r.ambushed || r.kind !== 'room' || hash2(r.i * 7 + 3, A.floor * 11 + 1) > 0.5) continue;
-    if (!(h.x > (r.ix0 + 1) * TS && h.x < r.ix1 * TS && h.y > (r.iy0 + 2) * TS && h.y < (r.iy1 + 1) * TS)) { // (near it, before: something scrapes in the wall, dust trickles from a niche)
+    if (!r.niches.some(n => Math.hypot(h.x - (n.nx + 8), h.y - (n.ny + 26)) < 40)) { // (they burst only when he comes within two or three steps of one of them; near the room before that: something scrapes in the wall, dust trickles from a niche)
       if (h.x > (r.ix0 - 5) * TS && h.x < (r.ix1 + 6) * TS && h.y > (r.iy0 - 5) * TS && h.y < (r.iy1 + 6) * TS && G.time - (r.knockT || -9) > 3.5) { r.knockT = G.time; const n = r.niches[((G.time * 3) | 0) % r.niches.length]; SFX.scrape(panOf(n.nx + 8)); SFX.settle(panOf(n.nx + 8)); smoke(n.nx + 8, n.ny + 18, 1, 'dust', 3, 6, 0.8, 4); }
       continue;
     }
     r.ambushed = true; SFX.groan(panOf(h.x));
-    r.niches.forEach((n, i) => after(0.35 + i * 0.3, () => { if (ARENA === A) burstNiche(A, r, n); }));
+    r.niches.slice().sort((a, b) => Math.hypot(h.x - a.nx, h.y - a.ny) - Math.hypot(h.x - b.nx, h.y - b.ny)).forEach((n, i) => after(0.35 + i * 0.3, () => { if (ARENA === A) burstNiche(A, r, n); })); // (the nearest first)
   }
 }
 function burstNiche(A, r, n) {
@@ -454,10 +454,20 @@ function cryptFont(A, r, g, xx, y) {
   p.candles = addCandles(A, candleSrc(col * TS, (3 + M) * TS, TS, TS, [col * TS, (2 + M) * TS]), nx, r.iy0 * TS, r.iy0 * TS + 16, 900);
   A.props.push(p);
 }
+// a font's liquid alone: the full basin's pixels where they differ from the empty one, and the rows they span
+const FONT_LIQ = {};
+function fontLiq(liq, moss) {
+  const k = liq + moss; if (FONT_LIQ[k]) return FONT_LIQ[k]; const R = (2 + moss) * TS, cv = mkCanvas(TS, TS), g = cv.getContext('2d'), e = mkCanvas(TS, TS).getContext('2d');
+  g.drawImage(IMG.crypt, FONT_COL[liq] * TS, R, TS, TS, 0, 0, TS, TS); e.drawImage(IMG.crypt, 22 * TS, R, TS, TS, 0, 0, TS, TS);
+  const D = g.getImageData(0, 0, TS, TS), E = e.getImageData(0, 0, TS, TS).data, d = D.data; let y0 = TS, y1 = 0;
+  for (let i = 0; i < TS * TS; i++) { const j = i * 4; if (d[j] === E[j] && d[j + 1] === E[j + 1] && d[j + 2] === E[j + 2] && d[j + 3] === E[j + 3]) d[j + 3] = 0; else if (d[j + 3]) { const yy = (i / TS) | 0; y0 = Math.min(y0, yy); y1 = Math.max(y1, yy); } }
+  g.putImageData(D, 0, 0); return (FONT_LIQ[k] = { cv, y0: Math.min(y0, y1), y1 });
+}
 function drawFont(c, p) {
   const x = p.x - 8, y = p.y - 14, R = (2 + (p.moss || 0)) * TS; c.drawImage(IMG.crypt, 22 * TS, R, TS, TS, x, y, TS, TS); // (the empty basin)
-  if (p.full > 0) { c.globalAlpha = Math.min(1, p.full * 1.4); c.drawImage(IMG.crypt, FONT_COL[p.liq] * TS, R, TS, TS, x, y, TS, TS); c.globalAlpha = 1; }
-  if (p.full < 1 && p.full > 0.02) { c.fillStyle = FONT_RGB[p.liq]; c.fillRect(p.x - (p.liq === 'blood' ? 0 : 1), y - 6, 1, 8 + ((G.time * 20) | 0) % 2); } // (the stream from the skull's mouth)
+  const L = fontLiq(p.liq, p.moss || 0), n = Math.round(Math.min(1, p.full) * (L.y1 - L.y0 + 1)), top = y + L.y1 - n + 1; // (the liquid rises in the basin a pixel row at a time, never faded in)
+  if (n > 0) c.drawImage(L.cv, 0, L.y1 - n + 1, TS, n, x, top, TS, n);
+  if (p.full < 1 && p.full > 0.02) { const sx = p.x - (p.liq === 'blood' ? 0 : 1), len = top - (y - 6); c.fillStyle = FONT_RGB[p.liq]; c.fillRect(sx, y - 6, 1, len); c.fillStyle = 'rgba(255,255,255,0.35)'; c.fillRect(sx, y - 6 + Math.floor((G.time * 22) % Math.max(1, len)), 1, 1); } // (the stream from the skull's mouth down to the surface, steady, a bright drop running down it)
   if (p.candles) drawCandles(c, p.candles);
 }
 function fontsTick(dt) {
@@ -533,9 +543,10 @@ function loculus(A, g, x, y, k, side) {
 // candle tomb, a moment
 function relightTick(dt) {
   const A = ARENA, h = G.me; if (!A || A.th.sheet !== 'crypt' || !h || h.dead) return;
-  const relight = (o, list) => { if ((o.relightT = (o.relightT || 0) + dt) < 0.9) return; o.relightT = 0; let n = 0; for (const c of list) if (!c.lit && c.wax > 0.6) { c.lit = true; c.sput = 0; n++; } if (n) { SFX.fire(panOf(o.x)); sparks(o.x, o.y - 6, 2, 5, 'fire', 40, 40); A.lights = A.slit = null; } };
-  for (const t of A.torches) { if (!t.candles || !t.candles.some(c => !c.lit && c.wax > 0.6)) continue; if (Math.abs(h.x - t.x) < 12 && h.y > t.y + 8 && h.y < t.y + 34) relight(t, t.candles); else t.relightT = 0; }
-  for (const p of A.props) { if (p.kind !== 'tomb' || !p.candles || p.opened || p.wake !== undefined || !p.candles.some(c => !c.lit && c.wax > 0.6)) continue; if (dist(h.x, h.y, p.x, p.y - 6) < 22) relight(p, p.candles); else p.relightT = 0; }
+  const relight = (o, list) => { if ((o.relightT = (o.relightT || 0) + dt) < 0.9) return; o.relightT = 0; let n = 0; for (const c of list) if (!c.lit) { c.lit = true; c.sput = 0; if (c.wax < 2) c.wax = Math.max(2, Math.round(c.h0 * 0.4)); n++; } /* (every candle lights again, a burnt-down one as a stub) */ if (n) { SFX.fire(panOf(o.x)); sparks(o.x, o.y - 6, 2, 5, 'fire', 40, 40); A.lights = A.slit = null; } };
+  for (const q of A.cgroups || []) { // (every lot of candles: a niche's, a burial shelf's, a font's, a tomb's that has not woken; snuffed or burnt down)
+    if (!q.list.some(c => !c.lit)) { q.relightT = 0; continue; } if (q.owner === undefined) q.owner = A.props.find(p => p.candles === q.list) || null; const o = q.owner; if (o && (o.dead || o.opened || o.wake !== undefined)) continue;
+    if (q.wall ? Math.abs(h.x - q.x) < 13 && h.y > q.y - 6 && h.y < q.y + 22 : dist(h.x, h.y, q.x, q.y) < 22) relight(q, q.list); else q.relightT = 0; }
 }
 
 // ===================== hints =====================
@@ -544,9 +555,9 @@ function relightTick(dt) {
 function cryptHints() {
   const A = ARENA, h = G.me; if (!A || A.th.sheet !== 'crypt' || !h || h.dead) return;
   const hint = (o, x, y, txt, col) => { if (o.hinted || dist(h.x, h.y, x, y) > 34) return; o.hinted = true; textPop(x, y, 14, txt, col, false); };
-  for (const p of A.props) { if (p.kind === 'font' && p.seal && p.full < 1) hint(p, p.x, p.y, 'IT THIRSTS', 'red'); else if (p.kind === 'font' && p.full >= 1 && !p.seal) hint(p, p.x, p.y, p.liq === 'blood' ? 'DRINK: BLOOD' : 'DRINK: WATER', p.liq === 'blood' ? 'red' : 'heal'); else if (p.kind === 'brazier' && p.out && !p.dead) hint(p, p.x, p.y, 'STAND TO LIGHT', 'gold'); }
-  for (const t of A.torches) if (!t.hinted && t.candles && t.candles.some(c => !c.lit && c.wax > 0.6) && dist(h.x, h.y, t.x, t.y + 22) <= 34) { // (one word for a room's dark niches, not one each)
-    hint(t, t.x, t.y + 22, t.vigil ? 'LIGHT EVERY NICHE' : 'STAND TO RELIGHT', 'gold'); for (const u of A.torches) if (u.room === t.room) u.hinted = true; break; }
+  for (const p of A.props) { if (p.kind === 'font' && p.seal && p.full < 1) hint(p, p.x, p.y, 'IT THIRSTS', 'red'); else if (p.kind === 'font' && p.full >= 1 && !p.seal) hint(p, p.x, p.y, p.liq === 'blood' ? 'DRINK: BLOOD' : 'DRINK: WATER', p.liq === 'blood' ? 'red' : 'heal'); }
+  for (const t of A.torches) if (!t.hinted && t.vigil && t.candles && t.candles.some(c => !c.lit && c.wax > 0.6) && dist(h.x, h.y, t.x, t.y + 22) <= 34) { // (one word for a vigil room's dark niches, not one each; no STAND TO hints: the player finds out)
+    hint(t, t.x, t.y + 22, 'LIGHT EVERY NICHE', 'gold'); for (const u of A.torches) if (u.room === t.room) u.hinted = true; break; }
 }
 
 // ===================== the blood seal =====================
@@ -591,7 +602,7 @@ function vigil(A, r, bare, plate) {
   if (ts.length < 2) { leverInstead(A, r, bare, plate); return; }
   for (const t of ts) { for (const c of t.candles) { c.lit = false; c.smokeT = 0; } t.out = true; t.cf = 0; t.vigil = true; }
   for (const p of A.props) if (p.kind === 'brazier' && p.room === r.i && !p.out) { p.out = true; p.ember = true; }
-  r.vigil = { gate: r.gateOf, ts }; A.vigils = (A.vigils || []).concat([r.vigil]);
+  r.vigil = { gate: r.gateOf, ts }; A.vigils = (A.vigils || []).concat([r.vigil]); for (const t of ts) for (const c of t.candles) c.hold = r.vigil; // (they do not burn down before the gate is open: the puzzle stays whole)
 }
 function vigilTick() {
   const A = ARENA; if (!A || !A.vigils) return;

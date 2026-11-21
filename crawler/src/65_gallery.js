@@ -93,7 +93,16 @@ function drawGalleryMenu(c, W, H, big, btn, k) {
 }
 // a crypt gallery entry: where the hero stands to see it (and which creatures stay: the Shade, the lord on his throne, the
 // buried, those are the thing to see)
+// where the hero is put for a crypt entry: the spot asked for, or else the nearest open floor to it (no wall, no water or pit,
+// nothing solid standing there): a sarcophagus against the south wall has no floor three tiles below it
 function galleryCrypt(A, what) {
+  const r = galleryCrypt0(A, what); if (!r) return r; const [x0, y0] = r.at, tx0 = Math.floor(x0 / TS), ty0 = Math.floor(y0 / TS);
+  const ok = (tx, ty) => A.fl[ty * A.w + tx] === 1 && !solidAt(tx * TS + 8, ty * TS + 10) && !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (tx * TS + 8)) < 14 && Math.abs((q.cy || q.y) - (ty * TS + 10)) < 14);
+  if (ok(tx0, ty0)) return r; let best = null, bd = 1e9;
+  for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) { const tx = tx0 + dx, ty = ty0 + dy, d = Math.hypot(dx, dy); if (d < bd && tx > 0 && ty > 0 && tx < A.w - 1 && ty < A.h - 1 && ok(tx, ty)) { bd = d; best = [tx * TS + 8, ty * TS + 10]; } }
+  return best ? Object.assign({}, r, { at: best }) : r;
+}
+function galleryCrypt0(A, what) {
   const P = k => A.props.find(q => q.kind === k && !q.dead), below = (q, n) => [q.x, q.y + n * TS], inR = (r, x, y) => x >= r.ix0 * TS && x < (r.ix1 + 1) * TS && y >= r.iy0 * TS && y < (r.iy1 + 1) * TS;
   if (what === 'hall') { const by = {}; for (const q of A.props) if (q.kind === 'tomb') by[q.room] = (by[q.room] || 0) + 1; const k = Object.keys(by).find(k => by[k] >= 8); const r = k !== undefined && A.rooms.find(q => q.i === +k); return r ? { at: [(r.ix0 + r.ix1 + 1) / 2 * TS, (r.iy1 + 0.5) * TS] } : null; }
   if (what === 'sarc') { const q = P('sarc'); return q ? { at: below(q, 3) } : null; }

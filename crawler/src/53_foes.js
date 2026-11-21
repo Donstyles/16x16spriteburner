@@ -76,8 +76,8 @@ function flyTick(u, dt) {
 // the undead never sleep: found idle, they stand about or wander their room (the mutilated stumblers shuffle about it aimlessly: 56_gaits)
 const UNDEAD = new Set(['DecrepitBones', 'GraveRevenant', 'GrapplerMummy', 'BrittleArcher', 'UnravelingCrawler', 'SkitteringHand', 'MutilatedStumbler', 'SandGhoul', 'BoundCadaver', 'FleshGolem', 'RottingArcher', 'DismemberedCrawler']);
 const FLAT_SLEEPERS = new Set(['BloatedBedbug', 'EngorgedTick', 'TunnelingMole', 'CarcassFeeder', 'DismemberedCrawler', 'DungBeetle', 'SoldierAnt', 'PygmyWyvern', 'MudWyvern', 'WaterElemental', 'GrizzledTreant', 'GoblinWolfRider', 'FlutteringPixie', 'InfectedMouse', 'TaintedCockroach', 'FamishedTick', 'SkitteringHand', 'SwoopingBat', 'ForagingMaggot', 'AcidAnt', 'LavaAnt', 'RhinoBeetle', 'MawingBeaver', 'ToxicHound', 'UnravelingCrawler', 'VoraciousMouse', 'GiantRat', 'MonstrousRat']);
-const zoneAt = f => ZONES.find(z => f <= z.to) || ZONES[ZONES.length - 1];
-function floorName(f) { const z = zoneAt(f), first = ZONES.indexOf(z) ? ZONES[ZONES.indexOf(z) - 1].to + 1 : 1; return z.name + ' · ' + ['I', 'II', 'III', 'IV', 'V', 'VI'][Math.min(5, f - first)]; }
+const zoneAt = f => (CRYPT.force ? ZONES[1] : ZONES.find(z => f <= z.to) || ZONES[ZONES.length - 1]); // (the catacombs test, the crypt from the first floor: the crypt's names and armies all the way down)
+function floorName(f) { const z = zoneAt(f), nat = ZONES.find(q => f <= q.to) || ZONES[ZONES.length - 1], first = z !== nat ? 1 : ZONES.indexOf(z) ? ZONES[ZONES.indexOf(z) - 1].to + 1 : 1; /* (the catacombs test above the crypt's own floors counts from the first) */ return z.name + ' · ' + ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][Math.max(0, Math.min(9, f - first))]; }
 function troops(type, army) { const L = army && ARMIES[army] && ARMIES[army][type]; if (L && L.length) return L; return Object.values(ARMIES).flatMap(a => a[type]); }
 function mkFoe(type, f, x, y, spr) {
   const T = FOE_TYPES[type], mul = 1 + 0.18 * (f - 1); spr = spr || pick(troops(type, ARENA && ARENA.army));
