@@ -304,7 +304,10 @@ function nicheAmbush(dt) {
   const A = ARENA, h = G.me; if (!A || !h || h.dead || A.th.sheet !== 'crypt' || G.cine) return;
   for (const r of A.rooms) {
     if (!r.niches || r.niches.length < 2 || r.ambushed || r.kind !== 'room' || hash2(r.i * 7 + 3, A.floor * 11 + 1) > 0.5) continue;
-    if (!(h.x > (r.ix0 + 1) * TS && h.x < r.ix1 * TS && h.y > (r.iy0 + 2) * TS && h.y < (r.iy1 + 1) * TS)) continue;
+    if (!(h.x > (r.ix0 + 1) * TS && h.x < r.ix1 * TS && h.y > (r.iy0 + 2) * TS && h.y < (r.iy1 + 1) * TS)) { // (near it, before: something scrapes in the wall, dust trickles from a niche)
+      if (h.x > (r.ix0 - 5) * TS && h.x < (r.ix1 + 6) * TS && h.y > (r.iy0 - 5) * TS && h.y < (r.iy1 + 6) * TS && G.time - (r.knockT || -9) > 3.5) { r.knockT = G.time; const n = r.niches[((G.time * 3) | 0) % r.niches.length]; SFX.scrape(panOf(n.nx + 8)); SFX.settle(panOf(n.nx + 8)); smoke(n.nx + 8, n.ny + 18, 1, 'dust', 3, 6, 0.8, 4); }
+      continue;
+    }
     r.ambushed = true; SFX.groan(panOf(h.x));
     r.niches.forEach((n, i) => after(0.35 + i * 0.3, () => { if (ARENA === A) burstNiche(A, r, n); }));
   }
