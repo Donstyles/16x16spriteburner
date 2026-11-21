@@ -14,7 +14,7 @@ const SFX = {
     this.white = c.createBuffer(1, n, c.sampleRate); const w = this.white.getChannelData(0); for (let i = 0; i < n; i++) w[i] = Math.random() * 2 - 1;
     this.brown = c.createBuffer(1, n, c.sampleRate); const b = this.brown.getChannelData(0); let l = 0; for (let i = 0; i < n; i++) { l = (l + 0.02 * (Math.random() * 2 - 1)) / 1.02; b[i] = l * 3.5; }
     this.crunch = c.createWaveShaper(); const curve = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 3.2); } this.crunch.curve = curve; this.crunch.connect(this.master);
-    this.unlock(); this.on = true; this.drone();
+    this.unlock(); this.on = true; this.drone(); if (typeof ARENA !== 'undefined' && ARENA && ARENA.th && ARENA.th.sheet === 'crypt') this.cryptAir(true);
   },
   // a moment of silence played inside the tap itself: older iPhones only let a page's sound start that way
   unlock() { try { const c = this.ctx, s = c.createBufferSource(); s.buffer = c.createBuffer(1, 1, 22050); s.connect(c.destination); s.start(0); } catch (e) { /* not needed here */ } },
@@ -297,13 +297,27 @@ const SFX = {
     for (const fr of [55, 55.6, 82.4, 110.3]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr; o.connect(f); o.start(t); o.stop(t + 2.7); }
   },
   // the shop's quiet (39_shop): the dungeon's drone fades out while the hero is inside and comes back as he leaves
-  calm(on) { if (!this.droneG || !this.ctx) return; const t = this.ctx.currentTime, g = this.droneG.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(on ? 0 : 0.05, t + (on ? 1.2 : 0.8)); }, // (gone altogether in the shop)
+  calm(on) { if (!this.droneG || !this.ctx) return; const t = this.ctx.currentTime, g = this.droneG.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(on ? 0 : 0.05, t + (on ? 1.2 : 0.8)); if (this.cryptG) this.cryptAir(!on && ARENA && ARENA.th.sheet === 'crypt'); }, // (gone altogether in the shop)
   // a torch or a brazier crackling: a dry pop or two of resin, now and then; v: how near
   crackle(pan = 0, v = 1) { if (!this.ok('crackle', 0.02)) return; const n = Math.random() < 0.3 ? 2 : 1; for (let i = 0; i < n; i++) this.noise(this.white, rand(0.006, 0.02), 'bandpass', rand(1800, 4200), rand(1200, 2600), rand(1.2, 3), rand(0.05, 0.11) * v, pan, i * rand(0.015, 0.05), 0.001); },
   // the soft breath of a flame, low and slow
   flame(pan = 0, v = 1) { if (!this.ok('flame', 0.4)) return; this.noise(this.brown, rand(0.6, 1.0), 'lowpass', rand(240, 380), 140, 0.7, 0.12 * v, pan, 0, 0.18); },
   // a slow step on stone, heel then sole, softer than a stride
   step(pan = 0, n = 0) { if (!this.ok('step', 0.15)) return; const k = n % 2 ? 0.9 : 1; this.noise(this.brown, 0.07, 'lowpass', 420 * k, 120, 0.9, 0.22, pan, 0, 0.003); this.tone('sine', 80 * k, 50, 0.06, 0.08, pan, 0, 0.003); this.noise(this.white, 0.03, 'bandpass', rand(2000, 2800), 1500, 2.5, 0.025, pan, 0.03, 0.002); },
+  // the crypt's air (floors 4 to 6, 43_crypt): a cold draught moaning slowly through the passages (brown noise through a
+  // narrow band that wanders) over two low tones a semitone apart, beating; faded in on a crypt floor, out elsewhere
+  cryptAir(on) {
+    if (!this.ctx) return; const c = this.ctx, t = c.currentTime;
+    if (!this.cryptG) {
+      const bus = c.createGain(); bus.gain.value = 0; bus.connect(this.master); this.cryptG = bus;
+      const src = c.createBufferSource(); src.buffer = this.brown; src.loop = true; const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 380; bp.Q.value = 4; const wg = c.createGain(); wg.gain.value = 0.55;
+      src.connect(bp); bp.connect(wg); wg.connect(bus); src.start();
+      const l1 = c.createOscillator(); l1.frequency.value = 0.045; const l1g = c.createGain(); l1g.gain.value = 170; l1.connect(l1g); l1g.connect(bp.frequency); l1.start(); // (the moan wandering up and down)
+      const l2 = c.createOscillator(); l2.frequency.value = 0.11; const l2g = c.createGain(); l2g.gain.value = 0.4; l2.connect(l2g); l2g.connect(wg.gain); l2.start(); // (and swelling)
+      for (const fr of [55, 58.27]) { const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = fr; const og = c.createGain(); og.gain.value = 0.35; o.connect(og); og.connect(bus); o.start(); }
+    }
+    const g = this.cryptG.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(on ? 0.04 : 0, t + (on ? 4 : 1.5));
+  },
   drone() {
     const c = this.ctx, f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 130; const g = c.createGain(); g.gain.value = 0.05; f.connect(g); g.connect(this.master); this.droneG = g;
     for (const fr of [41.2, 41.5, 61.7]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr; o.connect(f); o.start(); }
