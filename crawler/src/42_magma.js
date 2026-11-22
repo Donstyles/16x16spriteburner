@@ -374,30 +374,50 @@ function magmaWall(A, r, g, used) {
 // Pebbles lie about on every floor ([16..23, 9..10], painted in). A veined rock glows.
 const MROCK = { one: [[16, 11], [17, 11], [18, 11], [19, 11], [16, 12], [17, 12], [18, 12], [19, 12], [16, 13], [17, 13], [18, 13], [19, 13]], oneV: [[20, 11], [21, 11], [22, 11], [23, 11], [24, 12], [25, 12], [26, 12], [27, 12], [24, 13], [25, 13], [26, 13], [27, 13]],
   spire: [[20, 12], [21, 12], [20, 14], [21, 14]], spireV: [[28, 12], [29, 12], [28, 14], [29, 14]], big: [[22, 12], [22, 14], [16, 14], [18, 14]], bigV: [[30, 12], [30, 14], [24, 14], [26, 14]] };
-function magmaRock(prop, kind, tx, ty, hot) {
+function magmaRock(prop, kind, tx, ty, hot, foot) {
   const v = hot ? 'V' : '';
-  if (kind === 'big') prop('stone', tx + 0.5, ty, { sheet: 'magma', tile: pick(MROCK['big' + v]), tw: 2, th: 2, r: 9, glow: hot, rock: true });
-  else if (kind === 'spire') prop('stone', tx, ty, { sheet: 'magma', tile: pick(MROCK['spire' + v]), th: 2, r: 5, glow: hot, rock: true });
-  else prop('stone', tx, ty, { sheet: 'magma', tile: pick(MROCK['one' + v]), r: 5, glow: hot, rock: true });
+  if (kind === 'big') prop('stone', tx + 0.5, ty, { sheet: 'magma', tile: pick(MROCK['big' + v]), tw: 2, th: 2, r: 9, glow: hot, rock: true, foot });
+  else if (kind === 'spire') prop('stone', tx, ty, { sheet: 'magma', tile: pick(MROCK['spire' + v]), th: 2, r: 5, glow: hot, rock: true, foot });
+  else prop('stone', tx, ty, { sheet: 'magma', tile: pick(MROCK['one' + v]), r: 5, glow: hot, rock: true, foot });
 }
+// (a rock goes only where it cuts no floor off from the rest of its room, counting every tile it stands on or rises over
+// as stopped, as the crypt's furniture is placed: 43_crypt; and never by a door, a plate, a rune, a vent, a cracked wall,
+// the stairs or anything standing there already)
 function magmaDress(A, r, g, prop, nearDoor, free) {
-  const W = A.w, F = (x, y) => FLOOR(A.fl[y * W + x]), hot = () => chance(0.3);
+  const W = A.w, hot = () => chance(0.3), inR = (x, y) => x >= r.ix0 && x <= r.ix1 && y >= r.iy0 && y <= r.iy1;
   // pebbles
   for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) if (A.fl[y * W + x] === 1 && hash2(x * 7 + 3, y * 13 + A.floor) < 0.09) { const k = (hash2(x + 40, y + 9) * 16) | 0; g.drawImage(IMG.magma, (16 + (k & 7)) * TS, (9 + (k >> 3)) * TS, TS, TS, x * TS, y * TS, TS, TS); }
   if (r.kind === 'shop') return;
-  const corner = (cx, cy) => { for (let i = 0; i < randi(1, 3); i++) { const tx = clamp(cx + randi(-1, 1), r.ix0, r.ix1), ty = clamp(cy + randi(-1, 1), r.iy0, r.iy1); if (nearDoor(tx, ty) || !free(tx * TS + 8, ty * TS + 14) || !F(tx, ty)) continue; const k = Math.random();
-    if (k < 0.3) prop('barrel', tx, ty, { tile: pick(FURN.pot), th: 1, hp: 40 }); else magmaRock(prop, k < 0.5 && ty > r.iy0 ? 'spire' : 'one', tx, ty, hot()); } };
+  const keep = new Set(), near = (x, y, m) => { for (let j = -m; j <= m; j++) for (let i = -m; i <= m; i++) keep.add((y + j) * W + x + i); }, blocked = new Set();
+  for (const q of A.plates || []) near(q.tx, q.ty, 1); for (const q of A.runes || []) near(q.tx, q.ty, 1); for (const q of A.spikes || []) near(q.tx, q.ty, 1); for (const q of A.levers || []) if (q.tx !== undefined) near(q.tx, q.ty, 1);
+  for (const p of A.props) if (!p.dead && p.room === r.i) { const tx = Math.floor(p.x / TS), ty = Math.floor(p.cy / TS); keep.add(ty * W + tx); if (p.solid) blocked.add(ty * W + tx); }
+  for (const d of r.doors) for (const [x, y] of d.cells) near(x, y, 2);
+  for (const c of A.cracks || []) for (let x = c.x - 1; x <= c.x + 3; x++) for (let y = c.y + 1; y <= c.y + 3; y++) keep.add(y * W + x);
+  if (r.stairX !== undefined) for (let x = r.stairX - 1; x <= r.stairX + 3; x++) for (let y = r.iy0; y <= r.iy0 + 2; y++) keep.add(y * W + x);
+  if (r.kind === 'treasure' || r.chest) { const [cx, cy] = chestSpot(r); near(cx, cy, 2); }
+  const ok = (x, y) => inR(x, y) && A.fl[y * W + x] === 1 && !keep.has(y * W + x) && !blocked.has(y * W + x) && !(A.noProp && A.noProp.has(y * W + x)) && !(A.crumbleSet && A.crumbleSet.has(y * W + x)) && !(A.basin && A.basin[y * W + x]);
+  // (the room's floor as it hangs together now, in however many pieces: a flooded way's ledge and its far side are two.
+  // Whatever is put down, every piece must still hang together, less the tiles stood on)
+  const flood = k0 => { const S = new Set([k0]), Q = [k0]; while (Q.length) { const k = Q.pop(); for (const j of [k - 1, k + 1, k - W, k + W]) { const x = j % W, y = (j / W) | 0; if (x >= r.fx0 && x <= r.fx1 && y >= r.fy0 && y <= r.fy1 && !S.has(j) && FLOOR(A.fl[j]) && !blocked.has(j)) { S.add(j); Q.push(j); } } } return S; };
+  const pieces = []; { const seen = new Set(); for (let y = r.fy0; y <= r.fy1; y++) for (let x = r.fx0; x <= r.fx1; x++) { const k = y * W + x; if (FLOOR(A.fl[k]) && !blocked.has(k) && !seen.has(k)) { const S = flood(k); for (const j of S) seen.add(j); pieces.push(S); } } }
+  const fits = tiles => { for (const k of tiles) blocked.add(k); let ok = true;
+    for (const P of pieces) { if (!tiles.some(k => P.has(k))) continue; let k0 = -1; for (const k of P) if (!blocked.has(k)) { k0 = k; break; } if (k0 < 0) continue; const S = flood(k0); for (const k of P) if (!blocked.has(k) && !S.has(k)) { ok = false; break; } if (!ok) break; }
+    if (!ok) for (const t of tiles) blocked.delete(t); return ok; };
+  const rock = (kind, tx, ty) => { const T = kind === 'big' ? [[tx, ty], [tx + 1, ty], [tx, ty - 1], [tx + 1, ty - 1]] : kind === 'spire' ? [[tx, ty], [tx, ty - 1]] : [[tx, ty]];
+    if (!T.every(([x, y], i) => (kind !== 'one' && i >= (kind === 'big' ? 2 : 1)) ? (inR(x, y) ? ok(x, y) : true) : ok(x, y))) return false; const foot = T.filter(([x, y]) => inR(x, y)).map(([x, y]) => y * W + x); if (!fits(foot)) return false; magmaRock(prop, kind, tx, ty, hot(), foot); return true; };
+  const corner = (cx, cy) => { for (let i = 0; i < randi(1, 3); i++) { const tx = clamp(cx + randi(-1, 1), r.ix0, r.ix1), ty = clamp(cy + randi(-1, 1), r.iy0, r.iy1); if (!ok(tx, ty) || !free(tx * TS + 8, ty * TS + 14)) continue; const k = Math.random();
+    if (k < 0.3) { if (fits([ty * W + tx])) prop('barrel', tx, ty, { tile: pick(FURN.pot), th: 1, hp: 40 }); } else rock(k < 0.5 ? 'spire' : 'one', tx, ty); } };
   corner(r.ix0, r.iy0); corner(r.ix1, r.iy0); corner(r.ix0, r.iy1); corner(r.ix1, r.iy1);
   const plain = r.kind === 'room' && !r.pool && !r.shrine && !r.set && !r.puz && !r.pit && !r.chest && !r.sluice;
   if (plain && !r.shape && r.w >= 11 && r.h >= 8 && chance(0.2)) { // THE STONE FOREST
     r.forest = true; (A.themes = A.themes || []).push('THE STONE FOREST'); const doorCols = r.doors.filter(d => d.side === 'N' || d.side === 'S').flatMap(d => d.cells.map(c => c[0])), doorRows = r.doors.filter(d => d.side === 'E' || d.side === 'W').flatMap(d => d.cells.map(c => c[1]));
     for (let y = r.iy0 + 2, j = 0; y <= r.iy1 - 1; y += 2, j++) for (let x = r.ix0 + 1 + (j % 2) * 2; x <= r.ix1 - 1; x += 4) {
-      if (doorCols.includes(x) || doorRows.includes(y) || nearDoor(x, y, 2) || !F(x, y) || !free(x * TS + 8, y * TS + 14, 14) || chance(0.2)) continue; const k = Math.random();
-      if (k < 0.2 && x + 1 <= r.ix1 - 1 && !doorCols.includes(x + 1) && F(x + 1, y)) magmaRock(prop, 'big', x, y, hot()); else magmaRock(prop, k < 0.75 ? 'spire' : 'one', x, y, hot()); }
+      if (doorCols.includes(x) || doorRows.includes(y) || doorRows.includes(y - 1) || chance(0.2)) continue; const k = Math.random();
+      if (!(k < 0.2 && !doorCols.includes(x + 1) && rock('big', x, y))) rock(k < 0.75 ? 'spire' : 'one', x, y); }
     return;
   }
   if (r.kind === 'room' && !r.pool && !r.shrine && !r.set && chance(0.33)) for (let x = r.ix0 + 1; x < r.ix1; x++) { // spires along the north wall
-    if (!chance(0.4) || nearDoor(x, r.iy0, 2) || (r.stairX !== undefined && x >= r.stairX - 1 && x <= r.stairX + 3) || !free(x * TS + 8, r.iy0 * TS + 14, 14) || !F(x, r.iy0)) continue; magmaRock(prop, chance(0.6) ? 'spire' : 'one', x, r.iy0, hot()); }
+    if (!chance(0.4) || !free(x * TS + 8, r.iy0 * TS + 14, 14)) continue; rock(chance(0.6) ? 'spire' : 'one', x, r.iy0); }
 }
 function magmaLights() { const A = ARENA; if (!isMagma(A)) return; for (const p of A.props) if (p.glow && !p.dead) light(p.x, p.y - 7, 32 + 3 * Math.sin(G.time * 2 + p.x), 'magma', 0.4); for (const v of A.veins || []) light(v.x + 8, v.y + 22, 34 + 3 * Math.sin(G.time * 1.6 + v.x), 'magma', 0.42); }
 function drawVeinGlow(c) { const A = ARENA; if (!A.veins) return; const V = magmaVeins(), [vx, vy, vw, vh] = viewRect(A); for (const v of A.veins) { if (v.x + TS < vx || v.x > vx + vw || v.y + 24 < vy || v.y > vy + vh) continue; c.globalAlpha = 0.45 + 0.25 * Math.sin(G.time * 1.9 + v.x * 0.11); c.drawImage(V, v.sx, 8, TS, 24, v.x, v.y, TS, 24); } c.globalAlpha = 1; }
