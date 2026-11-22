@@ -101,7 +101,7 @@ function lavaMark(A, g, x0, y0, w, h) {
 function viewRect(A) { const x0 = Math.max(0, PXO.x), y0 = Math.max(0, PXO.y), x1 = Math.min(A.pw, PXO.x + BUF.w), y1 = Math.min(A.ph, PXO.y + BUF.h); return [x0, y0, x1 - x0, y1 - y0]; }
 function drawMagma(c, rect) {
   const A = ARENA; if (!isMagma(A)) return; const VR = () => rect ? [Math.max(0, rect[0]), Math.max(0, rect[1]), Math.min(A.pw, rect[0] + rect[2]) - Math.max(0, rect[0]), Math.min(A.ph, rect[1] + rect[3]) - Math.max(0, rect[1])] : viewRect(A);
-  if (A.lavaM) { const [x, y, w, h] = VR(); lavaBlit(c, A.lavaM, x, y, w, h, x, y); } if (rect) return; drawLavaDeath(c); drawBombsUnder(c); magmaLights();
+  if (A.lavaM) { const [x, y, w, h] = VR(); lavaBlit(c, A.lavaM, x, y, w, h, x, y); } if (rect) { for (const C of A.crucibles || []) for (const a of C.anv) if (a.lit) { c.fillStyle = '#ff9a2e'; c.fillRect(a.x - 3, a.y - 3, 6, 5); } return; } drawLavaDeath(c); drawCrucibles(c); drawBombsUnder(c); magmaLights();
   // its light: from every other lava tile in sight (a pit's), and over each pool
   if (A.pitN) { const [x, y, w, h] = viewRect(A), tx0 = Math.floor(x / TS), ty0 = Math.floor(y / TS), tx1 = Math.ceil((x + w) / TS), ty1 = Math.ceil((y + h) / TS);
     for (let ty = ty0 - 2; ty <= ty1 + 2; ty++) for (let tx = tx0 - 2; tx <= tx1 + 2; tx++) { if ((tx & 1) || (ty & 1) || tx < 0 || ty < 0 || tx >= A.w || ty >= A.h || A.fl[ty * A.w + tx] !== PIT) continue; light(tx * TS + 8, ty * TS + 8, 50 + 4 * Math.sin(G.time * 1.7 + tx * 1.3 + ty), 'magma', 0.55); } }
@@ -114,7 +114,8 @@ function drawMagmaGlow(c) {
   for (const p of A.pools || []) if (p.lm && p.level > 0) { const ins = Math.round((1 - p.level) * 6), w = p.cw || p.cv.width, h = p.ch || p.cv.height; lavaBlit(c, p.lm, ins, ins, w - ins * 2, h - ins * 2, p.px0 + ins, p.py0 + ins, k * Math.min(1, p.level * 1.6)); }
   // (nor over what stands in a pool: a pillar, a rock: their own shapes cut out of it)
   c.globalCompositeOperation = 'destination-out'; for (const p of A.props) if (!p.dead && p.tile && (p.sunk || p.kind === 'wetpillar') && p.x > PXO.x - 40 && p.x < PXO.x + BUF.w + 40 && p.y > PXO.y - 40 && p.y < PXO.y + BUF.h + 60) { const w = (p.tw || 1) * TS, n = p.th || 1; c.drawImage(p.sheet ? IMG[p.sheet + 'W'] : IMG.cellarW, p.tile[0] * TS, p.tile[1] * TS, w, n * TS, Math.round(p.x - w / 2), Math.round(p.y - 14 - (n - 1) * TS), w, n * TS); } c.globalCompositeOperation = 'lighter';
-  drawBombsGlow(c); drawVentGlow(c); drawVeinGlow(c);
+  drawBombsGlow(c); drawVentGlow(c); drawVeinGlow(c); drawCruciblesGlow(c);
+  for (const p of A.props) if (p.crystal && !p.dead && p.x > PXO.x - 20 && p.x < PXO.x + BUF.w + 20 && p.y > PXO.y - 20 && p.y < PXO.y + BUF.h + 30) { const s = 7 + Math.sin(G.time * 3 + p.x * 0.3); c.globalAlpha = 0.5 + 0.15 * Math.sin(G.time * 2.4 + p.x); c.drawImage(GLOW[p.crystal], p.x - s, p.y - 12 - s, s * 2, s * 2); } c.globalAlpha = 1; // (a crystal lamp's own shine)
 }
 function magmaAfter(A) { A.mcr = MFLOOR.cracks; MFLOOR.cracks = []; }
 
@@ -266,13 +267,15 @@ function bombsTick(dt) {
   for (const h of G.heroes) {
     if (h.dead || h.fall || h.enter) continue; const r = roomAt(h.x, h.y); if (!r || r.kind === 'shop' || r.noBombs) continue; const L = lavaTilesOf(A, r); if (!L.length) continue;
     if (r.bombT === undefined) r.bombT = rand(1.6, 3); if ((r.bombT -= dt) > 0) continue; r.bombT = rand(BOMB.gap[0], BOMB.gap[1]) * (A.floor >= 9 ? 0.75 : 1);
+    if (r.crucible && !r.crucible.done) { // (THE CRUCIBLE: one rock at a time, straight at whoever stands near the pit)
+      const C = r.crucible; r.bombT = rand(2.2, 3.2); if (Math.hypot(h.x - C.px, h.y - C.py) > 84) continue; const [sx, sy] = lavaSpot(C.px + rand(-6, 6), C.py + rand(-6, 6)); A.erupt.push({ x: sx, y: sy, t: 0, n: 1, r, h, aim: true }); SFX.groan(panOf(sx)); continue; }
     const near = L.map(i => [Math.hypot((i % W) * TS + 8 - h.x, ((i / W) | 0) * TS + 9 - h.y), i]).sort((a, b) => a[0] - b[0]).slice(0, 8), [d, i] = pick(near); if (d > BOMB.reach) continue;
     const [sx, sy] = lavaSpot((i % W) * TS + 8, ((i / W) | 0) * TS + 9); A.erupt.push({ x: sx, y: sy, t: 0, n: A.floor >= 9 ? randi(2, 3) : A.floor >= 8 ? randi(1, 2) : 1, r, h }); if (dist(h.x, h.y, sx, sy) < 220) SFX.groan(panOf(sx));
   }
   for (const e of A.erupt) {
     e.t += dt; light(e.x, e.y - 2, 40 + 50 * e.t, 'fire', 0.5 + e.t); if (chance(dt * 16)) plipLava(e.x + rand(-5, 5), e.y + rand(-3, 3));
     if (e.t < BOMB.swell) continue; e.done = true; lavaSplash(e.x, e.y, 0.9); shake(0.08);
-    for (let k = 0; k < e.n; k++) { const T = bombTarget(A, e.r, e.x, e.y, e.h); if (!T) continue; A.bombs.push({ x0: e.x, y0: e.y, x1: T[0], y1: T[1], x: e.x, y: e.y, z: 0, t: 0, wait: k * 0.22, T: BOMB.fly, rot: randi(0, 3), spin: 0 }); }
+    for (let k = 0; k < e.n; k++) { const T = e.aim ? [e.h.x, e.h.y + 1] : bombTarget(A, e.r, e.x, e.y, e.h); if (!T) continue; A.bombs.push({ x0: e.x, y0: e.y, x1: T[0], y1: T[1], x: e.x, y: e.y, z: 0, t: 0, wait: k * 0.22, T: BOMB.fly, rot: randi(0, 3), spin: 0 }); }
   }
   removeIf(A.erupt, e => e.done);
   for (const b of A.bombs) {
@@ -286,11 +289,11 @@ function bombsTick(dt) {
   removeIf(A.bombs, b => b.done);
 }
 function bombLand(A, b) {
-  const x = b.x1, y = b.y1; if (lavaAt(x, y)) { lavaSplash(x, y, 0.8); return; }
+  const x = b.x1, y = b.y1; if (lavaAt(x, y)) { lavaSplash(x, y, 0.8); return; } const anvil = crucibleHit(A, x, y); // (an anvil takes the blow: the floor round it is not marked)
   for (const u of G.units) { if (u.dead || u.fall || u.under || (u.fly && u.team === 'foe')) continue; const dx = u.x - x, dy = (u.y - y) * 1.35, d = Math.hypot(dx, dy); if (d > BOMB.r + u.r * 0.5) continue;
     const a = d > 1 ? Math.atan2(u.y - y, u.x - x) : rand(TAU); if (hurt(u, 12 + A.floor * 1.5, { x, y: y + 2, team: 'trap', def: {} }, { ranged: true, unblockable: true, poise: 40, kx: Math.cos(a) * 210, ky: Math.sin(a) * 160, fire: true, ang: a }) > 0 || u.iframe <= 0) { if (!(u.iframe > 0)) ignite(u, 2.5); } }
   flashLight(x, y - 3, 96, 'fire', 1.2, 0.5); ring(x, y, 20, 'fire', 0.35, 3); sparks(x, y, 3, 16, 'fire', 150, 170); embers(x, y, 8, 'ember', 60); smoke(x, y, 4, 'dark', 9, 16, 1.3, 20);
-  debris(x, y, 7, ['#38302a', '#5b4d3f', '#473c31', '#e54c00'], 110, 150, 1.6); cracks(x, y, 3, 6, 220, 3); scorch(x, y, 11, 0.5);
+  debris(x, y, 7, ['#38302a', '#5b4d3f', '#473c31', '#e54c00'], 110, 150, 1.6); if (!anvil) { cracks(x, y, 3, 6, 220, 3); scorch(x, y, 11, 0.5); }
   for (let i = 0; i < 6; i++) { const a = rand(TAU), v = rand(20, 60); part({ k: 'gore', x, y, z: 2, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6, vz: rand(60, 130), g: 420, life: 1.4, s0: 1, col: pick(['#ff7f00', '#e54c00', '#ffaa00']), kind: 'lava' }); }
   SFX.boom(0.45, panOf(x)); SFX.crack(panOf(x)); if (G.me && dist(G.me.x, G.me.y, x, y) < 120) shake(0.16);
 }
@@ -410,6 +413,10 @@ function magmaDress(A, r, g, prop, nearDoor, free) {
   const corner = (cx, cy) => { for (let i = 0; i < randi(1, 3); i++) { const tx = clamp(cx + randi(-1, 1), r.ix0, r.ix1), ty = clamp(cy + randi(-1, 1), r.iy0, r.iy1); if (!ok(tx, ty) || !free(tx * TS + 8, ty * TS + 14)) continue; const k = Math.random();
     if (k < 0.3) { if (fits([ty * W + tx])) prop('barrel', tx, ty, { tile: pick(FURN.pot), th: 1, hp: 40 }); } else rock(k < 0.5 ? 'spire' : 'one', tx, ty); } };
   corner(r.ix0, r.iy0); corner(r.ix1, r.iy0); corner(r.ix0, r.iy1); corner(r.ix1, r.iy1);
+  // CRYSTAL LAMPS: in two rooms in five, a pair of the sheet's crystals on their small pedestals ([30..31, 25..31]: blue,
+  // gold, green or red, one colour to a room) against the east and west walls, each a light of its own colour
+  if ((r.kind === 'room' || r.kind === 'treasure') && r.w >= 10 && r.h >= 7 && chance(0.4)) { const [row, col] = pick([[25, 'bolt'], [27, 'gold'], [29, 'heal'], [31, 'crimson']]), y = Math.round((r.iy0 + r.iy1) / 2);
+    for (const x of [r.ix0 + 1, r.ix1 - 1]) for (const yy of [y, y - 1, y + 1]) if (ok(x, yy) && free(x * TS + 8, yy * TS + 14, 14) && fits([yy * W + x])) { prop('stone', x, yy, { sheet: 'magma', tile: [pick([30, 31]), row], r: 5, crystal: col, foot: [yy * W + x] }); break; } }
   const plain = r.kind === 'room' && !r.pool && !r.shrine && !r.set && !r.puz && !r.pit && !r.chest && !r.sluice;
   if (plain && !r.shape && r.w >= 11 && r.h >= 8 && chance(0.2)) { // THE STONE FOREST
     r.forest = true; (A.themes = A.themes || []).push('THE STONE FOREST'); const doorCols = r.doors.filter(d => d.side === 'N' || d.side === 'S').flatMap(d => d.cells.map(c => c[0])), doorRows = r.doors.filter(d => d.side === 'E' || d.side === 'W').flatMap(d => d.cells.map(c => c[1]));
@@ -421,7 +428,39 @@ function magmaDress(A, r, g, prop, nearDoor, free) {
   if (r.kind === 'room' && !r.pool && !r.shrine && !r.set && chance(0.33)) for (let x = r.ix0 + 1; x < r.ix1; x++) { // spires along the north wall
     if (!chance(0.4) || !free(x * TS + 8, r.iy0 * TS + 14, 14)) continue; rock(chance(0.6) ? 'spire' : 'one', x, r.iy0); }
 }
-function magmaLights() { const A = ARENA; if (!isMagma(A)) return; for (const p of A.props) if (p.glow && !p.dead) light(p.x, p.y - 7, 32 + 3 * Math.sin(G.time * 2 + p.x), 'magma', 0.4); for (const v of A.veins || []) light(v.x + 8, v.y + 22, 34 + 3 * Math.sin(G.time * 1.6 + v.x), 'magma', 0.42); }
+function magmaLights() { const A = ARENA; if (!isMagma(A)) return; for (const p of A.props) { if (p.dead) continue; if (p.glow) light(p.x, p.y - 7, 32 + 3 * Math.sin(G.time * 2 + p.x), 'magma', 0.4); else if (p.crystal) light(p.x, p.y - 9, 54 + 4 * Math.sin(G.time * 2.4 + p.x), p.crystal, 0.75); } for (const v of A.veins || []) light(v.x + 8, v.y + 22, 34 + 3 * Math.sin(G.time * 1.6 + v.x), 'magma', 0.42); }
 function drawVeinGlow(c) { const A = ARENA; if (!A.veins) return; const V = magmaVeins(), [vx, vy, vw, vh] = viewRect(A); for (const v of A.veins) { if (v.x + TS < vx || v.x > vx + vw || v.y + 24 < vy || v.y > vy + vh) continue; c.globalAlpha = 0.45 + 0.25 * Math.sin(G.time * 1.9 + v.x * 0.11); c.drawImage(V, v.sx, 8, TS, 24, v.x, v.y, TS, 24); } c.globalAlpha = 1; }
 // the lava as a light that shows what it shines on (34_sight): every other tile of it, a pit's or a pool's that is not drained
-function lavaLights(A) { const L = []; if (!isMagma(A)) return L; for (let y = 0; y < A.h; y += 2) for (let x = 0; x < A.w; x += 2) { const v = A.fl[y * A.w + x]; if (v === PIT || v === 2) L.push({ x: x * TS + 8, y: y * TS + 8, r: 46 }); } return L; }
+function lavaLights(A) { const L = []; if (!isMagma(A)) return L; for (let y = 0; y < A.h; y += 2) for (let x = 0; x < A.w; x += 2) { const v = A.fl[y * A.w + x]; if (v === PIT || v === 2) L.push({ x: x * TS + 8, y: y * TS + 8, r: 46 }); } for (const p of A.props) if (p.crystal && !p.dead) L.push({ x: p.x, y: p.y - 4, r: 50 }); return L; }
+
+// ===================== THE CRUCIBLE (the magma's own puzzle) =====================
+// A gate shut across the way on, and in its room a pit of lava two tiles square with three anvil stones set in the floor
+// round it (the sheet's square slab, [17, 26]), cold. This lava throws its rocks at whoever stands near it, and at
+// nothing else: straight at where he stands. Stand on an anvil until a rock is on its way (its ring closes round you),
+// step off, and the rock comes down on the anvil: the stone takes the heat, rings its note and glows from then on. All
+// three glowing, the gate goes up, and the pit goes quiet. A room that cannot hold the pit and its stones gets the
+// portcullis's plain button instead.
+function crucible(A, r, bare, plate, clear) {
+  const W = A.w, cx = Math.round((r.ix0 + r.ix1) / 2) - 1, cy = Math.round((r.iy0 + r.iy1) / 2), free = (x, y) => x > r.ix0 && x < r.ix1 && y > r.iy0 && y < r.iy1 && bare(x, y) && !(A.noProp && A.noProp.has(y * W + x));
+  let at = null; for (let d = 0; d <= 3 && !at; d++) for (const [ox, oy] of [[0, 0], [-d, 0], [d, 0], [0, -d], [0, d]]) { const x = cx + ox, y = cy + oy; let ok = true; for (let j = -2; j <= 3 && ok; j++) for (let i = -2; i <= 3; i++) if (!free(x + i, y + j)) { ok = false; break; } if (ok) { at = [x, y]; break; } }
+  if (!at) { leverInstead(A, r, bare, plate); return; }
+  const [x, y] = at, pit = [y * W + x, y * W + x + 1, (y + 1) * W + x, (y + 1) * W + x + 1]; removeIf(A.props, q => q.room === r.i && Math.abs(q.x - ((x + 1) * TS)) < 56 && Math.abs(q.cy - ((y + 1) * TS)) < 52);
+  for (const i of pit) A.fl[i] = PIT; for (const i of pit) pitPaint(A, A.g, i); A.pitN = (A.pitN || 0) + 4;
+  const anv = [[x - 2, y + 1], [x + 3, y], [x, y + 3]].map(([tx, ty], k) => ({ tx, ty, x: tx * TS + 8, y: ty * TS + 8, lit: false, k, t: 0 }));
+  for (const a of anv) A.g.drawImage(IMG.magma, 17 * TS, 26 * TS, TS, TS, a.tx * TS, a.ty * TS, TS, TS);
+  r.crucible = { gate: r.gateOf, anv, room: r, px: (x + 1) * TS, py: (y + 1) * TS }; (A.crucibles = A.crucibles || []).push(r.crucible); (A.noProp = A.noProp || new Set()); for (const a of anv) A.noProp.add(a.ty * W + a.tx);
+}
+// a rock came down at a place: an anvil there takes it
+function crucibleHit(A, x, y) {
+  let hit = false;
+  for (const C of A.crucibles || []) { for (const a of C.anv) if (Math.hypot(a.x - x, (a.y - y) * 1.2) <= 10) hit = true; if (C.done) continue;
+    for (const a of C.anv) { if (a.lit || Math.hypot(a.x - x, (a.y - y) * 1.2) > 10) continue; a.lit = true; a.t = G.time; SFX.clang(panOf(a.x)); SFX.rune(panOf(a.x), a.k, false); ring(a.x, a.y, 26, 'gold', 0.5, 3); flashLight(a.x, a.y - 2, 70, 'gold', 1, 0.6); logEv('crucible anvil', { k: a.k }); }
+    if (!C.anv.every(a => a.lit)) continue; C.done = true; C.room.noBombs = true; const gx = gatePos(C.gate); SFX.rune(panOf(C.px), 3, true);
+    for (const a of C.anv) FX.beams.push({ x0: a.x, y0: a.y - 2, x1: gx[0], y1: gx[1], w: 1.2, col: 'fire', life: 1, t: 0, steady: true, cap: true });
+    after(0.9, () => { if (ARENA === A) startGateCine(C.anv[0], C.gate); });
+  }
+  return hit;
+}
+// drawn on the floor, under everyone: a glowing anvil's heat
+function drawCrucibles(c) { for (const C of ARENA.crucibles || []) for (const a of C.anv) { if (!a.lit) continue; const k = 0.75 + 0.25 * Math.sin(G.time * 3 + a.k); c.fillStyle = `rgba(255,${Math.round(120 + 40 * k)},20,0.9)`; c.fillRect(a.x - 3, a.y - 3, 6, 5); c.fillStyle = '#ffe6a0'; c.fillRect(a.x - 2, a.y - 2, 4, 2); light(a.x, a.y, 44, 'fire', 0.75); } }
+function drawCruciblesGlow(c) { for (const C of ARENA.crucibles || []) for (const a of C.anv) { if (a.lit) { c.fillStyle = 'rgba(255,150,40,0.4)'; pxEllipse(c, Math.round(a.x), Math.round(a.y) - 1, 8, 6); } else if (!C.done) { c.fillStyle = `rgba(255,120,30,${(0.1 + 0.08 * Math.sin(G.time * 2.2 + a.k * 2)).toFixed(3)})`; c.fillRect(a.x - 3, a.y - 3, 6, 5); } } }
