@@ -137,10 +137,10 @@ function drawProp(c, p) {
   else if (p.kind === 'tchest') { const [cx, cy] = CHEST[p.tier].at; c.drawImage(IMG.items, cx + (p.open ? 16 : 0), cy, 16, 16, p.x - 8, p.y - 14, 16, 16); }
   else if (p.kind === 'block') c.drawImage(IMG.cellar, (p.tile[0] + p.f) * TS, p.tile[1] * TS, TS, TS, p.x - 8, p.y - 14, TS, TS); // a vault's block, sinking frame by frame
   else { // (th: how many tiles tall; struck, a tall crate flashes white and fades back)
-    const w = (p.tw || 1) * TS, n = p.th || 1, fl = (p.flashUntil || 0) - G.time, im = p.sheet === 'crypt' ? IMG.crypt : IMG.cellar; // (sheet: the crypt's own pieces, 43_crypt)
+    const w = (p.tw || 1) * TS, n = p.th || 1, fl = (p.flashUntil || 0) - G.time, im = p.sheet ? IMG[p.sheet] : IMG.cellar; // (sheet: the crypt's own pieces, 43_crypt)
     for (let i = 0; i < n; i++) c.drawImage(im, p.tile[0] * TS, (p.tile[1] + i) * TS, w, TS, p.x - w / 2 + (p.jx || 0), p.y - 14 - (n - 1 - i) * TS, w, TS); // (jx: a tomb shuddering, 43_crypt)
     if (p.candles) { if (p.jx) { c.save(); c.translate(p.jx, 0); drawCandles(c, p.candles); c.restore(); } else drawCandles(c, p.candles); } // (its candles: 44_candles; a tomb's shudder with it)
-    if (fl > 0) { c.globalAlpha = Math.min(1, fl * 9); c.drawImage(p.sheet === 'crypt' ? IMG.cryptW : IMG.cellarW, p.tile[0] * TS, p.tile[1] * TS, w, n * TS, p.x - w / 2, p.y - 14 - (n - 1) * TS, w, n * TS); c.globalAlpha = 1; }
+    if (fl > 0) { c.globalAlpha = Math.min(1, fl * 9); c.drawImage(p.sheet ? IMG[p.sheet + 'W'] : IMG.cellarW, p.tile[0] * TS, p.tile[1] * TS, w, n * TS, p.x - w / 2, p.y - 14 - (n - 1) * TS, w, n * TS); c.globalAlpha = 1; }
   }
 }
 // an arrow or a stone in flight (its shadow on the floor below it)
@@ -249,7 +249,7 @@ function render() {
   const c = wbc; c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; c.fillStyle = '#0b0c0f'; c.fillRect(0, 0, bw, bh); c.imageSmoothingEnabled = false; X(c);
   drawGround(c, ox, oy, bw, bh);
   const tb = ARENA.th.tone === 'brown' ? 5 : 0; if (ARENA.wallCandles) drawCandles(c, ARENA.wallCandles, true); /* (the crypt's niches: 44_candles) */ for (const t of ARENA.torches) { if (t.candles) continue; if (ARENA.th.sheet === 'crypt' && !t.exit) { cryptTorch(c, t); continue; } /* (the way down's two are the cellar's torches, recoloured) */ if (t.out) { c.drawImage(IMG.cellar, (t.ember ? 31 : 30) * TS, (tb ? 5 : 2) * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); continue; } const f = ((G.time * 9 + t.f) | 0) % 4; c.drawImage(IMG.cellar, (tb + f) * TS, 26 * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); } // (the brown floors' own, iron on stone)
-  drawWorks(c); drawHeaps(c); drawPits(c); drawWet(c); drawHazards(c); drawWake(c); drawRuns(c); drawDoors(c); drawTele(c); drawTelegraphs(c);
+  drawWorks(c); drawHeaps(c); drawPits(c); drawMagma(c); drawWet(c); drawHazards(c); drawWake(c); drawRuns(c); drawDoors(c); drawTele(c); drawTelegraphs(c);
   // the shadows, on a layer of their own cut to the floor (noFloor), then laid down
   if (!shb) { shb = mkCanvas(1, 1); shbc = shb.getContext('2d'); } fitBuf(shb, bw, bh); const S = shbc; S.setTransform(1, 0, 0, 1, 0, 0); S.globalCompositeOperation = 'source-over'; S.clearRect(0, 0, bw, bh); X(S);
   // (a drained basin: whoever stands outside it casts no shadow on its walls' faces nor its bed, whoever is down in it
@@ -284,7 +284,7 @@ function render() {
   renderLight();
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'multiply'; c.drawImage(lc, 0, 0);
   fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.globalCompositeOperation = 'source-over'; fctx.globalAlpha = 1; fctx.clearRect(0, 0, bw, bh); fctx.globalCompositeOperation = 'lighter'; fctx.imageSmoothingEnabled = false; X(fctx);
-  drawAuras(fctx); drawGhosts(fctx); drawRings(fctx); drawFxParts(fctx); drawBolts(fctx); drawArrowGlints(fctx); drawSpellGlows(fctx); drawWorksGlow(fctx); drawWareGlow(fctx); drawCharges(fctx);
+  drawAuras(fctx); drawGhosts(fctx); drawRings(fctx); drawFxParts(fctx); drawBolts(fctx); drawArrowGlints(fctx); drawSpellGlows(fctx); drawWorksGlow(fctx); drawMagmaGlow(fctx); drawWareGlow(fctx); drawCharges(fctx);
   if (G.mode === 'play') maskToMemory(fctx, ox, oy, 'destination-in'); // no glow, spark or flame shows where nobody has looked
   fctx.globalCompositeOperation = 'destination-out'; drawCeil(fctx, ox, oy, bw, bh); drawCeil(fctx, ox, oy, bw, bh, ARENA.ceilN); drawCeil(fctx, ox, oy, bw, bh, voidMask()); fctx.globalCompositeOperation = 'lighter'; // nor over the tops of the walls, nor the solid rock
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'lighter'; c.drawImage(fxc, 0, 0);

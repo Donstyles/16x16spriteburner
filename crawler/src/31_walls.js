@@ -27,13 +27,13 @@ const PAINTED = {};
 // trim runs along its room side, with no strip of floor beside it. Until they are painted in the painter, a crypt piece is
 // ceiling wherever it is drawn (where its cellar piece has any ceiling) and its side walls are wall all over
 const CRYPT_SOLID = new Set(['5,1', '5,2', '7,1', '7,2', '5,3', '7,3']);
-let CRYPT_A = null; // (the crypt sheet's alpha, read once)
+const CRYPT_A = {}; // (the crypt sheet's alpha, and the magma's, each read once)
 function cryptRows(sx, sy) {
-  if (!CRYPT_A) { const c = mkCanvas(IMG.crypt.width, IMG.crypt.height), g = c.getContext('2d'); g.drawImage(IMG.crypt, 0, 0); CRYPT_A = { w: c.width, d: g.getImageData(0, 0, c.width, c.height).data }; }
-  const a = new Uint16Array(16); for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) if (CRYPT_A.d[((sy + y) * CRYPT_A.w + sx + x) * 4 + 3] > 128) a[y] |= 0x8000 >>> x; return a;
+  const k = TH.sheet, im = IMG[k]; if (!CRYPT_A[k]) { const c = mkCanvas(im.width, im.height), g = c.getContext('2d'); g.drawImage(im, 0, 0); CRYPT_A[k] = { w: c.width, d: g.getImageData(0, 0, c.width, c.height).data }; }
+  const S = CRYPT_A[k], a = new Uint16Array(16); for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) if (S.d[((sy + y) * S.w + sx + x) * 4 + 3] > 128) a[y] |= 0x8000 >>> x; return a;
 }
 function paintOf(tx, ty, flip) {
-  const cm = TH && TH.sheet === 'crypt' && TH.map[tx + ',' + (ty + TH.fy)], k = (cm ? 'c' : '') + tx + ',' + ty + (flip ? 'm' : ''); if (PAINTED[k]) return PAINTED[k]; const p = PAINT[tx + ',' + ty];
+  const cm = solidTh(TH) && TH.map[tx + ',' + (ty + TH.fy)], k = (cm ? TH.sheet : '') + tx + ',' + ty + (flip ? 'm' : ''); if (PAINTED[k]) return PAINTED[k]; const p = PAINT[tx + ',' + ty];
   const rows = h => { const a = new Uint16Array(16); for (let i = 0; i < 16; i++) a[i] = parseInt(h.substr(i * 4, 4), 16); return a; };
   const rev = v => { let r = 0; for (let i = 0; i < 16; i++) if (v & (1 << i)) r |= 1 << (15 - i); return r; };
   let w = p ? rows(p[0]) : new Uint16Array(16).fill(0xffff), t = p ? rows(p[1]) : new Uint16Array(16);

@@ -28,7 +28,7 @@ function uiKey(code) {
   else if (MENU.screen === 'summary') { if (code === 'Enter' || code === 'Space') MENU.screen = 'kits'; else if (code === 'Escape') MENU.screen = 'title'; }
 }
 function togglePause() { if (G.mode !== 'play') return; UI.paused = !UI.paused; INPUT.btn = {}; INPUT.stick = null; }
-function beginRun(kit) { UI.paused = false; CRYPT.force = false; startRun(kit); }
+function beginRun(kit) { UI.paused = false; CRYPT.force = false; MAGMA.force = false; startRun(kit); }
 // the catacombs as they stand: a run whose floors are all drawn in the crypt (30_arena THEMES.crypt), the bone legion's
 function beginCrypt(kit) { UI.paused = false; CRYPT.force = true; G.nextArmy = 'bones'; startRun(kit); }
 function abandonRun() { UI.paused = false; TEST.on = false; G.mode = 'menu'; MENU.screen = 'title'; menuBackdrop(); }

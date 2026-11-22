@@ -21,7 +21,7 @@ function shapeRooms(rooms, fl, W, H, floor) {
     if (r.great) continue;
     if (r.kind !== 'room' && r.kind !== 'end') continue; if (r.hiddenN) continue; // (a hidden wing's doorway in its north wall: kept plain)
     if (!SHAPES.force && !chance(clamp((0.32 + floor * 0.04) * (ARCH.cur.shape || 1), 0.32, 0.8))) continue; // (more on THE HALLS OF STONE: 35_themes)
-    const kinds = SHAPES.force ? [SHAPES.force] : pitShuffle(r.kind === 'end' ? ['hall', 'ring'] : TH && TH.sheet === 'crypt' ? ['hall', 'ring', 'cuts'] : SHAPE_KINDS.slice()); // (the crypt's: only the shapes that can stand mirrored; its cut corners go in mirrored pairs, below)
+    const kinds = SHAPES.force ? [SHAPES.force] : pitShuffle(r.kind === 'end' ? ['hall', 'ring'] : solidTh(TH) ? ['hall', 'ring', 'cuts'] : SHAPE_KINDS.slice()); // (the crypt's: only the shapes that can stand mirrored; its cut corners go in mirrored pairs, below)
     for (const k of kinds) if (shapeRoom(r, k, fl, W, H)) { r.shape = k; break; }
   }
 }
@@ -54,20 +54,20 @@ function shapeRoom(r, k, fl, W, H) {
   for (let t = 0; t < 30; t++) {
     const rock = new Set(), open = new Set(), alc = [];
     if (k === 'hall') { // blocks two tiles wide, mirrored about the middle
-      const bw = 2, bh = TH && TH.sheet === 'crypt' ? 4 : 3, top = r.iy0 + (r.kind === 'end' ? 3 : 2), lay = pick(['pair', 'four', 'rows']); // (the crypt's two deeper: its top square, 30_arena cryptBlocks)
+      const bw = 2, bh = solidTh(TH) ? 4 : 3, top = r.iy0 + (r.kind === 'end' ? 3 : 2), lay = pick(['pair', 'four', 'rows']); // (the crypt's two deeper: its top square, 30_arena cryptBlocks)
       const hi = Math.floor((r.ix0 + r.ix1) / 2) - 2 - bw; if (hi < r.ix0 + 2) return false; const xl = randi(r.ix0 + 2, hi), xr = r.ix0 + r.ix1 - xl - bw + 1; if (xr - (xl + bw) < 2) continue;
       const xs = lay === 'rows' ? [xl, Math.round((r.ix0 + r.ix1 - bw + 1) / 2), xr] : [xl, xr]; if (lay === 'rows' && (xs[1] - (xl + bw) < 2 || xr - (xs[1] + bw) < 2)) continue;
       let ys; if (lay === 'pair') ys = [Math.round((r.iy0 + r.iy1 - bh + 1) / 2)]; else { const yt = randi(top, top + 1), yb = r.iy0 + r.iy1 - yt - bh + 1; if (yb - (yt + bh) < 2) continue; ys = [yt, yb]; }
       if (ys[0] < top || ys[ys.length - 1] + bh - 1 > r.iy1 - 2) continue;
       for (const x of xs) for (const y of ys) rect(rock, x, y, bw, bh);
     } else if (k === 'ring') { // one great block in the middle, a walk round it
-      const top = r.kind === 'end' ? 3 : 2, dd = TH && TH.sheet === 'crypt' ? 2 : 1, ws = [3, 5].filter(b => b <= r.w - 8 && b + dd <= r.h - top - 2); if (!ws.length) return false; const bw = pick(ws), bh = bw + dd; // (a tile taller than wide: its top, drawn north of where it stands, then reads square; the crypt's two, 30_arena cryptBlocks)
+      const top = r.kind === 'end' ? 3 : 2, dd = solidTh(TH) ? 2 : 1, ws = [3, 5].filter(b => b <= r.w - 8 && b + dd <= r.h - top - 2); if (!ws.length) return false; const bw = pick(ws), bh = bw + dd; // (a tile taller than wide: its top, drawn north of where it stands, then reads square; the crypt's two, 30_arena cryptBlocks)
       // lined up with the corridors: an odd width like theirs, centred on a north or south doorway (else the room's middle)
       const nd = r.doors.filter(d => d.side === 'N' || d.side === 'S').map(d => d.cells[1][0]), ax = nd.length ? pick(nd) : Math.round((r.ix0 + r.ix1) / 2);
       const x0 = ax - (bw - 1) / 2, y0 = Math.max(r.iy0 + (r.kind === 'end' ? 3 : 2), Math.round((r.iy0 + r.iy1 - bh + 1) / 2));
       if (x0 - r.ix0 < 3 || r.ix1 - (x0 + bw - 1) < 3 || r.iy1 - (y0 + bh - 1) < 2) continue; rect(rock, x0, y0, bw, bh);
     } else if (k === 'cuts') { // corners of rock left standing
-      if (TH && TH.sheet === 'crypt') { // (the crypt's: the two corners of one end, or all four, each the same size, mirrored)
+      if (solidTh(TH)) { // (the crypt's: the two corners of one end, or all four, each the same size, mirrored)
         const four = chance(0.4), cyy = chance(0.5) ? 1 : 0, cw = randi(2, Math.max(2, Math.floor(r.w * 0.3))), ch = randi(2, Math.max(2, Math.floor(r.h * 0.4)));
         for (const [cx, cy] of four ? [[0, 0], [1, 0], [0, 1], [1, 1]] : [[0, cyy], [1, cyy]]) rect(rock, cx ? r.ix1 - cw + 1 : r.ix0, cy ? r.iy1 - ch + 1 : r.iy0, cw, ch);
       } else {
@@ -116,10 +116,10 @@ function shapeRoom(r, k, fl, W, H) {
 // THE GREAT HALL's colonnade: blocks of wall two tiles wide in two rows down its length (a long hall), or two columns
 // down a nave, every five or six tiles; any that would stand in a door's way is left out
 function greatHall(r, fl, W, H) {
-  const keep = landingKeep(r, W), bh = TH && TH.sheet === 'crypt' ? 4 : 3, step = randi(5, 6);
+  const keep = landingKeep(r, W), bh = solidTh(TH) ? 4 : 3, step = randi(5, 6);
   for (let t = 0; t < 12; t++) {
     const rock = new Set(), add = (x0, y0, w, h) => { const c = []; for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) c.push(y * W + x); if (c.some(i => keep.has(i))) return; for (const i of c) rock.add(i); };
-    const C = TH && TH.sheet === 'crypt', group = bs => { const cs = bs.map(([x0, y0, w, h]) => { const c = []; for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) c.push(y * W + x); return c; }); if (cs.some(c => c.some(i => keep.has(i)))) return; for (const c of cs) for (const i of c) rock.add(i); }; // (the crypt's: a block and its mirrors stand together or not at all)
+    const C = solidTh(TH), group = bs => { const cs = bs.map(([x0, y0, w, h]) => { const c = []; for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) c.push(y * W + x); return c; }); if (cs.some(c => c.some(i => keep.has(i)))) return; for (const c of cs) for (const i of c) rock.add(i); }; // (the crypt's: a block and its mirrors stand together or not at all)
     if (r.great === 'h') { // two rows with a nave between them, or (no room for two) one row down the middle
       const h2 = bh, yt = r.iy0 + (r.kind === 'end' ? 3 : 2) + (t % 2), yb = r.iy0 + r.iy1 - yt - h2 + 1, two = yb - (yt + h2) >= 2, ym = Math.max(r.iy0 + (r.kind === 'end' ? 4 : 3), Math.round((r.iy0 + r.iy1 - h2 + 1) / 2));
       const x00 = r.ix0 + 3 + randi(0, 1);

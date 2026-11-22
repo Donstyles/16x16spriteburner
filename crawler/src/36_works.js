@@ -27,8 +27,9 @@ const WK = {
   grey: { square: [[20, 19], [20, 16]], round: [[16, 19], [16, 16]], deep: [[24, 19], [24, 16]], slatV: [17, 29], slatH: [16, 30], plate: [10, 26], socket: [13, 26], wetSocket: [3, 18], rune: [27, 3], runeOn: [27, 4], block: [10, 28], spike: [0, 28], drain: [18, 4], wetPillar: [1, 16], dryPillar: [24, 2], basin: [54, 56, 62] },
   brown: { square: [[20, 26], [20, 23]], round: [[16, 26], [16, 23]], deep: [[24, 26], [24, 23]], slatV: [21, 29], slatH: [20, 30], plate: [10, 27], socket: [13, 27], wetSocket: [3, 21], rune: [27, 6], runeOn: [27, 7], block: [10, 29], spike: [5, 28], drain: [18, 7], wetPillar: [1, 19], dryPillar: [24, 5], basin: [64, 54, 44] },
 };
-WK.crypt = Object.assign({}, WK.grey, { basin: [62, 50, 42], slatV: WK.brown.slatV, slatH: WK.brown.slatH }); // (the crypt: the grey set's pieces, from its recoloured sheet; a drained bed of its earth; the brown set's slats, a darker sandstone, not a row of pale teeth over the blood)
-const wkOf = A => WK[A.th.sheet === 'crypt' ? 'crypt' : A.th.tone === 'grey' ? 'grey' : 'brown'];
+WK.crypt = Object.assign({}, WK.grey, { basin: [62, 50, 42], slatV: WK.brown.slatV, slatH: WK.brown.slatH });
+WK.magma = Object.assign({}, WK.grey, { basin: [48, 40, 33], slatV: WK.brown.slatV, slatH: WK.brown.slatH }); // (the magma's: a drained bed of cooled black rock) // (the crypt: the grey set's pieces, from its recoloured sheet; a drained bed of its earth; the brown set's slats, a darker sandstone, not a row of pale teeth over the blood)
+const wkOf = A => WK[A.th.sheet || (A.th.tone === 'grey' ? 'grey' : 'brown')];
 const sheetTile = (g, [tx, ty], x, y, dx = 0, dy = 0) => g.drawImage(IMG.cellar, (tx + dx) * TS, (ty + dy) * TS, TS, TS, x, y, TS, TS);
 // The sheet's wooden bridges, two tiles wide, fresh (orange) or green with age: for a way running east and west the planks
 // lie north to south ([440, 424] / [440, 376]: four planks a block, eight pixels each), for a way running north and south
@@ -106,8 +107,9 @@ function waterBody(A, cells, set, W, dual) {
   for (let j = 0; j < cls.length; j++) { const o = j * 4, s = sub ? sub[j] : 0; if (!d1[o + 3]) continue; cls[j] = s === 4 ? 4 : s ? 3 : d1[o + 2] >= d1[o] + 30 ? 4 : d1[o] + d1[o + 1] + d1[o + 2] >= 300 ? 1 : 2; }
   for (const i of cells) A.fl[i] = 2;
   const cw = (x1 - x0 + 1) * TS + (dual ? TS : 0), ch = (y1 - y0 + 1) * TS + (dual ? TS : [...cells].some(i => swAt(i % A.w, ((i / A.w) | 0) + 1)) ? 4 : 0); // (what is drawn of it)
+  const lm = A.liq === 'lava' ? blueMask(cv) : null; // (the lava's mask, read off the blue too: 42_magma)
   if (A.liq) liquify(cv, LIQUIDS[A.liq]); // (the crypt's: once all of the above has been read off the blue)
-  return { cells, x0, y0, x1, y1, px0, py0, cv, bed, cls, cw, ch, level: 1, drain: 0 };
+  return { cells, x0, y0, x1, y1, px0, py0, cv, bed, cls, cw, ch, lm, level: 1, drain: 0 };
 }
 
 // The crypt's pools hold no water: blood, the black blood of its dead, or the green rot of the undead, one of them to a
@@ -117,11 +119,12 @@ function waterBody(A, cells, set, W, dual) {
 const LIQUIDS = {
   blood: { base: [84, 12, 16], glintC: [158, 58, 54], drops: ['#661115', '#4e0c0f', '#7e2024', '#3c080b'], glint: '200,108,98', wet: '62,8,10' }, // (deep: old blood pooled, not paint)
   black: { base: [33, 19, 22], glintC: [104, 74, 80], drops: ['#22141a', '#190e12', '#311c22', '#100709'], glint: '156,118,124', wet: '8,3,5' }, // (old blood gone black: a red in its dark)
+  lava: { base: [165, 27, 0], glintC: [255, 127, 0], drops: ['#e54c00', '#ff7f00', '#a51b00', '#ffaa00'], glint: '255,190,90', wet: '24,14,10', tex: true }, // (the magma's: the sheet's own lava, laid pixel for pixel: liquify)
   rot: { base: [44, 62, 26], glintC: [112, 140, 70], drops: ['#2c3e1a', '#223014', '#3e5626', '#18220e'], glint: '160,196,110', wet: '18,34,10' },
 };
 const liq = () => (ARENA && ARENA.liq ? LIQUIDS[ARENA.liq] : null);
 IMG.cellarLiq = {};
-function liquidSheet(k) { const c = mkCanvas(IMG.cellarCrypt.width, IMG.cellarCrypt.height); c.getContext('2d').drawImage(IMG.cellarCrypt, 0, 0); submerge(c, LIQUIDS[k]); liquify(c, LIQUIDS[k]); return c; }
+function liquidSheet(k, base = IMG.cellarCrypt) { const c = mkCanvas(base.width, base.height); c.getContext('2d').drawImage(base, 0, 0); submerge(c, LIQUIDS[k]); liquify(c, LIQUIDS[k]); return c; }
 // what of a sunken thing lies under the liquid (the sheet's sunken set, rows 16 to 23): the stone and clay seen through
 // the water, a pale grey in the crypt's recolouring, there tinted with the liquid, as much as the blue round it is. In
 // each tile, every grey pixel from the first row that has the water's blue in it down
@@ -135,9 +138,12 @@ function submerge(cv, L) {
   }
   g.putImageData(id, 0, y0);
 }
+function blueMask(cv) { const m = mkCanvas(cv.width, cv.height), g = m.getContext('2d'), s = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, id = g.createImageData(cv.width, cv.height), d = id.data; for (let i = 0; i < s.length; i += 4) if (s[i + 3] && s[i + 2] >= s[i] + 30) { d[i] = d[i + 1] = d[i + 2] = d[i + 3] = 255; } g.putImageData(id, 0, 0); return m; }
 function liquify(cv, L) { // (each blue pixel: the liquid's colour, as much lighter or darker than it as the blue was than the water's own, 111)
   const g = cv.getContext('2d'), id = g.getImageData(0, 0, cv.width, cv.height), d = id.data;
+  const tex = L.tex ? LAVA.frames[0].getContext('2d').getImageData(0, 0, TS, TS).data : null, CW = cv.width;
   for (let i = 0; i < d.length; i += 4) { if (!d[i + 3] || d[i + 2] < d[i] + 30) continue;
+    if (tex) { const p = i >> 2, t = (((p / CW) | 0) % TS * TS + (p % CW) % TS) * 4; d[i] = tex[t]; d[i + 1] = tex[t + 1]; d[i + 2] = tex[t + 2]; continue; } // (the lava: its own tile, as it lies)
     const l = 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2], c = l > 170 ? L.glintC : L.base, k = l > 170 ? 1 : l / 111;
     d[i] = Math.min(255, Math.round(c[0] * k)); d[i + 1] = Math.min(255, Math.round(c[1] * k)); d[i + 2] = Math.min(255, Math.round(c[2] * k)); }
   g.putImageData(id, 0, 0);
@@ -663,6 +669,7 @@ function drawWorks(c) {
     if (p.level > 0) { // the water, and as it drains, its edge drawing back from the rim
       const ins = Math.round((1 - p.level) * 6); c.globalAlpha = Math.min(1, p.level * 1.6);
       c.drawImage(p.cv, ins, ins, w - ins * 2, h - ins * 2, X + ins, Y + ins, w - ins * 2, h - ins * 2); c.globalAlpha = 1;
+      if (p.lm) lavaBlit(c, p.lm, ins, ins, w - ins * 2, h - ins * 2, X + ins, Y + ins, Math.min(1, p.level * 1.6)); // (the lava, alive: 42_magma)
       // light on the water: a few glints drifting and winking
       for (let i = 0, L = liq(); i < Math.round(w * h / (L ? 1100 : 300)); i++) { // (a crypt's thick liquid: a rare slow sheen)
         const sd = (i * 7919 + p.x0 * 31) % 997, gx = X + 3 + ((sd * 13 + G.time * (6 + sd % 5)) % (w - 6)), gy = Y + 7 + (sd * 29) % (h - 10), on = Math.sin(G.time * (1.3 + sd % 3) + sd) > 0.55;

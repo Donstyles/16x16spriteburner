@@ -11,7 +11,7 @@ const tileOf = u => Math.floor(u.x / TS) + ',' + Math.floor(u.y / TS);
 // a reported floor made again (bug reports and test scripts): the run's seed, the floor, the army before it, and whether
 // it was a catacombs floor from the test menu (theme crypt)
 function replayFloor(o) {
-  CRYPT.force = o.theme === 'crypt' && !(o.floor >= 4 && o.floor <= 6); // (floors 4 to 6 are the crypt anyway, named as in a run)
+  MAGMA.force = o.theme === 'magma' && !(o.floor >= 7 && o.floor <= 9); CRYPT.force = o.theme === 'crypt' && !(o.floor >= 4 && o.floor <= 6); // (floors 4 to 6 are the crypt anyway, named as in a run)
   G.nextSeed = typeof o.seed === 'string' ? parseInt(o.seed, 16) >>> 0 : o.seed >>> 0; startRun(o.kit || 'sellsword');
   G.floor = o.floor || 1; G.army = o.prevArmy || null; G.seedsUsed = new Set(); startFloor(); G.mode = 'play';
 }

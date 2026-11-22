@@ -8,7 +8,7 @@ const THEMES = {
 // THE CATACOMBS (floors 4 to 6, the crypt zone): the grey cellar underneath (its doors, water, props and every system built
 // on its pieces), with the crypt sheet drawn over it. Everything keeps the cellar's piece names (A.wt, the masks' roles);
 // only the drawing turns a cellar piece into the crypt's own (map: the grey cellar's sheet tile, x and y, to the crypt's)
-THEMES.crypt = Object.assign({}, THEMES.grey, { name: 'crypt', sheet: 'crypt', amb: [44, 46, 58], ceilN: { '6,0': [[0, 0, 16, 8]] }, map: {
+THEMES.crypt = Object.assign({}, THEMES.grey, { name: 'crypt', sheet: 'crypt', solid: true, amb: [44, 46, 58], ceilN: { '6,0': [[0, 0, 16, 8]] }, map: {
   // the walls, as the crypt's room frame (3-5, 2-5) and wall block (0-2, 2-5) draw them
   '6,8': [4, 3], '6,7': [4, 2], '6,10': [4, 5], '5,7': [3, 2], '7,7': [5, 2], '5,8': [3, 3], '7,8': [5, 3], '5,9': [3, 4], '7,9': [5, 4], '5,10': [3, 5], '7,10': [5, 5],
   '3,7': [2, 2], '3,9': [2, 4], '3,10': [2, 5],
@@ -17,6 +17,16 @@ THEMES.crypt = Object.assign({}, THEMES.grey, { name: 'crypt', sheet: 'crypt', a
   '10,9': [10, 0], '10,11': [10, 0], '11,9': [8, 0], '12,9': [9, 0], '13,9': [7, 1], '14,9': [8, 1], '15,9': [6, 0],
 } });
 const CRYPT = { force: false }; // (a test: the crypt on any floor: 64_testroom)
+// THE MAGMA DEPTHS (floors 7 to 9): built as the crypt is, the grey cellar underneath with the magma sheet drawn over it
+// (crawler/assets/magma.png: ElvGames' Magma Dungeon, with the room frame the game needs composed under it in rows 32 to
+// 35 by tools/magma_sheet.py). solid: its walls are the crypt's kind, the dark top filling the tile (31_walls)
+THEMES.magma = Object.assign({}, THEMES.grey, { name: 'magma', sheet: 'magma', solid: true, amb: [86, 62, 52], ceilN: { '6,0': [[0, 0, 16, 8]] }, map: {
+  '6,8': [1, 33], '6,7': [1, 32], '6,10': [1, 35], '5,7': [0, 32], '7,7': [2, 32], '5,8': [0, 33], '7,8': [2, 33], '5,9': [0, 34], '7,9': [2, 34], '5,10': [0, 35], '7,10': [2, 35],
+  '3,7': [3, 32], '3,9': [3, 34], '3,10': [3, 35],
+} });
+const MAGMA = { force: false }; // (a test: the magma on any floor)
+const solidTh = th => !!(th && th.solid), isCrypt = A => !!A && A.th.sheet === 'crypt', isMagma = A => !!A && A.th.sheet === 'magma';
+const themeOf = floor => (CRYPT.force ? THEMES.crypt : MAGMA.force || (floor >= 7 && floor <= 9) ? THEMES.magma : floor >= 4 && floor <= 6 ? THEMES.crypt : floor % 2 ? THEMES.brown : THEMES.grey);
 // the theme a floor is being made or drawn in: tileAt and the wall pieces draw through its map (buildArena1)
 let TH = null;
 // where a tile of the cellar sheet is drawn from in the theme at hand: the crypt's own tile if it has one ([image, sx, sy])
@@ -27,7 +37,7 @@ let ARENA = null;
 // crypt's floors take them recoloured in its stone (tools/crypt_recolor.py), so nothing carried over shows the cellar's colours
 // (IMG.pool: the sheet a pool's pieces are drawn from to be read off their blue, 36_works waterBody; in the crypt, IMG.cellar
 // is that sheet with its water already in the floor's liquid, for the sunken pieces, the wet pillars and the rest)
-function themeSheets(th, liq) { const c = th.sheet === 'crypt'; IMG.pool = c ? IMG.cellarCrypt : IMG.cellarBase; IMG.cellar = c ? (IMG.cellarLiq[liq] || (IMG.cellarLiq[liq] = liquidSheet(liq))) : IMG.cellarBase; IMG.doors = c ? IMG.doorsCrypt : IMG.doorsBase; IMG.ends = c ? IMG.endsCrypt : IMG.endsBase; PIX.cellar = c ? PIX.cellarCrypt : PIX.cellarBase; PIT_BLACK = null; }
+function themeSheets(th, liq) { const c = th.sheet, K = c === 'crypt' ? 'Crypt' : c === 'magma' ? 'Magma' : null; IMG.pool = K ? IMG['cellar' + K] : IMG.cellarBase; IMG.cellar = K ? (IMG.cellarLiq[liq] || (IMG.cellarLiq[liq] = liquidSheet(liq, IMG['cellar' + K]))) : IMG.cellarBase; IMG.doors = K ? IMG['doors' + K] : IMG.doorsBase; IMG.ends = K ? IMG['ends' + K] : IMG.endsBase; PIX.cellar = K ? PIX['cellar' + K] : PIX.cellarBase; PIT_BLACK = null; }
 const CW = 24, CH = 17; // one grid cell, in tiles
 const FORCE_SHOP = { on: false }; // (the shop test: 39_shop)
 // a short straight corridor between a room's south doorway and the next room's north doorway: three rows of floor or fewer
@@ -210,7 +220,7 @@ const BLOCK_PAINT = [[8, 8], [0, 0], [0, -8], [0, -16]].map(([w0, t0]) => { cons
 function blockPaint(blk) { const m = new Map(); for (const [i, [, row]] of blk) m.set(i, BLOCK_PAINT[row]); return m; }
 // the colour of solid rock, where no piece is drawn: the cellar's near-black, the crypt's black (as black as its wall tops and
 // the dark beyond what has been seen: 10_assets cryptTops)
-const rockRGB = () => (TH && TH.sheet === 'crypt' ? '#000' : '#121418');
+const rockRGB = () => (solidTh(TH) ? '#000' : '#121418');
 function cryptAt(g, tx, ty, dx, dy) { g.drawImage(IMG.crypt, tx * TS, ty * TS, TS, TS, dx, dy, TS, TS); }
 function tileAt(g, tx, ty, dx, dy) { const [im, sx, sy] = srcOf(tx, ty); g.drawImage(im, sx, sy, TS, TS, dx, dy, TS, TS); }
 // A floor that cannot take the puzzles its depth asks for (37_levels levelPlan) is laid out again, a few times at most.
@@ -227,7 +237,7 @@ function buildArena(floor) {
   return A;
 }
 function buildArena1(floor) {
-  const th = CRYPT.force || (floor >= 4 && floor <= 6) ? THEMES.crypt : floor % 2 ? THEMES.brown : THEMES.grey, /* (floors 4 to 6: the catacombs) */ GW = 5, GH = 4; TH = th; const liq = th.sheet === 'crypt' ? pick(['blood', 'black', 'rot']) : null; themeSheets(th, liq); // (longer floors: nine rooms on the first, one more every second floor down, up to fourteen)
+  const th = themeOf(floor), /* (floors 4 to 6: the catacombs; 7 to 9: the magma depths) */ GW = 5, GH = 4; TH = th; const liq = th.sheet === 'crypt' ? pick(['blood', 'black', 'rot']) : th.sheet === 'magma' ? 'lava' : null; themeSheets(th, liq); // (longer floors: nine rooms on the first, one more every second floor down, up to fourteen)
   const N = Math.min(GW * GH - 1, 9 + Math.min(5, Math.floor(floor / 2)));
   // ---- the room graph: grown outward from the start cell, then a loop or two so not every floor is a single line
   const key = (x, y) => y * GW + x, cells = new Map(), edges = [];
@@ -361,9 +371,10 @@ function buildArena1(floor) {
   const wallSpot = r => { const nd = r.doors.filter(d => d.side === 'N').flatMap(d => d.cells.map(c => c[0])); let best = r.cx - 1, bd = 1e9; for (let x = r.ix0 + 1; x + 2 <= r.ix1 - 1; x++) { if (nd.some(c => c >= x - 1 && c <= x + 3)) continue; const d = Math.abs(x + 1 - (r.ix0 + r.ix1) / 2); if (d < bd) { bd = d; best = x; } } return best; };
   for (const r of rooms) if (r.kind === 'start' || r.kind === 'end') r.stairX = wallSpot(r); // (before the floor is laid: the crypt's wear runs from the stairs too)
   if (th.sheet === 'crypt') cryptFloor(g, W, H, near, inRoomRect, rooms, halls);
+  else if (th.sheet === 'magma') magmaFloor(g, W, H, near, inRoomRect, rooms, halls);
   else for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (near(x, y)) tileAt(g, 10, inRoomRect(x, y) ? floorRow : hallRow, x * TS, y * TS);
   // an inlaid square now and then: four corner slabs that only make sense together, or the small one-slab square
-  if (th.sheet !== 'crypt') for (const r of rooms) { // (the crypt's broken slabs: cryptFloor)
+  if (!solidTh(th)) for (const r of rooms) { // (the crypt's broken slabs: cryptFloor; the magma's: magmaFloor)
     const n = Math.round(r.w * r.h / 70); for (let k = 0; k < n; k++) {
       const x = randi(r.ix0 + 1, r.ix1 - 2), y = randi(r.iy0 + 1, r.iy1 - 2); if (r.inlay && r.inlay.some(([a, b]) => Math.abs(a - x) < 4 && Math.abs(b - y) < 3)) continue; (r.inlay = r.inlay || []).push([x, y]);
       const four = chance(0.6); if (!(four ? isF(x, y) && isF(x + 1, y) && isF(x, y + 1) && isF(x + 1, y + 1) : isF(x, y))) { r.inlay.pop(); continue; } // (only on open floor: never on rock a room's shape left standing)
@@ -378,15 +389,16 @@ function buildArena1(floor) {
     const R = m.map(([mx, my, mw, mh]) => [x * TS + (flip ? TS - mx - mw : mx), y * TS + my, mw, mh]);
     cng.save(); cng.beginPath(); for (const [rx, ry, rw, rh] of R) cng.rect(rx, ry, rw, rh); cng.clip(); put(cng, tx, ty, x, y, flip); cng.restore();
   };
-  const blk = th.sheet === 'crypt' ? cryptBlocks(rooms, isF, W) : null; // (the crypt's blocks of wall standing in its rooms: drawn whole, below)
+  const blk = solidTh(th) ? cryptBlocks(rooms, isF, W) : null; // (the crypt's blocks of wall standing in its rooms: drawn whole, below)
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const P = wallPiece(isF, x, y); if (!P) continue; if (blk && blk.has(y * W + x)) { wt[y * W + x] = P[0] * 64 + P[1] + 1; wf[y * W + x] = P[2] ? 1 : 0; } else T(P[0], P[1], x, y, P[2]); }
-  if (th.sheet === 'crypt') { g.fillStyle = rockRGB(); for (const r of rooms) for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) if (!wt[y * W + x] && !isF(x, y)) g.fillRect(x * TS, y * TS, TS, TS); } // (the inside of a block of wall standing in a crypt room is the wall's dark top, as its edges are)
-  if (blk) for (const [i, [cx, cy]] of blk) g.drawImage(IMG.cryptBlock, cx * TS, cy * TS, TS, TS, (i % W) * TS, ((i / W) | 0) * TS, TS, TS);
+  if (solidTh(th)) { g.fillStyle = rockRGB(); for (const r of rooms) for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) if (!wt[y * W + x] && !isF(x, y)) g.fillRect(x * TS, y * TS, TS, TS); } // (the inside of a block of wall standing in a crypt room is the wall's dark top, as its edges are)
+  if (blk) for (const [i, [cx, cy]] of blk) g.drawImage(IMG[th.sheet + 'Block'], cx * TS, cy * TS, TS, TS, (i % W) * TS, ((i / W) | 0) * TS, TS, TS);
   const A = ARENA = { arch: ARCH.cur, w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilN: cn, fl, wt, wf, pov: blk ? blockPaint(blk) : null, rooms, halls, props: [], torches: [], name: floorName(floor), floor, liq, moss: th.sheet === 'crypt' && floor >= 6 }; // (liq: what the crypt's pools hold, 36_works LIQUIDS; moss: the deepest crypt's dead grown over, 43_crypt)
+  if (isMagma(A)) magmaAfter(A); // (42_magma)
   paintCeil(A, cg, cv); // the painted trim, as drawn on the ground: the ceiling over everyone (31_walls)
   for (const i of hidMask) fl[i] = 1;
   for (const h of halls) h.frame = shortHall(h) && chance(0.6);
-  A.doors = rooms.flatMap(r => r.doors.filter(d => !d.hidden).map(d => Object.assign(d, { room: r.i, k: 0, strut: th.sheet !== 'crypt' && (d.side === 'S' || d.side === 'N') && (d.hall.frame || chance(0.12)), motif: pick([0, 5, 10]) }))); // (strut: a north or south doorway's, now and then, and at both ends of most short straight corridors, the two facing each other: a square frame; a blast door's always, 41_puzzles makeGate; 32_crawl)
+  A.doors = rooms.flatMap(r => r.doors.filter(d => !d.hidden).map(d => Object.assign(d, { room: r.i, k: 0, strut: !solidTh(th) && (d.side === 'S' || d.side === 'N') && (d.hall.frame || chance(0.12)), motif: pick([0, 5, 10]) }))); // (strut: a north or south doorway's, now and then, and at both ends of most short straight corridors, the two facing each other: a square frame; a blast door's always, 41_puzzles makeGate; 32_crawl)
   A.start = rooms.find(r => r.kind === 'start'); A.end = rooms.find(r => r.kind === 'end');
   for (const r of rooms) if (r.hidCrack) { r.crack = r.hidCrack; r.crackX = r.crack.x; (A.cracks = A.cracks || []).push(r.crack); if (r.crack.inner) A.cracks.push(r.crack.inner); A.secret = A.secret || new Uint8Array(W * H); for (const c of [r.crack, r.crack.inner]) if (c) for (const i of c.secret) A.secret[i] = 1; } // (the hidden wing's walled-up doorway)
   // ---- furnishing (the stairways' places first, so no torch or banner hangs on them)
@@ -441,7 +453,7 @@ function furnish(A, r, g) {
   else for (let x = r.ix0 + 1; x < r.ix1; x += r.great === 'h' ? 5 : 4) { const tx = x + (used.has(x) ? 3 : 0); if (tx >= r.ix1 || used.has(tx) || !plainWall(A, tx, r.fy0 + 1)) continue; used.add(tx); A.torches.push({ x: tx * TS + 8, y: (r.fy0 + 1) * TS + 9, tx, f: randi(0, 3) }); }
   // a banner: one of the twelve tall ones ([20..31, 0..1], the rod low in the upper tile) or one of the eight small ones
   // ([16..19, 0..1], one tile, the rod at its top; hung so its rod is level with the tall ones' and it hangs as low)
-  if (th.sheet !== 'crypt') for (let x = r.ix0 + 1; x < r.ix1; x++) {
+  if (!solidTh(th)) for (let x = r.ix0 + 1; x < r.ix1; x++) {
     if (used.has(x) || used.has(x - 1) || used.has(x + 1) || !plainWall(A, x, r.fy0 + 1) || !chance(0.3)) continue; const b = randi(0, 19);
     if (b < 12) { tileAt(g, 20 + b, 0, x * TS, r.fy0 * TS); tileAt(g, 20 + b, 1, x * TS, (r.fy0 + 1) * TS); } else tileAt(g, 16 + (b - 12) % 4, (b - 12) >> 2, x * TS, r.fy0 * TS + 11);
     used.add(x);
@@ -449,7 +461,7 @@ function furnish(A, r, g) {
   // between the banners, now and then a barred window or a vent in the brick (grey [16..20, 2..3], brown three rows down);
   // the tall arched windows and the tall vent ([17..18, 2..3], [20, 2..3]) are two tiles high, their tops in the brick above
   const wy = th.tone === 'brown' ? 3 : 0, WIN = [[16, 2, 1], [16, 3, 1], [17, 3, 2], [18, 3, 2], [19, 2, 1], [19, 3, 1], [20, 3, 2]];
-  if (th.sheet !== 'crypt') for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || !plainWall(A, x, r.fy0 + 1) || !chance(0.16)) continue; const [wx, wy0, wh] = pick(WIN); for (let j = 0; j < wh; j++) tileAt(g, wx, wy0 + wy - j, x * TS, (r.fy0 + 1 - j) * TS); used.add(x); }
+  if (!solidTh(th)) for (let x = r.ix0 + 1; x < r.ix1; x++) { if (used.has(x) || !plainWall(A, x, r.fy0 + 1) || !chance(0.16)) continue; const [wx, wy0, wh] = pick(WIN); for (let j = 0; j < wh; j++) tileAt(g, wx, wy0 + wy - j, x * TS, (r.fy0 + 1 - j) * TS); used.add(x); }
   if (r.rock && r.rock.size) blockDecor(A, r, g); // (the faces of the blocks its shape left standing: 33_shapes)
   const prop = (kind, tx, ty, o = {}) => { if (A.noProp && A.noProp.has(Math.floor(ty) * A.w + Math.floor(tx)) || !FLOOR(A.fl[Math.floor(ty) * A.w + Math.floor(tx)]) || !FLOOR(A.fl[Math.floor(ty) * A.w + Math.ceil(tx)]) || A.crumbleSet && (A.crumbleSet.has(Math.floor(ty) * A.w + Math.floor(tx)) || A.crumbleSet.has(Math.floor(ty) * A.w + Math.ceil(tx)))) return; A.props.push(Object.assign({ kind, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i }, o)); }; // (never in water, nor on a cracked slab: 38_pits)
   const free = (x, y, d = 10) => !A.props.some(p => Math.abs(p.x - x) < d && Math.abs(p.y - y) < d);

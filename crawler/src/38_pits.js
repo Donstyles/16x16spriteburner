@@ -29,7 +29,7 @@ const FORCE_PITS = { on: false }; // the pit floor (kit screen): every kind of p
 let PITPASS = false; // (while a knocked unit moves, a pit does not stop it: 31_walls' wallBoxes)
 const pitFace = A => A.th.tone === 'grey' ? [10, 12] : [10, 4];
 let PIT_BLACK = null;
-function pitBlack() { if (ARENA && ARENA.th.sheet === 'crypt') return '#000'; /* (the crypt's: black, no brown to be taken for the earth of its worn floors) */ if (PIT_BLACK) return PIT_BLACK; const P = PIX.cellar, i = ((4 * TS + 15) * P.w + 10 * TS + 8) * 4; return (PIT_BLACK = `rgb(${P.d[i]},${P.d[i + 1]},${P.d[i + 2]})`); }
+function pitBlack() { if (isMagma(ARENA)) return LAVA.rgb; /* (the magma's pits hold lava: 42_magma) */ if (ARENA && ARENA.th.sheet === 'crypt') return '#000'; /* (the crypt's: black, no brown to be taken for the earth of its worn floors) */ if (PIT_BLACK) return PIT_BLACK; const P = PIX.cellar, i = ((4 * TS + 15) * P.w + 10 * TS + 8) * 4; return (PIT_BLACK = `rgb(${P.d[i]},${P.d[i + 1]},${P.d[i + 2]})`); }
 // a pit's hollow, or the charnel pit's (its ragged hole inside the stone rim: 43_crypt): what falls there goes down it
 function holeAt(x, y) { const A = ARENA; if (!A) return false; if (A.pitN && pitAt(x, y)) return true; const C = A.charnel; if (!C) return false; const lx = x - C.x0 * TS, ly = y - C.y0 * TS; return lx >= 5 && lx <= 43 && ly >= 3 && ly <= 43; }
 function pitAt(x, y) { const A = ARENA; if (!A || !A.fl) return false; const tx = Math.floor(x / TS), ty = Math.floor(y / TS); return tx >= 0 && ty >= 0 && tx < A.w && ty < A.h && A.fl[ty * A.w + tx] === PIT; }
@@ -40,8 +40,8 @@ function pitAt(x, y) { const A = ARENA; if (!A || !A.fl) return false; const tx 
 const PIT_BAND = 4; let PITB = null;
 function pitPaint(A, g, i) {
   const W = A.w, x = i % W, y = (i / W) | 0, n = A.fl[i - W], face = y > 0 && n !== PIT && !(A.plankSet && A.plankSet.has(i - W)), f = pitFace(A), v = (x * 5 + y * 3) % 6; // (no earth face under a wooden bridge: its planks' own edge)
-  g.fillStyle = pitBlack(); g.fillRect(x * TS, y * TS, TS, TS); if (face) sheetTile(g, f, x * TS, y * TS, v, 0);
-  if (!A.wt) return; const sx = (f[0] + v) * TS, sy = f[1] * TS, B = PIT_BAND;
+  g.fillStyle = pitBlack(); g.fillRect(x * TS, y * TS, TS, TS); if (face) sheetTile(g, f, x * TS, y * TS, v, 0); if (isMagma(A)) magmaPitRim(A, g, i);
+  if (!A.wt) { if (isMagma(A)) lavaMark(A, x * TS, y * TS, TS, TS); return; } const sx = (f[0] + v) * TS, sy = f[1] * TS, B = PIT_BAND;
   // [the wall's index, the band in its own tile, where the face's columns come from (or none)]
   for (const [j, bx, by, bw, bh, fx] of [[i - 1, TS - B, 0, B, TS, TS - B], [i + 1, 0, 0, B, TS, 0], [i + W, 0, 0, TS, B, -1]]) {
     if (A.fl[j] !== 0 || !A.wt[j]) continue; const c = A.wt[j] - 1, ptx = (c / 64) | 0, pty = c % 64, wx = (j % W) * TS, wy = ((j / W) | 0) * TS;
@@ -50,6 +50,7 @@ function pitPaint(A, g, i) {
     t.globalCompositeOperation = 'destination-out'; t.save(); if (A.wf && A.wf[j]) { t.translate(TS, 0); t.scale(-1, 1); } { const [im, sx, sy] = srcOf(ptx, pty + A.th.fy); t.drawImage(im, sx, sy, TS, TS, 0, 0, TS, TS); } t.restore(); // (only where the wall leaves it open)
     t.globalCompositeOperation = 'source-over'; g.drawImage(PITB, wx, wy);
   }
+  if (isMagma(A)) lavaMark(A, x * TS - TS, y * TS, 3 * TS, 2 * TS); // (what of it is lava, for the lava's own drawing: 42_magma)
 }
 // marks painted on the ground (blood, scorch, footprints) never stay on a pit: the pits they touched are painted again
 function pitMend(A, g, x0, y0, x1, y1) {
