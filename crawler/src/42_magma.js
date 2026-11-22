@@ -92,7 +92,7 @@ function lavaMark(A, g, x0, y0, w, h) {
 function viewRect(A) { const x0 = Math.max(0, PXO.x), y0 = Math.max(0, PXO.y), x1 = Math.min(A.pw, PXO.x + BUF.w), y1 = Math.min(A.ph, PXO.y + BUF.h); return [x0, y0, x1 - x0, y1 - y0]; }
 function drawMagma(c, rect) {
   const A = ARENA; if (!isMagma(A)) return; const VR = () => rect ? [Math.max(0, rect[0]), Math.max(0, rect[1]), Math.min(A.pw, rect[0] + rect[2]) - Math.max(0, rect[0]), Math.min(A.ph, rect[1] + rect[3]) - Math.max(0, rect[1])] : viewRect(A);
-  if (A.lavaM) { const [x, y, w, h] = VR(); lavaBlit(c, A.lavaM, x, y, w, h, x, y); } if (rect) return; drawLavaDeath(c);
+  if (A.lavaM) { const [x, y, w, h] = VR(); lavaBlit(c, A.lavaM, x, y, w, h, x, y); } if (rect) return; drawLavaDeath(c); drawBombsUnder(c);
   // its light: from every other lava tile in sight (a pit's), and over each pool
   if (A.pitN) { const [x, y, w, h] = viewRect(A), tx0 = Math.floor(x / TS), ty0 = Math.floor(y / TS), tx1 = Math.ceil((x + w) / TS), ty1 = Math.ceil((y + h) / TS);
     for (let ty = ty0 - 2; ty <= ty1 + 2; ty++) for (let tx = tx0 - 2; tx <= tx1 + 2; tx++) { if ((tx & 1) || (ty & 1) || tx < 0 || ty < 0 || tx >= A.w || ty >= A.h || A.fl[ty * A.w + tx] !== PIT) continue; light(tx * TS + 8, ty * TS + 8, 50 + 4 * Math.sin(G.time * 1.7 + tx * 1.3 + ty), 'magma', 0.55); } }
@@ -103,6 +103,7 @@ function drawMagmaGlow(c) {
   const A = ARENA; if (!isMagma(A)) return; const k = 0.26 + 0.07 * Math.sin(G.time * 1.3);
   if (A.lavaM) { const [x, y, w, h] = viewRect(A); lavaBlit(c, A.lavaM, x, y, w, h, x, y, k); }
   for (const p of A.pools || []) if (p.lm && p.level > 0) { const ins = Math.round((1 - p.level) * 6), w = p.cw || p.cv.width, h = p.ch || p.cv.height; lavaBlit(c, p.lm, ins, ins, w - ins * 2, h - ins * 2, p.px0 + ins, p.py0 + ins, k * Math.min(1, p.level * 1.6)); }
+  drawBombsGlow(c); drawVentGlow(c);
 }
 function magmaAfter(A) { A.mcr = MFLOOR.cracks; MFLOOR.cracks = []; }
 
@@ -220,11 +221,100 @@ function drawLavaDeath(c) {
     if (t >= LAVAD.crumble + 0.3 && t < LAVAD.bubble) { const e = (t - LAVAD.crumble - 0.3) / (LAVAD.bubble - LAVAD.crumble - 0.3), r = Math.round(1 + 4 * e); c.fillStyle = '#ff7f00'; pxEllipse(c, x + 3, y - 1, r, Math.max(1, Math.round(r * 0.6))); c.fillStyle = '#ffd060'; c.fillRect(x + 3 - Math.max(0, r - 2), y - 1 - Math.max(0, Math.round(r * 0.6) - 1), Math.max(1, r - 1), 1); }
   }
 }
-function magmaTick(dt) { fireTick(dt); }
+function magmaTick(dt) { fireTick(dt); bombsTick(dt); magmaAmbient(dt); }
 // where a thrown drop of lava comes down: back into the lava with a ring, or on the floor, where it burns a black speck
 // into the stone and glows a moment as it cools; a flake of ash leaves a grey speck
 function magmaLand(x, y, p) {
   if (lavaAt(x, y)) { if (p.kind === 'lava') plipLava(x, y); return; } if (!onStone(x, y)) return; const X = Math.round(x), Y = Math.round(y), s = p.s0 === 2 ? 2 : 1;
   groundPaint(X - 1, Y - 1, X + 3, Y + 3, g => { g.fillStyle = p.kind === 'lava' ? 'rgba(34,20,13,0.5)' : 'rgba(20,14,11,0.45)'; g.fillRect(X, Y, 1, 1); });
   if (p.kind === 'lava') part({ k: 'glow', x: X + 0.5, y: Y + 0.5, z: 0.5, vx: 0, vy: 0, vz: 0, life: rand(0.5, 1.1), s0: 2.2 * s, s1: 0.6, col: 'ember', a0: 0.9, a1: 0 });
+}
+
+// ===================== THE LAVA SPITS =====================
+// Lava throws rocks. In a room with lava in it (a pit's or a pool's), while a hero is there, a bubble swells on the
+// lava near him every few seconds (a bright dome growing for six tenths of a second, a rumble), bursts, and throws a
+// lump of burning rock in a high arc: one on the seventh floor, one or two on the eighth, two or three on the ninth.
+// Three in five are thrown at where he is going, the rest at the floor round the lava. Where each will land is marked
+// from the moment it leaves the lava, the way a foe's heavy blow is (a red ring on the floor, closing), for the 1.2
+// seconds it flies; its shadow runs under it. It bursts where it lands: whoever stands in the ring, hero or foe, is
+// hurt, thrown back and set on fire; the floor is cracked and scorched there and the cracks glow till they cool. No
+// guard stops it; a roll through it does. One that comes down in lava only splashes.
+const BOMB = { swell: 0.6, fly: 1.2, r: 12, gap: [2.6, 4.6], reach: 150, arc: 52 };
+const BOMB_ART = ['..oOOo..', '.oO##Oo.', 'oO#rr#Oo', 'O#rRRr#O', 'O##Rrr#O', 'oO#rr#Oo', '.oO##Oo.', '..oOOo..'], BOMB_COL = { o: '#e54c00', O: '#ff7f00', '#': '#38302a', r: '#5b4d3f', R: '#ffbe3c' };
+let BOMB_CV = null;
+function bombArt() { if (BOMB_CV) return BOMB_CV; BOMB_CV = [0, 1, 2, 3].map(k => { const cv = mkCanvas(8, 8), g = cv.getContext('2d'); for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { const [sx, sy] = k === 0 ? [x, y] : k === 1 ? [y, 7 - x] : k === 2 ? [7 - x, 7 - y] : [7 - y, x], ch = BOMB_ART[sy][sx]; if (ch !== '.') { g.fillStyle = BOMB_COL[ch]; g.fillRect(x, y, 1, 1); } } return cv; }); return BOMB_CV; }
+function lavaTilesOf(A, r) { if (r.lavaT && r.lavaV === (A.flv || 0)) return r.lavaT; const L = []; for (let y = r.fy0; y <= r.fy1; y++) for (let x = r.fx0; x <= r.fx1; x++) { const v = A.fl[y * A.w + x]; if (v === PIT || v === 2) L.push(y * A.w + x); } r.lavaT = L; r.lavaV = A.flv || 0; return L; }
+function bombTarget(A, r, sx, sy, h) {
+  for (let k = 0; k < 14; k++) { let tx, ty;
+    if (k < 5 && chance(0.6)) { tx = h.x + h.vx * 0.6 + rand(-12, 12); ty = h.y + h.vy * 0.6 + rand(-9, 9); } else { const a = rand(TAU), d = rand(38, 100); tx = sx + Math.cos(a) * d; ty = sy + Math.sin(a) * d * 0.8; }
+    if (roomAt(tx, ty) !== r || !FLOOR(A.fl[footTile(tx, ty)]) || Math.hypot(tx - sx, ty - sy) < 26 || solidAt(tx, ty - 4)) continue; return [tx, ty]; }
+  return null;
+}
+function bombsTick(dt) {
+  const A = ARENA; if (!isMagma(A)) return; if (!A.bombs) { A.bombs = []; A.erupt = []; } if (G.cine) return; const W = A.w;
+  for (const h of G.heroes) {
+    if (h.dead || h.fall || h.enter) continue; const r = roomAt(h.x, h.y); if (!r || r.kind === 'shop') continue; const L = lavaTilesOf(A, r); if (!L.length) continue;
+    if (r.bombT === undefined) r.bombT = rand(1.6, 3); if ((r.bombT -= dt) > 0) continue; r.bombT = rand(BOMB.gap[0], BOMB.gap[1]) * (A.floor >= 9 ? 0.75 : 1);
+    const near = L.map(i => [Math.hypot((i % W) * TS + 8 - h.x, ((i / W) | 0) * TS + 9 - h.y), i]).sort((a, b) => a[0] - b[0]).slice(0, 8), [d, i] = pick(near); if (d > BOMB.reach) continue;
+    const [sx, sy] = lavaSpot((i % W) * TS + 8, ((i / W) | 0) * TS + 9); A.erupt.push({ x: sx, y: sy, t: 0, n: A.floor >= 9 ? randi(2, 3) : A.floor >= 8 ? randi(1, 2) : 1, r, h }); if (dist(h.x, h.y, sx, sy) < 220) SFX.groan(panOf(sx));
+  }
+  for (const e of A.erupt) {
+    e.t += dt; light(e.x, e.y - 2, 40 + 50 * e.t, 'fire', 0.5 + e.t); if (chance(dt * 16)) plipLava(e.x + rand(-5, 5), e.y + rand(-3, 3));
+    if (e.t < BOMB.swell) continue; e.done = true; lavaSplash(e.x, e.y, 0.9); shake(0.08);
+    for (let k = 0; k < e.n; k++) { const T = bombTarget(A, e.r, e.x, e.y, e.h); if (!T) continue; A.bombs.push({ x0: e.x, y0: e.y, x1: T[0], y1: T[1], x: e.x, y: e.y, z: 0, t: 0, wait: k * 0.22, T: BOMB.fly, rot: randi(0, 3), spin: 0 }); }
+  }
+  removeIf(A.erupt, e => e.done);
+  for (const b of A.bombs) {
+    if (b.wait > 0) { b.wait -= dt; continue; } if (!b.told) { b.told = true; teleg(b.x1, b.y1, BOMB.r, b.T, 'red'); SFX.whoosh(panOf(b.x0)); }
+    b.t += dt; const u = Math.min(1, b.t / b.T); b.x = b.x0 + (b.x1 - b.x0) * u; b.y = b.y0 + (b.y1 - b.y0) * u; b.z = 4 * (BOMB.arc + Math.hypot(b.x1 - b.x0, b.y1 - b.y0) * 0.12) * u * (1 - u);
+    if ((b.spin -= dt) <= 0) { b.spin = 0.07; b.rot = (b.rot + 1) % 4; }
+    if (chance(dt * 34)) part({ k: 'glow', x: b.x + rand(-2, 2), y: b.y, z: b.z + rand(1, 5), vx: rand(-6, 6), vy: 0, vz: rand(-6, 10), drag: 2, life: rand(0.25, 0.5), s0: rand(2.2, 3.6), s1: 0.4, col: pick(['fire', 'fire2', 'ember']), a0: 0.85, a1: 0 });
+    if (chance(dt * 14)) smoke(b.x, b.y - b.z * 0.02, 1, 'dark', 3, 3, 0.6, 4); light(b.x, b.y - b.z, 44, 'fire', 0.8);
+    if (u >= 1) { b.done = true; bombLand(A, b); }
+  }
+  removeIf(A.bombs, b => b.done);
+}
+function bombLand(A, b) {
+  const x = b.x1, y = b.y1; if (lavaAt(x, y)) { lavaSplash(x, y, 0.8); return; }
+  for (const u of G.units) { if (u.dead || u.fall || u.under || (u.fly && u.team === 'foe')) continue; const dx = u.x - x, dy = (u.y - y) * 1.35, d = Math.hypot(dx, dy); if (d > BOMB.r + u.r * 0.5) continue;
+    const a = d > 1 ? Math.atan2(u.y - y, u.x - x) : rand(TAU); if (hurt(u, 12 + A.floor * 1.5, { x, y: y + 2, team: 'trap', def: {} }, { ranged: true, unblockable: true, poise: 40, kx: Math.cos(a) * 210, ky: Math.sin(a) * 160, fire: true, ang: a }) > 0 || u.iframe <= 0) { if (!(u.iframe > 0)) ignite(u, 2.5); } }
+  flashLight(x, y - 3, 96, 'fire', 1.2, 0.5); ring(x, y, 20, 'fire', 0.35, 3); sparks(x, y, 3, 16, 'fire', 150, 170); embers(x, y, 8, 'ember', 60); smoke(x, y, 4, 'dark', 9, 16, 1.3, 20);
+  debris(x, y, 7, ['#38302a', '#5b4d3f', '#473c31', '#e54c00'], 110, 150, 1.6); cracks(x, y, 4, 6, 220, 3); scorch(x, y, 11, 0.5);
+  for (let i = 0; i < 6; i++) { const a = rand(TAU), v = rand(20, 60); part({ k: 'gore', x, y, z: 2, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6, vz: rand(60, 130), g: 420, life: 1.4, s0: 1, col: pick(['#ff7f00', '#e54c00', '#ffaa00']), kind: 'lava' }); }
+  SFX.boom(0.45, panOf(x)); SFX.crack(panOf(x)); if (G.me && dist(G.me.x, G.me.y, x, y) < 120) shake(0.16);
+}
+// under everyone (drawMagma): the bubble swelling on the lava, and each rock's shadow on the floor
+function drawBombsUnder(c) {
+  const A = ARENA; if (!A.bombs) return;
+  for (const e of A.erupt) { const k = Math.min(1, e.t / BOMB.swell), r = Math.round(2 + 5 * k), ry = Math.max(1, Math.round(r * 0.6)), X = Math.round(e.x), Y = Math.round(e.y); c.fillStyle = '#ff7f00'; pxEllipse(c, X, Y - 1, r, ry); c.fillStyle = '#ffbe3c'; pxEllipse(c, X, Y - 1 - Math.round(k * 1.5), Math.max(1, r - 2), Math.max(1, ry - 1)); c.fillStyle = '#fff0b0'; c.fillRect(X - 1, Y - ry - Math.round(k), 2, 1); }
+  for (const b of A.bombs) { if (b.wait > 0 || !onStone(b.x, b.y)) continue; const k = 1 - Math.min(1, b.z / 70); c.fillStyle = `rgba(0,0,0,${(0.18 + 0.22 * k).toFixed(2)})`; pxEllipse(c, Math.round(b.x), Math.round(b.y), Math.round(2 + 2 * k), 1); }
+}
+// over everyone standing (70_render, before the ceiling): the rocks in the air
+function drawMagmaOver(c) {
+  const A = ARENA; if (!isMagma(A) || !A.bombs) return; const R = bombArt();
+  for (const b of A.bombs) if (!(b.wait > 0)) c.drawImage(R[b.rot], Math.round(b.x) - 4, Math.round(b.y - b.z) - 7);
+}
+function drawBombsGlow(c) { const A = ARENA; if (!A.bombs) return; for (const b of A.bombs) if (!(b.wait > 0)) { c.fillStyle = 'rgba(255,120,20,0.5)'; pxEllipse(c, Math.round(b.x), Math.round(b.y - b.z) - 3, 5, 5); } }
+// ---- THE FIRE VENTS: the magma's spike traps (36_works spikeHalls: a field of them across a corridor, on a beat, and
+// the gate of spikes a puzzle lowers). Where the cellar has holes with iron in them the magma has vents: each a hole
+// in the floor with fire under it. Before they blow the holes glow and spit sparks (the last half second); then a jet of
+// flame stands in each for the spikes' beat, and whoever is over one is burnt, thrown off the field and set on fire.
+function ventFlame(c, x, y, h, seed) {
+  for (let i = -3; i <= 3; i++) { const k = 1 - Math.pow(Math.abs(i) / 3.6, 1.6), hh = Math.max(1, Math.round(h * k * (0.72 + 0.28 * Math.sin(G.time * 23 + i * 1.9 + seed)))), X = x + i;
+    c.fillStyle = '#e54c00'; c.fillRect(X, y - hh, 1, hh); const m = Math.round(hh * 0.68); c.fillStyle = '#ff9a2e'; c.fillRect(X, y - m, 1, m); if (Math.abs(i) <= 1) { const w = Math.round(hh * 0.4); c.fillStyle = '#ffe6a0'; c.fillRect(X, y - w, 1, w); } }
+}
+function drawVent(c, s, f) {
+  const t = (G.time + s.ph) % SPIKE_T, warn = !s.gate && t > 1.05 && t < 1.55, X = Math.round(s.x), Y = Math.round(s.y) + 3; sheetTile(c, s.tile, s.x - 8, s.y - 8, 0, 0);
+  c.fillStyle = f || warn ? '#ff7f00' : '#7a2408'; c.fillRect(X - 2, Y - 1, 4, 2); c.fillStyle = f || warn ? '#ffbe3c' : '#a8320a'; c.fillRect(X - 1, Y - 1, 2, 1); // (the fire down the hole)
+  if (f === 1) { ventFlame(c, X, Y, 19, s.x * 0.37 + s.y); light(s.x, s.y - 8, 56, 'fire', 0.9); }
+  else if (f) { ventFlame(c, X, Y, f === 3 ? 6 : 11, s.x * 0.37 + s.y); light(s.x, s.y - 3, 34, 'fire', 0.6); }
+  else if (warn) { light(s.x, s.y, 22 + 30 * (t - 1.05), 'fire', 0.5); if (chance(0.25)) part({ k: 'spark', x: s.x + rand(-2, 2), y: s.y + 3, z: 1, vx: rand(-14, 14), vy: rand(-6, 6), vz: rand(40, 90), g: 380, drag: 1.2, bounce: 0.3, life: rand(0.2, 0.45), col: 'fire' }); }
+}
+function drawVentGlow(c) { const A = ARENA; for (const s of A.spikes || []) { const f = spikeFrame(s); if (!f) continue; c.fillStyle = 'rgba(255,130,30,0.35)'; pxEllipse(c, Math.round(s.x), Math.round(s.y) - (f === 1 ? 6 : 1), 4, f === 1 ? 9 : 4); } }
+// ---- the lava's own life: embers rising off it, a bubble bursting now and then (in the rooms the heroes are in)
+function magmaAmbient(dt) {
+  const A = ARENA; if (!isMagma(A)) return;
+  for (const h of G.heroes) { const r = h.dead ? null : roomAt(h.x, h.y); if (!r) continue; const L = lavaTilesOf(A, r); if (!L.length) continue; const n = Math.min(7, L.length * 0.06);
+    if (chance(dt * n)) { const i = pick(L); part({ k: 'ember', x: (i % A.w) * TS + rand(2, 14), y: ((i / A.w) | 0) * TS + rand(4, 14), z: 1, vx: rand(-8, 8), vy: rand(-3, 3), vz: rand(18, 60), drag: 1.2, life: rand(1, 2.4), s0: rand(1, 1.8), s1: 0.3, col: 'ember' }); }
+    if (chance(dt * n * 0.3)) { const i = pick(L), x = (i % A.w) * TS + rand(3, 13), y = ((i / A.w) | 0) * TS + rand(6, 13); if (lavaAt(x, y)) { plipLava(x, y); if (chance(0.3) && dist(h.x, h.y, x, y) < 110) SFX.pop(panOf(x)); } } }
 }

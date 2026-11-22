@@ -54,7 +54,7 @@ function hurt(u, dmg, src, o = {}) {
   if (u.team === 'hero') { shake(o.acid ? 0.05 : 0.12 + Math.min(0.3, d / 80)); G.hurtFlash = o.acid ? 0.15 : 0.35; }
   if (o.fire) { /* (burnt: no blood, 42_magma) */ } else if (o.acid) acidBurn(u); // burnt from below, not cut: it hisses and steams at his feet and does not bleed
   else if (DRY.has(u.def.blood)) { shed(u, d, o); SFX.hit(panOf(u.x)); } // bone, hay, stone, water, wood or pixie dust instead of blood
-  if (o.acid) { /* (see acidBurn) */ } else if (u.team === 'hero' && src && src.def && src.def.blood === 'water' && !o.ranged) soak(u); // a blow of water leaves him dripping
+  if (o.acid || o.fire) { /* (see acidBurn; fire draws no blood) */ } else if (u.team === 'hero' && src && src.def && src.def.blood === 'water' && !o.ranged) soak(u); // a blow of water leaves him dripping
   else if (bleeds(u)) { // the blood flies the way the blow went
     spray(u, d, o); SFX.hit(panOf(u.x)); SFX.squelch(panOf(u.x), d >= 30); if (d > 12 && chance(0.4)) pool(u.x + rand(-3, 3), u.y + rand(-2, 2), u.def.blood || 'red', 1);
     if (src && src.team === 'hero' && !o.ranged) { src.gore = Math.min(3, (src.gore || 0) + (u.hp <= 0 ? 1 : 0.3)); src.goreKind = u.def.blood || 'red'; }

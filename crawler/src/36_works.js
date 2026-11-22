@@ -473,11 +473,11 @@ function worksTick(dt) {
       // thrown hard off the field along the corridor (harder than a brute's shove): out the nearer end, or back the way he came
       const X = s.ax === 'x', c = s.fc != null ? s.fc : X ? s.x : s.y, d = (X ? u.x : u.y) - c, v = X ? u.vx : u.vy, sg = Math.abs(d) > 3 ? Math.sign(d) : v ? -Math.sign(v) : 1, K = 480;
       stabbed.add(u); for (const o of A.spikes) if (o.ph === s.ph) o.hit.add(u); // (one stab a beat from the whole field)
-      hurt(u, 9 + A.floor * 1.5, { x: s.x, y: s.y + 6, team: 'trap', def: {} }, { ranged: true, unblockable: true, poise: 45, kx: X ? sg * K : 0, ky: X ? -30 : sg * K * 0.8, style: 'line', ang: -Math.PI / 2 });
+      hurt(u, 9 + A.floor * 1.5, { x: s.x, y: s.y + 6, team: 'trap', def: {} }, { ranged: true, unblockable: true, poise: 45, kx: X ? sg * K : 0, ky: X ? -30 : sg * K * 0.8, style: 'line', ang: -Math.PI / 2, fire: isMagma(A) }); if (isMagma(A)) ignite(u, 3);
     }
     s.was = f;
   }
-  if (rising) SFX.spike(panOf(rising.x));
+  if (rising) { if (isMagma(A)) { SFX.fire(panOf(rising.x)); SFX.whoosh(panOf(rising.x)); } else SFX.spike(panOf(rising.x)); }
   puzzlesTick(dt); // (gates, stone blocks, echoing runes, spike gates: 41_puzzles)
 }
 function startDrain(p) {
@@ -715,7 +715,7 @@ function drawWorks(c) {
     sheetTile(c, rn.on ? rn.lit : rn.tile, rn.x - 8, rn.y - 8);
     if (rn.on) light(rn.x, rn.y, 46 + 4 * Math.sin(G.time * 3 + rn.x), 'gold', 0.55);
   }
-  for (const s of A.spikes || []) { const f = spikeFrame(s); sheetTile(c, s.tile, s.x - 8, s.y - 8, f, 0); } // (the crypt's are the cellar's own spikes, from its recoloured sheet)
+  for (const s of A.spikes || []) { const f = spikeFrame(s); if (isMagma(A)) drawVent(c, s, f); else sheetTile(c, s.tile, s.x - 8, s.y - 8, f, 0); } // (the magma's are fire vents: 42_magma) // (the crypt's are the cellar's own spikes, from its recoloured sheet)
   drawPuzzles(c); // (the echoing runes: 41_puzzles)
 }
 function drawWorksGlow(c) { // the lit runes glow in the dark; just woken, a column of light stands on one
