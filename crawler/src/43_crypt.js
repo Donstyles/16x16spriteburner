@@ -474,7 +474,7 @@ function cryptSounds(dt) {
 // nor a cold braziers puzzle's: those take as long as the cellar's, 41_puzzles)
 function brazierLamp(dt) {
   const A = ARENA, h = G.me; if (!A || A.th.sheet !== 'crypt' || !h || h.dead) return;
-  for (const p of A.props) { if (p.kind !== 'brazier' || !p.out || p.dead || p.pitFire || p.fire) continue; /* (the charnel pit's and a puzzle's: as the cellar's, 41_puzzles) */ if (dist(h.x, h.y, p.x, p.y) < 20) { p.lightT = (p.lightT || 0) + dt; if (p.lightT > 0.8) lightUp(p, true); } else p.lightT = 0; }
+  for (const p of A.props) { if (p.kind !== 'brazier' || !p.out || p.dead || p.pitFire || p.fire) continue; /* (the charnel pit's and a puzzle's: as the cellar's, 41_puzzles) */ if (dist(h.x, h.y, p.x, p.y) < 20 && tending(h)) { p.lightT = (p.lightT || 0) + dt; if (p.lightT > 0.8) lightUp(p, true); } else p.lightT = 0; } // (not while he swings by it: 41_puzzles tending)
 }
 
 // ===================== the skull fonts =====================

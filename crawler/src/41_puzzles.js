@@ -306,6 +306,9 @@ function echoTick(A, e, dt, heroes) {
 }
 // ---- THE COLD BRAZIERS (smoke: how long a hero stands by one before it smokes; catch: before it lights)
 const FIRES = { smoke: 1.0, catch: 2.4 };
+// tending a brazier: standing by it, not swinging, charging a blow or casting (any of those and it has to be begun again);
+// raising a shield is no bar to it
+const tending = h => !(h.act && (h.act.k === 'atk' || h.act.k === 'charge' || h.act.k === 'cast'));
 function placeFires(A, r, g) {
   const n = A.floor >= 4 ? 4 : 3, f = { braziers: [], gate: g, burn: 30, room: r.i }; darkRoom(A, r); r.dark = true; (A.fires = A.fires || []).push(f); A.lights = A.slit = null;
   if (A.th.sheet === 'crypt' && charnelRoom(r)) { f.pit = true; r.charnelFire = f; return; } // (the crypt's: the four fires round the charnel pit, set with it when the room is dressed, 43_crypt charnelPit)
@@ -334,7 +337,7 @@ const isCoals = p => !p.dead && !p.fire && ((p.kind === 'brazier' && p.out && p.
 function coalsTick(A, dt, heroes) {
   for (const p of A.props) {
     if (!isCoals(p)) continue;
-    if (!heroes.some(h => Math.abs(h.x - p.x) < 15 && Math.abs(h.y - p.cy) < 13)) { p.kindle = 0; continue; }
+    if (!heroes.some(h => Math.abs(h.x - p.x) < 15 && Math.abs(h.y - p.cy) < 13 && tending(h))) { p.kindle = 0; continue; }
     p.kindle = (p.kindle || 0) + dt; if (p.kindle > FIRES.smoke && chance(dt * (6 + 14 * (p.kindle - FIRES.smoke)))) smoke(p.x, p.y - 12, 1, 'dust', 4, 8, 0.6, 10);
     if (p.kindle > FIRES.catch) { p.kindle = 0; if (p.kind === 'stone') Object.assign(p, { kind: 'brazier', out: true, ember: true, f: randi(0, 3), tile: null }); lightUp(p, true); } // (a sunken one, dry now: a brazier again)
   }
@@ -343,7 +346,7 @@ function firesTick(A, f, dt, heroes) {
   if (f.solved) return; let lit = 0;
   for (const p of f.braziers) {
     if (p.out) { // a hero standing by it: it smokes, then catches
-      if (heroes.some(h => Math.abs(h.x - p.x) < 15 && Math.abs(h.y - p.cy) < 13)) { p.kindle = (p.kindle || 0) + dt; if (p.kindle > FIRES.smoke && chance(dt * (6 + 14 * (p.kindle - FIRES.smoke)))) smoke(p.x, p.y - 12, 1, 'dust', 4, 8, 0.6, 10); if (p.kindle > FIRES.catch) { lightUp(p, true); p.burnT = f.burn; p.kindle = 0; } } else p.kindle = 0; // (it takes a while: nobody lights one by brushing past it)
+      if (heroes.some(h => Math.abs(h.x - p.x) < 15 && Math.abs(h.y - p.cy) < 13 && tending(h))) { p.kindle = (p.kindle || 0) + dt; if (p.kindle > FIRES.smoke && chance(dt * (6 + 14 * (p.kindle - FIRES.smoke)))) smoke(p.x, p.y - 12, 1, 'dust', 4, 8, 0.6, 10); if (p.kindle > FIRES.catch) { lightUp(p, true); p.burnT = f.burn; p.kindle = 0; } } else p.kindle = 0; // (it takes a while: nobody lights one by brushing past it, nor while fighting by it)
       continue;
     }
     p.burnT -= dt; lit++;
