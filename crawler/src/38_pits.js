@@ -40,6 +40,7 @@ function pitAt(x, y) { const A = ARENA; if (!A || !A.fl) return false; const tx 
 const PIT_BAND = 4; let PITB = null;
 function pitPaint(A, g, i) {
   const W = A.w, x = i % W, y = (i / W) | 0, n = A.fl[i - W], face = y > 0 && n !== PIT && !(A.plankSet && A.plankSet.has(i - W)), f = pitFace(A), v = (x * 5 + y * 3) % 6; // (no earth face under a wooden bridge: its planks' own edge)
+  if (isMagma(A) && A.plankSet && A.plankSet.has(i)) { g.fillStyle = LAVA.under; g.fillRect(x * TS, y * TS, TS, TS); lavaMark(A, g, x * TS, y * TS, TS, TS); return; } /* (under a bridge over the lava: its shadow, dark, so the gaps between its planks are joints and never slivers of lava: 42_magma) */
   g.fillStyle = pitBlack(); g.fillRect(x * TS, y * TS, TS, TS); if (face) sheetTile(g, f, x * TS, y * TS, v, 0); if (isMagma(A)) magmaPitRim(A, g, i);
   if (!A.wt) { if (isMagma(A)) lavaMark(A, g, x * TS, y * TS, TS, TS); return; } const sx = (f[0] + v) * TS, sy = f[1] * TS, B = PIT_BAND;
   // [the wall's index, the band in its own tile, where the face's columns come from (or none)]

@@ -8,7 +8,7 @@
 // them breathes), the whole drifting a pixel now and then. It is drawn through a mask, pixel for pixel where lava shows:
 // a pit's (A.lavaM, kept by 38_pits pitPaint) and each pool's own (p.lm, 36_works). It lights what stands near it and
 // glows on the effects' layer, so a room with lava in it is never dark.
-const LAVA = { frames: [], N: 8, base: [165, 27, 0], rgb: 'rgb(165,27,0)' };
+const LAVA = { under: 'rgb(30,12,8)', frames: [], N: 8, base: [165, 27, 0], rgb: 'rgb(165,27,0)' };
 function magmaSheet(img) {
   const T = TS, c = mkCanvas(T, T), g = c.getContext('2d'); g.drawImage(img, 2 * T, 18 * T, T, T, 0, 0, T, T); const src = g.getImageData(0, 0, T, T).data;
   const HOT = [255, 127, 0], SEAM = [229, 76, 0], DIM = [204, 58, 0], RED = [165, 27, 0], GLOW = [204, 34, 0], DEEP = [142, 20, 0], WHITE = [255, 190, 60];

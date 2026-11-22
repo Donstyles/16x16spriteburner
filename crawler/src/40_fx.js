@@ -57,6 +57,7 @@ function bolt(x0, y0, x1, y1, o = {}) {
 // along the rest and its branches, a faint pale lip under it
 function crackPx(g, s) {
   const k = s.ww || 1, x0 = Math.round(s.x0), y0 = Math.round(s.y0), x1 = Math.round(s.x1), y1 = Math.round(s.y1), n = Math.max(1, Math.abs(x1 - x0), Math.abs(y1 - y0));
+  if (isMagma(ARENA)) { for (let i = 0; i <= n; i++) { const x = Math.round(x0 + (x1 - x0) * i / n), y = Math.round(y0 + (y1 - y0) * i / n), e = hash2(x * 3 + 1, y * 7 + 2); g.fillStyle = e < 0.16 ? 'rgba(214,84,14,0.8)' : e < 0.3 ? 'rgba(120,34,8,0.75)' : 'rgba(14,7,5,0.62)'; g.fillRect(x, y, 1, 1); } return; } /* (the magma's: a hair of a crack, one pixel, with the lava under the crust showing in it here and there; black lines as wide as the cellar's read as scribble on its dark stone) */
   for (let i = 0; i <= n; i++) { const x = Math.round(x0 + (x1 - x0) * i / n), y = Math.round(y0 + (y1 - y0) * i / n); g.fillStyle = 'rgba(255,230,190,0.14)'; g.fillRect(x, y + k, k, 1); g.fillStyle = 'rgba(6,4,4,0.85)'; g.fillRect(x, y, k, k); }
 }
 function cracks(x, y, n, len, speed = 260, hot = 2.5, col = 'magma') {

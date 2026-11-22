@@ -360,7 +360,7 @@ function layPlank(br, quiet) {
   const A = ARENA, n = br.len * 2, k = br.laid++, j = br.back ? n - 1 - k : k, ew = br.travel === 'ew', t = j >> 1;
   const x = br.x0 * TS + (ew ? j * 8 : 0), y = br.y0 * TS + (ew ? 0 : j * 8), cells = ew ? [[br.x0 + t, br.y0], [br.x0 + t, br.y1]] : [[br.x0, br.y0 + t], [br.x1, br.y0 + t]];
   for (const [cx, cy] of cells) A.plankSet.add(cy * A.w + cx);
-  groundPaint(x, y, x + (ew ? 8 : 32), y + (ew ? 32 : 8), gg => plankStrip(gg, br.travel, br.wood, j, x, y));
+  groundPaint(x, y, x + (ew ? 8 : 32), y + (ew ? 32 : 8), gg => { if (isMagma(A)) { gg.fillStyle = LAVA.under; gg.fillRect(x, y, ew ? 8 : 32, ew ? 32 : 8); } plankStrip(gg, br.travel, br.wood, j, x, y); if (isMagma(A)) lavaMark(A, gg, x, y, ew ? 8 : 32, ew ? 32 : 8); }); /* (over lava: its shadow under it, 38_pits pitPaint) */
   if (k % 2) { for (const [cx, cy] of cells) A.fl[cy * A.w + cx] = 1; A.flv = (A.flv || 0) + 1; }
   if (!quiet) { const mx = x + (ew ? 4 : 16), my = y + (ew ? 16 : 4); SFX.wood(panOf(mx)); pebbles(mx, my, 4); smoke(mx, my, 1, 'dust', 5, 10, 0.6); shake(0.03); }
 }

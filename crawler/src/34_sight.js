@@ -15,6 +15,7 @@ function staticLights(A) { if (!A.lights) A.lights = lavaLights(A).concat(A.torc
 // which tiles the fixed lights reach, worked out once per floor
 function staticLit(A) {
   if (A.slit && !(isMagma(A) && A.slitV !== (A.flv || 0))) return A.slit; if (isMagma(A)) { A.lights = null; A.slitV = A.flv || 0; } /* (the lava is a light: where it lies changes as floors fall in and lakes crust over, 42_magma) */ const s = A.slit = new Uint8Array(A.w * A.h);
+  if (isMagma(A)) { s.fill(1); for (const r of A.rooms) if (r.dark && (A.torches.some(t => t.out && t.room === r.i) || A.props.some(p => p.kind === 'brazier' && p.out && !p.dead && p.room === r.i))) for (let y = r.fy0; y <= r.fy1; y++) for (let x = r.fx0; x <= r.fx1; x++) s[y * A.w + x] = 0; } /* (the magma depths glow of themselves: whatever is in view is seen, lamp or no lamp, so no black tile stands between his lamp's reach and a pool's; all but a room gone dark, till its fires are lit) */
   for (const L of staticLights(A)) { const R = Math.ceil(L.r / TS); for (let y = Math.floor(L.y / TS) - R; y <= Math.floor(L.y / TS) + R; y++) for (let x = Math.floor(L.x / TS) - R; x <= Math.floor(L.x / TS) + R; x++) if (x >= 0 && y >= 0 && x < A.w && y < A.h && dist(L.x, L.y, x * TS + 8, y * TS + 8) < L.r) s[y * A.w + x] = 1; }
   return s;
 }
