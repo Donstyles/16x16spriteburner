@@ -56,7 +56,7 @@ function lakeBreak(A, i) { if (A.fl[i] !== 1 || A.crumbleSet.has(i)) return; con
 function lakeCrust(A, i) {
   if (A.fl[i] !== PIT) return; const W = A.w, x = i % W, y = (i / W) | 0; A.fl[i] = 1; A.pitN--; A.flv = (A.flv || 0) + 1;
   for (const k of groundChunks(A)) { if (!(x * TS - TS < k.x + k.w && x * TS + 2 * TS > k.x && y * TS - TS < k.y + k.h && y * TS + 2 * TS > k.y)) continue;
-    k.g.drawImage(IMG.magma, (17 + (x + y) % 3) * TS, (18 + (x * 3 + y) % 2) * TS, TS, TS, x * TS, y * TS, TS, TS); for (const j of [i - 1, i + 1, i - W, i + W]) if (A.fl[j] === PIT) pitPaint(A, k.g, j); lavaMark(A, k.g, x * TS, y * TS, TS, TS); }
+    k.g.drawImage(IMG.magma, (17 + (x + y) % 3) * TS, (18 + (x * 3 + y) % 2) * TS, TS, TS, x * TS, y * TS, TS, TS); for (const j of [i - 1, i + 1, i - W, i + W, i - W - 1, i - W + 1]) if (A.fl[j] === PIT) pitPaint(A, k.g, j); lavaMark(A, k.g, x * TS, y * TS, TS, TS); }
   smoke(x * TS + 8, y * TS + 8, 2, 'grey', 7, 8, 1.2, 16); if (chance(0.4)) SFX.sizzle(panOf(x * TS + 8));
 }
 function bossCall(B, n, cage) { // the lake answers him: rocks at the hero, or a ring of them round him

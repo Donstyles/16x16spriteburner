@@ -311,7 +311,7 @@ function pitsTick(dt) {
     if (c.st !== 1) continue; c.t += dt; if (chance(dt * 18)) pebbles(c.x * TS + rand(2, 14), c.y * TS + 15, 1); if (chance(dt * 10)) smoke(c.x * TS + rand(3, 13), c.y * TS + rand(6, 14), 1, 'dust', 4, 8, 0.5);
     if (c.t < CRUMBLE_T) continue; const on = G.units.filter(u => onSlab(u, c.i)); c.st = 2; A.fl[c.i] = PIT; A.pitN++; A.flv = (A.flv || 0) + 1;
     for (const u of on) if (!pitAt(u.x, u.y)) startFall(u); // (one standing behind the wall over it)
-    for (const k of groundChunks(A)) { pitPaint(A, k.g, c.i); if (A.fl[c.i + A.w] === PIT) pitPaint(A, k.g, c.i + A.w); }
+    for (const k of groundChunks(A)) { pitPaint(A, k.g, c.i); if (A.fl[c.i + A.w] === PIT) pitPaint(A, k.g, c.i + A.w); if (isMagma(A)) for (const j of [c.i - 1, c.i + 1, c.i - A.w, c.i - A.w - 1, c.i - A.w + 1]) if (A.fl[j] === PIT && !(A.plankSet && A.plankSet.has(j))) pitPaint(A, k.g, j); } /* (the magma's: the lava beside it and above loses the rim it had against this tile, 42_magma magmaPitRim; else a fence of rims is left standing in the lava where a floor fell tile by tile) */
     unsupported(A, c); // (what that leaves standing on nothing goes too)
     A.fallers.push({ cv: c.cv, x: c.x * TS, y: c.y * TS, t: 0 }); pebbles(c.x * TS + 8, c.y * TS + 8, 10); smoke(c.x * TS + 8, c.y * TS + 8, 4, 'dust', 8, 16, 0.9); SFX.crumble(panOf(c.x * TS + 8), 1); if (G.me && dist(G.me.x, G.me.y, c.x * TS, c.y * TS) < 160) shake(0.12);
   }
