@@ -674,7 +674,7 @@ function vigilTick() {
 // waterworks) do not belong down here, so the crypt names the same characters its own way (the cisterns by what fills them)
 const CRYPT_ARCH = { stores: 'THE CHARNEL STORES', halls: 'THE NAVES OF THE DEAD', dark: 'THE UNLIT TOMBS', water: { blood: 'THE BLOOD CISTERNS', black: 'THE BLACK CISTERNS', rot: 'THE ROTTING CISTERNS' }, pits: 'THE OPEN GRAVES', locks: 'THE SEALED TOMBS' };
 function archName(A) {
-  const a = A && A.arch; if (!a || !a.name) return ''; if (A.th.sheet !== 'crypt') return a.name;
+  const a = A && A.arch; if (!a || !a.name) return ''; if (A.th.sheet === 'magma') return MAGMA_ARCH[a.k] || a.name; if (A.th.sheet !== 'crypt') return a.name;
   const n = CRYPT_ARCH[a.k]; return typeof n === 'object' ? n[A.liq] || a.name : n || a.name;
 }
 

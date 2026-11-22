@@ -34,8 +34,8 @@ function makeFloor() {
   G.units = G.heroes.concat(G.foes);
   G.phase = 'play'; G.phaseT = 0; G.fade = 1;
   CAM.x = sp.x; CAM.y = sp.y; CAM.z = exploreZoom();
-  G.card = { t: 0, life: 3.2, a: 'FLOOR ' + G.floor, b: A.name, c: 'HELD BY ' + ARMIES[A.army].name, d: archName(A) ? archName(A) : A.th.sheet === 'crypt' ? 'KEEP TO THE LIGHT · THE DEAD WAIT IN THE DARK' : G.floor === 1 ? 'THE WAY DOWN LIES IN THE FARTHEST ROOM' : '' }; // (what the floor is like: 35_themes)
-  SFX.boom(0.6, 0); try { SFX.cryptAir(A.th.sheet === 'crypt'); } catch (e) { } // (the crypt's air: 20_audio)
+  G.card = { t: 0, life: 3.2, a: 'FLOOR ' + G.floor, b: A.name, c: 'HELD BY ' + ARMIES[A.army].name, d: A.lake ? 'ITS LORD WAITS ON THE LAKE' : archName(A) ? archName(A) : A.th.sheet === 'magma' ? 'THE LAVA BURNS · A ROLL PUTS OUT THE FIRE' : A.th.sheet === 'crypt' ? 'KEEP TO THE LIGHT · THE DEAD WAIT IN THE DARK' : G.floor === 1 ? 'THE WAY DOWN LIES IN THE FARTHEST ROOM' : '' }; // (what the floor is like: 35_themes)
+  SFX.boom(0.6, 0); try { SFX.cryptAir(A.th.sheet === 'crypt'); SFX.magmaAir(A.th.sheet === 'magma'); } catch (e) { } // (the crypt's air: 20_audio)
 }
 function updateRun(dt) {
   if (G.cine) { cineTick(dt); return; } // the view gone to a sluice's water: everything else holds still (37_levels)

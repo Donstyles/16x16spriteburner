@@ -61,6 +61,9 @@ function magmaCold(img) {
   for (let i = 0; i < d.length; i += 4) if (d[i + 3] && d[i] >= 160 && d[i + 2] <= 10 && d[i] > d[i + 1] + 60) { const hot = d[i + 1] >= 100; d[i] = hot ? 56 : 40; d[i + 1] = hot ? 47 : 34; d[i + 2] = hot ? 38 : 28; }
   g.putImageData(id, 0, 0); return c;
 }
+// what a magma floor is called for what it is like (35_themes ARCHES: the cellar's kinds, in the magma's words; a floor of
+// 'storehouses' is one of stone forests here)
+const MAGMA_ARCH = { stores: 'THE STONE FORESTS', halls: 'THE HALLS OF BASALT', dark: 'THE DIM REACHES', water: 'THE LAVA WORKS', pits: 'THE BROKEN CRUST', locks: 'THE LOCKED WAYS' };
 const MFLOOR = { cracks: [] };
 // THE FLOOR: the sheet's pavement ([12..15, 11..15]: twenty tiles on one grid of blocks, so any of them lies beside any
 // other), plain, or with lava in its seams. Where the seams burn follows a smooth field over the whole floor (its ridges
@@ -417,8 +420,8 @@ function magmaDress(A, r, g, prop, nearDoor, free) {
   // gold, green or red, one colour to a room) against the east and west walls, each a light of its own colour
   if ((r.kind === 'room' || r.kind === 'treasure') && r.w >= 10 && r.h >= 7 && chance(0.4)) { const [row, col] = pick([[25, 'bolt'], [27, 'gold'], [29, 'heal'], [31, 'crimson']]), y = Math.round((r.iy0 + r.iy1) / 2);
     for (const x of [r.ix0 + 1, r.ix1 - 1]) for (const yy of [y, y - 1, y + 1]) if (ok(x, yy) && free(x * TS + 8, yy * TS + 14, 14) && fits([yy * W + x])) { prop('stone', x, yy, { sheet: 'magma', tile: [pick([30, 31]), row], r: 5, crystal: col, foot: [yy * W + x] }); break; } }
-  const plain = r.kind === 'room' && !r.pool && !r.shrine && !r.set && !r.puz && !r.pit && !r.chest && !r.sluice;
-  if (plain && !r.shape && r.w >= 11 && r.h >= 8 && chance(0.2)) { // THE STONE FOREST
+  const plain = r.kind === 'room' && !r.pool && !r.shrine && !r.set && !r.puz;
+  if (plain && (!r.shape || r.shape === 'cuts') && r.w >= 10 && r.h >= 7 && chance(ARCH.cur && ARCH.cur.k === 'stores' ? 0.9 : 0.3)) { // THE STONE FOREST
     r.forest = true; (A.themes = A.themes || []).push('THE STONE FOREST'); const doorCols = r.doors.filter(d => d.side === 'N' || d.side === 'S').flatMap(d => d.cells.map(c => c[0])), doorRows = r.doors.filter(d => d.side === 'E' || d.side === 'W').flatMap(d => d.cells.map(c => c[1]));
     for (let y = r.iy0 + 2, j = 0; y <= r.iy1 - 1; y += 2, j++) for (let x = r.ix0 + 1 + (j % 2) * 2; x <= r.ix1 - 1; x += 4) {
       if (doorCols.includes(x) || doorRows.includes(y) || doorRows.includes(y - 1) || chance(0.2)) continue; const k = Math.random();

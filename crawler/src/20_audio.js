@@ -14,7 +14,7 @@ const SFX = {
     this.white = c.createBuffer(1, n, c.sampleRate); const w = this.white.getChannelData(0); for (let i = 0; i < n; i++) w[i] = Math.random() * 2 - 1;
     this.brown = c.createBuffer(1, n, c.sampleRate); const b = this.brown.getChannelData(0); let l = 0; for (let i = 0; i < n; i++) { l = (l + 0.02 * (Math.random() * 2 - 1)) / 1.02; b[i] = l * 3.5; }
     this.crunch = c.createWaveShaper(); const curve = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 3.2); } this.crunch.curve = curve; this.crunch.connect(this.master);
-    this.unlock(); this.on = true; this.drone(); if (typeof ARENA !== 'undefined' && ARENA && ARENA.th && ARENA.th.sheet === 'crypt') this.cryptAir(true);
+    this.unlock(); this.on = true; this.drone(); if (typeof ARENA !== 'undefined' && ARENA && ARENA.th && ARENA.th.sheet === 'crypt') this.cryptAir(true); if (typeof ARENA !== 'undefined' && ARENA && ARENA.th && ARENA.th.sheet === 'magma') this.magmaAir(true);
   },
   // a moment of silence played inside the tap itself: older iPhones only let a page's sound start that way
   unlock() { try { const c = this.ctx, s = c.createBufferSource(); s.buffer = c.createBuffer(1, 1, 22050); s.connect(c.destination); s.start(0); } catch (e) { /* not needed here */ } },
@@ -317,6 +317,21 @@ const SFX = {
       for (const fr of [55, 58.27]) { const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = fr; const og = c.createGain(); og.gain.value = 0.35; o.connect(og); og.connect(bus); o.start(); }
     }
     const g = this.cryptG.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(on ? 0.04 : 0, t + (on ? 4 : 1.5));
+  },
+  // the magma's air (floors 7 to 9, 42_magma): the lava's own voice, a deep slow roar (brown noise under a low pass that
+  // breathes) with a rumble under it, and a hiss of heat on top; faded in on a magma floor, out elsewhere
+  magmaAir(on) {
+    if (!this.ctx) return; const c = this.ctx, t = c.currentTime;
+    if (!this.magmaG) {
+      const bus = c.createGain(); bus.gain.value = 0; bus.connect(this.master); this.magmaG = bus;
+      const src = c.createBufferSource(); src.buffer = this.brown; src.loop = true; const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 170; lp.Q.value = 0.8; const wg = c.createGain(); wg.gain.value = 1.3;
+      src.connect(lp); lp.connect(wg); wg.connect(bus); src.start();
+      const l1 = c.createOscillator(); l1.frequency.value = 0.06; const l1g = c.createGain(); l1g.gain.value = 70; l1.connect(l1g); l1g.connect(lp.frequency); l1.start(); // (the roar opening and closing)
+      const l2 = c.createOscillator(); l2.frequency.value = 0.17; const l2g = c.createGain(); l2g.gain.value = 0.45; l2.connect(l2g); l2g.connect(wg.gain); l2.start(); // (and swelling)
+      const hs = c.createBufferSource(); hs.buffer = this.white; hs.loop = true; const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 5200; const hg = c.createGain(); hg.gain.value = 0.035; hs.connect(hp); hp.connect(hg); hg.connect(bus); hs.start(); // (the heat's hiss)
+      for (const fr of [36.7, 38.9]) { const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = fr; const og = c.createGain(); og.gain.value = 0.5; o.connect(og); og.connect(bus); o.start(); }
+    }
+    const g = this.magmaG.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(on ? 0.05 : 0, t + (on ? 4 : 1.5));
   },
   drone() {
     const c = this.ctx, f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 130; const g = c.createGain(); g.gain.value = 0.05; f.connect(g); g.connect(this.master); this.droneG = g;
