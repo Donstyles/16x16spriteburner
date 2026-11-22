@@ -20,6 +20,10 @@ function botDrive(h, dt) {
   if (B.side && B.side.t > 0 && !f) { B.side.t -= dt; I.mx = Math.cos(B.side.a); I.my = Math.sin(B.side.a); return; }
   const danger = foes.some(o => o.act && o.act.phase === 'wind' && dist(h.x, h.y, o.x, o.y) < 45);
   if (h.hp < h.maxHp * 0.4 && h.flasks > 0 && !h.act && !danger && (!f || dist(h.x, h.y, f.x, f.y) > 26 || h.hp < h.maxHp * 0.25)) { I.itemP = true; I.mx = I.my = 0; return; }
+  // at a puzzle's cold braziers (the charnel pit's, whose dead never stop coming): to the nearest dark one, and stand at it
+  // behind the shield till it catches (a swing would put it back to nothing: 41_puzzles tending); the dead about it can wait
+  const tend = h.hp > h.maxHp * 0.3 && (A.fires || []).flatMap(F => (F.solved ? [] : F.braziers.filter(q => q.out && dist(h.x, h.y, q.x, q.cy) < 150))).sort((a, b) => dist(h.x, h.y, a.x, a.cy) - dist(h.x, h.y, b.x, b.cy)).map(q => [[0, 11], [-11, 0], [11, 0], [0, -11]].map(([dx, dy]) => [q.x + dx, q.cy + dy]).find(([x, y]) => FLOOR(A.fl[((y / TS) | 0) * A.w + ((x / TS) | 0)]) && !solidAt(x, y))).find(Boolean);
+  if (tend) { const [tx, ty] = tend, dd = dist(h.x, h.y, tx, ty); if (dd > 2) { const p = dd > 14 ? findPath(h.x, h.y, tx, ty) : null, wp = p && p[0] && dist(h.x, h.y, p[0].x, p[0].y) > 4 ? p[0] : { x: tx, y: ty }, l = dist(h.x, h.y, wp.x, wp.y) || 1; I.mx = (wp.x - h.x) / l; I.my = (wp.y - h.y) / l; } else I.mx = I.my = 0; I.block = dd < 10; return; }
   if (f) {
     const d = dist(h.x, h.y, f.x, f.y), a = angTo(h.x, h.y, f.x, f.y), fa = f.act;
     if (fa && fa.k === 'atk' && fa.phase === 'wind' && d < 50) { if (fa.mv.slam || h.stam < 30 || guardOf(h).absorb < 0.6) { I.dodgeP = true; I.mx = -Math.cos(a); I.my = -Math.sin(a); } else { I.block = true; I.mx = Math.cos(a) * 0.01; I.my = Math.sin(a) * 0.01; } return; }

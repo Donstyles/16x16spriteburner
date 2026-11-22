@@ -410,7 +410,7 @@ function drawShadeEyes(c) {
 // the four burning at once open the way on (41_puzzles firesTick: each burns half a minute once lit). Anywhere else,
 // once lit they burn for good.
 // While the hero is in its room and any of its braziers is dark, the dead leap out of it, one every few seconds (no
-// more than three of its own up at once, eight in all). Each lights as the cellar's do: stand at it a while, it smokes,
+// more than three of its own up at once, and no end to them till all four burn). Each lights as the cellar's do: stand at it a while, it smokes,
 // then catches (41_puzzles FIRES). With all four burning, the pit is quiet (and the light keeps the heaps of those cut
 // down there down: 43_crypt litAt).
 const charnelRoom = r => r.kind === 'room' && r.ix1 - r.ix0 >= 8 && r.iy1 - r.iy0 >= 6; // (nine tiles wide, seven deep)
@@ -443,7 +443,7 @@ function charnelPit(A, r, g, P) {
 function charnelTick(dt) {
   const A = ARENA, C = A && A.charnel, h = G.me; if (!C || !h || h.dead || G.cine) return;
   // (its braziers light as any cold one does: 41_puzzles coalsTick, or firesTick for the puzzle's)
-  const r = A.rooms[C.room]; if (C.fires.every(p => !p.out) || C.made >= 8) return;
+  const r = A.rooms[C.room]; if (C.fires.every(p => !p.out)) return; // (endless, till all four burn)
   if (!(h.x > r.ix0 * TS && h.x < (r.ix1 + 1) * TS && h.y > r.iy0 * TS && h.y < (r.iy1 + 1) * TS)) return;
   for (const u of C.kids) if (u.leap && !u.dead) { const L = u.leap; L.t = Math.min(1, L.t + dt / 0.75); u.x = L.x0 + (L.x1 - L.x0) * L.t; u.y = L.y0 + (L.y1 - L.y0) * L.t; if (L.t >= 1) { u.leap = null; smoke(u.x, u.y, 1, 'dust', 4, 10, 0.6); SFX.bone(panOf(u.x)); } } // (in the air: carried from the pit's middle to where it lands)
   C.kids = C.kids.filter(u => !u.dead); if (C.kids.length >= 3 || (C.t -= dt) > 0) return;
