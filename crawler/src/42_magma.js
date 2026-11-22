@@ -423,8 +423,8 @@ function magmaDress(A, r, g, prop, nearDoor, free) {
   const plain = r.kind === 'room' && !r.pool && !r.shrine && !r.set && !r.puz;
   if (plain && (!r.shape || r.shape === 'cuts') && r.w >= 10 && r.h >= 7 && chance(ARCH.cur && ARCH.cur.k === 'stores' ? 0.9 : 0.3)) { // THE STONE FOREST
     r.forest = true; (A.themes = A.themes || []).push('THE STONE FOREST'); const doorCols = r.doors.filter(d => d.side === 'N' || d.side === 'S').flatMap(d => d.cells.map(c => c[0])), doorRows = r.doors.filter(d => d.side === 'E' || d.side === 'W').flatMap(d => d.cells.map(c => c[1]));
-    for (let y = r.iy0 + 2, j = 0; y <= r.iy1 - 1; y += 2, j++) for (let x = r.ix0 + 1 + (j % 2) * 2; x <= r.ix1 - 1; x += 4) {
-      if (doorCols.includes(x) || doorRows.includes(y) || doorRows.includes(y - 1) || chance(0.2)) continue; const k = Math.random();
+    for (let y = r.iy0 + 2, j = 0; y <= r.iy1 - 1; y += 2, j++) for (let x = r.ix0 + 1 + (j % 2) * 2; x <= r.ix1 - 1; x += 3) { // (ranks two tiles apart, a rock every third tile, each rank set off from the last: lanes two tiles wide between, and one straight in from every door)
+      if (doorCols.includes(x) || doorRows.includes(y) || chance(0.12)) continue; const k = Math.random();
       if (!(k < 0.2 && !doorCols.includes(x + 1) && rock('big', x, y))) rock(k < 0.75 ? 'spire' : 'one', x, y); }
     return;
   }
