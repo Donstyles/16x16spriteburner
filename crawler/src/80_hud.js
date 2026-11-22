@@ -1,6 +1,6 @@
 // ===================== HUD: health, stamina, flasks, gold, the floor, banners =====================
 const F_DISP = '"Grenze Gotisch", "Palatino Linotype", Palatino, "Book Antiqua", serif', F_HUD = 'Teko, "Arial Narrow", "Avenir Next Condensed", sans-serif';
-const NUMCOL = { red: '#ff5a46', white: '#ffffff', gold: '#ffd860', heal: '#7cff9c', curse: '#d9a0ff', acid: '#e8f02c', cloth: '#ecdcae', mail: '#d6dde4', stone: '#c8beb0' }; // acid: a sour yellow, well clear of the mint of healing
+const NUMCOL = { red: '#ff5a46', white: '#ffffff', gold: '#ffd860', heal: '#7cff9c', curse: '#d9a0ff', acid: '#e8f02c', fire: '#ff9a2e', cloth: '#ecdcae', mail: '#d6dde4', stone: '#c8beb0' }; // acid: a sour yellow, well clear of the mint of healing
 // The new lettering (TYPE.on), approved and always on; the classic lettering (Teko throughout) stays here as a backup:
 // TYPE.on false draws exactly as before. Round three: two faces and no more, and a third for the numbers. Grenze Gotisch keeps every heading (the menus' titles, the kit names, the
 // floor cards, the banners); every other word and number (the buttons, the HUD, the floating numbers, the hints, the kit

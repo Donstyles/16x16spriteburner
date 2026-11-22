@@ -4,8 +4,8 @@
 // (gore FULL), down a pit (38_pits), or the bleeding out, the plain one. Each kind of death plays for its own length
 // before the screen fades (deathLen: 60_run) and has its own camera (deathCam: 70_render's updateCam), and its own
 // pose (deathPose) and its own beats (deathTick), both in 45_blood.
-const DEATH_LEN = { bleed: 10, burst: 6.5, fall: 5, acid: 8, vermin: 9.5, behead: 10, drag: 12.5, raised: 9.5, bats: 9.5, carried: 9, looted: 9, ragdoll: 8, ticks: 10, hexed: 10 };
-const DEATH_NAMES = { bleed: 'BLED OUT', burst: 'BLOWN APART', fall: 'THE LONG FALL', acid: 'DISSOLVED IN ACID', vermin: 'EATEN BY VERMIN', behead: 'BEHEADED', drag: 'DRAGGED INTO THE DARK', raised: 'RAISED', bats: 'DRAINED BY BATS', carried: 'CARRIED OFF', looted: 'LOOTED', ragdoll: 'SHAKEN TO PIECES', ticks: 'FED ON', hexed: 'DANCED TO DEATH' };
+const DEATH_LEN = { bleed: 10, burst: 6.5, fall: 5, acid: 8, vermin: 9.5, behead: 10, drag: 12.5, raised: 9.5, bats: 9.5, carried: 9, looted: 9, ragdoll: 8, ticks: 10, hexed: 10, lava: 10 };
+const DEATH_NAMES = { bleed: 'BLED OUT', burst: 'BLOWN APART', fall: 'THE LONG FALL', acid: 'DISSOLVED IN ACID', vermin: 'EATEN BY VERMIN', behead: 'BEHEADED', drag: 'DRAGGED INTO THE DARK', raised: 'RAISED', bats: 'DRAINED BY BATS', carried: 'CARRIED OFF', looted: 'LOOTED', ragdoll: 'SHAKEN TO PIECES', ticks: 'FED ON', hexed: 'DANCED TO DEATH', lava: 'TAKEN BY THE LAVA' };
 function deathLen() { let L = 0; for (const h of G.heroes) if (h.dead) L = Math.max(L, DEATH_LEN[(h.death && h.death.kind) || 'bleed'] || 8); return L || 7; }
 function deathKind(h, o) {
   if (TEST.on && TEST.forceDeath) return TEST.forceDeath; // (the armour and death room's DIE: 64_testroom)
@@ -26,6 +26,7 @@ const ease = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
 function deathCam(h) {
   const D = h.death || { kind: 'bleed' }, t = h.deadT || 0;
   if (D.kind === 'fall') return { x: D.x, y: D.y - 2, z: 1 + 0.5 * ease(t / 3.5), r: 1.6 }; // held at the rim, leaning in over the dark
+  if (D.kind === 'lava') return { x: D.x, y: D.y - 5, z: 1.25 + 0.6 * ease(t / 5), r: 1.8 }; // in close on him, and on the lava that keeps him (42_magma)
   if (D.kind === 'burst') return { x: h.x, y: h.y - 4, z: 1.2, r: 3 };
   if (D.kind === 'behead') { const H = D.head; if (H && t < 1) return { x: H.x, y: H.y - H.z * 0.5 - 4, z: 1.9, r: 4 }; return { x: h.x, y: h.y - (t > BEHEAD.fall ? 3 : 9), z: 1.6 + 0.25 * ease((t - 1) / 6), r: 2 }; } // after the head as it flies, then back to the body
   if (D.kind === 'acid') return { x: h.x, y: h.y - 7, z: 1.2 + 0.55 * ease(t / 5), r: 1.6 }; // in close on him as he goes down

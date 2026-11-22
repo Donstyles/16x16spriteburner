@@ -2,9 +2,14 @@
 let last = 0; const PERF = { acc: 0, n: 0, good: 0 };
 function update(dt) { G.time += dt; updateRun(dt); updateFx(dt); }
 function frame(t) {
-  requestAnimationFrame(frame);
+  requestAnimationFrame(frame); if (window.CR_HOLD) { last = t; return; } // (a test holds the clock and steps it itself: CR.step)
   const rdt = Math.min(0.05, (t - last) / 1000 || 0.016); last = t;
   PERF.acc += rdt; PERF.n++; if (PERF.n >= 90) { const avg = PERF.acc / PERF.n; PERF.acc = PERF.n = 0; if (avg > 0.026 && Q.res > 0.55) { Q.res = Math.max(0.55, Q.res - 0.15); Q.pmax = Math.max(1200, Q.pmax - 400); resize(); PERF.good = 0; } else if (avg > 0.034) Q.bloom = 0.5; else if (avg < 0.0175 && ++PERF.good > 3 && Q.res < 1) { Q.res = Math.min(1, Q.res + 0.1); resize(); PERF.good = 0; } }
+  tickOnce(rdt);
+}
+// (tests: n frames of dt seconds each, drawn, with the clock held: window.CR_HOLD)
+function stepFrames(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) tickOnce(dt); }
+function tickOnce(rdt) {
   try {
     pollPad();
     if (G.mode === 'play' && !UI.paused) {
@@ -26,7 +31,7 @@ async function boot() {
   await loadAssets(); resize(); addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
   setupInput(); menuBackdrop(); G.mode = 'menu'; MENU.screen = 'title';
   const ld = document.getElementById('loading'); if (ld) ld.hidden = true;
-  window.CR = { G, FX, CAM, spritePixels, Q, SFX, VIEW, MENU, UI, INPUT, KITS, WEAPONS, FOE_TYPES, ARMIES, ARENA: () => ARENA, SHAPES, PUZ, GREAT, ARCH, GALLERY, beginGallery, snapArea, startRun, startFloor, beginRun, beginCrypt, beginCreatureTest, beginWaterTest, beginDoorTest, HIDDEN, beginArmourTest, testDie, hitCrack, replayFloor, buildReport, litAt, pitAt, solidAt, roomAt, penned, doorLandingNear, blockAt, openAt, startDrain, pickLabelY, pickLayout, DEATH_PICK, beginPuzzleFloor, beginPitFloor, beginShopTest, testNext, nextCreature, togglePause, toWorld, btnLayout, hurt, mkFoe, wakeFoe, foeHits, gaitTick, beginTest, cleanBlood, TEST, WEAPON, fx: { headless, debris, cracks, bloodPaint, splat, breakProp, snore, sweat, dropItem, spritePixels, foeShown, waterSlam, drawUnit, bigSprite, mobs: () => MOBS } };
+  window.CR = { step: stepFrames, MAGMA, G, FX, CAM, spritePixels, Q, SFX, VIEW, MENU, UI, INPUT, KITS, WEAPONS, FOE_TYPES, ARMIES, ARENA: () => ARENA, SHAPES, PUZ, GREAT, ARCH, GALLERY, beginGallery, snapArea, startRun, startFloor, beginRun, beginCrypt, beginCreatureTest, beginWaterTest, beginDoorTest, HIDDEN, beginArmourTest, testDie, hitCrack, replayFloor, buildReport, litAt, pitAt, solidAt, roomAt, penned, doorLandingNear, blockAt, openAt, startDrain, pickLabelY, pickLayout, DEATH_PICK, beginPuzzleFloor, beginPitFloor, beginShopTest, testNext, nextCreature, togglePause, toWorld, btnLayout, hurt, mkFoe, wakeFoe, foeHits, gaitTick, beginTest, cleanBlood, TEST, WEAPON, fx: { headless, debris, cracks, bloodPaint, splat, breakProp, snore, sweat, dropItem, spritePixels, foeShown, waterSlam, drawUnit, bigSprite, mobs: () => MOBS } };
   requestAnimationFrame(frame);
 }
 boot().catch(e => { const ld = document.getElementById('loading'); if (ld) ld.textContent = 'Failed to start: ' + e.message; console.error(e); });

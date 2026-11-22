@@ -61,13 +61,13 @@ function drip(x, y, z, kind, vx = 0, vy = 0) { if (GORE.level) part({ k: 'gore',
 function goreStep(p, dt) {
   if (p.slow > G.time) dt *= 0.15;
   const nx = p.x + p.vx * dt, ny = p.y + p.vy * dt;
-  if (solidAt(nx, ny)) { goreWall(p, ny); p.t = p.life; return; }
+  if (solidAt(nx, ny)) { if (p.kind !== 'lava' && p.kind !== 'ash') goreWall(p, ny); p.t = p.life; return; }
   p.x = nx; p.y = ny; p.vz -= p.g * dt; p.z += p.vz * dt;
   if (p.z <= 0) { goreLand(p.x, p.y, p); p.t = p.life; }
 }
 function goreLand(x, y, p) {
   // (into water, open or between a bridge's slats: a ring on it and a little red haze in it instead)
-  if (!ARENA) return; if (holeAt(x, y)) return; /* (down the pit, no mark) */ if (!onStone(x, y)) return; /* (in the black rock, or under a wall's top: no mark) */ if (overWater(x, y)) { plip(x, y); bloodCloud(x, y, p.col, p.s0 === 2 ? 0.6 : 0.2); return; } const r = p.s0 === 2 ? rand(1.2, 2) : rand(0.6, 1.2), a = rand(0.45, 0.8); // a small soft blotch where it lands
+  if (!ARENA) return; if (p.kind === 'lava' || p.kind === 'ash') { magmaLand(x, y, p); return; } /* (a drop of lava, a flake of ash: 42_magma) */ if (holeAt(x, y)) return; /* (down the pit, no mark) */ if (!onStone(x, y)) return; /* (in the black rock, or under a wall's top: no mark) */ if (overWater(x, y)) { plip(x, y); bloodCloud(x, y, p.col, p.s0 === 2 ? 0.6 : 0.2); return; } const r = p.s0 === 2 ? rand(1.2, 2) : rand(0.6, 1.2), a = rand(0.45, 0.8); // a small soft blotch where it lands
   groundPaint(x - 3, y - 3, x + 3, y + 3, g => { g.globalAlpha = a; g.fillStyle = p.col; g.beginPath(); g.ellipse(x, y, r, r * 0.75, 0, 0, TAU); g.fill(); g.globalAlpha = 1; });
   bloodMark(x, y, p.s0 === 2 ? 5 : 2, p.kind);
 }
@@ -212,11 +212,11 @@ function heroFalls(h) {
 }
 function deathPose(u) { // (by the kind of death: 48_deaths)
   if (u.gone) return { gone: true }; const k = u.death ? u.death.kind : 'bleed', t = u.deadT || 0;
-  return k === 'acid' ? acidPose(t) : k === 'vermin' || k === 'bats' ? verminPose(t) : k === 'behead' ? beheadPose(t) : k === 'drag' ? dragPose(t) : k === 'raised' ? raisedPose(t) : k === 'carried' ? carriedPose(t) : k === 'looted' ? lootedPose(t, u.death) : k === 'ragdoll' ? ragdollPose(t, u.death) : k === 'ticks' ? ticksPose(t) : k === 'hexed' ? hexedPose(t, u.death) : bleedPose(t);
+  return k === 'lava' ? lavaPose(t, u) : k === 'acid' ? acidPose(t) : k === 'vermin' || k === 'bats' ? verminPose(t) : k === 'behead' ? beheadPose(t) : k === 'drag' ? dragPose(t) : k === 'raised' ? raisedPose(t) : k === 'carried' ? carriedPose(t) : k === 'looted' ? lootedPose(t, u.death) : k === 'ragdoll' ? ragdollPose(t, u.death) : k === 'ticks' ? ticksPose(t) : k === 'hexed' ? hexedPose(t, u.death) : bleedPose(t);
 }
 function deathTick(h, dt) {
   const k = h.death ? h.death.kind : 'bleed';
-  if (k === 'fall') fallTick(h, dt); else if (k === 'bleed') bleedTick(h, dt); else if (k === 'acid') acidTick(h, dt); else if (k === 'vermin') verminTick(h, dt); else if (k === 'behead') beheadTick(h, dt); else if (k === 'drag') dragTick(h, dt); else if (k === 'raised') raisedTick(h, dt); else if (k === 'bats') batsTick(h, dt); else if (k === 'carried') carriedTick(h, dt); else if (k === 'looted') lootedTick(h, dt); else if (k === 'ragdoll') ragdollTick(h, dt); else if (k === 'ticks') ticksTick(h, dt); else if (k === 'hexed') hexedTick(h, dt);
+  if (k === 'fall') fallTick(h, dt); else if (k === 'lava') lavaDeathTick(h, dt); else if (k === 'bleed') bleedTick(h, dt); else if (k === 'acid') acidTick(h, dt); else if (k === 'vermin') verminTick(h, dt); else if (k === 'behead') beheadTick(h, dt); else if (k === 'drag') dragTick(h, dt); else if (k === 'raised') raisedTick(h, dt); else if (k === 'bats') batsTick(h, dt); else if (k === 'carried') carriedTick(h, dt); else if (k === 'looted') lootedTick(h, dt); else if (k === 'ragdoll') ragdollTick(h, dt); else if (k === 'ticks') ticksTick(h, dt); else if (k === 'hexed') hexedTick(h, dt);
 }
 // a canvas cropped to its pixels (so a thrown weapon lies on the floor, not above it)
 function tight(cv) {

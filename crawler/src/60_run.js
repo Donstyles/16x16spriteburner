@@ -45,7 +45,7 @@ function updateRun(dt) {
   for (const u of G.units) { if (u.flash > 0) u.flash -= dt; u.held = u.freeze > 0; if (u.held) u.freeze -= dt; else u.anim += dt; }
   for (const h of G.heroes) if (!h.held && !h.fall) heroTick(h, dt);
   aiPrep(dt); for (const f of G.foes) if (!f.held && !f.fall) { foeTick(f, dt); if (f.gait || GAIT[f.spr]) gaitTick(f, dt); }
-  pitsTick(dt); // (falls, cracked slabs giving way: 38_pits)
+  pitsTick(dt); magmaTick(dt); // (falls, cracked slabs giving way: 38_pits; fire: 42_magma)
   for (const u of G.units) if (!u.dead && !u.held) moveActor(u, dt);
   for (const u of G.units) if (!u.dead) bloodTick(u, dt);
   for (const u of G.units) if (u.fly && !u.dead && !u.held && !u.feed && !u.script) flyTick(u, dt); // (bats at work on a dead hero fly as they are told: 48/49_deaths)

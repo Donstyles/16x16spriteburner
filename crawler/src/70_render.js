@@ -111,6 +111,7 @@ function drawUnit(c, u) {
   const a = u.act, warn = u.team === 'foe' && a && ((a.k === 'atk' && a.phase === 'wind') || (a.k === 'aim' && a.t > a.dur - 0.25));
   if (warn) { c.globalAlpha = 0.35 + 0.35 * Math.sin(G.time * 40); if (B) blitB(B.red); else blit(mobsRed()); }
   if (u.arrows && u.arrows.length && !B) drawStuck(c, u, dip, cut, foot); // (the arrows in him, in his own pixels: 47_arrows)
+  if (u.char > 0 && u.dead && !B) { c.globalAlpha = u.char; if (bare) blit(Wc.cutK || (Wc.cutK = silhouette(Wc.cut, '#140d09')), 0); else blit(IMG.mobsK); } // (charring in the lava: 42_magma)
   if (u.flash > 0) { c.globalAlpha = Math.min(1, u.flash * 9); if (B) blitB(B.white); else if (bare) blit(Wc.cutW, 0); else blit(IMG.mobsW); }
   c.restore(); c.globalAlpha = 1;
   if (dp && u.death && u.death.kind === 'acid') acidFizz(c, u, m, fr, bare, Wc, foot, jit + dp.jit + (u.sway || 0)); // (his waterline eaten away: 48_deaths)

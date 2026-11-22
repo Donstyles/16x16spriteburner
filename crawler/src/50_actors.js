@@ -52,7 +52,7 @@ function hurt(u, dmg, src, o = {}) {
   number(u.x, u.y, headZ(u) + 1, d, o.acid ? 'acid' : u.team === 'hero' ? 'red' : tag ? 'gold' : 'white', !!tag || d >= 40, u);
   if (tag) textPop(u.x, u.y, headZ(u) + 7, tag, 'gold', false, u);
   if (u.team === 'hero') { shake(o.acid ? 0.05 : 0.12 + Math.min(0.3, d / 80)); G.hurtFlash = o.acid ? 0.15 : 0.35; }
-  if (o.acid) acidBurn(u); // burnt from below, not cut: it hisses and steams at his feet and does not bleed
+  if (o.fire) { /* (burnt: no blood, 42_magma) */ } else if (o.acid) acidBurn(u); // burnt from below, not cut: it hisses and steams at his feet and does not bleed
   else if (DRY.has(u.def.blood)) { shed(u, d, o); SFX.hit(panOf(u.x)); } // bone, hay, stone, water, wood or pixie dust instead of blood
   if (o.acid) { /* (see acidBurn) */ } else if (u.team === 'hero' && src && src.def && src.def.blood === 'water' && !o.ranged) soak(u); // a blow of water leaves him dripping
   else if (bleeds(u)) { // the blood flies the way the blow went
@@ -138,7 +138,7 @@ function moveActor(u, dt) {
   // (a hard knock carries over a pit's edge: while it lasts, a pit does not push back, and once the middle is over it, down it goes)
   const bk = basinBrake(u, dt); PITPASS = pitKnock(u) || (u.team === 'hero' && !!u.penned); /* (penned in by pits: he may step off: 38_pits) */ tileCollide(u); slideMove(u, (u.vx * gk + u.kx) * dt * bk, (u.vy * gk + u.ky) * dt * bk); const f = Math.exp(-7 * dt); u.kx *= f; u.ky *= f; // (any small push since last frame settled first)
   if (u.team === 'foe' && ARENA.shop && inShop(ARENA, u.x, u.y) && !inShop(ARENA, u.gx, u.gy)) { u.x = u.gx; u.y = u.gy; } // (no foe comes into the shop: 39_shop)
-  if (!u.fly && !u.under && (u.z || 0) <= 2 && pitAt(u.x, u.y)) { PITPASS = false; startFall(u); return; }
+  if (!u.fly && !u.under && (u.z || 0) <= 2 && (pitAt(u.x, u.y) || (wetAt(u.x, u.y) && isMagma(ARENA)))) { PITPASS = false; startFall(u); return; }
   if (!u.fly && (u.z > 0 || u.vz > 0)) { u.vz -= 560 * dt; u.z += u.vz * dt; if (u.z <= 0) { u.z = 0; u.vz = 0; } }
   for (const p of ARENA.props) {
     if (!p.solid || p.dead || (u.ghostT > 0 && (p.kind === 'tomb' || p.kind === 'sarc' || p.kind === 'charnel'))) continue; const F = propFoot(p); // (ghostT: climbing out of a tomb, 43_crypt)

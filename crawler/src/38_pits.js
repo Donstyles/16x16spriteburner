@@ -41,7 +41,7 @@ const PIT_BAND = 4; let PITB = null;
 function pitPaint(A, g, i) {
   const W = A.w, x = i % W, y = (i / W) | 0, n = A.fl[i - W], face = y > 0 && n !== PIT && !(A.plankSet && A.plankSet.has(i - W)), f = pitFace(A), v = (x * 5 + y * 3) % 6; // (no earth face under a wooden bridge: its planks' own edge)
   g.fillStyle = pitBlack(); g.fillRect(x * TS, y * TS, TS, TS); if (face) sheetTile(g, f, x * TS, y * TS, v, 0); if (isMagma(A)) magmaPitRim(A, g, i);
-  if (!A.wt) { if (isMagma(A)) lavaMark(A, x * TS, y * TS, TS, TS); return; } const sx = (f[0] + v) * TS, sy = f[1] * TS, B = PIT_BAND;
+  if (!A.wt) { if (isMagma(A)) lavaMark(A, g, x * TS, y * TS, TS, TS); return; } const sx = (f[0] + v) * TS, sy = f[1] * TS, B = PIT_BAND;
   // [the wall's index, the band in its own tile, where the face's columns come from (or none)]
   for (const [j, bx, by, bw, bh, fx] of [[i - 1, TS - B, 0, B, TS, TS - B], [i + 1, 0, 0, B, TS, 0], [i + W, 0, 0, TS, B, -1]]) {
     if (A.fl[j] !== 0 || !A.wt[j]) continue; const c = A.wt[j] - 1, ptx = (c / 64) | 0, pty = c % 64, wx = (j % W) * TS, wy = ((j / W) | 0) * TS;
@@ -50,7 +50,7 @@ function pitPaint(A, g, i) {
     t.globalCompositeOperation = 'destination-out'; t.save(); if (A.wf && A.wf[j]) { t.translate(TS, 0); t.scale(-1, 1); } { const [im, sx, sy] = srcOf(ptx, pty + A.th.fy); t.drawImage(im, sx, sy, TS, TS, 0, 0, TS, TS); } t.restore(); // (only where the wall leaves it open)
     t.globalCompositeOperation = 'source-over'; g.drawImage(PITB, wx, wy);
   }
-  if (isMagma(A)) lavaMark(A, x * TS - TS, y * TS, 3 * TS, 2 * TS); // (what of it is lava, for the lava's own drawing: 42_magma)
+  if (isMagma(A)) lavaMark(A, g, x * TS - TS, y * TS, 3 * TS, 2 * TS); // (what of it is lava, for the lava's own drawing: 42_magma)
 }
 // marks painted on the ground (blood, scorch, footprints) never stay on a pit: the pits they touched are painted again
 function pitMend(A, g, x0, y0, x1, y1) {
@@ -242,12 +242,14 @@ function pitPlan(A, g) {
 
 // ---- falling
 function startFall(u) {
+  if (isMagma(ARENA)) { lavaPlunge(u); return; } // (the magma's pits hold lava: 42_magma)
   u.fall = { t: 0, T: FALL_T * (u.scale > 1.2 ? 1.2 : 1), x: u.x, y: u.y, spin: rand(-0.9, 0.9) }; u.vx = u.vy = u.kx = u.ky = 0; u.act = null; u.sprint = false; u.blocking = false; u.stun = 0;
   removeIf(FX.nums, n => n.on === u); // (its marks go with it)
   pebbles(u.x, u.y - 2, 8); smoke(u.x, u.y, 2, 'dust', 6, 12, 0.6); SFX.fall(panOf(u.x), u.scale > 1.2, u.team === 'hero');
   if (u.team === 'hero') { shake(0.15); G.hurtFlash = 0.2; if (u.hp - Math.round(u.maxHp * PIT_DMG) <= 0 && !(TEST.on && TEST.god)) { u.fall.fatal = true; SFX.scream(panOf(u.x)); } } // (a fall he will not climb out of: he screams, 48_deaths)
 }
 function endFall(u) {
+  if (u.fall.lava) { lavaOut(u, u.fall); return; }
   const F = u.fall; u.fall = null;
   if (u.team !== 'hero') { u.dead = true; u.hp = 0; u.act = null; if (!u.raisedBy) G.kills++; return; } // gone, and all it carried
   const dmg = Math.round(u.maxHp * PIT_DMG);
@@ -313,15 +315,15 @@ function pitsTick(dt) {
     A.fallers.push({ cv: c.cv, x: c.x * TS, y: c.y * TS, t: 0 }); pebbles(c.x * TS + 8, c.y * TS + 8, 10); smoke(c.x * TS + 8, c.y * TS + 8, 4, 'dust', 8, 16, 0.9); SFX.crumble(panOf(c.x * TS + 8), 1); if (G.me && dist(G.me.x, G.me.y, c.x * TS, c.y * TS) < 160) shake(0.12);
   }
   for (const u of G.units) {
-    if (u.fall) { u.fall.t += dt; if (u.fall.t >= u.fall.T) endFall(u); continue; }
+    if (u.fall) { u.fall.t += dt; if (u.fall.lava) lavaFallTick(u, dt); if (u.fall.t >= u.fall.T) endFall(u); continue; }
     if (u.dead || u.fly || u.under || u.enter || (u.z || 0) > 2) continue;
     if (u.rise > 0) u.rise -= dt;
-    if (A.pitN && pitAt(u.x, u.y)) { startFall(u); continue; } // (the floor gave way under it)
+    if ((A.pitN && pitAt(u.x, u.y)) || (isMagma(A) && wetAt(u.x, u.y))) { startFall(u); continue; } // (the floor gave way under it; or the lava rose)
     if (u.team !== 'hero') continue;
     // where he would climb back out: the last place he stood clear of every pit (and of every cracked slab), kept on every
     // floor (one whose only pits are hidden under loose slabs has none open until one gives way: he climbed out at the
     // floor's start)
-    const i = footTile(u.x, u.y), clear = FLOOR(A.fl[i]) && ![i - 1, i, i + 1].some(j => [j - A.w, j, j + A.w].some(k => A.fl[k] === PIT || (A.crumbleSet && A.crumbleSet.has(k) && A.crumbles.some(c => c.i === k && c.st < 2))));
+    const i = footTile(u.x, u.y), clear = FLOOR(A.fl[i]) && ![i - 1, i, i + 1].some(j => [j - A.w, j, j + A.w].some(k => A.fl[k] === PIT || (A.fl[k] === 2 && isMagma(A)) || (A.crumbleSet && A.crumbleSet.has(k) && A.crumbles.some(c => c.i === k && c.st < 2))));
     if (clear) u.safe = { x: u.x, y: u.y };
     if ((u.penT = (u.penT || 0) - dt) <= 0) { u.penT = 0.5; const was = u.penned; u.penned = penned(A, u); if (u.penned && !was) textPop(u.x, u.y, headZ(u) + 6, 'NO WAY OUT · STEP OFF', 'red', false); }
     // pressing at an edge: stones crumble off it
@@ -341,6 +343,7 @@ function drawPits(c) {
 // someone falling: smaller and darker into the black, turning a little, hidden by the floor in front of the hole as he sinks
 let FALLCV = null;
 function drawFalling(c, u) {
+  if (u.fall.lava) { drawUnit(c, u); return; } // (into the lava, or thrown back out of it: where 42_magma has him)
   const A = ARENA, F = u.fall, e = Math.min(1, F.t / F.T), k = 1 - 0.8 * e * e, drop = 34 * e * e, a = e < 0.5 ? 1 : Math.max(0, 1 - (e - 0.5) / 0.5);
   const tx = Math.floor(F.x / TS); let ty = Math.floor(F.y / TS); while (ty < A.h && A.fl[ty * A.w + tx] === PIT) ty++; const cut = ty * TS;
   if (!FALLCV) { FALLCV = mkCanvas(128, 128); FALLCV.g = FALLCV.getContext('2d'); FALLCV.g.imageSmoothingEnabled = false; }
