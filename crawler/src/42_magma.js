@@ -230,7 +230,7 @@ function drawLavaDeath(c) {
     if (t >= LAVAD.crumble + 0.3 && t < LAVAD.bubble) { const e = (t - LAVAD.crumble - 0.3) / (LAVAD.bubble - LAVAD.crumble - 0.3), r = Math.round(1 + 4 * e); c.fillStyle = '#ff7f00'; pxEllipse(c, x + 3, y - 1, r, Math.max(1, Math.round(r * 0.6))); c.fillStyle = '#ffd060'; c.fillRect(x + 3 - Math.max(0, r - 2), y - 1 - Math.max(0, Math.round(r * 0.6) - 1), Math.max(1, r - 1), 1); }
   }
 }
-function magmaTick(dt) { fireTick(dt); bombsTick(dt); magmaAmbient(dt); }
+function magmaTick(dt) { fireTick(dt); bombsTick(dt); magmaAmbient(dt); bossTick(dt); }
 // where a thrown drop of lava comes down: back into the lava with a ring, or on the floor, where it burns a black speck
 // into the stone and glows a moment as it cools; a flake of ash leaves a grey speck
 function magmaLand(x, y, p) {
@@ -262,7 +262,7 @@ function bombTarget(A, r, sx, sy, h) {
 function bombsTick(dt) {
   const A = ARENA; if (!isMagma(A)) return; if (!A.bombs) { A.bombs = []; A.erupt = []; } if (G.cine) return; const W = A.w;
   for (const h of G.heroes) {
-    if (h.dead || h.fall || h.enter) continue; const r = roomAt(h.x, h.y); if (!r || r.kind === 'shop') continue; const L = lavaTilesOf(A, r); if (!L.length) continue;
+    if (h.dead || h.fall || h.enter) continue; const r = roomAt(h.x, h.y); if (!r || r.kind === 'shop' || r.noBombs) continue; const L = lavaTilesOf(A, r); if (!L.length) continue;
     if (r.bombT === undefined) r.bombT = rand(1.6, 3); if ((r.bombT -= dt) > 0) continue; r.bombT = rand(BOMB.gap[0], BOMB.gap[1]) * (A.floor >= 9 ? 0.75 : 1);
     const near = L.map(i => [Math.hypot((i % W) * TS + 8 - h.x, ((i / W) | 0) * TS + 9 - h.y), i]).sort((a, b) => a[0] - b[0]).slice(0, 8), [d, i] = pick(near); if (d > BOMB.reach) continue;
     const [sx, sy] = lavaSpot((i % W) * TS + 8, ((i / W) | 0) * TS + 9); A.erupt.push({ x: sx, y: sy, t: 0, n: A.floor >= 9 ? randi(2, 3) : A.floor >= 8 ? randi(1, 2) : 1, r, h }); if (dist(h.x, h.y, sx, sy) < 220) SFX.groan(panOf(sx));
@@ -401,3 +401,5 @@ function magmaDress(A, r, g, prop, nearDoor, free) {
 }
 function magmaLights() { const A = ARENA; if (!isMagma(A)) return; for (const p of A.props) if (p.glow && !p.dead) light(p.x, p.y - 7, 32 + 3 * Math.sin(G.time * 2 + p.x), 'magma', 0.4); for (const v of A.veins || []) light(v.x + 8, v.y + 22, 34 + 3 * Math.sin(G.time * 1.6 + v.x), 'magma', 0.42); }
 function drawVeinGlow(c) { const A = ARENA; if (!A.veins) return; const V = magmaVeins(), [vx, vy, vw, vh] = viewRect(A); for (const v of A.veins) { if (v.x + TS < vx || v.x > vx + vw || v.y + 24 < vy || v.y > vy + vh) continue; c.globalAlpha = 0.45 + 0.25 * Math.sin(G.time * 1.9 + v.x * 0.11); c.drawImage(V, v.sx, 8, TS, 24, v.x, v.y, TS, 24); } c.globalAlpha = 1; }
+// the lava as a light that shows what it shines on (34_sight): every other tile of it, a pit's or a pool's that is not drained
+function lavaLights(A) { const L = []; if (!isMagma(A)) return L; for (let y = 0; y < A.h; y += 2) for (let x = 0; x < A.w; x += 2) { const v = A.fl[y * A.w + x]; if (v === PIT || v === 2) L.push({ x: x * TS + 8, y: y * TS + 8, r: 46 }); } return L; }

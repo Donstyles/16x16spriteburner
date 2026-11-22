@@ -271,7 +271,7 @@ function buildArena1(floor) {
   // THE GREAT HALL (from the second floor, now and then; two from the sixth): two neighbouring cells of the grid made one
   // room, thirty to thirty-six tiles long, or a nave twenty-four to twenty-eight tall; the end room may be one
   const great = new Map(); if (floor >= 2 || GREAT.force) {
-    const want = GREAT.force ? 1 : floor >= 6 ? 2 : 1, used = new Set(), ok = k => kindOf(k) === 'room' || kindOf(k) === 'end';
+    const want = GREAT.force ? 1 : floor >= 6 ? 2 : 1, used = new Set(), ok = k => kindOf(k) === 'room' || (kindOf(k) === 'end' && !lakeFloor(floor));
     for (const [a, b] of pitShuffle(edges.slice())) { if (great.size >= want) break; if (!ok(a) || !ok(b) || used.has(a) || used.has(b)) continue; const ca = cells.get(a), cb = cells.get(b); if (ca[1] !== cb[1] && !chance(0.35)) continue; if (!GREAT.force && !chance(Math.min(0.9, 0.45 * (ARCH.cur.great || 1)))) continue; const [f, s] = ca[0] + ca[1] * 100 < cb[0] + cb[1] * 100 ? [a, b] : [b, a]; great.set(f, s); used.add(a); used.add(b); }
   }
   const second = new Set(great.values());
@@ -282,7 +282,7 @@ function buildArena1(floor) {
   if ((floor >= 2 || HIDDEN.force) && (HIDDEN.force || chance(0.55))) {
     const cand = [...cells.entries()].filter(([k, [x, y]]) => y > 0 && !cells.has(key(x, y - 1)) && kindOf(k) !== 'shop' && kindOf(k) !== 'end' && !great.has(k) && !second.has(k));
     if (cand.length) {
-      const exit = HIDDEN.force === 'exit' || (!HIDDEN.force && floor >= 3 && chance(0.25)); cand.sort((a, b) => (far.get(b[0]) || 0) - (far.get(a[0]) || 0));
+      const exit = HIDDEN.force === 'exit' || (!HIDDEN.force && floor >= 3 && !lakeFloor(floor) && chance(0.25)); cand.sort((a, b) => (far.get(b[0]) || 0) - (far.get(a[0]) || 0));
       const [rk, [x, y]] = exit ? cand[randi(0, Math.min(2, cand.length - 1))] : pick(cand), sk = key(x, y - 1);
       hid = { r: rk, s: sk, x, kind: exit ? 'end' : chance(0.35) ? 'room' : 'treasure', nest: HIDDEN.nest || (!HIDDEN.force && floor >= 3 && chance(0.4)) }; cells.set(sk, [x, y - 1]); if (exit) endK = sk;
     }
@@ -403,6 +403,7 @@ function buildArena1(floor) {
   for (const r of rooms) if (r.hidCrack) { r.crack = r.hidCrack; r.crackX = r.crack.x; (A.cracks = A.cracks || []).push(r.crack); if (r.crack.inner) A.cracks.push(r.crack.inner); A.secret = A.secret || new Uint8Array(W * H); for (const c of [r.crack, r.crack.inner]) if (c) for (const i of c.secret) A.secret[i] = 1; } // (the hidden wing's walled-up doorway)
   // ---- furnishing (the stairways' places first, so no torch or banner hangs on them)
   if (!rooms.some(q => q.kind === 'treasure')) { const q = pick(rooms.filter(q => q.kind === 'room' && !q.shape)) || pick(rooms.filter(q => q.kind === 'room')); if (q) q.chest = true; } // no dead end: a guarded room keeps the chest
+  if (lakeFloor(floor)) lavaLake(A, g); // (the magma's last floor: its way down across a lake of lava, before anything else claims the room: 42_magmaboss)
   levelPlan(A, g); // the floor's set pieces: a flooded way, a gauntlet, a sentinel (37_levels)
   pitPlan(A, g); // a chasm, broken floor, the ledges (38_pits)
   for (const r of rooms) worksBefore(A, r, g); // a cistern, a rune shrine (36_works)

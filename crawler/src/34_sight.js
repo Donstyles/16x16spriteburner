@@ -11,10 +11,10 @@ function initSight(A) {
 }
 // light sources that reveal what they shine on: wall torches and braziers, the ones burning (a dead one is lit later: 36_works)
 const lampK = () => (ARENA && ARENA.th.sheet === 'crypt' ? 0.7 * (1 - 0.3 * (G.lampDim || 0)) : 1); // (the crypt's dark: the hero's lamp reaches less far, 70_render too; less again while the Shade is close: 43_crypt lampDimTick)
-function staticLights(A) { if (!A.lights) A.lights = A.torches.filter(t => !t.out).map(t => ({ x: t.x, y: t.y + 10, r: t.candles ? 30 + 28 * (t.cf === undefined ? 1 : t.cf) : 58 })).concat((A.candles || []).filter(c => c.lit && !c.torch).map(c => ({ x: c.x + 1, y: c.yb + 2, r: 22 }))).concat(A.props.filter(p => p.kind === 'brazier' && !p.dead && !p.out).map(p => ({ x: p.x, y: p.y, r: 80 }))); return A.lights; }
+function staticLights(A) { if (!A.lights) A.lights = lavaLights(A).concat(A.torches.filter(t => !t.out).map(t => ({ x: t.x, y: t.y + 10, r: t.candles ? 30 + 28 * (t.cf === undefined ? 1 : t.cf) : 58 })).concat((A.candles || []).filter(c => c.lit && !c.torch).map(c => ({ x: c.x + 1, y: c.yb + 2, r: 22 }))).concat(A.props.filter(p => p.kind === 'brazier' && !p.dead && !p.out).map(p => ({ x: p.x, y: p.y, r: 80 })))); return A.lights; }
 // which tiles the fixed lights reach, worked out once per floor
 function staticLit(A) {
-  if (A.slit) return A.slit; const s = A.slit = new Uint8Array(A.w * A.h);
+  if (A.slit && !(isMagma(A) && A.slitV !== (A.flv || 0))) return A.slit; if (isMagma(A)) { A.lights = null; A.slitV = A.flv || 0; } /* (the lava is a light: where it lies changes as floors fall in and lakes crust over, 42_magma) */ const s = A.slit = new Uint8Array(A.w * A.h);
   for (const L of staticLights(A)) { const R = Math.ceil(L.r / TS); for (let y = Math.floor(L.y / TS) - R; y <= Math.floor(L.y / TS) + R; y++) for (let x = Math.floor(L.x / TS) - R; x <= Math.floor(L.x / TS) + R; x++) if (x >= 0 && y >= 0 && x < A.w && y < A.h && dist(L.x, L.y, x * TS + 8, y * TS + 8) < L.r) s[y * A.w + x] = 1; }
   return s;
 }

@@ -277,7 +277,7 @@ function doorLandingNear(A, p) { const r = roomAt(p.x, p.y); if (!r) return null
 // doors (a slab with nothing but pit north, south, east and west, held only at its corners, or a patch of a few cut off
 // together) cracks and falls a moment later, whoever is on it going down with it. So no one is ever left marooned.
 function unsupported(A, c) {
-  const r = A.rooms[c.room] || roomAt(c.x * TS + 8, c.y * TS + 8); if (!r) return;
+  const r = A.rooms[c.room] || roomAt(c.x * TS + 8, c.y * TS + 8); if (!r) return; if (A.lake && A.lake.r === r) return; // (the lake's island stands alone once its bridges are down: 42_magmaboss)
   const doors = new Set(r.doors.flatMap(d => d.cells.map(([x, y]) => y * A.w + x))), inside = i => { const x = i % A.w, y = (i / A.w) | 0; return x >= r.ix0 && x <= r.ix1 && y >= r.iy0 && y <= r.iy1; };
   for (const s of [c.i - 1, c.i + 1, c.i - A.w, c.i + A.w]) {
     if (!inside(s) || !FLOOR(A.fl[s]) || A.crumbles.some(q => q.i === s && q.st > 0)) continue;
@@ -292,7 +292,7 @@ function unsupported(A, c) {
   }
 }
 function penned(A, u) {
-  if (!A.pitN) return false; const r = roomAt(u.x, u.y), s = footTile(u.x, u.y); if (!r || !FLOOR(A.fl[s])) return false;
+  if (!A.pitN) return false; const r = roomAt(u.x, u.y), s = footTile(u.x, u.y); if (!r || !FLOOR(A.fl[s])) return false; if (A.lake && A.lake.r === r) return false; // (on the lake's island he is meant to be cut off)
   const doors = new Set(r.doors.flatMap(d => d.cells.map(([x, y]) => y * A.w + x))), seen = new Set([s]), q = [s];
   while (q.length) { const i = q.pop(); if (doors.has(i) || seen.size > 80) return false; for (const j of [i - 1, i + 1, i - A.w, i + A.w]) if (!seen.has(j) && FLOOR(A.fl[j])) { seen.add(j); q.push(j); } }
   return true;
@@ -316,7 +316,7 @@ function pitsTick(dt) {
   }
   for (const u of G.units) {
     if (u.fall) { u.fall.t += dt; if (u.fall.lava) lavaFallTick(u, dt); if (u.fall.t >= u.fall.T) endFall(u); continue; }
-    if (u.dead || u.fly || u.under || u.enter || (u.z || 0) > 2) continue;
+    if (u.dead || u.fly || u.under || u.enter || u.noFall || (u.z || 0) > 2) continue; // (noFall: the lake's lord, who rises out of the lava: 42_magmaboss)
     if (u.rise > 0) u.rise -= dt;
     if ((A.pitN && pitAt(u.x, u.y)) || (isMagma(A) && wetAt(u.x, u.y))) { startFall(u); continue; } // (the floor gave way under it; or the lava rose)
     if (u.team !== 'hero') continue;
