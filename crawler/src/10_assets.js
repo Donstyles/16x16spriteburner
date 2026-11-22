@@ -16,8 +16,12 @@ function tallCrypt(img) {
 // wall tops are. Drawn in the rock's own colour, a wall's top runs on into the rock with no seam where the one meets the other
 function cryptTops(img) {
   const c = mkCanvas(img.width, img.height), g = c.getContext('2d'); g.drawImage(img, 0, 0); const w = 6 * 16, h = 7 * 16, id = g.getImageData(0, 0, w, h), d = id.data;
-  for (let i = 0; i < d.length; i += 4) if (d[i] === 38 && d[i + 1] === 29 && d[i + 2] === 26 && d[i + 3] === 255) { d[i] = 18; d[i + 1] = 20; d[i + 2] = 24; } // (#121418)
-  g.putImageData(id, 0, 0); return c;
+  for (let i = 0; i < d.length; i += 4) if (d[i] === 38 && d[i + 1] === 29 && d[i + 2] === 26 && d[i + 3] === 255) { d[i] = 0; d[i + 1] = 0; d[i + 2] = 0; } // (black: as black as the dark beyond what has been seen)
+  g.putImageData(id, 0, 0);
+  // (and the niches in its walls, columns 6 to 9 of rows 6-7 and their mossy twins, rows 10-11: their hollow a near-black,
+  // so a niche reads as a hole in the wall even with its own candles lighting it)
+  for (const ry of [6, 10]) { const n = g.getImageData(6 * 16, ry * 16, 4 * 16, 2 * 16), e = n.data; for (let i = 0; i < e.length; i += 4) if (e[i] === 38 && e[i + 1] === 29 && e[i + 2] === 26 && e[i + 3] === 255) { e[i] = 16; e[i + 1] = 12; e[i + 2] = 12; } g.putImageData(n, 6 * 16, ry * 16); }
+  return c;
 }
 // THE CRYPT'S BLOCKS OF WALL (a pillar, a ring's great block, a colonnade's): drawn from the sheet's own block (its first
 // three columns, rows 2 to 5) as an atlas of three columns (its west edge, its middle, its east edge) and four rows: a strip
@@ -38,8 +42,7 @@ function cryptBlockAtlas(img) {
 // THE OPENED TOMBS: the sheet opens some of its tombs with no more than a crack in the lid (the cross, the framed, the
 // tall one with the cross) and its sarcophagi with a lid slid a little aside, no way for anything to climb out. Here every
 // tomb opens to the whole box: those three take the open box of their like (the plain one's, the tall plain one's), and
-// the sarcophagi's open box is made from the tombs' (their rim and dark inside, stretched to its width, under its own
-// front). The lid that flies off (43_crypt lidOf, sarcLid: what of the lidded one is not in the opened) is then the
+// the sarcophagi's open box is the tombs' own, widened (its ends kept, its middle stretched) and fitted to their height. The lid that flies off (43_crypt lidOf, sarcLid: what of the lidded one is not in the opened) is then the
 // whole lid. For the mossy deep's twins too (eight rows down)
 function openTombs(c) {
   const T = 16, g = c.getContext('2d');
@@ -47,14 +50,24 @@ function openTombs(c) {
     for (const [to, from] of [[16, 18], [17, 18], [21, 20]]) { g.clearRect(to * T, (4 + M) * T, T, 2 * T); g.drawImage(c, from * T, (4 + M) * T, T, 2 * T, to * T, (4 + M) * T, T, 2 * T); }
     const box = g.getImageData(18 * T, (4 + M) * T, T, 2 * T).data, edge = (d, w, y, dir) => { for (let x = dir > 0 ? 0 : w - 1; x >= 0 && x < w; x += dir) if (d[(y * w + x) * 4 + 3]) return x; return -1; };
     for (const col of [16, 18]) {
-      const L = g.getImageData(col * T, (6 + M) * T, 2 * T, 2 * T), d = L.data, W = 2 * T;
-      for (let y = 9; y <= 20; y++) {
-        const xl = edge(d, W, y, 1), xr = edge(d, W, y, -1), tl = edge(box, T, y, 1), tr = edge(box, T, y, -1); if (xl < 0 || tl < 0) continue;
-        for (let x = xl; x <= xr; x++) { const dl = x - xl, dr = xr - x, tx = dl < 5 ? tl + dl : dr < 5 ? tr - dr : 8, a = (y * T + tx) * 4, o = (y * W + x) * 4; for (let k = 0; k < 4; k++) d[o + k] = box[a + k]; }
-      }
-      g.putImageData(L, (col + 4) * T, (6 + M) * T);
+      const L = g.getImageData(col * T, (6 + M) * T, 2 * T, 2 * T), src = L.data, W = 2 * T, O = new Uint8ClampedArray(src.length); let x0 = W, x1 = -1, y0 = 2 * T, y1 = -1;
+      for (let y = 0; y < 2 * T; y++) { const a = edge(src, W, y, 1); if (a < 0) continue; x0 = Math.min(x0, a); x1 = Math.max(x1, edge(src, W, y, -1)); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+      const by0 = 8, by1 = 31, span = by1 - by0, h = y1 - y0; // (the box's rows, 8 to 31: its rim, its dark, its front; fitted to the sarcophagus's own top and foot)
+      for (let y = y0; y <= y1; y++) { const ty = by1 - Math.round((y1 - y) <= 13 ? (y1 - y) : 13 + (h - 13 > 0 ? (y1 - y - 13) * (span - 13) / (h - 13) : 0)); const tl = edge(box, T, ty, 1), tr = edge(box, T, ty, -1); if (tl < 0) continue;
+        for (let x = x0; x <= x1; x++) { const dl = x - x0, dr = x1 - x, tx = dl < 7 ? tl + dl : dr < 7 ? tr - dr : 8, a = (ty * T + tx) * 4, o = (y * W + x) * 4; if (!box[a + 3]) continue; for (let k = 0; k < 4; k++) O[o + k] = box[a + k]; } }
+      const out = g.createImageData(W, 2 * T); out.data.set(O); g.putImageData(out, (col + 4) * T, (6 + M) * T);
     }
   }
+  return c;
+}
+// THE CRYPT'S POTTERY: the cellar's pots, recoloured in the crypt's stone, came out the floor's own beige; a fired clay,
+// redder and a little darker, so an urn stands off the slabs it stands on (its sunken twins too, above the water)
+function cryptClay(img) {
+  const c = mkCanvas(img.width, img.height), g = c.getContext('2d'); g.drawImage(img, 0, 0);
+  for (const [tx, ty, n] of [[22, 8, 6], [7, 16, 4]]) { const id = g.getImageData(tx * 16, ty * 16, n * 16, 16), d = id.data;
+    for (let i = 0; i < d.length; i += 4) { if (!d[i + 3] || d[i + 2] >= d[i] + 30) continue; const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]); if (mx - mn < 30) continue; // (not the water, not what is seen through it)
+      d[i] = Math.round(d[i] * 0.98); d[i + 1] = Math.round(d[i + 1] * 0.74); d[i + 2] = Math.round(d[i + 2] * 0.6); }
+    g.putImageData(id, tx * 16, ty * 16); }
   return c;
 }
 function trimEdgeBars(img) {
@@ -72,7 +85,7 @@ async function loadAssets() {
   IMG.mobsW = silhouette(IMG.mobs); IMG.oresW = silhouette(IMG.ores); IMG.cellarW = silhouette(IMG.cellar); PIX.ores = pixelData(IMG.ores); PIX.mobs = pixelData(IMG.mobs); PIX.cellar = pixelData(IMG.cellar); cutWeapons();
   // the cellar's pieces in the crypt's colours (tools/crypt_recolor.py): IMG.cellar, IMG.doors, IMG.ends and PIX.cellar are
   // whichever the floor's theme draws with (30_arena themeSheets)
-  IMG.cellarBase = IMG.cellar; IMG.doorsBase = IMG.doors; IMG.endsBase = IMG.ends; PIX.cellarBase = PIX.cellar; PIX.cellarCrypt = pixelData(IMG.cellarCrypt); IMG.cryptW = silhouette(IMG.crypt); IMG.mobsK = silhouette(IMG.mobs, '#060508'); /* (mobsK: black, the Shade's: 43_crypt) */ PIX.crypt = pixelData(IMG.crypt);
+  IMG.cellarBase = IMG.cellar; IMG.doorsBase = IMG.doors; IMG.endsBase = IMG.ends; PIX.cellarBase = PIX.cellar; IMG.cellarCrypt = cryptClay(IMG.cellarCrypt); PIX.cellarCrypt = pixelData(IMG.cellarCrypt); IMG.cryptW = silhouette(IMG.crypt); IMG.mobsK = silhouette(IMG.mobs, '#060508'); /* (mobsK: black, the Shade's: 43_crypt) */ PIX.crypt = pixelData(IMG.crypt);
   for (const k in COL) { GLOW[k] = glowTex(COL[k]); }
   SMOKE.grey = smokeTex([70, 66, 72]); SMOKE.dust = smokeTex([122, 100, 78]); SMOKE.dark = smokeTex([22, 18, 24]); SMOKE.green = smokeTex([60, 120, 60]); SMOKE.breath = smokeTex([226, 230, 240]);
   ROCKS.length = 0; for (let i = 0; i < 6; i++) ROCKS.push(rockTex(i));

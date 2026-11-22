@@ -121,7 +121,20 @@ const LIQUIDS = {
 };
 const liq = () => (ARENA && ARENA.liq ? LIQUIDS[ARENA.liq] : null);
 IMG.cellarLiq = {};
-function liquidSheet(k) { const c = mkCanvas(IMG.cellarCrypt.width, IMG.cellarCrypt.height); c.getContext('2d').drawImage(IMG.cellarCrypt, 0, 0); liquify(c, LIQUIDS[k]); return c; }
+function liquidSheet(k) { const c = mkCanvas(IMG.cellarCrypt.width, IMG.cellarCrypt.height); c.getContext('2d').drawImage(IMG.cellarCrypt, 0, 0); submerge(c, LIQUIDS[k]); liquify(c, LIQUIDS[k]); return c; }
+// what of a sunken thing lies under the liquid (the sheet's sunken set, rows 16 to 23): the stone and clay seen through
+// the water, a pale grey in the crypt's recolouring, there tinted with the liquid, as much as the blue round it is. In
+// each tile, every grey pixel from the first row that has the water's blue in it down
+function submerge(cv, L) {
+  const g = cv.getContext('2d'), T = 16, y0 = 16 * T, id = g.getImageData(0, y0, 16 * T, 8 * T), d = id.data, W = 16 * T, blue = i => d[i + 3] && d[i + 2] >= d[i] + 30;
+  for (let ty = 0; ty < 8; ty++) for (let tx = 0; tx < 16; tx++) {
+    let wl = -1; for (let y = 0; y < T && wl < 0; y++) for (let x = 0; x < T; x++) if (blue(((ty * T + y) * W + tx * T + x) * 4)) { wl = y; break; }
+    if (wl < 0) continue;
+    for (let y = wl; y < T; y++) for (let x = 0; x < T; x++) { const i = ((ty * T + y) * W + tx * T + x) * 4; if (!d[i + 3] || blue(i)) continue; const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]); if (mx - mn >= 30) continue;
+      const l = 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2], k = l / 111; for (let c = 0; c < 3; c++) d[i + c] = Math.min(255, Math.round(d[i + c] * 0.35 + L.base[c] * k * 0.65)); }
+  }
+  g.putImageData(id, 0, y0);
+}
 function liquify(cv, L) { // (each blue pixel: the liquid's colour, as much lighter or darker than it as the blue was than the water's own, 111)
   const g = cv.getContext('2d'), id = g.getImageData(0, 0, cv.width, cv.height), d = id.data;
   for (let i = 0; i < d.length; i += 4) { if (!d[i + 3] || d[i + 2] < d[i] + 30) continue;

@@ -384,7 +384,7 @@ function blockHome(A, b) { smoke(b.x, b.cy, 4, 'dust', 8, 14, 0.8); b.tx = b.hom
 // a block that went into the cleft: it wedges there, its top level with the floor, a stepping stone
 function fillGap(A, b) {
   const i = b.ty * A.w + b.tx; b.dead = true; A.fl[i] = 1; A.flv = (A.flv || 0) + 1; const x = b.tx * TS, y = b.ty * TS, Wk = wkOf(A);
-  groundPaint(x, y, x + TS, y + TS, g => { g.fillStyle = '#121418'; g.fillRect(x, y, TS, TS); sheetTile(g, Wk.block, x, y - 2, 3, 0); g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(x, y + TS - 3, TS, 3); });
+  groundPaint(x, y, x + TS, y + TS, g => { g.fillStyle = rockRGB(); g.fillRect(x, y, TS, TS); sheetTile(g, Wk.block, x, y - 2, 3, 0); g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(x, y + TS - 3, TS, 3); });
   shake(0.18); SFX.boom && SFX.boom(0.2, panOf(x)); SFX.stone(panOf(x), true); smoke(x + 8, y + 8, 6, 'dust', 9, 20, 1); debris(x + 8, y + 8, 8, ['#5a5450', '#7a726a', '#3c342e'], 60, 80, 1.2); ring(x + 8, y + 8, 22, 'white', 0.35, 2);
   textPop(x + 8, y + 8, 18, 'WEDGED', 'gold', false);
 }
@@ -435,7 +435,7 @@ function repaintTiles(A, x0, y0, x1, y1) {
   const put = (g, tx, ty, x, y, flip) => { g.save(); g.translate(flip ? (x + 1) * TS : x * TS, y * TS); if (flip) g.scale(-1, 1); const [im, sx, sy] = srcOf(tx, ty + th.fy); g.drawImage(im, sx, sy, TS, TS, 0, 0, TS, TS); g.restore(); };
   const P = []; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const i = y * W + x; A.wt[i] = 0; A.wf[i] = 0; if (!isF(x, y)) { const pc = wallPiece(isF, x, y); if (pc) { A.wt[i] = pc[0] * 64 + pc[1] + 1; A.wf[i] = pc[2] ? 1 : 0; P.push([x, y, pc]); } } }
   groundPaint(x0 * TS, y0 * TS, (x1 + 1) * TS, (y1 + 1) * TS, g => {
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const v = A.fl[y * W + x]; if (v !== 0 && !FLOOR(v)) continue; g.fillStyle = '#121418'; g.fillRect(x * TS, y * TS, TS, TS); if (FLOOR(v) || P.some(q => q[0] === x && q[1] === y)) tileAt(g, 10, floorRow, x * TS, y * TS); } // (water and pits stay as they are)
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const v = A.fl[y * W + x]; if (v !== 0 && !FLOOR(v)) continue; g.fillStyle = rockRGB(); g.fillRect(x * TS, y * TS, TS, TS); if (FLOOR(v) || P.some(q => q[0] === x && q[1] === y)) tileAt(g, 10, floorRow, x * TS, y * TS); } // (water and pits stay as they are)
     for (const [x, y, pc] of P) put(g, pc[0], pc[1], x, y, pc[2]);
   });
   // the ceiling over it again (and the north walls' trim), from the floor as it is drawn now

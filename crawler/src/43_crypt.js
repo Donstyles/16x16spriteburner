@@ -63,7 +63,7 @@ function cryptDress(A, g) {
 }
 // a tomb: two tiles tall (its bottom tile at x, y), solid from its foot to its lid's back edge
 function tombProp(prop, x, y, kind, lit) {
-  const M = MOSS(); prop('tomb', x, y, { sheet: 'crypt', tile: [TOMBS[kind], M], th: 2, r: 7, box: [-7, 7, -17, 1], tombKind: kind, moss: M });
+  const M = MOSS(); prop('tomb', x, y, { sheet: 'crypt', tile: [TOMBS[kind], M], th: 2, r: 7, box: [-7, 7, -13, 1], tombKind: kind, moss: M });
   if (!lit) return; const A = ARENA, p = A.props[A.props.length - 1], col = TOMBS[kind] * TS; // (its candles: those of the same tomb lit, rows 2-3, on the lidded one)
   p.candles = addCandles(A, candleSrc(col, (2 + M) * TS, TS, 2 * TS, [col, M * TS]), p.x - 8, p.y - 14 - TS, p.y - 6, 480);
 }

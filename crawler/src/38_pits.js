@@ -29,7 +29,7 @@ const FORCE_PITS = { on: false }; // the pit floor (kit screen): every kind of p
 let PITPASS = false; // (while a knocked unit moves, a pit does not stop it: 31_walls' wallBoxes)
 const pitFace = A => A.th.tone === 'grey' ? [10, 12] : [10, 4];
 let PIT_BLACK = null;
-function pitBlack() { if (PIT_BLACK) return PIT_BLACK; const P = PIX.cellar, i = ((4 * TS + 15) * P.w + 10 * TS + 8) * 4; return (PIT_BLACK = `rgb(${P.d[i]},${P.d[i + 1]},${P.d[i + 2]})`); }
+function pitBlack() { if (ARENA && ARENA.th.sheet === 'crypt') return '#000'; /* (the crypt's: black, no brown to be taken for the earth of its worn floors) */ if (PIT_BLACK) return PIT_BLACK; const P = PIX.cellar, i = ((4 * TS + 15) * P.w + 10 * TS + 8) * 4; return (PIT_BLACK = `rgb(${P.d[i]},${P.d[i + 1]},${P.d[i + 2]})`); }
 function pitAt(x, y) { const A = ARENA; if (!A || !A.fl) return false; const tx = Math.floor(x / TS), ty = Math.floor(y / TS); return tx >= 0 && ty >= 0 && tx < A.w && ty < A.h && A.fl[ty * A.w + tx] === PIT; }
 // a pit tile on the ground: black, the earth face under whatever stands to its north (a floor's edge, or the foot of a
 // wall the pit runs up to), and the walls beside it: every pixel a wall

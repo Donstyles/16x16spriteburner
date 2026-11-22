@@ -52,7 +52,7 @@ function shutDoor(A, d, r) {
   if (d.side === 'S') {
     const xs = d.cells.map(c => c[0]), y = d.cells[0][1], x0 = Math.min(...xs) - 1, x1 = Math.max(...xs) + 1, fr = th.floors[0][1];
     groundPaint(x0 * TS, y * TS, (x1 + 1) * TS, (y + 4) * TS, g => {
-      g.fillStyle = '#121418'; g.fillRect(x0 * TS, (y + 1) * TS, (x1 - x0 + 1) * TS, 3 * TS);
+      g.fillStyle = rockRGB(); g.fillRect(x0 * TS, (y + 1) * TS, (x1 - x0 + 1) * TS, 3 * TS);
       for (let x = x0; x <= x1; x++) { tileAt(g, 10, fr, x * TS, y * TS); { const [im, sx, sy] = srcOf(6, 3 + th.fy); g.drawImage(im, sx, sy, TS, TS, x * TS, y * TS, TS, TS); } }
     });
     // the corridor's first stretch is rock now, and the wall across the doorway south wall pieces (31_walls: their row is

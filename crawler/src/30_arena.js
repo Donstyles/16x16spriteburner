@@ -208,6 +208,9 @@ function cryptBlocks(rooms, isF, W) {
 // its dark the ceiling, the face not (31_walls paintAt takes these before the cellar piece's own)
 const BLOCK_PAINT = [[8, 8], [0, 0], [0, -8], [0, -16]].map(([w0, t0]) => { const w = new Uint16Array(16), t = new Uint16Array(16); for (let y = 0; y < 16; y++) { if (y >= w0) w[y] = 0xffff; if (t0 >= 0 ? y >= t0 : y < 16 + t0) t[y] = 0xffff; } return { w, t, tr: maskRects(t) }; }); // ([rows from which it is wall, rows of ceiling: from this row on, or (less than nothing) the first 16 less that many])
 function blockPaint(blk) { const m = new Map(); for (const [i, [, row]] of blk) m.set(i, BLOCK_PAINT[row]); return m; }
+// the colour of solid rock, where no piece is drawn: the cellar's near-black, the crypt's black (as black as its wall tops and
+// the dark beyond what has been seen: 10_assets cryptTops)
+const rockRGB = () => (TH && TH.sheet === 'crypt' ? '#000' : '#121418');
 function cryptAt(g, tx, ty, dx, dy) { g.drawImage(IMG.crypt, tx * TS, ty * TS, TS, TS, dx, dy, TS, TS); }
 function tileAt(g, tx, ty, dx, dy) { const [im, sx, sy] = srcOf(tx, ty); g.drawImage(im, sx, sy, TS, TS, dx, dy, TS, TS); }
 // A floor that cannot take the puzzles its depth asks for (37_levels levelPlan) is laid out again, a few times at most.
@@ -348,7 +351,7 @@ function buildArena1(floor) {
   const cv = mkCanvas(W * TS, H * TS), g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
   const cc = mkCanvas(W * TS, H * TS), cg = cc.getContext('2d'); cg.imageSmoothingEnabled = false; // the ceiling layer
   const cn = mkCanvas(W * TS, H * TS), cng = cn.getContext('2d'); cng.imageSmoothingEnabled = false; // the north walls' trim (CEIL_N)
-  g.fillStyle = '#121418'; g.fillRect(0, 0, cv.width, cv.height);
+  g.fillStyle = rockRGB(); g.fillRect(0, 0, cv.width, cv.height); // (the rock: near-black, the crypt's black)
   const isF = (x, y) => x >= 0 && y >= 0 && x < W && y < H && fl[y * W + x] === 1;
   const face = (x, y) => !isF(x, y) && isF(x, y + 1), O = (x, y) => isF(x, y) || face(x, y);
   const inRoomRect = (x, y) => rooms.some(r => x >= r.fx0 && x <= r.fx1 && y >= r.fy0 && y <= r.fy1);
@@ -377,7 +380,7 @@ function buildArena1(floor) {
   };
   const blk = th.sheet === 'crypt' ? cryptBlocks(rooms, isF, W) : null; // (the crypt's blocks of wall standing in its rooms: drawn whole, below)
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const P = wallPiece(isF, x, y); if (!P) continue; if (blk && blk.has(y * W + x)) { wt[y * W + x] = P[0] * 64 + P[1] + 1; wf[y * W + x] = P[2] ? 1 : 0; } else T(P[0], P[1], x, y, P[2]); }
-  if (th.sheet === 'crypt') { g.fillStyle = '#121418'; for (const r of rooms) for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) if (!wt[y * W + x] && !isF(x, y)) g.fillRect(x * TS, y * TS, TS, TS); } // (the inside of a block of wall standing in a crypt room is the wall's dark top, as its edges are)
+  if (th.sheet === 'crypt') { g.fillStyle = rockRGB(); for (const r of rooms) for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) if (!wt[y * W + x] && !isF(x, y)) g.fillRect(x * TS, y * TS, TS, TS); } // (the inside of a block of wall standing in a crypt room is the wall's dark top, as its edges are)
   if (blk) for (const [i, [cx, cy]] of blk) g.drawImage(IMG.cryptBlock, cx * TS, cy * TS, TS, TS, (i % W) * TS, ((i / W) | 0) * TS, TS, TS);
   const A = ARENA = { arch: ARCH.cur, w: W, h: H, pw: W * TS, ph: H * TS, th, ground: cv, g, ceil: cc, ceilN: cn, fl, wt, wf, pov: blk ? blockPaint(blk) : null, rooms, halls, props: [], torches: [], name: floorName(floor), floor, liq, moss: th.sheet === 'crypt' && floor >= 6 }; // (liq: what the crypt's pools hold, 36_works LIQUIDS; moss: the deepest crypt's dead grown over, 43_crypt)
   paintCeil(A, cg, cv); // the painted trim, as drawn on the ground: the ceiling over everyone (31_walls)
