@@ -156,7 +156,8 @@ function blockDecor(A, r, g) {
   const wy = A.th.tone === 'brown' ? 3 : 0, WIN = [[16, 2, 1], [16, 3, 1], [17, 3, 2], [18, 3, 2], [19, 2, 1], [19, 3, 1], [20, 3, 2]];
   const win = c => { const x = c % W, y = (c / W) | 0, [wx, wy0, wh] = pick(WIN); for (let j = 0; j < wh; j++) tileAt(g, wx, wy0 + wy - j, x * TS, (y - j) * TS); };
   const banner = c => { const x = c % W, y = (c / W) | 0, b = randi(0, 19); if (b < 12) { tileAt(g, 20 + b, 0, x * TS, (y - 1) * TS); tileAt(g, 20 + b, 1, x * TS, y * TS); } else tileAt(g, 16 + (b - 12) % 4, (b - 12) >> 2, x * TS, (y - 1) * TS + 11); };
-  if (A.th.sheet === 'crypt') { for (const f of faces) cryptFace(A, r, g, f); return; } // (the crypt's: niches, mirrored on each face, 43_crypt)
+  if (A.th.sheet === 'crypt') { for (const f of faces) cryptFace(A, r, g, f); return; }
+  if (isMagma(A)) { for (const f of faces) if (f.length >= 2 && chance(0.5)) { const a = randi(0, f.length - 2), n = randi(2, Math.min(4, f.length - a)); for (let i = a; i < a + n; i++) magmaVein(A, g, f[i] % W, (f[i] / W) | 0, i - a); } return; } // (the magma's: lava in the rock, 42_magma) // (the crypt's: niches, mirrored on each face, 43_crypt)
   for (const f of faces) {
     const n = f.length, k = Math.random();
     if (n === 1) { if (k < 0.4) torch(f[0]); else if (k < 0.7) banner(f[0]); else if (k < 0.9) win(f[0]); }

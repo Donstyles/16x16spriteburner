@@ -88,7 +88,7 @@ async function loadAssets() {
   // the cellar's pieces in the crypt's colours (tools/crypt_recolor.py): IMG.cellar, IMG.doors, IMG.ends and PIX.cellar are
   // whichever the floor's theme draws with (30_arena themeSheets)
   IMG.cellarBase = IMG.cellar; IMG.doorsBase = IMG.doors; IMG.endsBase = IMG.ends; PIX.cellarBase = PIX.cellar; IMG.cellarCrypt = cryptClay(IMG.cellarCrypt); PIX.cellarCrypt = pixelData(IMG.cellarCrypt); IMG.cryptW = silhouette(IMG.crypt); IMG.mobsK = silhouette(IMG.mobs, '#060508'); /* (mobsK: black, the Shade's: 43_crypt) */ PIX.crypt = pixelData(IMG.crypt);
-  IMG.magma = magmaSheet(IMG.magma); IMG.magmaBlock = magmaBlockAtlas(IMG.magma); IMG.magmaW = silhouette(IMG.magma); PIX.magma = pixelData(IMG.magma); IMG.cellarMagma = magmaCellar(IMG.cellarMagma); PIX.cellarMagma = pixelData(IMG.cellarMagma); // (the magma's: 42_magma)
+  IMG.magma = magmaSheet(IMG.magma); IMG.magmaBlock = magmaBlockAtlas(IMG.magma); IMG.magmaW = silhouette(IMG.magma); IMG.magmaCold = magmaCold(IMG.magma); IMG.magmaColdW = IMG.magmaW; PIX.magma = pixelData(IMG.magma); IMG.cellarMagma = magmaCellar(IMG.cellarMagma); PIX.cellarMagma = pixelData(IMG.cellarMagma); // (the magma's: 42_magma)
   for (const k in COL) { GLOW[k] = glowTex(COL[k]); }
   SMOKE.grey = smokeTex([70, 66, 72]); SMOKE.dust = smokeTex([122, 100, 78]); SMOKE.dark = smokeTex([22, 18, 24]); SMOKE.green = smokeTex([60, 120, 60]); SMOKE.breath = smokeTex([226, 230, 240]);
   ROCKS.length = 0; for (let i = 0; i < 6; i++) ROCKS.push(rockTex(i));

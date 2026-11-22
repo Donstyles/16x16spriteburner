@@ -268,7 +268,7 @@ function crackSlabs(x0, y0, x1, y1) {
   const A = ARENA; if (!A || !A.crumbleSet || !A.crumbleSet.size) return; const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 3));
   for (let k = 0; k <= n; k++) { const x = x0 + (x1 - x0) * k / n, y = y0 + (y1 - y0) * k / n, i = Math.floor(y / TS) * A.w + Math.floor(x / TS); if (!A.crumbleSet.has(i)) continue; const c = A.crumbles.find(c => c.i === i); if (c && c.st === 0) { c.st = 1; c.t = 0; SFX.crumble(panOf(x), 0); } }
 }
-function pitKnock(u) { return !u.fly && !u.under && Math.hypot(u.kx, u.ky) > PIT_KNOCK; }
+function pitKnock(u) { return !u.fly && !u.under && Math.hypot(u.kx, u.ky) > PIT_KNOCK && !(u.def && u.def.fireproof && isMagma(ARENA)); } // (what is made of fire is not thrown into the lava)
 // Penned in: the floor he stands on joined to no door of his room (pits all round, loose slabs fallen). No layout should
 // ever do it (38_pits pitHoles noIsland), but should one, he is never stuck for good: he may step off the edge, and the
 // fall puts him back where he last stood clear (50_actors lets him over the edge).

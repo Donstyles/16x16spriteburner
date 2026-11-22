@@ -468,10 +468,11 @@ function furnish(A, r, g) {
   const BZ = th.sheet === 'crypt' ? [[r.ix0 + 1, r.iy0 + 1], [r.ix1 - 1, r.iy0 + 1]] : [[r.ix0 + 1, r.iy1 - 1], [r.ix1 - 1, r.iy0 + 1]]; /* (the crypt's: a mirrored pair, both or neither) */
   if (r.w * r.h >= 100 && (th.sheet !== 'crypt' || BZ.every(([tx, ty]) => !nearDoor(tx, ty) && FLOOR(A.fl[ty * A.w + tx]) && !(A.noProp && A.noProp.has(ty * A.w + tx))))) for (const [tx, ty] of BZ) if (!nearDoor(tx, ty)) prop('brazier', tx, ty, { f: th.sheet === 'crypt' ? tx % 4 : randi(0, 3), pair: th.sheet === 'crypt' ? 'bz' + r.i : undefined }); // (the crypt's: a mirrored pair in its north corners)
   if (th.sheet === 'crypt') { cryptFurnish(A, r, g, prop, nearDoor); lightless(A, r); return; } // (43_crypt: by rule, no crates)
-  if (themeRoom(A, r, prop, nearDoor)) { lightless(A, r); return; } // (a warehouse, a pottery, a cart shed, a statue gallery: 35_themes)
+  if (th.sheet === 'magma') magmaWall(A, r, g, used); // (lava in the rock of its north wall: 42_magma)
+  if (th.sheet !== 'magma' && themeRoom(A, r, prop, nearDoor)) { lightless(A, r); return; } // (a warehouse, a pottery, a cart shed, a statue gallery: 35_themes)
   const corner = (cx, cy) => { for (let i = 0; i < randi(1, 3); i++) { const tx = clamp(cx + randi(-1, 1), r.ix0, r.ix1), ty = clamp(cy + randi(-1, 1), r.iy0, r.iy1); if (nearDoor(tx, ty) || !free(tx * TS + 8, ty * TS + 14)) continue; const t = pick(CLUTTER); prop(t[2] || (t[0] >= 28 && t[1] === 8 ? 'chest' : 'barrel'), tx, ty, { tile: [t[0], t[1]], th: t[3] || 1, hp: 40 }); } };
-  corner(r.ix0, r.iy0); corner(r.ix1, r.iy0); corner(r.ix0, r.iy1); corner(r.ix1, r.iy1);
-  if (r.kind === 'room' && !r.pool && !r.shrine && !r.set && chance(0.3)) for (let x = r.ix0 + 1; x < r.ix1; x++) { // a storeroom: stock along its north wall
+  if (th.sheet === 'magma') magmaDress(A, r, g, prop, nearDoor, free); else { corner(r.ix0, r.iy0); corner(r.ix1, r.iy0); corner(r.ix0, r.iy1); corner(r.ix1, r.iy1); } // (the magma's: rocks, spires and pots, 42_magma)
+  if (th.sheet !== 'magma' && r.kind === 'room' && !r.pool && !r.shrine && !r.set && chance(0.3)) for (let x = r.ix0 + 1; x < r.ix1; x++) { // a storeroom: stock along its north wall
     if (!chance(0.45) || nearDoor(x, r.iy0, 2) || (r.stairX !== undefined && x >= r.stairX - 1 && x <= r.stairX + 3) || !free(x * TS + 8, r.iy0 * TS + 14, 14)) continue;
     // a two-wide heap takes this tile and the next whole (set between them), so it never laps over a neighbour
     let t = pick(STOCK); const two = (t[4] || 1) > 1;
@@ -480,7 +481,7 @@ function furnish(A, r, g) {
   }
   if (r.kind === 'treasure' || r.chest) { const at = chestSpot(r); prop('tchest', at[0], at[1], { tier: chestTier(A.floor), hp: 1, r: 6, open: false }); } // its treasure chest
   if ((r.kind === 'room' || r.kind === 'end') && !r.pool && !r.shrine && !r.set && !r.shape) {
-    if (r.w >= 15 && r.h >= 9 && chance(0.7) && !r.great) { const P = th.pillar[randi(0, 1)]; for (const [fx, fy] of chance(0.5) ? [[0.27, 0.4], [0.73, 0.4], [0.27, 0.78], [0.73, 0.78]] : [[0.3, 0.55], [0.7, 0.55]]) { const tx = Math.round(r.ix0 + fx * (r.w - 1)), ty = Math.max(r.iy0 + 3, Math.round(r.iy0 + fy * (r.h - 1))); if (!nearDoor(tx, ty, 2)) prop('pillar', tx, ty, { tile: P, r: 6 }); } }
+    if (r.w >= 15 && r.h >= 9 && chance(0.7) && !r.great && !r.forest) { const P = th.pillar[randi(0, 1)]; for (const [fx, fy] of chance(0.5) ? [[0.27, 0.4], [0.73, 0.4], [0.27, 0.78], [0.73, 0.78]] : [[0.3, 0.55], [0.7, 0.55]]) { const tx = Math.round(r.ix0 + fx * (r.w - 1)), ty = Math.max(r.iy0 + 3, Math.round(r.iy0 + fy * (r.h - 1))); if (!nearDoor(tx, ty, 2)) prop('pillar', tx, ty, { tile: P, r: 6 }); } }
   }
   lightless(A, r);
 }

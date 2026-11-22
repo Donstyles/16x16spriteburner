@@ -242,15 +242,15 @@ function sinkThings(A, p, n, kinds) {
   const wet8 = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (A.fl[(y + j) * A.w + x + i] !== 2) return false; return true; };
   const open = (x, y) => { const i = y * A.w + x; return p.cells.has(i) && A.fl[i] === 2 && wet8(x, y) && !taken.has(i) && !(p.sunkAt && Math.abs(p.sunkAt[0] - x) <= 1 && Math.abs(p.sunkAt[1] - y) <= 1) && !bc.some(([a, b]) => Math.abs(a - x) <= 1 && Math.abs(b - y) <= 1) && !(x === p.drainAt[0] && y === p.drainAt[1]) &&
     !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < 16 && Math.abs(q.cy - (y * TS + 10)) < 20); };
-  const all = (A.th.sheet === 'crypt' ? SUNK.filter(s => s[2] === 'barrel') : SUNK).concat(sunkStone(A)), list = kinds || Array.from({ length: n * 2 }, () => pick(all)); let made = 0; // (twice as many to try as are wanted: the big ones often find no room)
+  const M = isMagma(A), all = M ? LAVA_ROCKS.concat(LAVA_ROCKS, sunkStone(A)) : (A.th.sheet === 'crypt' ? SUNK.filter(s => s[2] === 'barrel') : SUNK).concat(sunkStone(A)), list = kinds && !M ? kinds : Array.from({ length: kinds ? kinds.length : n * 2 }, () => pick(all)); let made = 0; // (the magma's: rocks standing in the lava, the sheet's own, and the cellar's stones; nothing of wood: 42_magma) // (twice as many to try as are wanted: the big ones often find no room)
   for (const s of list) for (let k = 0; k < 10 && made < n; k++) { // each a few tries for a spot it fits
     // (on open water, never on the stone rim: the foot off the edge rows and columns; a tall heap's top may stand in front of the north rim)
-    const [wt, dt, kind, w = 1, h = 1] = s, xa = p.x0 + 1, xb = p.x1 - w, ya = Math.max(p.y0 + 1, p.y0 + h - 1), yb = p.y1 - 1; if (xb < xa || yb < ya) break;
+    const [wt, dt, kind, w = 1, h = 1, sh] = s, xa = p.x0 + 1, xb = p.x1 - w, ya = Math.max(p.y0 + 1, p.y0 + h - 1), yb = p.y1 - 1; if (xb < xa || yb < ya) break;
     const x = randi(xa, xb), y = randi(ya, yb);
     const cells = []; for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) cells.push([x + i, y - j]);
     if (!cells.every(([a, b]) => open(a, b))) continue;
     for (const [a, b] of cells) taken.add(b * A.w + a);
-    A.props.push({ kind: kind === 'cart' ? 'crate' : kind, stone: kind === 'stone', tile: wt, wetTile: wt, dry: dt, tw: w, th: h, x: (x + (w - 1) / 2) * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: w > 1 ? 9 : 5, solid: true, hp: 1e9, sunk: p, room: p.room });
+    A.props.push({ kind: kind === 'cart' ? 'crate' : kind, stone: kind === 'stone', tile: wt, wetTile: wt, dry: dt, tw: w, th: h, x: (x + (w - 1) / 2) * TS + 8, y: y * TS + 14, cy: y * TS + 10, r: w > 1 ? 9 : 5, solid: true, hp: 1e9, sunk: p, room: p.room, sheet: sh, wetSheet: sh, drySheet: sh ? sh + 'Cold' : undefined });
     made++; break;
   }
   return made;
@@ -524,7 +524,7 @@ function sunkenSpot(A, p) {
 function dryOut(p) {
   p.dried = true;
   if (ARENA.clouds) removeIf(ARENA.clouds, q => p.cells.has(Math.floor(q.y / TS) * ARENA.w + Math.floor(q.x / TS)));
-  for (const q of ARENA.props) if (q.sunk === p && !q.dead) { q.tile = q.dry; q.hp = q.kind === 'wetpillar' || q.stone ? 1e9 : 40; q.wet = q.sunk; q.sunk = null; water(q.x, q.y - 4, 4, 0, 0, rand(8, 18)); }
+  for (const q of ARENA.props) if (q.sunk === p && !q.dead) { q.tile = q.dry; if (q.drySheet) q.sheet = q.drySheet; q.hp = q.kind === 'wetpillar' || q.stone ? 1e9 : 40; q.wet = q.sunk; q.sunk = null; water(q.x, q.y - 4, 4, 0, 0, rand(8, 18)); }
 }
 // the test room's refill: the water comes back in from the grate over a couple of seconds, everything that stood in it
 // stands there again (wet), whatever the drain left at the bottom goes, and the plate rises for another go
@@ -536,7 +536,7 @@ function refillPool(p) {
     let best = null, bd = 1e9; for (let ty = p.y0 - 1; ty <= p.y1 + 1; ty++) for (let tx = p.x0 - 1; tx <= p.x1 + 1; tx++) { const i = ty * A.w + tx; if (!FLOOR(A.fl[i]) || A.fl[i] === 2) continue; const d = Math.hypot(tx * TS + 8 - u.x, ty * TS + 8 - u.y); if (d < bd) { bd = d; best = [tx, ty]; } }
     if (best) { u.x = best[0] * TS + 8; u.y = best[1] * TS + 10; u.vx = u.vy = u.kx = u.ky = 0; smoke(u.x, u.y, 3, 'dust', 6, 12, 0.6); }
   }
-  for (const q of A.props) if (q.wet === p || q.sunk === p) Object.assign(q, { dead: false, solid: true, tile: q.wetTile, sunk: p, wet: null, hp: 1e9 });
+  for (const q of A.props) if (q.wet === p || q.sunk === p) Object.assign(q, { dead: false, solid: true, tile: q.wetTile, sheet: q.wetSheet, sunk: p, wet: null, hp: 1e9 });
   G.drops = G.drops.filter(d => !p.cells.has(Math.floor(d.y / TS) * A.w + Math.floor(d.x / TS)));
   for (const pl of A.plates || []) if (pl.pool === p) { pl.down = false; pl.t = 0; pl.f = 0; }
   const [dx, dy] = p.drainAt; SFX.drain(panOf(dx * TS));

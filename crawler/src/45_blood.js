@@ -11,14 +11,14 @@ const GORE = { level: 2, big: 0.5 }; // big: the least share of spray drops that
 try { const v = localStorage.getItem('cr2-gore'); if (v !== null && v !== '') GORE.level = clamp(Math.round(+v) || 0, 0, 2); } catch (e) { /* storage blocked: the default */ }
 function setGore(v) { GORE.level = v; try { localStorage.setItem('cr2-gore', String(v)); } catch (e) { /* not kept */ } }
 const GORE_NAMES = ['OFF', 'BLOOD', 'FULL'];
-const DRY = new Set(['bone', 'stone', 'straw', 'water', 'wood', 'dust']); // these do not bleed: they shed bits instead (46_bits)
+const DRY = new Set(['bone', 'stone', 'straw', 'water', 'wood', 'dust', 'ember']); // these do not bleed: they shed bits instead (46_bits)
 const DUST = ['#5a5048', '#7d7064', '#3c342e'];
 const bleeds = u => GORE.level > 0 && !DRY.has(u.def.blood || 'red');
 const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const GIB_HOLD = 0.22; // how long a burst is held: the hero frozen, the pieces and spray moving slowly
 
 // --- where blood lies: a coarse map (4 px cells) of how much, and of which kind, so feet can pick it up
-const BK = ['red', 'slime', 'bug', 'sludge', 'bone', 'stone', 'straw', 'water', 'wood', 'dust'];
+const BK = ['red', 'slime', 'bug', 'sludge', 'bone', 'stone', 'straw', 'water', 'wood', 'dust', 'ember'];
 const BMAP = { A: null, w: 0, a: null, k: null };
 function bmap() {
   const A = ARENA; if (BMAP.A !== A) { BMAP.A = A; BMAP.w = Math.ceil(A.w * TS / 4); const n = BMAP.w * Math.ceil(A.h * TS / 4); BMAP.a = new Uint8Array(n); BMAP.k = new Uint8Array(n); BTR.length = 0; }
@@ -142,7 +142,7 @@ function drawRuns(c) {
 function bloodTick(u, dt) {
   if (u.team === 'hero') { if (u.gore > 0) u.gore = Math.max(0, u.gore - 0.035 * dt); bladeDrip(u, dt); footprints(u); }
   if (u.wetT > 0) wetSteps(u, dt); // soaked by the water elemental
-  if (!u.dead && u.def.blood === 'water') waterTrail(u, dt); else if (!u.dead && u.def.blood === 'dust' && u.z > 1) dustTrail(u, dt);
+  if (!u.dead && u.def.blood === 'water') waterTrail(u, dt); else if (!u.dead && u.def.blood === 'dust' && u.z > 1) dustTrail(u, dt); else if (!u.dead && u.def.blood === 'ember') emberTrail(u, dt);
   const dry = u.def.blood === 'straw' || u.def.blood === 'bone' || u.def.blood === 'wood'; // (the badly hurt bloodless leave stalks, chips and leaves)
   if (!(bleeds(u) || dry) || u.hp >= u.maxHp * 0.5 || u.z > 2) { u.bx = u.x; u.by = u.y; return; }
   const d = Math.hypot(u.x - (u.bx === undefined ? u.x : u.bx), u.y - (u.by === undefined ? u.y : u.by)); u.bx = u.x; u.by = u.y;

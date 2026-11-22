@@ -52,6 +52,15 @@ function magmaCellar(img) {
     g.drawImage(IMG.magma, TS + o, 33 * TS + 9, TS - o, 7, x, y, TS - o, 7); if (o) g.drawImage(IMG.magma, TS, 33 * TS + 9, o, 7, x + TS - o, y, o, 7); }
   return c;
 }
+// THE ROCKS IN THE LAVA (36_works sinkThings: what stands in a pool): the sheet's own, drawn with the lava's glow round
+// their feet ([0..7, 22..25]: eight small ones, four spires two tiles tall, four heaps two tiles square). When their
+// lava is drained they stand cold: the same rocks from a copy of the sheet with every lava colour gone to dark rock
+const LAVA_ROCKS = [[0, 22], [1, 22], [2, 22], [3, 22], [0, 23], [1, 23], [2, 23], [3, 23]].map(t => [t, t, 'stone', 1, 1, 'magma']).concat([4, 5, 6, 7].map(x => [[x, 22], [x, 22], 'stone', 1, 2, 'magma']), [0, 2, 4, 6].map(x => [[x, 24], [x, 24], 'stone', 2, 2, 'magma']));
+function magmaCold(img) {
+  const c = mkCanvas(img.width, img.height), g = c.getContext('2d'); g.drawImage(img, 0, 0); const id = g.getImageData(0, 0, c.width, c.height), d = id.data;
+  for (let i = 0; i < d.length; i += 4) if (d[i + 3] && d[i] >= 160 && d[i + 2] <= 10 && d[i] > d[i + 1] + 60) { const hot = d[i + 1] >= 100; d[i] = hot ? 56 : 40; d[i + 1] = hot ? 47 : 34; d[i + 2] = hot ? 38 : 28; }
+  g.putImageData(id, 0, 0); return c;
+}
 const MFLOOR = { cracks: [] };
 // THE FLOOR: the sheet's pavement ([12..15, 11..15]: twenty tiles on one grid of blocks, so any of them lies beside any
 // other), plain, or with lava in its seams. Where the seams burn follows a smooth field over the whole floor (its ridges
@@ -92,7 +101,7 @@ function lavaMark(A, g, x0, y0, w, h) {
 function viewRect(A) { const x0 = Math.max(0, PXO.x), y0 = Math.max(0, PXO.y), x1 = Math.min(A.pw, PXO.x + BUF.w), y1 = Math.min(A.ph, PXO.y + BUF.h); return [x0, y0, x1 - x0, y1 - y0]; }
 function drawMagma(c, rect) {
   const A = ARENA; if (!isMagma(A)) return; const VR = () => rect ? [Math.max(0, rect[0]), Math.max(0, rect[1]), Math.min(A.pw, rect[0] + rect[2]) - Math.max(0, rect[0]), Math.min(A.ph, rect[1] + rect[3]) - Math.max(0, rect[1])] : viewRect(A);
-  if (A.lavaM) { const [x, y, w, h] = VR(); lavaBlit(c, A.lavaM, x, y, w, h, x, y); } if (rect) return; drawLavaDeath(c); drawBombsUnder(c);
+  if (A.lavaM) { const [x, y, w, h] = VR(); lavaBlit(c, A.lavaM, x, y, w, h, x, y); } if (rect) return; drawLavaDeath(c); drawBombsUnder(c); magmaLights();
   // its light: from every other lava tile in sight (a pit's), and over each pool
   if (A.pitN) { const [x, y, w, h] = viewRect(A), tx0 = Math.floor(x / TS), ty0 = Math.floor(y / TS), tx1 = Math.ceil((x + w) / TS), ty1 = Math.ceil((y + h) / TS);
     for (let ty = ty0 - 2; ty <= ty1 + 2; ty++) for (let tx = tx0 - 2; tx <= tx1 + 2; tx++) { if ((tx & 1) || (ty & 1) || tx < 0 || ty < 0 || tx >= A.w || ty >= A.h || A.fl[ty * A.w + tx] !== PIT) continue; light(tx * TS + 8, ty * TS + 8, 50 + 4 * Math.sin(G.time * 1.7 + tx * 1.3 + ty), 'magma', 0.55); } }
@@ -103,7 +112,7 @@ function drawMagmaGlow(c) {
   const A = ARENA; if (!isMagma(A)) return; const k = 0.26 + 0.07 * Math.sin(G.time * 1.3);
   if (A.lavaM) { const [x, y, w, h] = viewRect(A); lavaBlit(c, A.lavaM, x, y, w, h, x, y, k); }
   for (const p of A.pools || []) if (p.lm && p.level > 0) { const ins = Math.round((1 - p.level) * 6), w = p.cw || p.cv.width, h = p.ch || p.cv.height; lavaBlit(c, p.lm, ins, ins, w - ins * 2, h - ins * 2, p.px0 + ins, p.py0 + ins, k * Math.min(1, p.level * 1.6)); }
-  drawBombsGlow(c); drawVentGlow(c);
+  drawBombsGlow(c); drawVentGlow(c); drawVeinGlow(c);
 }
 function magmaAfter(A) { A.mcr = MFLOOR.cracks; MFLOOR.cracks = []; }
 
@@ -164,7 +173,7 @@ function lavaOut(u, F) {
   number(u.x, u.y, headZ(u) + 1, dmg, 'red', false, u); G.hurtFlash = 0.35; shake(0.25); smoke(u.x, u.y, 4, 'dust', 8, 14, 0.8); SFX.stone(panOf(u.x), false); ignite(u, 4);
 }
 // ---- on fire
-function ignite(u, dur = 4) { if (!u || u.dead || u.fall) return; const was = u.fireT > 0; u.fireT = Math.max(u.fireT || 0, dur); if (!was) { u.fireTick = 0.5; SFX.fire(panOf(u.x)); if (u.team === 'hero') textPop(u.x, u.y, headZ(u) + 8, 'ON FIRE', 'fire', false, u); } }
+function ignite(u, dur = 4) { if (!u || u.dead || u.fall || (u.def && u.def.fireproof)) return; const was = u.fireT > 0; u.fireT = Math.max(u.fireT || 0, dur); if (!was) { u.fireTick = 0.5; SFX.fire(panOf(u.x)); if (u.team === 'hero') textPop(u.x, u.y, headZ(u) + 8, 'ON FIRE', 'fire', false, u); } }
 function douse(u) { if (!(u.fireT > 0)) return; u.fireT = 0; smoke(u.x, u.y - 4, 5, 'grey', 7, 14, 0.9, 18); SFX.puff(panOf(u.x)); }
 function fireTick(dt) {
   for (const u of G.units) {
@@ -318,3 +327,77 @@ function magmaAmbient(dt) {
     if (chance(dt * n)) { const i = pick(L); part({ k: 'ember', x: (i % A.w) * TS + rand(2, 14), y: ((i / A.w) | 0) * TS + rand(4, 14), z: 1, vx: rand(-8, 8), vy: rand(-3, 3), vz: rand(18, 60), drag: 1.2, life: rand(1, 2.4), s0: rand(1, 1.8), s1: 0.3, col: 'ember' }); }
     if (chance(dt * n * 0.3)) { const i = pick(L), x = (i % A.w) * TS + rand(3, 13), y = ((i / A.w) | 0) * TS + rand(6, 13); if (lavaAt(x, y)) { plipLava(x, y); if (chance(0.3) && dist(h.x, h.y, x, y) < 110) SFX.pop(panOf(x)); } } }
 }
+
+// ===================== THE MAGMA'S ARMIES =====================
+// THE DEMON HORDE (once of the deep below) and THE CINDER COURT hold the magma depths (53_foes ARMIES, ZONES). The court
+// is the magma's own: fire elementals for its rank and file (fire that walks: it bleeds sparks, lights its way, and its
+// touch sets alight), mages and novices who throw balls of fire (as the demons' crimson imps do now: 55_spells), golems
+// of black glass, lava ants underfoot and a brass dragon's whelp on the flank. What is made of fire, or bred in it, does
+// not burn and cannot be thrown into the lava.
+function emberShed(u, k, way, z0) {
+  for (let i = 0, n = Math.min(40, Math.round(9 * k)); i < n; i++) { const a = way(), v = rand(30, 110); part({ k: 'spark', x: u.x + rand(-2, 2), y: u.y, z: z0 + rand(-3, 3), vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.8, vz: rand(30, 120), g: 380, drag: 1.2, bounce: 0.4, life: rand(0.3, 0.8), col: 'fire' }); }
+  glows(u.x, u.y, z0, Math.max(1, Math.round(2 * k)), 'fire', 40, 4, 0.45);
+}
+function emberRemains(u, pan) { // it goes out: a burst of sparks, a gust of smoke, and a scorched place where it stood
+  const sc = u.scale || 1; emberShed(u, 5 * sc, () => rand(TAU), 8 * sc); embers(u.x, u.y, Math.round(14 * sc), 'ember', 60); flashLight(u.x, u.y - 5, 70 * sc, 'fire', 1, 0.4); smoke(u.x, u.y - 4, Math.round(5 * sc), 'dark', 9, 14, 1.4, 24); scorch(u.x, u.y, 8 * sc, 0.45); SFX.puff(pan); SFX.sizzle(pan);
+}
+function emberTrail(u, dt) { // alight as it goes: tongues of flame off it, an ember now and then, and its own light
+  if (!foeShown(u)) return; const sc = u.scale || 1; light(u.x, u.y - 6 * sc, 46 * sc + 4 * noise1(G.time * 8 + u.id), 'fire', 0.7);
+  if (chance(dt * 16)) part({ k: 'glow', x: u.x + rand(-4, 4) * sc, y: u.y + 0.5, z: (u.z || 0) + rand(3, 13) * sc, vx: rand(-3, 3), vy: 0, vz: rand(16, 34), drag: 1.5, life: rand(0.25, 0.45), s0: rand(1.8, 3) * sc, s1: 0.4, col: pick(['fire', 'fire2', 'ember']), a0: 0.7, a1: 0 });
+  if (chance(dt * 2.5)) embers(u.x, u.y - 3, 1, 'ember', 16);
+}
+
+// ===================== WHAT STANDS IN THE MAGMA'S ROOMS =====================
+// LAVA IN THE WALLS: here and there along a north wall, and on the faces of the blocks standing in a room, the rock is
+// shot through with lava: the sheet's veined face ([25..30, 10..11]), its burning seams only, laid over the wall's own
+// stones two to five tiles at a stretch. They glow (drawMagmaGlow) and light the floor at the wall's foot.
+function magmaVeins() {
+  if (LAVA.veins) return LAVA.veins; const c = mkCanvas(6 * TS, 2 * TS), g = c.getContext('2d'); g.drawImage(IMG.magma, 25 * TS, 10 * TS, 6 * TS, 2 * TS, 0, 0, 6 * TS, 2 * TS); const id = g.getImageData(0, 0, c.width, c.height), d = id.data;
+  for (let i = 0; i < d.length; i += 4) if (!(d[i] >= 160 && d[i + 2] <= 40 && d[i] > d[i + 1] + 50)) d[i + 3] = 0; g.putImageData(id, 0, 0); return (LAVA.veins = c);
+}
+// (x, y: the wall's face tile; its top stands in the tile above, the face's first rows in that tile's lower half)
+function magmaVein(A, g, x, y, k) {
+  const V = magmaVeins(), sx = (((k % 6) + 6) % 6) * TS; g.drawImage(V, sx, 8, TS, 8, x * TS, (y - 1) * TS + 8, TS, 8); g.drawImage(V, sx, TS, TS, TS, x * TS, y * TS, TS, TS);
+  (A.veins = A.veins || []).push({ x: x * TS, y: (y - 1) * TS + 8, sx });
+}
+function magmaWall(A, r, g, used) {
+  if (r.kind === 'shop') return;
+  for (let x = r.ix0 + 1; x < r.ix1 - 1; x++) {
+    if (!chance(0.14)) continue; const n = randi(2, 5), k0 = randi(0, 5); let ok = true; for (let i = 0; i < n; i++) if (x + i >= r.ix1 || used.has(x + i) || !plainWall(A, x + i, r.fy0 + 1)) ok = false; if (!ok) continue;
+    for (let i = 0; i < n; i++) { magmaVein(A, g, x + i, r.fy0 + 1, k0 + i); used.add(x + i); } x += n + 1;
+  }
+}
+// THE ROCKS: the sheet's boulders, spires and heaps ([16..23, 11..15]) and their twins veined with lava ([20..31, 11..15]),
+// standing where the cellar keeps its crates: a few in each corner with a pot or two among them (the pots break, the
+// rocks never), a rank of spires along the north wall of one room in three; and, a free room in five, THE STONE FOREST:
+// spires and boulders standing all over the floor in staggered ranks with lanes between, cover from whatever is thrown.
+// Pebbles lie about on every floor ([16..23, 9..10], painted in). A veined rock glows.
+const MROCK = { one: [[16, 11], [17, 11], [18, 11], [19, 11], [16, 12], [17, 12], [18, 12], [19, 12], [16, 13], [17, 13], [18, 13], [19, 13]], oneV: [[20, 11], [21, 11], [22, 11], [23, 11], [24, 12], [25, 12], [26, 12], [27, 12], [24, 13], [25, 13], [26, 13], [27, 13]],
+  spire: [[20, 12], [21, 12], [20, 14], [21, 14]], spireV: [[28, 12], [29, 12], [28, 14], [29, 14]], big: [[22, 12], [22, 14], [16, 14], [18, 14]], bigV: [[30, 12], [30, 14], [24, 14], [26, 14]] };
+function magmaRock(prop, kind, tx, ty, hot) {
+  const v = hot ? 'V' : '';
+  if (kind === 'big') prop('stone', tx + 0.5, ty, { sheet: 'magma', tile: pick(MROCK['big' + v]), tw: 2, th: 2, r: 9, glow: hot, rock: true });
+  else if (kind === 'spire') prop('stone', tx, ty, { sheet: 'magma', tile: pick(MROCK['spire' + v]), th: 2, r: 5, glow: hot, rock: true });
+  else prop('stone', tx, ty, { sheet: 'magma', tile: pick(MROCK['one' + v]), r: 5, glow: hot, rock: true });
+}
+function magmaDress(A, r, g, prop, nearDoor, free) {
+  const W = A.w, F = (x, y) => FLOOR(A.fl[y * W + x]), hot = () => chance(0.3);
+  // pebbles
+  for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) if (A.fl[y * W + x] === 1 && hash2(x * 7 + 3, y * 13 + A.floor) < 0.09) { const k = (hash2(x + 40, y + 9) * 16) | 0; g.drawImage(IMG.magma, (16 + (k & 7)) * TS, (9 + (k >> 3)) * TS, TS, TS, x * TS, y * TS, TS, TS); }
+  if (r.kind === 'shop') return;
+  const corner = (cx, cy) => { for (let i = 0; i < randi(1, 3); i++) { const tx = clamp(cx + randi(-1, 1), r.ix0, r.ix1), ty = clamp(cy + randi(-1, 1), r.iy0, r.iy1); if (nearDoor(tx, ty) || !free(tx * TS + 8, ty * TS + 14) || !F(tx, ty)) continue; const k = Math.random();
+    if (k < 0.3) prop('barrel', tx, ty, { tile: pick(FURN.pot), th: 1, hp: 40 }); else magmaRock(prop, k < 0.5 && ty > r.iy0 ? 'spire' : 'one', tx, ty, hot()); } };
+  corner(r.ix0, r.iy0); corner(r.ix1, r.iy0); corner(r.ix0, r.iy1); corner(r.ix1, r.iy1);
+  const plain = r.kind === 'room' && !r.pool && !r.shrine && !r.set && !r.puz && !r.pit && !r.chest && !r.sluice;
+  if (plain && !r.shape && r.w >= 11 && r.h >= 8 && chance(0.2)) { // THE STONE FOREST
+    r.forest = true; (A.themes = A.themes || []).push('THE STONE FOREST'); const doorCols = r.doors.filter(d => d.side === 'N' || d.side === 'S').flatMap(d => d.cells.map(c => c[0])), doorRows = r.doors.filter(d => d.side === 'E' || d.side === 'W').flatMap(d => d.cells.map(c => c[1]));
+    for (let y = r.iy0 + 2, j = 0; y <= r.iy1 - 1; y += 2, j++) for (let x = r.ix0 + 1 + (j % 2) * 2; x <= r.ix1 - 1; x += 4) {
+      if (doorCols.includes(x) || doorRows.includes(y) || nearDoor(x, y, 2) || !F(x, y) || !free(x * TS + 8, y * TS + 14, 14) || chance(0.2)) continue; const k = Math.random();
+      if (k < 0.2 && x + 1 <= r.ix1 - 1 && !doorCols.includes(x + 1) && F(x + 1, y)) magmaRock(prop, 'big', x, y, hot()); else magmaRock(prop, k < 0.75 ? 'spire' : 'one', x, y, hot()); }
+    return;
+  }
+  if (r.kind === 'room' && !r.pool && !r.shrine && !r.set && chance(0.33)) for (let x = r.ix0 + 1; x < r.ix1; x++) { // spires along the north wall
+    if (!chance(0.4) || nearDoor(x, r.iy0, 2) || (r.stairX !== undefined && x >= r.stairX - 1 && x <= r.stairX + 3) || !free(x * TS + 8, r.iy0 * TS + 14, 14) || !F(x, r.iy0)) continue; magmaRock(prop, chance(0.6) ? 'spire' : 'one', x, r.iy0, hot()); }
+}
+function magmaLights() { const A = ARENA; if (!isMagma(A)) return; for (const p of A.props) if (p.glow && !p.dead) light(p.x, p.y - 7, 32 + 3 * Math.sin(G.time * 2 + p.x), 'magma', 0.4); for (const v of A.veins || []) light(v.x + 8, v.y + 22, 34 + 3 * Math.sin(G.time * 1.6 + v.x), 'magma', 0.42); }
+function drawVeinGlow(c) { const A = ARENA; if (!A.veins) return; const V = magmaVeins(), [vx, vy, vw, vh] = viewRect(A); for (const v of A.veins) { if (v.x + TS < vx || v.x > vx + vw || v.y + 24 < vy || v.y > vy + vh) continue; c.globalAlpha = 0.45 + 0.25 * Math.sin(G.time * 1.9 + v.x * 0.11); c.drawImage(V, v.sx, 8, TS, 24, v.x, v.y, TS, 24); } c.globalAlpha = 1; }

@@ -92,12 +92,12 @@ function remainsElement(u, o, pan) {
   else { for (let i = 0; i < 50; i++) { const a = rand(TAU), v = rand(10, 80); pixieDust(u.x, u.y, (u.z || 0) + 6, Math.cos(a) * v, Math.sin(a) * v * 0.8, rand(-10, 60)); } flashLight(u.x, u.y, 30, 'arcane', 0.6, 0.3); SFX.chime(pan); SFX.chime(pan); }
 }
 function throesElement(f, k) {
-  const kind = f.def.blood, sc = f.scale || 1;
+  const kind = f.def.blood, sc = f.scale || 1; if (kind === 'ember') { emberShed(f, 1 + 2 * k, () => rand(TAU), 10 * sc); SFX.crackle(panOf(f.x), 1); return; }
   if (kind === 'water') { splash(f.x, f.y, 11 * sc, Math.round((10 + 16 * k) * sc), { spd: 0.6 * k + 0.3 }); puddle(f.x, f.y, 4 + (1 - k) * 8, 18); SFX.splash(panOf(f.x), k > 0.6); }
   else { for (let i = 0, n = Math.round((4 + 6 * k) * sc); i < n; i++) { const a = rand(TAU), v = rand(10, 40) * k; hay(f.x + rand(-5, 5), f.y + rand(-1, 1), 18 * sc + rand(-3, 3), Math.cos(a) * v, Math.sin(a) * v * 0.8, rand(20, 70) * k, 0, LEAF, 2); } if (chance(0.3)) twig(f, null, { v: rand(10, 35) }); SFX.wood(panOf(f.x), false); }
 }
 function burstElement(u, o, slow, pan) {
-  const kind = u.def.blood, sc = u.scale || 1;
+  const kind = u.def.blood, sc = u.scale || 1; if (kind === 'ember') { emberRemains(u, pan); shake(0.12); kick(0.03); return; }
   if (kind === 'water') { splash(u.x, u.y, 10 * sc, 120, { ...o, spd: 1.5, slow, mist: 6 }); splash(u.x, u.y, 10 * sc, 50, { slow, spd: 1.2 }); puddle(u.x, u.y, 18 * sc, 24); SFX.splash(pan, true); SFX.splash(pan, true); }
   else { shedElement(u, 70, { ...o, more: 2.4, quiet: true, slow }, 5, o.ang, () => (o.ang === undefined ? rand(TAU) : o.ang + rand(-0.8, 0.8)), 10 * sc, pan); for (let i = 0; i < 3; i++) tossBit('log', u.x, u.y, { ang: o.ang, v: rand(60, 120), slow, flat: true, tick: true }); SFX.wood(pan, true); }
   shake(0.12); kick(0.03);

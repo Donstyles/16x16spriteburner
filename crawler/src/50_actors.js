@@ -44,7 +44,7 @@ function hurt(u, dmg, src, o = {}) {
   // the hero's chainmail takes the blow first, then his gambeson (53_foes); a blow they take whole still knocks him back, but draws no blood
   if (u.mail > 0) { d = mailTakes(u, d, o); if (d <= 0) { const km = u.scale > 1.2 ? 0.45 : 1; u.kx += (o.kx || 0) * km; u.ky += (o.ky || 0) * km; shake(0.08); return 0; } }
   if (u.gamb > 0) { d = gambesonTakes(u, d, o); if (d <= 0) { const km = u.scale > 1.2 ? 0.45 : 1; u.kx += (o.kx || 0) * km; u.ky += (o.ky || 0) * km; shake(0.08); return 0; } }
-  const before = u.hp; u.hp -= d; u.flash = 0.12;
+  const before = u.hp; u.hp -= d; u.flash = 0.12; if (src && src.def && src.def.burns && !o.ranged && src.team !== u.team) ignite(u, 2.5); // (a blow of fire sets alight: 42_magma)
   // a killing blow does not stagger: the foe simply dies
   if (o.poise && u.hp > 0 && !(u.act && u.act.armored) && !(u.poiseGuard > 0)) { u.poise -= o.poise; u.poiseT = 2; if (u.poise <= 0) { u.poise = u.maxPoise; stagger(u, u.team === 'hero' ? 0.45 : 1.1); } }
   const km = u.scale > 1.2 ? 0.45 : 1; u.kx += (o.kx || 0) * km; u.ky += (o.ky || 0) * km;
@@ -90,7 +90,7 @@ function kill(u, src) {
   if (u.team === 'foe') { if (!u.raisedBy && !u.reborn) G.kills++; deathFx(u); boneHeap(u, src); sealBlood(u); if (!u.raisedBy && !u.reborn) dropLoot(u); if (u.dummy) dummyDied(u); if (src && src.team === 'hero' && !u.raisedBy) src.killsT = (src.killsT || 0) + 1; } // the necromancer's raised dead are worth nothing
   else { heroFalls(u); flashLight(u.x, u.y, 60, 'red', 1, 0.6); SFX.boom(0.5, panOf(u.x)); shake(0.4); slowmo(0.3, 1.4); } // (no words over it: his death plays out first, 48_deaths)
 }
-const BLOOD = { red: ['#7a0c14', '#a01420', '#5a0810'], bone: ['#cfc6b0', '#a49a84', '#7a705e'], stone: ['#9b9c9b', '#6e6e6e', '#625353'], water: ['#8cc8f0', '#5a9ad0', '#bfe4ff'], wood: ['#7a5230', '#5a3a1e', '#b08a58'], dust: ['#ffd6f5', '#c8f0ff', '#fff4b0'], slime: ['#3a8a30', '#60c040', '#2a5a20'], straw: ['#c8a040', '#e0c060', '#8a6a20'], bug: ['#7c8c1c', '#a6b630', '#4c5810'], sludge: ['#2a2219', '#40352a', '#120e0b'] }; // bug: green-yellow ichor; sludge: what the crypt dead have left
+const BLOOD = { ember: ['#ff7f00', '#e54c00', '#ffbe3c'], red: ['#7a0c14', '#a01420', '#5a0810'], bone: ['#cfc6b0', '#a49a84', '#7a705e'], stone: ['#9b9c9b', '#6e6e6e', '#625353'], water: ['#8cc8f0', '#5a9ad0', '#bfe4ff'], wood: ['#7a5230', '#5a3a1e', '#b08a58'], dust: ['#ffd6f5', '#c8f0ff', '#fff4b0'], slime: ['#3a8a30', '#60c040', '#2a5a20'], straw: ['#c8a040', '#e0c060', '#8a6a20'], bug: ['#7c8c1c', '#a6b630', '#4c5810'], sludge: ['#2a2219', '#40352a', '#120e0b'] }; // bug: green-yellow ichor; sludge: what the crypt dead have left
 // the body shatters into its own pixels (k: how hard they fly)
 function shatter(u, k) {
   const px = spritePixels(u.spr), sc = u.scale, fl = u.face < 0 ? -1 : 1, pw = Math.max(1, Math.round(sc));

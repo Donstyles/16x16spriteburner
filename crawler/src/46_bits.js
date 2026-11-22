@@ -135,6 +135,7 @@ function ownChip(u, away) {
 function shed(u, d, o = {}) {
   const kind = u.def.blood, sc = u.scale || 1, S = SPRAY[o.style] || SPRAY.bite, k = clamp(d / 12, 0.5, 3.5) * (o.more || 1), pan = panOf(u.x);
   const a0 = o.ang === undefined ? rand(TAU) : o.ang, way = () => a0 + (o.sweep || 1) * S.bias + rand(-S.spread, S.spread) * 1.3, z0 = (u.z || 0) + 6 * sc;
+  if (kind === 'ember') { emberShed(u, k, way, z0); if (!o.quiet) SFX.sizzle(pan); return; } // (fire that walks: 42_magma)
   if (kind === 'water' || kind === 'wood' || kind === 'dust') { shedElement(u, d, o, k, a0, way, z0, pan); return; }
   if (kind === 'straw') {
     for (let i = 0, n = Math.min(60, Math.round(10 * k)); i < n; i++) { const a = way(), v = rand(S.v[0], S.v[1]) * 0.9; hay(u.x + rand(-2, 2), u.y + rand(-1, 1), z0 + rand(-3, 4), Math.cos(a) * v, Math.sin(a) * v * 0.8, rand(40, 130), o.slow); }
@@ -164,6 +165,7 @@ function shedTrail(u) {
 // and bundles; a golem breaks into pieces of itself
 function remains(u) {
   const kind = u.def.blood, sc = u.scale || 1, o = u.lastBlow || {}, a = o.ang, pan = panOf(u.x);
+  if (kind === 'ember') { emberRemains(u, pan); return; }
   if (kind === 'water' || kind === 'wood' || kind === 'dust') { remainsElement(u, o, pan); return; }
   if (kind === 'bone') {
     while (looseBone(u, null, { v: rand(15, 60), up: rand(40, 100) })); // all it has left

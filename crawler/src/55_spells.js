@@ -14,7 +14,7 @@
 //   she wards it again (her healing is off for now)
 // Bolts that fly straight (the laser, the hex, the soul-fire, the thorns) can be parried back like arrows; a wave or a
 // flask cannot.
-const CAST = { LizardfolkScout: 'laser', GoblinOccultist: 'hex', VileWitch: 'flask', MerfolkAquamancer: 'wave', AdeptNecromancer: 'raise', ElfEnchanter: 'heal', AcidAnt: 'spit' };
+const CAST = { LizardfolkScout: 'laser', GoblinOccultist: 'hex', VileWitch: 'flask', MerfolkAquamancer: 'wave', AdeptNecromancer: 'raise', ElfEnchanter: 'heal', AcidAnt: 'spit', CrimsonImp: 'fire', FlameMagus: 'fire', NovicePyromancer: 'fire' }; // (fire: a ball of it, that sets alight what it strikes: the magma's imps and mages, 42_magma)
 const ENCHANTER_HEALS = false; // her healing is off for now: she wards and throws thorns
 const WARD_BLOWS = 3; // a ward takes this many blows before it breaks
 const SPELL = {
@@ -24,6 +24,7 @@ const SPELL = {
   thorn: { spd: 170, dmg: 0.6, r: 2, life: 1.4, col: 'heal' },
   spit: { spd: 150, dmg: 1, r: 2.5, life: 1.6, col: 'poison' },
   wave: { spd: 82, dmg: 0.8, r: 11, life: 2.8, nopar: true, col: 'bolt' },
+  fire: { spd: 140, dmg: 0.9, r: 3, life: 2.2, col: 'fire' },
 };
 const castOf = f => CAST[f.spr];
 const RAISE_MAX = 4; // skeletons a necromancer keeps up at once
@@ -40,6 +41,7 @@ function castShot(f, dir) {
   else if (kind === 'wave') { splash(x, y, 4, 14, { ang: dir, style: 'arc' }); SFX.splash(pan, true); }
   else if (kind === 'thorn') SFX.whoosh(pan);
   else if (kind === 'spit') SFX.squelch(pan, false);
+  else if (kind === 'fire') { glows(x, y, 7, 6, 'fire', 40, 3, 0.4); flashLight(x, y, 24, 'fire', 0.7, 0.15); SFX.fire(pan); }
   else { glows(x, y, 7, 6, S.col, 40, 3, 0.5); SFX.hex(pan, kind === 'soul'); }
   return true;
 }
@@ -67,6 +69,7 @@ function spellStep(p, dt) {
   }
   if (p.k === 'hex') { const n = Math.sin(p.life * 9 + p.ph) * 22, a = Math.atan2(p.vy, p.vx) + Math.PI / 2; p.x += Math.cos(a) * n * dt; p.y += Math.sin(a) * n * dt * 0.85; if (chance(dt * 30)) part({ k: 'glow', x: p.x, y: p.y, z: p.z, vz: rand(4, 12), drag: 2, life: 0.5, s0: 1.6, s1: 0.4, col: 'arcane', a0: 0.7, a1: 0 }); }
   else if (p.k === 'spit') { if (chance(dt * 25)) part({ k: 'gore', x: p.x, y: p.y, z: p.z, vx: p.vx * 0.2, vy: p.vy * 0.2, vz: 0, g: 420, life: 5, s0: 1, col: pick(['#7cc030', '#a6e040', '#4c8a18']), kind: 'bug' }); }
+  else if (p.k === 'fire') { if (chance(dt * 40)) part({ k: 'glow', x: p.x + rand(-1, 1), y: p.y, z: p.z + rand(-1, 1), vz: rand(4, 14), drag: 2, life: rand(0.25, 0.45), s0: rand(2, 3.2), s1: 0.4, col: pick(['fire', 'fire2', 'ember']), a0: 0.8, a1: 0 }); light(p.x, p.y - p.z, 30, 'fire', 0.7); }
   else if (p.k === 'soul') { if (chance(dt * 30)) part({ k: 'glow', x: p.x + rand(-1, 1), y: p.y, z: p.z, vz: rand(6, 16), drag: 2, life: 0.6, s0: 1.8, s1: 0.3, col: 'poison', a0: 0.7, a1: 0 }); }
   else if (p.k === 'wave') { if (chance(dt * 40)) { const a = Math.atan2(p.vy, p.vx) + Math.PI / 2, o = rand(-10, 10); water(p.x + Math.cos(a) * o, p.y + Math.sin(a) * o * 0.85, rand(3, 8), p.vx * 0.3 + rand(-15, 15), p.vy * 0.3 + rand(-10, 10), rand(20, 60)); } if (chance(dt * 25)) { const a = Math.atan2(p.vy, p.vx) + Math.PI / 2, o = rand(-10, 10); wetSpot(p.x + Math.cos(a) * o, p.y + Math.sin(a) * o * 0.85, rand(6, 10), false, rand(1.5, 2.5)); } }
   return false;
@@ -76,6 +79,7 @@ function spellEnd(p) {
   if (p.k === 'laser') { sparks(p.x, p.y, p.z, 8, 'poison', 110, 60); flashLight(p.x, p.y, 26, 'poison', 0.6, 0.1); }
   else if (p.k === 'wave') { splash(p.x, p.y, 4, 26, { spd: 0.9 }); puddle(p.x, p.y, 7, 10); SFX.splash(panOf(p.x), true); }
   else if (p.k === 'hex' || p.k === 'soul') glows(p.x, p.y, p.z, 8, SPELL[p.k].col, 50, 3, 0.5);
+  else if (p.k === 'fire') { sparks(p.x, p.y, p.z, 10, 'fire', 110, 70); glows(p.x, p.y, p.z, 5, 'fire', 40, 4, 0.4); flashLight(p.x, p.y, 34, 'fire', 0.8, 0.2); SFX.puff(panOf(p.x)); }
   else if (p.k === 'spit') { let x = p.x, y = p.y; for (let k = 0; k < 16 && solidAt(x, y); k++) { x -= p.vx * 0.003; y -= p.vy * 0.003; } acidSplat(x, y); } // (from just outside the wall it struck: begun inside it, its drops would mark the black rock)
   else sparks(p.x, p.y, p.z, 3, 'heal', 60, 40);
 }
@@ -84,6 +88,7 @@ function spellHit(p, u) {
   if (p.k === 'laser') { sparks(u.x, u.y, 8, 10, 'poison', 120, 70); flashLight(u.x, u.y, 30, 'poison', 0.8, 0.12); }
   else if (p.k === 'hex') { glows(u.x, u.y, 10, 10, 'arcane', 50, 3, 0.7); if (u.team === 'hero') { u.curseT = 4; textPop(u.x, u.y, headZ(u) + 4, 'CURSED', 'curse', false); SFX.hex(panOf(u.x), true); } }
   else if (p.k === 'soul') glows(u.x, u.y, 10, 10, 'poison', 50, 3, 0.6);
+  else if (p.k === 'fire') { sparks(u.x, u.y, 8, 12, 'fire', 120, 90); flashLight(u.x, u.y - 5, 40, 'fire', 0.9, 0.2); ignite(u, 2.5); }
   else if (p.k === 'spit') acidSplat(u.x, u.y);
   else if (p.k === 'wave') { soak(u); splash(u.x, u.y, 8, 30, { ang: Math.atan2(p.vy, p.vx), style: 'arc' }); u.kx += p.vx * 2.4; u.ky += p.vy * 2.4; }
 }
@@ -92,6 +97,7 @@ function drawBolt(c, p) { // in the world, sorted with everyone
   if (p.k === 'laser') { for (let i = 0; i < 10; i++) { c.fillStyle = i < 3 ? '#f4ffe0' : i < 6 ? '#9dff5a' : '#3fa02a'; c.fillRect(Math.round(p.x - Math.cos(a) * i), Math.round(p.y - p.z - Math.sin(a) * i), 1, 1); } }
   else if (p.k === 'hex') { c.fillStyle = '#3a1050'; c.fillRect(x - 1, y - 1, 3, 3); c.fillStyle = '#c070ff'; c.fillRect(x - 1, y - 1, 2, 2); c.fillStyle = '#f0d0ff'; c.fillRect(x, y - 1, 1, 1); }
   else if (p.k === 'soul') { c.fillStyle = '#1c3a10'; c.fillRect(x - 1, y - 1, 3, 3); c.fillStyle = '#a0ff50'; c.fillRect(x - 1, y - 1, 2, 2); c.fillStyle = '#e8ffc0'; c.fillRect(x, y - 1, 1, 1); }
+  else if (p.k === 'fire') { c.fillStyle = '#e54c00'; c.fillRect(x - 2, y - 1, 4, 3); c.fillRect(x - 1, y - 2, 2, 5); c.fillStyle = '#ff9a2e'; c.fillRect(x - 1, y - 1, 3, 2); c.fillStyle = '#ffe6a0'; c.fillRect(x, y - 1, 1, 1); for (let i = 2; i < 6; i++) { c.fillStyle = i < 4 ? '#ff7f00' : '#a51b00'; c.fillRect(Math.round(p.x - Math.cos(a) * i * 1.3), Math.round(p.y - p.z - Math.sin(a) * i * 1.3), 1, 1); } } // (a ball of fire, its tail behind it)
   else if (p.k === 'spit') { c.fillStyle = '#2a5a10'; c.fillRect(x - 1, y - 1, 3, 3); c.fillStyle = '#8cf040'; c.fillRect(x - 1, y - 1, 2, 2); c.fillStyle = '#e0ffb0'; c.fillRect(x, y - 1, 1, 1); }
   else if (p.k === 'thorn') { c.fillStyle = '#4f7a2a'; for (let i = 0; i < 3; i++) c.fillRect(Math.round(p.x - Math.cos(a) * i), Math.round(p.y - p.z - Math.sin(a) * i), 1, 1); c.fillStyle = '#c8f090'; c.fillRect(x, y, 1, 1); }
   else if (p.k === 'wave') { // a roller, whichever way it goes: along its front the water heaps up, foam on its leading edge, its body trailing back and lower
@@ -115,6 +121,7 @@ function drawSpellGlows(c) { // in the glow layer: they shine in the dark
       c.globalAlpha = 0.3; c.drawImage(GLOW.poison, x - 3, y - 3, 6, 6);
     }
     else if (p.k === 'spit') { c.globalAlpha = 0.55; c.drawImage(GLOW.poison, x - 5, y - 5, 10, 10); }
+    else if (p.k === 'fire') { const s = 6 + Math.sin(G.time * 24 + p.ph); c.globalAlpha = 0.75; c.drawImage(GLOW.fire, x - s, y - s, s * 2, s * 2); }
     else if (p.k === 'hex' || p.k === 'soul') { const s = 6 + Math.sin(G.time * 20 + p.ph); c.globalAlpha = 0.8; c.drawImage(GLOW[SPELL[p.k].col], x - s, y - s, s * 2, s * 2); }
     else if (p.k === 'thorn') { c.globalAlpha = 0.5; c.drawImage(GLOW.heal, x - 4, y - 4, 8, 8); }
     else if (p.k === 'flask') { c.globalAlpha = 0.6; c.drawImage(GLOW.poison, x - 5, y - 5, 10, 10); }
