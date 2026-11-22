@@ -529,14 +529,15 @@ function fontsTick(dt) {
     if (p.seal) { // (the blood seal's font: it never fills of itself; it takes a quarter of his life)
       if (p.full >= 1) continue; if (Math.abs(h.x - p.x) < 10 && h.y > p.y - 2 && h.y < p.y + 14) { if ((p.drinkT += dt) > 1) { const n = Math.min(Math.round(h.maxHp * 0.25), Math.max(0, Math.ceil(h.hp) - 1)); h.hp -= n; textPop(h.x, h.y, headZ(h) + 4, '-' + n, 'red', true); spray(h, 14, {}); sealFill(p); } } else p.drinkT = 0; continue;
     }
-    if (p.full < 1) { p.full = Math.min(1, p.full + dt / 20); continue; } // (twenty seconds to fill again)
+    if (p.full < 1) p.full = Math.min(1, p.full + dt / 20); /* (twenty seconds to fill again) */ if (p.full < FONT_SIP) continue; // (drinkable once its pool covers the floor: what it gives as full as it is)
     if (Math.abs(h.x - p.x) < 10 && h.y > p.y - 2 && h.y < p.y + 14) { if ((p.drinkT += dt) > 0.6) drinkFont(p, h); } else p.drinkT = 0;
   }
 }
+const FONT_SIP = 0.14; // (the fill at which its pool covers the basin's floor: drawFont's sixth stage)
 function drinkFont(p, h) {
-  p.full = 0; p.drinkT = 0; SFX.splash(panOf(p.x)); healGlow(h.x, h.y);
-  if (p.liq === 'blood') { const n = Math.round(h.maxHp * 0.4); h.hp = Math.min(h.maxHp, h.hp + n); h.curseT = 20; textPop(h.x, h.y, headZ(h) + 4, '+' + n, 'heal', true); textPop(h.x, h.y, headZ(h) + 12, 'CURSED', 'curse', false); SFX.hex(panOf(h.x), true); }
-  else { const n = Math.round(h.maxHp * 0.15), cursed = h.curseT > 0; h.hp = Math.min(h.maxHp, h.hp + n); h.curseT = 0; textPop(h.x, h.y, headZ(h) + 4, '+' + n, 'heal', true); if (cursed) textPop(h.x, h.y, headZ(h) + 12, 'CLEANSED', 'heal', false); SFX.chime(panOf(h.x)); }
+  const k = Math.min(1, p.full); p.full = 0; p.drinkT = 0; SFX.splash(panOf(p.x)); healGlow(h.x, h.y);
+  if (p.liq === 'blood') { const n = Math.max(1, Math.round(h.maxHp * 0.4 * k)); h.hp = Math.min(h.maxHp, h.hp + n); h.curseT = Math.max(5, 20 * k); textPop(h.x, h.y, headZ(h) + 4, '+' + n, 'heal', true); textPop(h.x, h.y, headZ(h) + 12, 'CURSED', 'curse', false); SFX.hex(panOf(h.x), true); }
+  else { const n = Math.max(1, Math.round(h.maxHp * 0.15 * k)), cursed = h.curseT > 0; h.hp = Math.min(h.maxHp, h.hp + n); h.curseT = 0; textPop(h.x, h.y, headZ(h) + 4, '+' + n, 'heal', true); if (cursed) textPop(h.x, h.y, headZ(h) + 12, 'CLEANSED', 'heal', false); SFX.chime(panOf(h.x)); }
 }
 
 // ===================== the throne crypt =====================
