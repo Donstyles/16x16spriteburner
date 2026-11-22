@@ -112,6 +112,8 @@ function drawMagmaGlow(c) {
   const A = ARENA; if (!isMagma(A)) return; const k = 0.26 + 0.07 * Math.sin(G.time * 1.3);
   if (A.lavaM) { const [x, y, w, h] = viewRect(A); lavaBlit(c, A.lavaM, x, y, w, h, x, y, k); }
   for (const p of A.pools || []) if (p.lm && p.level > 0) { const ins = Math.round((1 - p.level) * 6), w = p.cw || p.cv.width, h = p.ch || p.cv.height; lavaBlit(c, p.lm, ins, ins, w - ins * 2, h - ins * 2, p.px0 + ins, p.py0 + ins, k * Math.min(1, p.level * 1.6)); }
+  // (nor over what stands in a pool: a pillar, a rock: their own shapes cut out of it)
+  c.globalCompositeOperation = 'destination-out'; for (const p of A.props) if (!p.dead && p.tile && (p.sunk || p.kind === 'wetpillar') && p.x > PXO.x - 40 && p.x < PXO.x + BUF.w + 40 && p.y > PXO.y - 40 && p.y < PXO.y + BUF.h + 60) { const w = (p.tw || 1) * TS, n = p.th || 1; c.drawImage(p.sheet ? IMG[p.sheet + 'W'] : IMG.cellarW, p.tile[0] * TS, p.tile[1] * TS, w, n * TS, Math.round(p.x - w / 2), Math.round(p.y - 14 - (n - 1) * TS), w, n * TS); } c.globalCompositeOperation = 'lighter';
   drawBombsGlow(c); drawVentGlow(c); drawVeinGlow(c);
 }
 function magmaAfter(A) { A.mcr = MFLOOR.cracks; MFLOOR.cracks = []; }
@@ -288,7 +290,7 @@ function bombLand(A, b) {
   for (const u of G.units) { if (u.dead || u.fall || u.under || (u.fly && u.team === 'foe')) continue; const dx = u.x - x, dy = (u.y - y) * 1.35, d = Math.hypot(dx, dy); if (d > BOMB.r + u.r * 0.5) continue;
     const a = d > 1 ? Math.atan2(u.y - y, u.x - x) : rand(TAU); if (hurt(u, 12 + A.floor * 1.5, { x, y: y + 2, team: 'trap', def: {} }, { ranged: true, unblockable: true, poise: 40, kx: Math.cos(a) * 210, ky: Math.sin(a) * 160, fire: true, ang: a }) > 0 || u.iframe <= 0) { if (!(u.iframe > 0)) ignite(u, 2.5); } }
   flashLight(x, y - 3, 96, 'fire', 1.2, 0.5); ring(x, y, 20, 'fire', 0.35, 3); sparks(x, y, 3, 16, 'fire', 150, 170); embers(x, y, 8, 'ember', 60); smoke(x, y, 4, 'dark', 9, 16, 1.3, 20);
-  debris(x, y, 7, ['#38302a', '#5b4d3f', '#473c31', '#e54c00'], 110, 150, 1.6); cracks(x, y, 4, 6, 220, 3); scorch(x, y, 11, 0.5);
+  debris(x, y, 7, ['#38302a', '#5b4d3f', '#473c31', '#e54c00'], 110, 150, 1.6); cracks(x, y, 3, 6, 220, 3); scorch(x, y, 11, 0.5);
   for (let i = 0; i < 6; i++) { const a = rand(TAU), v = rand(20, 60); part({ k: 'gore', x, y, z: 2, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6, vz: rand(60, 130), g: 420, life: 1.4, s0: 1, col: pick(['#ff7f00', '#e54c00', '#ffaa00']), kind: 'lava' }); }
   SFX.boom(0.45, panOf(x)); SFX.crack(panOf(x)); if (G.me && dist(G.me.x, G.me.y, x, y) < 120) shake(0.16);
 }

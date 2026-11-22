@@ -32,8 +32,10 @@ Y0 = 32
 # the frame
 put(1, Y0, top()); put(1, Y0 + 1, F10); put(1, Y0 + 3, S)
 put(0, Y0 + 1, E); put(0, Y0 + 2, E); put(2, Y0 + 1, W); put(2, Y0 + 2, W)
-def corner_top(side, mirror):                              # a room's north corner: the side wall's rim runs up beside the face to the top's rim
-    t = blank(); rows(t, side, 2, 14, 2, 10, 16) if not mirror else rows(t, side, 2, 14, 2, 0, 6)
+def corner_top(side, mirror):                              # a room's north corner: the side wall's rim runs up beside the face to the top's rim, and no higher
+    t = blank()
+    if not mirror: rows(t, side, 5, 11, 5, 10, 16); rows(t, N, 10, 3, 2, 13, 16)
+    else: rows(t, side, 5, 11, 5, 0, 6); rows(t, N, 10, 3, 2, 0, 3)
     return t
 put(0, Y0, corner_top(E, False)); put(2, Y0, corner_top(W, True))
 def corner_bot(side, mirror):                              # a room's south corner: the side wall's rim ends on the south wall's
