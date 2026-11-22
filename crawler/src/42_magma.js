@@ -422,10 +422,14 @@ function magmaDress(A, r, g, prop, nearDoor, free) {
     for (const x of [r.ix0 + 1, r.ix1 - 1]) for (const yy of [y, y - 1, y + 1]) if (ok(x, yy) && free(x * TS + 8, yy * TS + 14, 14) && fits([yy * W + x])) { prop('stone', x, yy, { sheet: 'magma', tile: [pick([30, 31]), row], r: 5, crystal: col, foot: [yy * W + x] }); break; } }
   const plain = r.kind === 'room' && !r.pool && !r.shrine && !r.set && !r.puz;
   if (plain && (!r.shape || r.shape === 'cuts') && r.w >= 10 && r.h >= 7 && chance(ARCH.cur && ARCH.cur.k === 'stores' ? 0.9 : 0.3)) { // THE STONE FOREST
-    r.forest = true; (A.themes = A.themes || []).push('THE STONE FOREST'); const doorCols = r.doors.filter(d => d.side === 'N' || d.side === 'S').flatMap(d => d.cells.map(c => c[0])), doorRows = r.doors.filter(d => d.side === 'E' || d.side === 'W').flatMap(d => d.cells.map(c => c[1]));
-    for (let y = r.iy0 + 2, j = 0; y <= r.iy1 - 1; y += 2, j++) for (let x = r.ix0 + 1 + (j % 2) * 2; x <= r.ix1 - 1; x += 3) { // (ranks two tiles apart, a rock every third tile, each rank set off from the last: lanes two tiles wide between, and one straight in from every door)
-      if (doorCols.includes(x) || doorRows.includes(y) || chance(0.12)) continue; const k = Math.random();
-      if (!(k < 0.2 && !doorCols.includes(x + 1) && rock('big', x, y))) rock(k < 0.75 ? 'spire' : 'one', x, y); }
+    // (ranks two tiles apart, a rock every third tile, each rank set off from the last; a lane five tiles straight in from the
+    // middle of every door is kept clear, and no rock goes where it would cut the floor in two. A room that takes fewer
+    // than seven is no forest, only a room with rocks in it)
+    const lane = (x, y) => r.doors.some(d => { const [cx, cy] = d.cells[(d.cells.length / 2) | 0]; return d.side === 'N' || d.side === 'S' ? x === cx && Math.abs(y - cy) <= 5 : y === cy && Math.abs(x - cx) <= 5; }); let n = 0; r.rocks = true; /* (no pillars among them: 30_arena furnish) */
+    for (let y = r.iy0 + 2, j = 0; y <= r.iy1 - 1; y += 2, j++) for (let x = r.ix0 + 1 + (j % 2) * 2; x <= r.ix1 - 1; x += 3) {
+      if (lane(x, y) || lane(x, y - 1) || chance(0.1)) continue; const k = Math.random();
+      if (k < 0.2 && !lane(x + 1, y) && !lane(x + 1, y - 1) && rock('big', x, y)) n++; else if (rock(k < 0.75 ? 'spire' : 'one', x, y)) n++; }
+    if (n >= 7) { r.forest = true; (A.themes = A.themes || []).push('THE STONE FOREST'); }
     return;
   }
   if (r.kind === 'room' && !r.pool && !r.shrine && !r.set && chance(0.33)) for (let x = r.ix0 + 1; x < r.ix1; x++) { // spires along the north wall
