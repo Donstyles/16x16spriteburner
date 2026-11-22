@@ -494,18 +494,31 @@ function cryptFont(A, r, g, xx, y) {
 }
 // a font's liquid alone: the full basin's pixels where they differ from the empty one, and the rows they span
 const FONT_LIQ = {};
+// THE FILLING, as a basin seen from above fills: the stream from the skull's mouth falls a little way, in front of the
+// basin's back wall, onto its floor; a pool spreads out from where it lands till it covers the floor, then deepens (the
+// floor showing through less and less), and last of all, brim full, it covers the strip of back wall at its top. Each
+// stage a fixed set of pixels, read off the sheet's full font against its empty one: nothing fades or flickers
+const FONT_STAGES = 9;
 function fontLiq(liq, moss) {
-  const k = liq + moss; if (FONT_LIQ[k]) return FONT_LIQ[k]; const R = (2 + moss) * TS, cv = mkCanvas(TS, TS), g = cv.getContext('2d'), e = mkCanvas(TS, TS).getContext('2d');
+  const k = liq + moss; if (FONT_LIQ[k]) return FONT_LIQ[k]; const R = (2 + moss) * TS, g = mkCanvas(TS, TS).getContext('2d'), e = mkCanvas(TS, TS).getContext('2d');
   g.drawImage(IMG.crypt, FONT_COL[liq] * TS, R, TS, TS, 0, 0, TS, TS); e.drawImage(IMG.crypt, 22 * TS, R, TS, TS, 0, 0, TS, TS);
-  const D = g.getImageData(0, 0, TS, TS), E = e.getImageData(0, 0, TS, TS).data, d = D.data; let y0 = TS, y1 = 0;
-  for (let i = 0; i < TS * TS; i++) { const j = i * 4; if (d[j] === E[j] && d[j + 1] === E[j + 1] && d[j + 2] === E[j + 2] && d[j + 3] === E[j + 3]) d[j + 3] = 0; else if (d[j + 3]) { const yy = (i / TS) | 0; y0 = Math.min(y0, yy); y1 = Math.max(y1, yy); } }
-  g.putImageData(D, 0, 0); return (FONT_LIQ[k] = { cv, y0: Math.min(y0, y1), y1 });
+  const F = g.getImageData(0, 0, TS, TS).data, E = e.getImageData(0, 0, TS, TS).data, wet = new Uint8Array(TS * TS); let y0 = TS, y1 = 0, x0 = TS, x1 = 0;
+  for (let i = 0; i < TS * TS; i++) { const j = i * 4; if (F[j + 3] && (F[j] !== E[j] || F[j + 1] !== E[j + 1] || F[j + 2] !== E[j + 2])) { wet[i] = 1; const x = i % TS, y = (i / TS) | 0; y0 = Math.min(y0, y); y1 = Math.max(y1, y); x0 = Math.min(x0, x); x1 = Math.max(x1, x); } }
+  const sx = 8 - (liq === 'blood' ? 0 : 1), fy = y0 + 1, rx = Math.max(sx - x0, x1 - sx) + 0.5, ry = y1 - fy + 0.5; // (where the stream lands: the floor's back edge, under the skull's mouth)
+  const stage = (deep, back, r) => { const cv = mkCanvas(TS, TS), q = cv.getContext('2d'), id = q.createImageData(TS, TS), d = id.data;
+    for (let i = 0; i < TS * TS; i++) { if (!wet[i]) continue; const x = i % TS, y = (i / TS) | 0; if (y < fy && !back) continue; if (r < 1 && Math.hypot((x - sx) / rx, (y - fy) / ry) > r) continue; const j = i * 4; for (let c = 0; c < 3; c++) d[j + c] = Math.round(E[j + c] + (F[j + c] - E[j + c]) * deep); d[j + 3] = 255; }
+    q.putImageData(id, 0, 0); return cv; };
+  const st = [null]; for (let n = 1; n <= 5; n++) st.push(stage(0.45, false, n / 5)); st.push(stage(0.45, false, 1), stage(0.7, false, 1), stage(1, false, 1), stage(1, true, 1)); // (spreading, shallow; covering; deeper; full; brim full)
+  return (FONT_LIQ[k] = { st, y0, fy, sx });
 }
 function drawFont(c, p) {
-  const x = p.x - 8, y = p.y - 14, R = (2 + (p.moss || 0)) * TS; c.drawImage(IMG.crypt, 22 * TS, R, TS, TS, x, y, TS, TS); // (the empty basin)
-  const L = fontLiq(p.liq, p.moss || 0), n = Math.round(Math.min(1, p.full) * (L.y1 - L.y0 + 1)), top = y + L.y1 - n + 1; // (the liquid rises in the basin a pixel row at a time, never faded in)
-  if (n > 0) c.drawImage(L.cv, 0, L.y1 - n + 1, TS, n, x, top, TS, n);
-  if (p.full < 1 && p.full > 0.02) { const sx = p.x - (p.liq === 'blood' ? 0 : 1), len = top - (y - 6); c.fillStyle = FONT_RGB[p.liq]; c.fillRect(sx, y - 6, 1, len); c.fillStyle = 'rgba(255,255,255,0.35)'; c.fillRect(sx, y - 6 + Math.floor((G.time * 22) % Math.max(1, len)), 1, 1); } // (the stream from the skull's mouth down to the surface, steady, a bright drop running down it)
+  const x = p.x - 8, y = p.y - 14, R = (2 + (p.moss || 0)) * TS, f = Math.min(1, p.full); c.drawImage(IMG.crypt, 22 * TS, R, TS, TS, x, y, TS, TS); // (the empty basin)
+  const L = fontLiq(p.liq, p.moss || 0), n = f >= 1 ? 9 : f <= 0.02 ? 0 : f < 0.35 ? 1 + Math.min(4, Math.floor((f - 0.02) / 0.33 * 5)) : f < 0.55 ? 6 : f < 0.8 ? 7 : 8;
+  if (n) c.drawImage(L.st[n], x, y);
+  if (n && n < 9) { // the stream: from the skull's mouth down to where it lands, a bright drop running down it, the pool rippling there
+    const sx = x + L.sx, y0 = y - 6, len = y + L.fy - y0; c.fillStyle = FONT_RGB[p.liq]; c.fillRect(sx, y0, 1, len);
+    c.fillStyle = 'rgba(255,255,255,0.35)'; c.fillRect(sx, y0 + Math.floor((G.time * 22) % len), 1, 1); if (((G.time * 6) | 0) % 2) c.fillRect(sx + (((G.time * 3) | 0) % 2 ? 1 : -1), y + L.fy, 1, 1);
+  }
   if (p.candles) drawCandles(c, p.candles);
 }
 function fontsTick(dt) {
