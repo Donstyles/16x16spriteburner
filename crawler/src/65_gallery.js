@@ -52,15 +52,27 @@ const GALLERY = [
   ['BLOOD CISTERN', 'crypt', 'pool', 'NO WATER IN THE CRYPT: BLOOD, BLACK BLOOD, ROT', '#e89a90'],
   ['BURIAL GALLERY', 'crypt', 'gallery', 'A CORRIDOR OF THE DEAD: LIGHT NICHES, CASKETS IN THE WALL BETWEEN', '#e89a90'],
   ['MOSSY DEEP', 'crypt', 'moss', 'THE LOWEST CRYPT FLOOR: ITS DEAD GROWN OVER', '#e89a90'],
+  // the magma depths (42_magma, 42_magmaboss): built as a magma floor (the seventh; the ninth for its lord)
+  ['LAVA PITS', 'magma', 'holes', 'KNOCKED INTO LAVA YOU BURN AND ARE THROWN BACK OUT ON FIRE: ROLL TO PUT IT OUT', '#ff9a50'],
+  ['THE LAVA SPITS', 'magma', 'rim', 'BUBBLES SWELL AND THROW BURNING ROCKS: EACH IS MARKED WHERE IT WILL LAND', '#ff9a50'],
+  ['LAVA LEDGES', 'magma', 'ledges', 'A PLATFORM OUT IN THE LAVA, A WAY TO IT FROM EVERY DOOR', '#ff9a50'],
+  ['CRUST OVER LAVA', 'magma', 'crumble', 'THE FLOOR IS A THIN CRUST: IT GIVES WAY BEHIND YOU', '#ff9a50'],
+  ['FIRE VENTS', 'magma', 'vents', 'THE HOLES GLOW AND SPIT SPARKS, THEN BLOW: ON A BEAT', '#ff9a50'],
+  ['STONE FOREST', 'magma', 'forest', 'SPIRES AND BOULDERS IN RANKS: COVER FROM WHAT IS THROWN', '#ff9a50'],
+  ['LAVA CISTERN', 'magma', 'pool', 'WHAT IS WATER ABOVE IS LAVA HERE: IT DRAINS AND RISES', '#ff9a50'],
+  ['THE CINDER COURT', 'magma', 'cinders', 'FIRE THAT WALKS, ITS MAGES, GOLEMS OF BLACK GLASS', '#ff9a50'],
+  ['THE DEMON HORDE', 'magma', 'demons', 'THE IMPS THROW FIRE NOW', '#ff9a50'],
+  ['LORD ON THE LAKE', 'magma', 'lake', 'WALK OUT TO THE ISLAND. THREE STAGES: THE BRIDGES FALL, THE LAKE RISES', '#ffb060'],
 ];
 // (on a gallery floor: PREV and NEXT at the top step through them all, its name and number under them; 61_input)
 const GAL = { on: false, i: 0, kit: null };
 function galleryStep(d) { const n = GALLERY.length; beginGallery(GAL.kit, ((GAL.i + d) % n + n) % n); }
 function beginGallery(kit, i) {
-  const [label, kind, what, line] = GALLERY[i]; beginRun(kit); G.floor = kind === 'crypt' ? (what === 'moss' ? 6 : 4) : kind === 'puz' || kind === 'crack' ? 4 : chance(0.5) ? 3 : 4; let at = null, keep = null; // (brown or grey; the puzzles at their fullest on the fourth)
+  const [label, kind, what, line] = GALLERY[i]; beginRun(kit); G.floor = kind === 'magma' ? (what === 'lake' ? 9 : 7) : kind === 'crypt' ? (what === 'moss' ? 6 : 4) : kind === 'puz' || kind === 'crack' ? 4 : chance(0.5) ? 3 : 4; let at = null, keep = null; // (brown or grey; the puzzles at their fullest on the fourth)
   const room = r => { const W = ARENA.w, cx = Math.round((r.ix0 + r.ix1) / 2); for (let d = 0; d < 12; d++) for (const y of [r.iy1 - d, r.iy1 - d + 1]) for (const x of [cx, cx - d, cx + d]) if (y >= r.iy0 && y <= r.iy1 && FLOOR(ARENA.fl[y * W + x])) return [x * TS + 8, y * TS + 10]; return [(cx + 0.5) * TS, (r.iy1 + 0.5) * TS]; };
   const doorIn = (r, d) => { const [x, y] = d.cells[1]; return d.side === 'N' ? [x, y + 2] : d.side === 'S' ? [x, y - 2] : d.side === 'W' ? [x + 2, y] : [x - 2, y]; };
   for (let n = 0; n < 60 && !at; n++) {
+    if (kind === 'magma') { if (['holes', 'rim', 'ledges', 'crumble'].includes(what)) ARCH.force = 'pits'; if (what === 'pool') ARCH.force = 'water'; if (what === 'cinders' || what === 'demons') G.nextArmy = what; else G.army = null; }
     if (kind === 'crypt') { CRYPT.force = true; if (what === 'blood' || what === 'vigil') PUZ.force = what; if (what === 'charnel') PUZ.force = 'fires'; } // (the pit as the floor's puzzle: THE CHARNEL PIT)
     if (kind === 'shape') SHAPES.force = what; if (kind === 'great') GREAT.force = true; if (kind === 'theme') ARCH.theme = what; if (kind === 'puz') { PUZ.force = what === 'songhidden' ? 'song' : what === 'spikehidden' ? 'spikegate' : what; PUZ.hidden = what === 'songhidden'; PUZ.spikeHidden = what === 'spikehidden'; } if (kind === 'crack') { PUZ.force = what === 'lever' ? 'gate' : what === 'rune' ? 'rune' : null; HIDDEN.force = what === 'hall' || what.startsWith('nest') ? true : what === 'hallexit' ? 'exit' : false; HIDDEN.nest = what === 'nestalcove' ? 'alcove' : what === 'nestleg' ? 'leg' : null; } if (kind === 'arch') ARCH.force = what;
     try { startFloor(); } finally { SHAPES.force = null; GREAT.force = false; ARCH.theme = null; PUZ.force = null; PUZ.hidden = false; PUZ.spikeHidden = false; HIDDEN.force = false; HIDDEN.nest = null; ARCH.force = null; CRYPT.force = false; }
@@ -76,12 +88,13 @@ function beginGallery(kit, i) {
     } else if (kind === 'crack') { const nest = what.startsWith('nest') ? what.slice(4) : null, c = (A.cracks || []).find(q => q.holds === (what === 'hallexit' || nest ? 'hall' : what) && (what !== 'hallexit' || q.hall.A === A.end) && (!nest || (q.inner && q.hall.nest === nest))); if (c) at = [(c.x + 1.5) * TS, (c.y + 2) * TS + 8]; }
     else if (kind === 'arch') at = [A.spawn.x, A.spawn.y];
     else if (kind === 'crypt') { const r = galleryCrypt(A, what); if (r) { at = r.at; keep = r.keep || null; } }
+    else if (kind === 'magma') { const r = galleryNear(A, galleryMagma(A, what)); if (r) { at = r.at; keep = r.keep || null; } }
   }
   // a quiet floor to look round: no foes, the hero right there
   for (const f of G.foes) if (!(keep && keep(f))) f.dead = true; removeIf(G.foes, f => f.dead); G.units = G.heroes.concat(G.foes);
   const h = G.me; if (at) { h.x = at[0]; h.y = at[1]; h.enter = null; } CAM.x = h.x; CAM.y = h.y; G.fade = 0.6;
   Object.assign(GAL, { on: true, i, kit });
-  G.card = { t: 0, life: 4.5, a: 'NIGHT GALLERY', b: label, c: line, d: kind === 'arch' ? (ARENA.arch.name || '') + ' · NO FOES' : kind === 'crypt' ? 'THE DEAD STILL STIR · THE STAIRS LEAD ON AS EVER' : 'NO FOES · THE STAIRS LEAD ON AS EVER' };
+  G.card = { t: 0, life: 4.5, a: 'NIGHT GALLERY', b: label, c: line, d: kind === 'arch' ? (ARENA.arch.name || '') + ' · NO FOES' : kind === 'magma' ? (keep ? 'THEY ARE AWAKE' : 'NO FOES · THE LAVA IS LIVE') + ' · THE STAIRS LEAD ON AS EVER' : kind === 'crypt' ? 'THE DEAD STILL STIR · THE STAIRS LEAD ON AS EVER' : 'NO FOES · THE STAIRS LEAD ON AS EVER' };
 }
 // the gallery's screen: a grid of buttons, three columns (63_menu)
 function drawGalleryMenu(c, W, H, big, btn, k) {
@@ -95,8 +108,9 @@ function drawGalleryMenu(c, W, H, big, btn, k) {
 // buried, those are the thing to see)
 // where the hero is put for a crypt entry: the spot asked for, or else the nearest open floor to it (no wall, no water or pit,
 // nothing solid standing there): a sarcophagus against the south wall has no floor three tiles below it
-function galleryCrypt(A, what) {
-  const r = galleryCrypt0(A, what); if (!r) return r; const [x0, y0] = r.at, tx0 = Math.floor(x0 / TS), ty0 = Math.floor(y0 / TS);
+function galleryCrypt(A, what) { return galleryNear(A, galleryCrypt0(A, what)); }
+function galleryNear(A, r) {
+  if (!r) return r; const [x0, y0] = r.at, tx0 = Math.floor(x0 / TS), ty0 = Math.floor(y0 / TS);
   const ok = (tx, ty) => A.fl[ty * A.w + tx] === 1 && !solidAt(tx * TS + 8, ty * TS + 10) && !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (tx * TS + 8)) < 14 && Math.abs((q.cy || q.y) - (ty * TS + 10)) < 14);
   if (ok(tx0, ty0)) return r; let best = null, bd = 1e9;
   for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) { const tx = tx0 + dx, ty = ty0 + dy, d = Math.hypot(dx, dy); if (d < bd && tx > 0 && ty > 0 && tx < A.w - 1 && ty < A.h - 1 && ok(tx, ty)) { bd = d; best = [tx * TS + 8, ty * TS + 10]; } }
@@ -117,5 +131,16 @@ function galleryCrypt0(A, what) {
   if (what === 'pool') { const q = (A.pools || []).find(q => !q.flooded); return q ? { at: [(q.x1 + 1.5) * TS + 8, (q.y0 + q.y1 + 1) / 2 * TS] } : null; }
   if (what === 'gallery') { const t = A.torches.find(t => t.candles && !A.rooms.some(r => inR(r, t.x, t.y + 24)) && FLOOR(A.fl[Math.floor((t.y + 24) / TS) * A.w + Math.floor(t.x / TS)])); return t ? { at: [t.x + 20, t.y + 26] } : null; }
   if (what === 'moss') return { at: [A.spawn.x, A.spawn.y] };
+  return null;
+}
+// a magma gallery entry: where the hero stands to see it, and who stays
+function galleryMagma(A, what) {
+  const mid = r => [(r.ix0 + r.ix1 + 1) / 2 * TS, (r.iy0 + r.iy1 + 1) / 2 * TS], door = r => { const d = r.doors.find(d => !d.hidden); if (!d) return mid(r); const [x, y] = d.cells[1], o = { N: [0, 1], S: [0, -1], W: [1, 0], E: [-1, 0] }[d.side]; return [(x + o[0]) * TS + 8, (y + o[1]) * TS + 10]; };
+  if (what === 'holes' || what === 'rim' || what === 'ledges' || what === 'crumble') { const r = A.rooms.find(q => q.set === what); return r ? { at: door(r) } : null; }
+  if (what === 'vents') { const s = (A.spikes || []).find(q => !q.gate); return s ? { at: s.ax === 'x' ? [s.x - 44, s.y] : [s.x, s.y + 44] } : null; }
+  if (what === 'forest') { const r = A.rooms.find(q => q.forest); return r ? { at: door(r) } : null; }
+  if (what === 'pool') { const q = (A.pools || []).find(q => !q.flooded); return q ? { at: [(q.x1 + 1.5) * TS + 8, (q.y0 + q.y1 + 1) / 2 * TS] } : null; }
+  if (what === 'cinders' || what === 'demons') { if (A.army !== what) return null; const r = A.rooms.find(q => q.kind === 'room' && !q.set && G.foes.filter(f => roomAt(f.x, f.y) === q).length >= 4); return r ? { at: door(r), keep: f => roomAt(f.x, f.y) === r } : null; }
+  if (what === 'lake') return A.lake ? { at: door(A.lake.r), keep: f => f.boss } : null;
   return null;
 }
