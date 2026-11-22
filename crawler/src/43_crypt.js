@@ -261,6 +261,7 @@ const HEAP_T = 6, HEAP_RATTLE = 1.1;
 function boneHeap(u, src) {
   const A = ARENA; if (!A || A.th.sheet !== 'crypt' || u.def.blood !== 'bone' || u.raisedBy || u.dummy || u.fall) return;
   if (src && src.act && src.act.mv && src.act.mv.dm >= 2) return; // (finished with a heavy blow: in pieces for good)
+  if (holeAt(u.x, u.y)) return; // (over a pit's hollow: its bones go down it, no heap)
   (A.heaps = A.heaps || []).push({ x: Math.round(u.x), y: Math.round(u.y), spr: u.spr, type: u.type, face: u.face, room: u.room, t: 0, hp: 2, big: (u.scale || 1) > 1.1 });
 }
 function heapsTick(dt) {
@@ -513,9 +514,9 @@ function fontLiq(liq, moss) {
 }
 function drawFont(c, p) {
   const x = p.x - 8, y = p.y - 14, R = (2 + (p.moss || 0)) * TS, f = Math.min(1, p.full); c.drawImage(IMG.crypt, 22 * TS, R, TS, TS, x, y, TS, TS); // (the empty basin)
-  const L = fontLiq(p.liq, p.moss || 0), n = f >= 1 ? 9 : f <= 0.02 ? 0 : f < 0.35 ? 1 + Math.min(4, Math.floor((f - 0.02) / 0.33 * 5)) : f < 0.55 ? 6 : f < 0.8 ? 7 : 8;
+  const L = fontLiq(p.liq, p.moss || 0), n = f >= 1 ? 9 : f <= 0.01 ? 0 : f < 0.14 ? 1 + Math.min(4, Math.floor((f - 0.01) / 0.13 * 5)) : f < 0.4 ? 6 : f < 0.7 ? 7 : 8; // (the pool spread in the first seconds, then deepening)
   if (n) c.drawImage(L.st[n], x, y);
-  if (n && n < 9) { // the stream: from the skull's mouth down to where it lands, a bright drop running down it, the pool rippling there
+  if (n && n < 9 || (f > 0.005 && f < 1)) { // the stream: from the skull's mouth down to where it lands, a bright drop running down it, the pool rippling there
     const sx = x + L.sx, y0 = y - 6, len = y + L.fy - y0; c.fillStyle = FONT_RGB[p.liq]; c.fillRect(sx, y0, 1, len);
     c.fillStyle = 'rgba(255,255,255,0.35)'; c.fillRect(sx, y0 + Math.floor((G.time * 22) % len), 1, 1); if (((G.time * 6) | 0) % 2) c.fillRect(sx + (((G.time * 3) | 0) % 2 ? 1 : -1), y + L.fy, 1, 1);
   }
@@ -528,7 +529,7 @@ function fontsTick(dt) {
     if (p.seal) { // (the blood seal's font: it never fills of itself; it takes a quarter of his life)
       if (p.full >= 1) continue; if (Math.abs(h.x - p.x) < 10 && h.y > p.y - 2 && h.y < p.y + 14) { if ((p.drinkT += dt) > 1) { const n = Math.min(Math.round(h.maxHp * 0.25), Math.max(0, Math.ceil(h.hp) - 1)); h.hp -= n; textPop(h.x, h.y, headZ(h) + 4, '-' + n, 'red', true); spray(h, 14, {}); sealFill(p); } } else p.drinkT = 0; continue;
     }
-    if (p.full < 1) { p.full = Math.min(1, p.full + dt / 90); continue; }
+    if (p.full < 1) { p.full = Math.min(1, p.full + dt / 50); continue; } // (fifty seconds to fill again)
     if (Math.abs(h.x - p.x) < 10 && h.y > p.y - 2 && h.y < p.y + 14) { if ((p.drinkT += dt) > 0.6) drinkFont(p, h); } else p.drinkT = 0;
   }
 }

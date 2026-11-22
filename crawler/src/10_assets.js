@@ -68,6 +68,8 @@ function cryptClay(img) {
     for (let i = 0; i < d.length; i += 4) { if (!d[i + 3] || d[i + 2] >= d[i] + 30) continue; const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]); if (mx - mn < 30) continue; // (not the water, not what is seen through it)
       d[i] = Math.round(d[i] * 0.98); d[i + 1] = Math.round(d[i + 1] * 0.74); d[i + 2] = Math.round(d[i + 2] * 0.6); }
     g.putImageData(id, tx * 16, ty * 16); }
+  // (and the earth face under a pit's north edge, [10..15, 4] and [10..15, 12]: its dark the pit's own black, 38_pits pitBlack)
+  for (const ty of [4, 12]) { const id = g.getImageData(10 * 16, ty * 16, 6 * 16, 16), d = id.data; for (let i = 0; i < d.length; i += 4) if (d[i] === 38 && d[i + 1] === 29 && d[i + 2] === 26 && d[i + 3] === 255) d[i] = d[i + 1] = d[i + 2] = 0; g.putImageData(id, 10 * 16, ty * 16); }
   return c;
 }
 function trimEdgeBars(img) {

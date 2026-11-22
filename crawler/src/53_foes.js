@@ -190,6 +190,7 @@ function foeTick(f, dt) { // (a raised skeleton below the floor climbs out of it
   if (f.dead) return; if (f.feed) { feedTick(f, dt); return; } /* (feed: a vermin at its meal, 48_deaths) */ if (f.script) { f.script.tick(f, dt); return; } /* (script: one at work on a dead hero, 49_deaths2) */ if (f.dying) { throesTick(f, dt); return; } if (f.dormant) { dormantTick(f, dt); return; } if (f.shade) { shadeTick(f, dt); return; } /* (the crypt's Shade: 43_crypt) */ if (f.seated) { seatedTick(f); return; } /* (the lord before his throne: 43_crypt) */ if (f.z < 0 && !f.fly) f.z = Math.min(0, f.z + 22 * dt); if (f.poiseT > 0) f.poiseT -= dt; else f.poise = f.maxPoise; if (f.poiseGuard > 0) f.poiseGuard -= dt;
   if (f.stun > 0) { f.stun -= dt; f.vx = damp(f.vx, 0, 8, dt); f.vy = damp(f.vy, 0, 8, dt); f.moving = false; return; }
   if (f.dummy) { dummyTick(f, dt); return; } // the test room's foes only stand there
+  if (f.spr === 'SkeweringStalker' && !f.raisedBy) { lurkTick(f, dt); return; } // (it waits in the dark for your back: below)
   if (!f.aware) { senses(f, dt); if (f.aware) return; idleFoe(f, dt); return; }
   if (f.cdT > 0) f.cdT -= dt;
   if (!f.tgt || f.tgt.dead || (chance(dt * 0.5))) { const n = nearest(f, G.heroes.filter(alive)); if (n) f.tgt = n; }
@@ -267,6 +268,41 @@ function flankMind(f, t, dt, d, sees) {
   if (facing && d > reach + 8 && F.t > 0.15) { F.mode = 'circle'; F.t = 0; return; } // seen coming: peel off
   if (d > reach * 0.9) { pathTo(f, t.x, t.y, T.spd * 1.15, dt, reach * 0.5); return; }
   if (f.cdT <= 0) { startFoeAtk(f, A, t); F.mode = 'out'; F.t = 0; } else strafe(f, t, T.spd * 0.6, dt);
+}
+// THE SKEWERING STALKER waits in the darkest corner of its room (the one farthest from any light, clear of the doorways),
+// standing quite still. It moves only when a hero near enough to be seen has his back to it (he has passed it, or turned
+// away), or when it is struck: then it runs in and stabs, five times running, a breath between each, and slips back to its
+// corner to wait again
+const LURK = { see: 130, flurry: 5, gap: 0.15 };
+function lurkLair(f) {
+  const A = ARENA, r = roomAt(f.x, f.y), W = A.w; let best = [f.x, f.y], bs = -1e9; if (!r) return best;
+  const lights = A.torches.filter(t => !t.out).map(t => [t.x, t.y + 16]).concat((A.candles || []).filter(c => c.lit).map(c => [c.x, c.yb]), A.props.filter(p => p.kind === 'brazier' && !p.out && !p.dead).map(p => [p.x, p.y]));
+  const wall = (x, y) => !FLOOR(A.fl[y * W + x]);
+  for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) {
+    if (A.fl[y * W + x] !== 1 || r.doors.some(d => d.cells.some(([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 3))) continue;
+    const px = x * TS + 8, py = y * TS + 10; if (A.props.some(q => !q.dead && q.solid && Math.abs(q.x - px) < 14 && Math.abs(q.cy - py) < 14)) continue;
+    const walls = (wall(x - 1, y) || wall(x + 1, y) ? 1 : 0) + (wall(x, y - 1) || wall(x, y + 1) ? 1 : 0), far = lights.length ? Math.min(...lights.map(([lx, ly]) => Math.hypot(lx - px, ly - py))) : 200;
+    const sc = walls * 60 + Math.min(far, 240); if (sc > bs) { bs = sc; best = [px, py]; }
+  }
+  return best;
+}
+function lurkTick(f, dt) {
+  const S = f.lurk || (f.lurk = { mode: 'wait', n: 0, hp: f.hp, at: null });
+  if (!S.at) { S.at = lurkLair(f); f.x = S.at[0]; f.y = S.at[1]; f.home = { x: f.x, y: f.y }; } // (at the floor's start: into its corner)
+  if (f.cdT > 0) f.cdT -= dt;
+  const h = nearest(f, G.heroes.filter(alive)), d = h ? dist(f.x, f.y, h.x, h.y) : 1e9;
+  if (f.act) { foeAct(f, f.tgt || h, dt); if (!f.act) f.cdT = Math.min(f.cdT, LURK.gap); return; }
+  const struck = f.hp < S.hp; S.hp = f.hp;
+  if (S.mode === 'flurry') {
+    if (!h || S.n <= 0) { S.mode = 'back'; f.aware = false; f.tgt = null; }
+    else { f.tgt = h; f.aware = true; const A = f.def.atk, reach = A.reach + h.r; faceTo(f, angTo(f.x, f.y, h.x, h.y));
+      if (d > reach * 0.9) pathTo(f, h.x, h.y, f.def.spd * 1.35, dt, reach * 0.5); else if (f.cdT <= 0) { S.n--; startFoeAtk(f, S.mv || (S.mv = Object.assign({}, A, { wind: A.wind * 0.55, rec: A.rec * 0.45 })), h); } else holdStill(f, dt); /* (its flurry: each stab still shown, but quick) */
+      return; }
+  }
+  const back = h && d < LURK.see && Math.abs(angDiff(h.dir, angTo(h.x, h.y, f.x, f.y))) > 1.7 && lineOfSight(f.x, f.y - 4, h.x, h.y - 4);
+  if (h && (struck || (back && S.mode === 'wait'))) { /* (back in its corner first, before it waits on his back again) */ S.mode = 'flurry'; S.n = LURK.flurry; f.cdT = 0; f.state = 'fight'; SFX.scrape && SFX.scrape(panOf(f.x)); return; }
+  if (S.mode === 'back' && dist(f.x, f.y, S.at[0], S.at[1]) > 3) { pathTo(f, S.at[0], S.at[1], f.def.spd, dt, 2); return; }
+  S.mode = 'wait'; holdStill(f, dt); if (h && d < LURK.see) faceTo(f, angTo(f.x, f.y, h.x, h.y)); // (still as the dead, watching)
 }
 // circling a little while waiting for the next swing, so a crowd does not stand in one heap
 function strafe(f, t, spd, dt) { const a = angTo(t.x, t.y, f.x, f.y) + (f.id % 2 ? 0.9 : -0.9) * dt * 2, d = dist(f.x, f.y, t.x, t.y); steer(f, t.x + Math.cos(a) * d, t.y + Math.sin(a) * d * 0.85, spd, dt); }

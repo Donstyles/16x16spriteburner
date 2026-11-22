@@ -67,7 +67,7 @@ function goreStep(p, dt) {
 }
 function goreLand(x, y, p) {
   // (into water, open or between a bridge's slats: a ring on it and a little red haze in it instead)
-  if (!ARENA) return; if (ARENA.pitN && pitAt(x, y)) return; /* (down the pit, no mark) */ if (!onStone(x, y)) return; /* (in the black rock, or under a wall's top: no mark) */ if (overWater(x, y)) { plip(x, y); bloodCloud(x, y, p.col, p.s0 === 2 ? 0.6 : 0.2); return; } const r = p.s0 === 2 ? rand(1.2, 2) : rand(0.6, 1.2), a = rand(0.45, 0.8); // a small soft blotch where it lands
+  if (!ARENA) return; if (holeAt(x, y)) return; /* (down the pit, no mark) */ if (!onStone(x, y)) return; /* (in the black rock, or under a wall's top: no mark) */ if (overWater(x, y)) { plip(x, y); bloodCloud(x, y, p.col, p.s0 === 2 ? 0.6 : 0.2); return; } const r = p.s0 === 2 ? rand(1.2, 2) : rand(0.6, 1.2), a = rand(0.45, 0.8); // a small soft blotch where it lands
   groundPaint(x - 3, y - 3, x + 3, y + 3, g => { g.globalAlpha = a; g.fillStyle = p.col; g.beginPath(); g.ellipse(x, y, r, r * 0.75, 0, 0, TAU); g.fill(); g.globalAlpha = 1; });
   bloodMark(x, y, p.s0 === 2 ? 5 : 2, p.kind);
 }
