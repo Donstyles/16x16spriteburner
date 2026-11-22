@@ -136,13 +136,13 @@ function galleryCrypt0(A, what) {
 }
 // a magma gallery entry: where the hero stands to see it, and who stays
 function galleryMagma(A, what) {
-  const mid = r => [(r.ix0 + r.ix1 + 1) / 2 * TS, (r.iy0 + r.iy1 + 1) / 2 * TS], door = r => { const d = r.doors.find(d => !d.hidden); if (!d) return mid(r); const [x, y] = d.cells[1], o = { N: [0, 1], S: [0, -1], W: [1, 0], E: [-1, 0] }[d.side]; return [(x + o[0]) * TS + 8, (y + o[1]) * TS + 10]; };
+  const mid = r => [(r.ix0 + r.ix1 + 1) / 2 * TS, (r.iy0 + r.iy1 + 1) / 2 * TS], door = (r, k = 1) => { const d = r.doors.find(d => !d.hidden); if (!d) return mid(r); const [x, y] = d.cells[1], o = { N: [0, 1], S: [0, -1], W: [1, 0], E: [-1, 0] }[d.side]; return [(x + o[0] * k) * TS + 8, (y + o[1] * k) * TS + 10]; };
   if (what === 'holes' || what === 'rim' || what === 'ledges' || what === 'crumble') { const r = A.rooms.find(q => q.set === what && !q.secret); return r ? { at: door(r) } : null; } // (never a room of a hidden wing: unseen till its wall is broken)
   if (what === 'vents') { const s = (A.spikes || []).find(q => !q.gate); return s ? { at: s.ax === 'x' ? [s.x - 44, s.y] : [s.x, s.y + 44] } : null; }
   if (what === 'crucible') { const C = (A.crucibles || [])[0]; return C ? { at: [C.px - 44, C.py + 26] } : null; }
   if (what === 'forest') { const r = A.rooms.find(q => q.forest && !q.secret); return r ? { at: door(r) } : null; }
   if (what === 'pool') { const q = (A.pools || []).find(q => !q.flooded); return q ? { at: [(q.x1 + 1.5) * TS + 8, (q.y0 + q.y1 + 1) / 2 * TS] } : null; }
-  if (what === 'cinders' || what === 'demons') { if (A.army !== what) return null; const r = A.rooms.find(q => q.kind === 'room' && !q.set && !q.secret && G.foes.filter(f => roomAt(f.x, f.y) === q).length >= 4); return r ? { at: door(r), keep: f => roomAt(f.x, f.y) === r } : null; }
+  if (what === 'cinders' || what === 'demons') { if (A.army !== what) return null; const n = q => G.foes.filter(f => roomAt(f.x, f.y) === q).length, r = A.rooms.filter(q => q.kind === 'room' && !q.set && !q.secret && n(q) >= 4).sort((a, b) => n(a) - n(b))[0]; /* (its smallest company of four or more: a fight to look at, not a mob of fourteen) */ return r ? { at: door(r, -3), keep: f => roomAt(f.x, f.y) === r } : null; } /* (in the passage outside its door: the army is met when he walks in, not all round him as the entry opens) */
   if (what === 'lake') return A.lake ? { at: door(A.lake.r), keep: f => f.boss } : null;
   return null;
 }

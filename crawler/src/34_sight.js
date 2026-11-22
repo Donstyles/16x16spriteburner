@@ -26,7 +26,7 @@ function litTile(A, tx, ty, lamps) {
 function updateSight(dt) {
   const A = ARENA; if (!A || !A.mem) return; if ((SIGHT.t -= dt) > 0) return; SIGHT.t = 0.08;
   // a fallen hero's lamp still burns, so whoever killed him stays in sight
-  const W = A.w, H = A.h, vis = A.vis, lamps = G.eyes ? G.heroes.concat(G.eyes) : G.heroes; staticLit(A); vis.fill(0); let fresh = 0;
+  const W = A.w, H = A.h, vis = A.vis, lamps = G.eyes ? G.heroes.concat(G.eyes) : G.heroes; staticLit(A); vis.fill(0); let fresh = 0; const MG = isMagma(A);
   // a seen tile is remembered in full; the tiles around it get a half-dim band, so memory ends in a softer pixel step
   const S = A.secret, D = A.memId.data, paint = (i, a) => { const o = i * 4; if (D[o + 3] >= a || S && S[i]) return; D[o] = 46; D[o + 1] = 40; D[o + 2] = 52; D[o + 3] = a; };
   const see = i => { if (vis[i] || S && S[i]) return; /* (a hidden wing: not till its wall is broken, 30_arena) */ vis[i] = 1; if (!A.mem[i]) { A.mem[i] = 1; fresh++; paint(i, 255); const x = i % W, y = (i / W) | 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < W && Y < H) paint(Y * W + X, 96); } } };
@@ -38,7 +38,8 @@ function updateSight(dt) {
       for (let s = 0; s < R / 0.35; s++) {
         x += dx; y += dy; const tx = Math.floor(x), ty = Math.floor(y); if (tx < 0 || ty < 0 || tx >= W || ty >= H) break;
         const i = ty * W + tx, solid = A.fl[i] === 0 && !openAt(x * TS, y * TS); // (a wall piece's floor lets sight on: 31_walls)
-        if (litTile(A, tx, ty, lamps) || solid && litTile(A, tx, ty + 1, lamps)) { see(i); if (solid && ty > 0 && A.fl[i - W] === 0) see(i - W); } // a north wall's face hides its rim: both are seen
+        if (litTile(A, tx, ty, lamps) || solid && litTile(A, tx, ty + 1, lamps)) { const was = vis[i]; see(i); if (solid && ty > 0 && A.fl[i - W] === 0) see(i - W); // a north wall's face hides its rim: both are seen
+          if (MG && !solid && !was) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const j = i + dy * W + dx; if (A.fl[j] === 0) { see(j); if (dy < 0 && A.fl[j - W] === 0) see(j - W); } } } // (the magma's, seen by its own glow as far as the eye goes: a floor in view shows the walls it lies against, which a ray along a wall's foot never strikes far off)
         if (solid) break;
       }
     }
