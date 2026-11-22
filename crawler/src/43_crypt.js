@@ -529,7 +529,7 @@ function fontsTick(dt) {
     if (p.seal) { // (the blood seal's font: it never fills of itself; it takes a quarter of his life)
       if (p.full >= 1) continue; if (Math.abs(h.x - p.x) < 10 && h.y > p.y - 2 && h.y < p.y + 14) { if ((p.drinkT += dt) > 1) { const n = Math.min(Math.round(h.maxHp * 0.25), Math.max(0, Math.ceil(h.hp) - 1)); h.hp -= n; textPop(h.x, h.y, headZ(h) + 4, '-' + n, 'red', true); spray(h, 14, {}); sealFill(p); } } else p.drinkT = 0; continue;
     }
-    if (p.full < 1) { p.full = Math.min(1, p.full + dt / 50); continue; } // (fifty seconds to fill again)
+    if (p.full < 1) { p.full = Math.min(1, p.full + dt / 20); continue; } // (twenty seconds to fill again)
     if (Math.abs(h.x - p.x) < 10 && h.y > p.y - 2 && h.y < p.y + 14) { if ((p.drinkT += dt) > 0.6) drinkFont(p, h); } else p.drinkT = 0;
   }
 }
