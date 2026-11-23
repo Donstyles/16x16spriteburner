@@ -32,6 +32,27 @@ function minesFloor(g, W, H, near, inRoom, rooms) {
   }
 }
 function minesTick(dt) { if (!isMines(ARENA)) return; floodsTick(dt); minesLights(); sumpTick(dt); } // (its water: 42_minewater)
+// THE TIMBERING: the mines' wall lights are lanterns hung in the sheet's pit frames ([16..18, 28..31]: two posts and a
+// beam, a lantern on its hook between them, dark in rows 28 and 29, burning in 30 and 31), one frame to each light,
+// standing against the north wall with its feet a little out on the floor, so its beam shows under the wall's rim. A
+// lantern is put out and lit as a torch is (36_works): the same thing, drawn in its frame.
+function minesLantern(c, t) { c.drawImage(IMG.mines, 16 * TS, (t.out ? 28 : 30) * TS, 3 * TS, 2 * TS, t.x - 8 - TS, t.y - 9 - TS + 6, 3 * TS, 2 * TS); }
+// WHAT LIES ABOUT: the sheet's rocks ([16..23, 11..15], as the magma's are laid out: 42_magma MROCK) and its heaps of ore
+// (silver [5..6, 33..35], pale [9..10, 33..35], gold [13..14, 33..35]) in the corners, where nothing they stand on is
+// wanted for walking; mushrooms ([27..31, 30..31]) painted into the dirt along the feet of the walls.
+const MORE = [[5, 33], [6, 33], [5, 34], [6, 34], [5, 35], [6, 35], [9, 33], [10, 33], [9, 34], [10, 34], [9, 35], [10, 35], [13, 33], [14, 33], [13, 34], [14, 34], [13, 35], [14, 35]], MSHROOM = [[27, 30], [28, 30], [29, 30], [30, 30], [27, 31], [28, 31], [29, 31], [30, 31]];
+function minesDress(A, r, g, prop, nearDoor, free) {
+  if (r.kind === 'shop') return; const W = A.w, okT = (x, y) => x >= r.ix0 && x <= r.ix1 && y >= r.iy0 && y <= r.iy1 && A.fl[y * W + x] === 1 && !nearDoor(x, y) && free(x * TS + 8, y * TS + 14, 13) && !(A.noProp && A.noProp.has(y * W + x)) && !(A.plates || []).some(p => Math.abs(p.tx - x) <= 1 && Math.abs(p.ty - y) <= 1) && !(r.stairX !== undefined && y <= r.iy0 + 1 && x >= r.stairX - 1 && x <= r.stairX + 3);
+  for (const [cx, cy, sx, sy] of [[r.ix0, r.iy0, 1, 1], [r.ix1, r.iy0, -1, 1], [r.ix0, r.iy1, 1, -1], [r.ix1, r.iy1, -1, -1]]) {
+    if (!chance(0.55)) continue; const k = Math.random();
+    if (k < 0.5) { if (okT(cx, cy)) prop('stone', cx, cy, { sheet: 'mines', tile: pick(MROCK.one), r: 5, rock: true }); if (chance(0.5) && okT(cx + sx, cy)) prop('stone', cx + sx, cy, { sheet: 'mines', tile: pick(MORE), r: 5, rock: true }); }
+    else if (k < 0.8) { for (const [dx, dy] of [[0, 0], [sx, 0], [0, sy]]) if (chance(0.7) && okT(cx + dx, cy + dy)) prop('stone', cx + dx, cy + dy, { sheet: 'mines', tile: pick(MORE), r: 5, rock: true }); }
+    else if (cy === r.iy1 && okT(cx, cy) && okT(cx, cy - 1)) prop('stone', cx, cy, { sheet: 'mines', tile: pick(MROCK.spire), th: 2, r: 5, rock: true });
+  }
+  // mushrooms: a patch or two in the dirt at the foot of a wall (never on paving, nor where anything stands)
+  if (r.kind === 'room') for (let n = randi(0, 2); n > 0; n--) { const side = randi(0, 2), x0 = side === 0 ? randi(r.ix0 + 1, r.ix1 - 2) : side === 1 ? r.ix0 : r.ix1, y0 = side === 0 ? r.iy1 : randi(r.iy0 + 2, r.iy1 - 1);
+    for (let i = 0; i < randi(2, 3); i++) { const x = x0 + (side === 0 ? i : 0), y = y0 - (side === 0 ? 0 : i); if (!okT(x, y)) continue; const t = pick(MSHROOM); g.drawImage(IMG.mines, t[0] * TS, t[1] * TS, TS, TS, x * TS + (side === 1 ? -3 : side === 2 ? 3 : 0), y * TS + (side === 0 ? 3 : 0), TS, TS); } }
+}
 // THE CRYSTAL LAMPS (the sheet's, [18..25, 33..39]: a crystal in a low socket, or on a post two tiles tall; green and blue
 // in rows 33 to 35, red and yellow in 37 to 39): the only light that burns under water, so a flooded gallery is lit by them
 const MLAMP = { heal: [18, 33], bolt: [22, 33], crimson: [18, 37], gold: [22, 37] };
