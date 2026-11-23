@@ -21,10 +21,16 @@ function hitsShape(u, t, mv, dir) {
 }
 const PARRY_WINDOW = 0.2;
 // o: { poise, kx, ky, ranged, unblockable, sneak, back, crit }
+// A PLAYTEST SWITCH (the pause menu's ONE HIT, kept on this device): while it is on, any blow of a hero's kills a foe outright,
+// through its armour and an enchanter's ward. The lords are spared it (the crypt's on its throne, the lake's: u.lord, u.boss).
+const CHEAT = { oneHit: false };
+try { CHEAT.oneHit = localStorage.getItem('cr2-onehit') === '1'; } catch (e) { /* storage blocked: off */ }
+function setOneHit(v) { CHEAT.oneHit = !!v; try { localStorage.setItem('cr2-onehit', v ? '1' : '0'); } catch (e) { /* not kept */ } }
+const oneHits = (u, src) => CHEAT.oneHit && u.team === 'foe' && src && src.team === 'hero' && !(u.lord || u.boss || u.def.boss);
 function hurt(u, dmg, src, o = {}) {
   if (u.fall) return 0; // (already going down a pit)
   if (!u || u.dead) return 0;
-  if (u.team === 'foe' && u.ward && dmg > 0 && wardBreaks(u)) return 0; // an enchanter's ward takes the blow
+  if (u.team === 'foe' && u.ward && dmg > 0 && !oneHits(u, src) && wardBreaks(u)) return 0; // an enchanter's ward takes the blow
   if (u.under) return 0; // a mole under the floor is out of reach
   if (u.iframe > 0) { if (u.team === 'hero' && chance(0.35)) textPop(u.x, u.y, headZ(u) + 1, 'DODGED', 'white', false); return 0; }
   if (u.team === 'hero' && u.blocking && src && !o.unblockable) {
@@ -40,7 +46,7 @@ function hurt(u, dmg, src, o = {}) {
   let d = dmg * rand(0.92, 1.08) * (o.crit || 1);
   if (u.def.armor) d *= 1 - u.def.armor;
   if (u.team === 'foe' && u.stun > 0) d *= 1.3; // a staggered foe is open
-  d = Math.max(1, Math.round(d));
+  d = Math.max(1, Math.round(d)); if (oneHits(u, src)) d = Math.max(d, Math.ceil(u.hp)); // (the playtest switch: above)
   // the hero's chainmail takes the blow first, then his gambeson (53_foes); a blow they take whole still knocks him back, but draws no blood
   if (u.mail > 0) { d = mailTakes(u, d, o); if (d <= 0) { const km = u.scale > 1.2 ? 0.45 : 1; u.kx += (o.kx || 0) * km; u.ky += (o.ky || 0) * km; shake(0.08); return 0; } }
   if (u.gamb > 0) { d = gambesonTakes(u, d, o); if (d <= 0) { const km = u.scale > 1.2 ? 0.45 : 1; u.kx += (o.kx || 0) * km; u.ky += (o.ky || 0) * km; shake(0.08); return 0; } }
