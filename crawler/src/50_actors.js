@@ -37,6 +37,7 @@ function hurt(u, dmg, src, o = {}) {
   if (!u || u.dead) return 0;
   if (u.team === 'foe' && u.ward && dmg > 0 && !oneHits(u, src) && wardBreaks(u)) return 0; // an enchanter's ward takes the blow
   if (u.under) return 0; // a mole under the floor is out of reach
+  if (u.sub && o.ranged && !o.unblockable && !(src && src.sub)) { ring(u.x, u.y - FLOOD.HEAD, 6, 'bolt2', 0.4, 1, 2); SFX.drip(panOf(u.x)); return 0; } // (under water: what is shot or thrown from the air dies in it, 42_minewater)
   if (u.iframe > 0) { if (u.team === 'hero' && chance(0.35)) textPop(u.x, u.y, headZ(u) + 1, 'DODGED', 'white', false); return 0; }
   if (u.team === 'hero' && u.blocking && src && !o.unblockable) {
     const a = angTo(u.x, u.y, src.x, src.y);

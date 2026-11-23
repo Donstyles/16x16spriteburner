@@ -23,7 +23,7 @@
 // where it cannot help slides back to where it stood once nobody is in its room.
 const PUZ = { force: null }; // (a test: this one kind, wherever it fits)
 const MUST_KINDS = new Set(['flood', 'drawbridge', 'gate', 'gap', 'spikegate']);
-const PUZ_NAMES = { crucible: 'THE CRUCIBLE', vigil: 'THE VIGIL', blood: 'THE BLOOD SEAL', song: 'THE SINGING RUNES', rune: 'THE HIDDEN RUNE', gate: 'THE PORTCULLIS', echo: 'THE ECHOING RUNES', fires: 'THE COLD BRAZIERS', charnel: 'THE CHARNEL PIT', weight: 'THE WEIGHT', gap: 'THE GAP', spikegate: 'THE SPIKE GATE', crack: 'THE CRACKED WALL', lever: 'THE HIDDEN LEVER' };
+const PUZ_NAMES = { drowned: 'THE DROWNED DOOR', crucible: 'THE CRUCIBLE', vigil: 'THE VIGIL', blood: 'THE BLOOD SEAL', song: 'THE SINGING RUNES', rune: 'THE HIDDEN RUNE', gate: 'THE PORTCULLIS', echo: 'THE ECHOING RUNES', fires: 'THE COLD BRAZIERS', charnel: 'THE CHARNEL PIT', weight: 'THE WEIGHT', gap: 'THE GAP', spikegate: 'THE SPIKE GATE', crack: 'THE CRACKED WALL', lever: 'THE HIDDEN LEVER' };
 const SPIKEGATE = { t: 7 };
 // ---- the room graph
 const puzAdj = (A, r) => A.halls.filter(h => h.A === r || h.B === r).map(h => (h.A === r ? h.B : h.A));
@@ -46,6 +46,7 @@ function puzzleTry(A, g) {
   const T = { gate: () => tryGate(A, 'lever'), echo: () => tryGate(A, 'echo'), song: () => tryGate(A, 'song'), fires: () => tryGate(A, 'fires'), weight: () => tryGate(A, 'weight'), gap: () => tryGap(A, g), spikegate: () => trySpikeGate(A) };
   if (A.th.sheet === 'crypt') { T.blood = () => tryGate(A, 'blood'); T.vigil = () => tryGate(A, 'vigil'); } // (the crypt's own: THE BLOOD SEAL, THE VIGIL, 43_crypt)
   if (isMagma(A)) T.crucible = () => tryGate(A, 'crucible'); // (the magma's own: THE CRUCIBLE, 42_magma)
+  if (isMines(A)) { for (const k in T) delete T[k]; T.drowned = () => tryGate(A, 'drowned'); } // (the mines keep none of the cellar's puzzles: theirs are their own, 42_mines)
   const used = A.puzUsed = A.puzUsed || new Set(), ks = PUZ.force && T[PUZ.force] ? [PUZ.force] : pitShuffle(Object.keys(T).filter(k => !PUZ_SHELVED.has(k))).sort((a, b) => used.has(a) - used.has(b)); // (a kind not yet on this floor first)
   for (const k of ks) if (T[k]()) { used.add(k); return true; } return false;
 }
@@ -246,6 +247,7 @@ function puzzleAfter(A, r) {
   if (r.gateOf && r.puz === 'blood') bloodSeal(A, r, bare, plate); // (43_crypt)
   if (r.gateOf && r.puz === 'vigil') vigil(A, r, bare, plate); // (43_crypt)
   if (r.gateOf && r.puz === 'crucible') crucible(A, r, bare, plate, clear); // (42_magma)
+  if (r.gateOf && r.puz === 'drowned') drownedDoor(A, r, bare, plate, clear); // (42_mines)
   if (r.gateOf && r.puz === 'weight') { // its plate well away from the gate's door, a block three tiles from it in line, room to push from behind
     const g = r.gateOf, [gx, gy] = r.doors.find(d => d.hall === g.hall).cells[1], cands = [];
     for (let y = r.iy0 + 1; y <= r.iy1 - 1; y++) for (let x = r.ix0 + 1; x <= r.ix1 - 1; x++) { if (!bare(x, y) || Math.abs(x - gx) + Math.abs(y - gy) < 8) continue; for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = 3, bx = x - ax * k, by = y - ay * k; let ok = true; for (let j = 0; j <= k + 1; j++) { const cx = x - ax * j, cy = y - ay * j; if (cx < r.ix0 + (j > 0 && ax ? 1 : 0) || cx > r.ix1 - (j > 0 && ax ? 1 : 0) || cy < r.iy0 || cy > r.iy1 || !FLOOR(A.fl[cy * W + cx])) { ok = false; break; } } if (ok && bx > r.ix0 && bx < r.ix1 && by > r.iy0 && by < r.iy1) cands.push([x, y, bx, by, ax, ay]); } }

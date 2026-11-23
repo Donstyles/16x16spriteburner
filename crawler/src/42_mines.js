@@ -31,13 +31,42 @@ function minesFloor(g, W, H, near, inRoom, rooms) {
     g.drawImage(IMG.mines, t[0] * TS, t[1] * TS, TS, TS, x * TS, y * TS, TS, TS);
   }
 }
-function minesTick(dt) { if (!isMines(ARENA)) return; floodsTick(dt); } // (its water: 42_minewater)
-// THE FLOODED GALLERIES of a floor: (for now) a room or two under water wall to wall, dry at their doors
+function minesTick(dt) { if (!isMines(ARENA)) return; floodsTick(dt); minesLights(); } // (its water: 42_minewater)
+// THE CRYSTAL LAMPS (the sheet's, [18..25, 33..39]: a crystal in a low socket, or on a post two tiles tall; green and blue
+// in rows 33 to 35, red and yellow in 37 to 39): the only light that burns under water, so a flooded gallery is lit by them
+const MLAMP = { heal: [18, 33], bolt: [22, 33], crimson: [18, 37], gold: [22, 37] };
+function minesLamp(A, r, tx, ty, col, tall) { const [cx, cy] = MLAMP[col], k = randi(0, 3); A.props.push({ kind: 'stone', sheet: 'mines', tile: [cx + k, cy + (tall ? 1 : 0)], th: tall ? 2 : 1, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i, crystal: col, rock: true }); }
+function minesLamps(A) { const L = []; if (!isMines(A)) return L; for (const p of A.props) if (p.crystal && !p.dead) L.push({ x: p.x, y: p.y - 4, r: 56 }); return L; }
+function minesLights() { const A = ARENA; for (const p of A.props) if (p.crystal && !p.dead) light(p.x, p.y - (p.th === 2 ? 20 : 8), 58 + 4 * Math.sin(G.time * 2.2 + p.x), p.crystal, 0.8); }
+// A FLOODED GALLERY: a room under water wall to wall (its doors' own tiles dry, so the water shelves down from every
+// way in; o.doorIn: but this door's tiles under it too, the water standing against a door it holds shut). No fire burns
+// in it: its torches and braziers are taken out and crystal lamps stand in their place. Its valve, if it has one, is a
+// plate on the bed at its lowest point, as far from the ways in as the room allows.
+function floodRoom(A, r, o = {}) {
+  const W = A.w, cells = new Set(); for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) if (A.fl[y * W + x] === 1) cells.add(y * W + x);
+  if (o.doorIn) for (const [x, y] of o.doorIn.cells) if (A.fl[y * W + x] === 1) cells.add(y * W + x);
+  if (cells.size < 40) return null;
+  A.torches = A.torches.filter(t => !(t.tx >= r.ix0 && t.tx <= r.ix1 && Math.abs(t.y - ((r.fy0 + 1) * TS + 9)) < 2)); removeIf(A.props, p => p.kind === 'brazier' && cells.has(Math.floor(p.cy / TS) * W + Math.floor(p.x / TS))); A.lights = A.slit = null;
+  const doors = r.doors.filter(d => d !== o.doorIn), far = (x, y) => Math.min(99, ...doors.map(d => Math.min(...d.cells.map(([a, b]) => Math.hypot(a - x, b - y))))), clear = (x, y, m = 14) => !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < m && Math.abs(q.cy - (y * TS + 10)) < m);
+  let at = null, bd = -1; for (let y = r.iy0 + 2; y <= r.iy1 - 2; y++) for (let x = r.ix0 + 2; x <= r.ix1 - 2; x++) { if (!cells.has(y * W + x) || !clear(x, y, 20) || (A.noProp && A.noProp.has(y * W + x))) continue; const d = far(x, y) + hash2(x, y) * 0.5; if (d > bd) { bd = d; at = [x, y]; } }
+  const f = mkFlood(A, cells, { room: r.i, drain: at ? [at[0] * TS + 8, at[1] * TS + 8] : null }); r.flood = f; f.at = at;
+  // its lamps: one by each end of the north wall, one or two out on the bed
+  const col = pick(['bolt', 'heal', 'bolt', 'gold']), spots = [[r.ix0 + 1, r.iy0], [r.ix1 - 1, r.iy0], [Math.round((r.ix0 + r.ix1) / 2) + randi(-2, 2), r.iy1 - 1], [r.ix0 + 2 + randi(0, 2), Math.round((r.iy0 + r.iy1) / 2)], [r.ix1 - 2 - randi(0, 2), Math.round((r.iy0 + r.iy1) / 2) + 1]];
+  let n = 0; for (const [x, y] of spots) { if (n >= 4 || !cells.has(y * W + x) || !clear(x, y, 18) || far(x, y) < 3 || (at && Math.hypot(x - at[0], y - at[1]) < 3) || (A.noProp && A.noProp.has(y * W + x))) continue; minesLamp(A, r, x, y, col, y > r.iy0); n++; }
+  return f;
+}
+// THE DROWNED DOOR: the way on is a door the water holds shut: the gallery in front of it is flooded to the roof and the
+// water stands against it. The valve is on the bed, out in the deepest of it (a thread of bubbles rises from it): go
+// down to it, stand on it, and the gallery drains; with the water gone from it, the door opens.
+function drownedDoor(A, r, bare, plate, clear) {
+  const g = r.gateOf, f = floodRoom(A, r, { doorIn: g.d }); if (!f || !f.at) { leverInstead(A, r, bare, plate); return; }
+  plate(f.at[0], f.at[1], { flood: f, to: 0 }); f.gate = g; f.valves = [A.plates[A.plates.length - 1]];
+}
+// the floor's other flooded galleries: a room or two of its plain ones, each with its valve on its bed
 function minesWater(A) {
-  const W = A.w, ok = r => r.kind === 'room' && !r.set && !r.puz && !r.chest && !r.gateOf && r.w * r.h >= 70;
-  for (const r of A.rooms.filter(ok).sort(() => Math.random() - 0.5).slice(0, 2)) {
-    const cells = new Set(); for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) if (A.fl[y * W + x] === 1) cells.add(y * W + x); if (cells.size < 40) continue;
-    A.torches = A.torches.filter(t => !(t.tx >= r.ix0 && t.tx <= r.ix1 && Math.abs(t.y - ((r.fy0 + 1) * TS + 9)) < 2)); for (const p of A.props) if (p.kind === 'brazier' && cells.has(Math.floor(p.cy / TS) * W + Math.floor(p.x / TS))) p.dead = true; A.props = A.props.filter(p => !p.dead); A.lights = A.slit = null; // (no fire burns under water: its light is the crystals', below)
-    const f = mkFlood(A, cells, { room: r.i, drain: [((r.ix0 + r.ix1 + 1) / 2) * TS, ((r.iy0 + r.iy1 + 1) / 2) * TS] }); r.flood = f;
+  const ok = r => r.kind === 'room' && !r.set && !r.puz && !r.chest && !r.gateOf && !r.flood && !r.shape && r.w * r.h >= 70, Wk = wkOf(A);
+  for (const r of A.rooms.filter(ok).sort(() => Math.random() - 0.5).slice(0, 1 + (chance(0.5) ? 1 : 0))) {
+    const f = floodRoom(A, r); if (!f || !f.at) continue; const [tx, ty] = f.at; removeIf(A.props, q => Math.abs(q.x - (tx * TS + 8)) < 14 && Math.abs(q.cy - (ty * TS + 10)) < 14);
+    const pl = { x: tx * TS + 8, y: ty * TS + 8, tx, ty, tile: Wk.plate, f: 0, down: false, pool: null, room: r.i, flood: f, to: 0 }; (A.plates = A.plates || []).push(pl); f.valves = [pl];
   }
 }
