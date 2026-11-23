@@ -146,7 +146,7 @@ function lavaSpot(x, y) {
   return [clamp(x, x0, Math.max(x0, x1)), clamp(y, Math.min(y0, y1), Math.max(y0, y1))];
 }
 function lavaPlunge(u) {
-  const hero = u.team === 'hero', fatal = hero && u.hp - Math.round(u.maxHp * PIT_DMG) <= 0 && !(TEST.on && TEST.god), big = u.scale > 1.2;
+  const hero = u.team === 'hero', fatal = hero && u.hp - Math.round(u.maxHp * PIT_DMG) <= 0 && !godOn(), big = u.scale > 1.2;
   let to = null; if (hero) { to = u.safe || ARENA.spawn; if (penned(ARENA, to)) to = doorLandingNear(ARENA, to) || ARENA.spawn; }
   const [lx, ly] = lavaSpot(u.x, u.y);
   u.fall = { lava: true, t: 0, T: hero ? (fatal ? LAVA_T.sink : LAVA_T.sink + LAVA_T.toss) : LAVA_T.foe * (big ? 1.3 : 1), x: lx, y: ly, x0: u.x, y0: u.y, spin: 0, fatal, to, h: spritePixels(u.spr).foot * (u.scale || 1) + 3 };
@@ -191,7 +191,7 @@ function fireTick(dt) {
     if (chance(dt * 9)) embers(u.x, u.y - 2, 1, 'ember', 22); if (chance(dt * 4)) smoke(u.x, u.y - 2, 1, 'dark', 4, 6, 0.8, 26);
     light(u.x, u.y - 6, 54 + 6 * noise1(G.time * 9 + u.x), 'fire', 0.85); if (chance(dt * 3)) SFX.crackle(panOf(u.x), 0.8);
     if ((u.fireTick -= dt) > 0) continue; u.fireTick = 0.5;
-    if (u.team === 'hero') { const d = Math.min(Math.max(1, Math.round(u.maxHp * 0.02)), Math.max(0, Math.ceil(u.hp) - 1)); if (d > 0 && !(TEST.on && TEST.god)) { u.hp -= d; u.flash = 0.08; number(u.x, u.y, headZ(u) + 1, d, 'fire', false, u); G.hurtFlash = Math.max(G.hurtFlash || 0, 0.12); } }
+    if (u.team === 'hero') { const d = Math.min(Math.max(1, Math.round(u.maxHp * 0.02)), Math.max(0, Math.ceil(u.hp) - 1)); if (d > 0 && !godOn()) { u.hp -= d; u.flash = 0.08; number(u.x, u.y, headZ(u) + 1, d, 'fire', false, u); G.hurtFlash = Math.max(G.hurtFlash || 0, 0.12); } }
     else { const d = Math.max(1, Math.round(u.maxHp * 0.05)); u.hp -= d; u.flash = 0.08; number(u.x, u.y, headZ(u) + 1, d, 'fire', false, u); if (u.hp <= 0) { u.hp = 1; u.fireT = 0; hurt(u, 3, null, { fire: true }); } }
     if (u.fireT <= 0) smoke(u.x, u.y - 4, 2, 'dark', 5, 8, 0.8, 20);
   }

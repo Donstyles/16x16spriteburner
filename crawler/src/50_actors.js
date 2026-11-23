@@ -23,8 +23,13 @@ const PARRY_WINDOW = 0.2;
 // o: { poise, kx, ky, ranged, unblockable, sneak, back, crit }
 // A PLAYTEST SWITCH (the pause menu's ONE HIT, kept on this device): while it is on, any blow of a hero's kills a foe outright,
 // through its armour and an enchanter's ward. The lords are spared it (the crypt's on its throne, the lake's: u.lord, u.boss).
-const CHEAT = { oneHit: false };
-try { CHEAT.oneHit = localStorage.getItem('cr2-onehit') === '1'; } catch (e) { /* storage blocked: off */ }
+const CHEAT = { oneHit: false, god: false };
+try { CHEAT.oneHit = localStorage.getItem('cr2-onehit') === '1'; CHEAT.god = localStorage.getItem('cr2-god') === '1'; } catch (e) { /* storage blocked: off */ }
+// GOD (beside it in the pause menu, kept likewise): a hero's life is back to full every frame, and no blow, fall or lava is
+// his last. Nothing else is touched: he is struck, bleeds, staggers, burns, his armour wears, as ever.
+function setGod(v) { CHEAT.god = !!v; try { localStorage.setItem('cr2-god', v ? '1' : '0'); } catch (e) { /* not kept */ } }
+const godOn = () => CHEAT.god || (TEST.on && TEST.god); // (or a test room's own: 64_testroom, where he is hurt but cannot die)
+function godTick() { if (CHEAT.god) for (const h of G.heroes) if (!h.dead && h.hp < h.maxHp) h.hp = h.maxHp; }
 function setOneHit(v) { CHEAT.oneHit = !!v; try { localStorage.setItem('cr2-onehit', v ? '1' : '0'); } catch (e) { /* not kept */ } }
 const oneHits = (u, src) => CHEAT.oneHit && u.team === 'foe' && src && src.team === 'hero' && !(u.lord || u.boss || u.def.boss);
 function hurt(u, dmg, src, o = {}) {
@@ -66,7 +71,7 @@ function hurt(u, dmg, src, o = {}) {
     if (src && src.team === 'hero' && !o.ranged) { src.gore = Math.min(3, (src.gore || 0) + (u.hp <= 0 ? 1 : 0.3)); src.goreKind = u.def.blood || 'red'; }
   }
   else { debris(u.x, u.y, 4, DUST, 70, 90, 1.4); SFX.hit(panOf(u.x)); } // the gore is off
-  if (u.hp <= 0 && u.team === 'hero' && TEST.on && TEST.god) u.hp = 1; // the creature test room: he cannot die
+  if (u.hp <= 0 && u.team === 'hero' && godOn()) u.hp = 1; // the creature test room: he cannot die
   if (u.hp <= 0) {
     u.lastBlow = o; u.lastD = d; u.lastSrc = src; // (what killed him, and how hard: 48_deaths)
     // overkill: a killing blow that alone does more than half the foe's full health blows one of the bigger foes (never
