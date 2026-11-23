@@ -49,7 +49,7 @@ function floodRoom(A, r, o = {}) {
   A.torches = A.torches.filter(t => !(t.tx >= r.ix0 && t.tx <= r.ix1 && Math.abs(t.y - ((r.fy0 + 1) * TS + 9)) < 2)); removeIf(A.props, p => p.kind === 'brazier' && cells.has(Math.floor(p.cy / TS) * W + Math.floor(p.x / TS))); A.lights = A.slit = null;
   const doors = r.doors.filter(d => d !== o.doorIn), far = (x, y) => Math.min(99, ...doors.map(d => Math.min(...d.cells.map(([a, b]) => Math.hypot(a - x, b - y))))), clear = (x, y, m = 14) => !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < m && Math.abs(q.cy - (y * TS + 10)) < m);
   let at = null, bd = -1; for (let y = r.iy0 + 2; y <= r.iy1 - 2; y++) for (let x = r.ix0 + 2; x <= r.ix1 - 2; x++) { if (!cells.has(y * W + x) || !clear(x, y, 20) || (A.noProp && A.noProp.has(y * W + x))) continue; const d = far(x, y) + hash2(x, y) * 0.5; if (d > bd) { bd = d; at = [x, y]; } }
-  const f = mkFlood(A, cells, { room: r.i, drain: at ? [at[0] * TS + 8, at[1] * TS + 8] : null }); r.flood = f; f.at = at;
+  const f = mkFlood(A, cells, { room: r.i, drain: at ? [at[0] * TS + 8, at[1] * TS + 8] : null, flat: o.flat, shoals: o.shoals && at ? o.shoals(at) : null }); r.flood = f; f.at = at;
   // its lamps: one by each end of the north wall, one or two out on the bed
   const col = pick(['bolt', 'heal', 'bolt', 'gold']), spots = [[r.ix0 + 1, r.iy0], [r.ix1 - 1, r.iy0], [Math.round((r.ix0 + r.ix1) / 2) + randi(-2, 2), r.iy1 - 1], [r.ix0 + 2 + randi(0, 2), Math.round((r.iy0 + r.iy1) / 2)], [r.ix1 - 2 - randi(0, 2), Math.round((r.iy0 + r.iy1) / 2) + 1]];
   let n = 0; for (const [x, y] of spots) { if (n >= 4 || !cells.has(y * W + x) || !clear(x, y, 18) || far(x, y) < 3 || (at && Math.hypot(x - at[0], y - at[1]) < 3) || (A.noProp && A.noProp.has(y * W + x))) continue; minesLamp(A, r, x, y, col, y > r.iy0); n++; }
@@ -61,6 +61,20 @@ function floodRoom(A, r, o = {}) {
 function drownedDoor(A, r, bare, plate, clear) {
   const g = r.gateOf, f = floodRoom(A, r, { doorIn: g.d }); if (!f || !f.at) { leverInstead(A, r, bare, plate); return; }
   plate(f.at[0], f.at[1], { flood: f, to: 0 }); f.gate = g; f.valves = [A.plates[A.plates.length - 1]];
+}
+// THE TWO SLUICES: the gallery before the door is flooded deep, bed and all, and the door is held as the drowned door
+// is. Its main sluice is far out on the bed and will not turn under that weight of water. A first sluice stands in the
+// shallows by the way in: it lets a fifth of the water go, no more, and shoals show under the surface, a line of them
+// out to the main sluice, which stands on the last. Out along them (a breath on each), onto it, and the rest drains.
+function twoSluices(A, r, bare, plate, clear) {
+  const g = r.gateOf, W = A.w, ins = r.doors.filter(d => d !== g.d && !d.hidden); if (!ins.length) { drownedDoor(A, r, bare, plate, clear); return; }
+  const gd = g.d.cells[1], din = ins.slice().sort((a, b) => Math.hypot(b.cells[1][0] - gd[0], b.cells[1][1] - gd[1]) - Math.hypot(a.cells[1][0] - gd[0], a.cells[1][1] - gd[1]))[0], [ex, ey] = din.cells[1];
+  // the first sluice: two tiles in from the way in, straight on from the door
+  const o = { N: [0, 1], S: [0, -1], W: [1, 0], E: [-1, 0] }[din.side]; let v1 = null; for (const k of [2, 3, 1]) for (const s of [0, 1, -1]) { const x = ex + o[0] * k + o[1] * s, y = ey + o[1] * k + o[0] * s; if (!v1 && x > r.ix0 && x < r.ix1 && y > r.iy0 && y < r.iy1 && A.fl[y * W + x] === 1 && bare(x, y)) v1 = [x, y]; }
+  if (!v1) { drownedDoor(A, r, bare, plate, clear); return; }
+  const f = floodRoom(A, r, { doorIn: g.d, flat: true, shoals: at => { const a = [v1[0] * TS + 8, v1[1] * TS + 8], b = [at[0] * TS + 8, at[1] * TS + 8], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.round(L / 62)), out = [[b[0], b[1], 15], [a[0], a[1], 13, 0.24]]; /* (the main sluice's shoal; the first sluice's shelf, ankle deep) */ for (let i = 1; i < n; i++) { const t = i / n, w = (i % 2 ? 1 : -1) * 10; out.push([a[0] + (b[0] - a[0]) * t - (b[1] - a[1]) / L * w, a[1] + (b[1] - a[1]) * t + (b[0] - a[0]) / L * w, 13]); } return out; } });
+  if (!f || !f.at || Math.hypot(f.at[0] - v1[0], f.at[1] - v1[1]) < 5) { if (f && f.at) { plate(f.at[0], f.at[1], { flood: f, to: 0 }); f.gate = g; f.valves = [A.plates[A.plates.length - 1]]; } else leverInstead(A, r, bare, plate); return; } // (too small a gallery for two: the drowned door's one)
+  plate(v1[0], v1[1], { flood: f, to: FLOOD.LOW }); const p1 = A.plates[A.plates.length - 1]; plate(f.at[0], f.at[1], { flood: f, to: 0, maxDepth: FLOOD.TURN }); f.gate = g; f.valves = [p1, A.plates[A.plates.length - 1]];
 }
 // the floor's other flooded galleries: a room or two of its plain ones, each with its valve on its bed
 function minesWater(A) {

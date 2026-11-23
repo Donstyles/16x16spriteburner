@@ -16,7 +16,7 @@
 // along the shore), and whatever stands or walks in it is laid over with the same blue from its waterline down, in its
 // own pixels (drawWetThing): a wader's legs, a diver whole, a rock's foot. Where water has stood and gone the floor and
 // the walls' feet stay dark with wet for a while.
-const FLOOD = { DEPTH: 18, HEAD: 12, WADE: 2.5, RAMP: 22, WALL: 0.8, Q: 120, col: [47, 127, 204], breath: 11, wet: 45 };
+const FLOOD = { DEPTH: 18, HEAD: 12, WADE: 2.5, RAMP: 22, WALL: 0.8, SHOAL: 0.74, LOW: 0.78, TURN: 11, Q: 120, col: [47, 127, 204], breath: 11, wet: 45 };
 function minesFloods(A) { return (A && A.floods) || []; }
 // a flood over these tiles (cells: a set of tile indices, all floor); o.level: how full it starts; o.drain: [px, py] its
 // lowest point (where a drain would be), if any
@@ -36,9 +36,10 @@ function mkFlood(A, cells, o = {}) {
   for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) {
     if (!wet(x, y)) continue; const i = y * bw + x, X = px0 + x, Y = py0 + y, sw = 0.7 * lat(X, Y, 44) + 0.3 * lat(X + 300, Y + 170, 15);
     const ds = D[i] - 5 + 9 * lat(X + 77, Y + 31, 7); if (ds <= 0) continue; // (the brim: never a straight line along the tiles, a ragged edge a few pixels in)
-    let d = Math.min(1, ds / FLOOD.RAMP) * (0.5 + 0.5 * Math.min(1, sw * 1.35)); // (how deep, of the full depth: nothing at a shore, half to all of it out in the open)
-    if (dr) d = Math.max(d, Math.min(1, ds / 10) * Math.max(0, 1 - Math.hypot(X - dr[0], (Y - dr[1]) * 1.3) / 34)); // (its lowest hollow, round the drain)
-    if (D[i] > 2) { let k = 99; for (let j = 1; j <= 10 && y - j >= 0; j++) if (!wet(x, y - j)) { if (A.fl[tileOf(x, y - j)] === 0) k = j; break; } if (k < 99) d = FLOOD.WALL + (d - FLOOD.WALL) * Math.max(0, (k - 3) / 7); } // (level along a north wall's foot: its waterline runs straight)
+    let d = Math.min(1, ds / FLOOD.RAMP) * (o.flat ? 0.93 + 0.07 * sw : 0.5 + 0.5 * Math.min(1, sw * 1.35));
+    for (const [sx, sy, sr, st = FLOOD.SHOAL] of o.shoals || []) { const q = Math.hypot(X - sx, (Y - sy) * 1.25) / sr * (0.82 + 0.36 * lat(X + 11, Y + 5, 11)); if (q < 1.6) d = Math.min(d, st + (1 - st) * clamp((q - 0.8) / 0.8, 0, 1) + 0.03 * (sw - 0.5)); } // (a shoal: a rise in the bed, its top flat: under a full flood's dark, out of it once the water is down a fifth) // (how deep, of the full depth: nothing at a shore, half to all of it out in the open)
+    if (dr && !o.shoals) d = Math.max(d, Math.min(1, ds / 10) * Math.max(0, 1 - Math.hypot(X - dr[0], (Y - dr[1]) * 1.3) / 34)); // (its lowest hollow, round the drain)
+    if (D[i] > 2 && !o.flat) { let k = 99; for (let j = 1; j <= 10 && y - j >= 0; j++) if (!wet(x, y - j)) { if (A.fl[tileOf(x, y - j)] === 0) k = j; break; } if (k < 99) d = FLOOD.WALL + (d - FLOOD.WALL) * Math.max(0, (k - 3) / 7); } // (level along a north wall's foot: its waterline runs straight)
     H[i] = Math.round((1 - Math.max(0.02, d)) * 255);
   }
   // the walls' feet: a face over a flooded tile is under water as high as the water is deep at its foot
@@ -135,3 +136,8 @@ function drawFloodsOver(c) {
 }
 // a valve stood on: its flood goes where the valve sends it; a door the water held opens when it is gone
 function floodValve(pl) { const f = pl.flood; logEv('valve', { at: pl.tx + ',' + pl.ty, to: pl.to || 0 }); shake(0.12); floodSend(f, pl.to || 0, () => { if (f.gate && !f.gate.going && f.level <= 0.02) startGateCine(pl, f.gate); }, 0.12); }
+// a sluice stood on that will not turn against the water over it: it judders, groans and lets a burst of bubbles go
+function valveStuck(pl, dt) {
+  pl.stuckT = (pl.stuckT || 0) - dt; pl.f = ((G.time * 14) | 0) % 2; if (pl.stuckT > 0) return; pl.stuckT = 0.7; SFX.stone(panOf(pl.x), false); shake(0.05);
+  for (let i = 0; i < 9; i++) part({ k: 'glow', x: pl.x + rand(-6, 6), y: pl.y + rand(-3, 3), z: rand(0, 4), vx: rand(-10, 10), vy: 0, vz: rand(16, 30), drag: 0.6, life: rand(0.6, 1), s0: rand(0.7, 1.3), s1: 0.3, col: 'bolt2', a0: 0.6, a1: 0 });
+}
