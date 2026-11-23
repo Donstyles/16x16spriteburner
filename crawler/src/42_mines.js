@@ -31,7 +31,7 @@ function minesFloor(g, W, H, near, inRoom, rooms) {
     g.drawImage(IMG.mines, t[0] * TS, t[1] * TS, TS, TS, x * TS, y * TS, TS, TS);
   }
 }
-function minesTick(dt) { if (!isMines(ARENA)) return; floodsTick(dt); minesLights(); sumpTick(dt); roofTick(dt); minesSounds(dt); }
+function minesTick(dt) { if (!isMines(ARENA)) return; floodsTick(dt); minesLights(); sumpTick(dt); roofTick(dt); cartsTick(dt); minesSounds(dt); }
 // its small sounds: a drip now and then (more of them near water), a timber creaking under the roof's weight
 const MSND = { drip: 2, creak: 9 };
 function minesSounds(dt) {
@@ -105,7 +105,7 @@ function twoSluices(A, r, bare, plate, clear) {
   plate(v1[0], v1[1], { flood: f, to: FLOOD.LOW }); const p1 = A.plates[A.plates.length - 1]; plate(f.at[0], f.at[1], { flood: f, to: 0, maxDepth: FLOOD.TURN }); f.gate = g; f.valves = [p1, A.plates[A.plates.length - 1]];
 }
 // the floor's other flooded galleries: a room or two of its plain ones, each with its valve on its bed
-function minesWater(A) {
+function minesWater(A, g) {
   if (A.sump) sumpLake(A); // (the last floor's: 42_minesboss)
   roofProps(A); // (the props under a roof that will make a bridge: 42_mineroof)
   const ok = r => r.kind === 'room' && !r.set && !r.puz && !r.chest && !r.gateOf && !r.flood && !r.shape && r.w * r.h >= 70, Wk = wkOf(A);
@@ -113,4 +113,5 @@ function minesWater(A) {
     const f = floodRoom(A, r); if (!f || !f.at) continue; const [tx, ty] = f.at; removeIf(A.props, q => Math.abs(q.x - (tx * TS + 8)) < 14 && Math.abs(q.cy - (ty * TS + 10)) < 14);
     const pl = { x: tx * TS + 8, y: ty * TS + 8, tx, ty, tile: Wk.plate, f: 0, down: false, pool: null, room: r.i, flood: f, to: 0 }; (A.plates = A.plates || []).push(pl); f.valves = [pl];
   }
+  if (g) minesRails(A, g); // (rails and their carts, last: where nothing else is, 42_minecart)
 }

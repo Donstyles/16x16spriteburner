@@ -69,6 +69,7 @@ const GALLERY = [
   ['THE DROWNED DOOR', 'mines', 'drowned', 'THE GATE IS SHUT WHILE THE ROOM IS UNDER WATER: DIVE FOR ITS VALVE', '#7fb8ff'],
   ['THE TWO SLUICES', 'mines', 'sluices', 'THE FAR SLUICE WILL NOT TURN UNDER DEEP WATER: LOWER THE WATER FIRST', '#7fb8ff'],
   ['BRING DOWN THE ROOF', 'mines', 'roof', 'NO BRIDGE AND NO BUTTON: KNOCK OUT BOTH PIT PROPS AND THE ROOF FILLS THE CHASM', '#d9a066'],
+  ['ORE CARTS', 'mines', 'cart', 'STRIKE THE CART AND IT RUNS ITS RAILS, THROUGH WHATEVER STANDS ON THEM: YOU TOO', '#d9a066'],
   ['THE KOBOLD WARREN', 'mines', 'kobolds', 'DIGGERS AND THEIR MOLES: HEAVY BLOWS IN HERE SHAKE ROCK OUT OF THE ROOF', '#d9a066'],
   ['THE TINKERS', 'mines', 'gnomes', 'GNOMES WITH FLASKS AND BOLTS: THEY KEEP THEIR DISTANCE', '#d9a066'],
   ['DRAKE IN THE SUMP', 'mines', 'sump', 'IT CANNOT BE HURT UNDER ITS WATER. THREE SLUICES DRAIN THE SUMP: THEN IT IS YOURS', '#8fd0ff'],
@@ -150,6 +151,7 @@ function galleryMines(A, what) {
   if (what === 'flood') { const r = A.rooms.find(q => q.flood && !q.puz && !q.secret && !(A.sump && A.sump.r === q)); return r ? { at: door(r, 0) } : null; } /* (in its doorway, the water in front of him) */
   if (what === 'drowned' || what === 'sluices') { const r = A.rooms.find(q => q.puz === what && q.flood && !q.secret); return r ? { at: door(r, 0) } : null; }
   if (what === 'roof') { const br = (A.bridges || []).find(q => q.roof && q.posts && q.posts.length === 2 && !A.rooms[q.room].secret); if (!br) return null; const [a, b] = br.posts, k = br.lowNear ? -26 : 26; return { at: br.travel === 'ew' ? [a.x + k, (a.y + b.y) / 2] : [(a.x + b.x) / 2, a.y + k] }; } /* (on its near side, between the two props) */
+  if (what === 'cart') { const R = (A.rails || []).filter(q => q.cart.room !== undefined).sort((a, b) => (b.t1 - b.t0) - (a.t1 - a.t0))[0] || (A.rails || [])[0]; if (!R) return null; const c = R.cart, far = R.b - R.pos > R.pos - R.a ? 1 : -1; return { at: R.horiz ? [c.x - far * 20, c.cy + 2] : [c.x, c.cy - far * 20 + 2], keep: R.cart.room !== undefined ? f => roomAt(f.x, f.y) === A.rooms[R.cart.room] : null }; } /* (behind the cart, its long run ahead; in a room, that room's foes stay) */
   if (what === 'kobolds' || what === 'gnomes') { if (A.army !== what) return null; const n = q => G.foes.filter(f => roomAt(f.x, f.y) === q).length, r = A.rooms.filter(q => q.kind === 'room' && !q.set && !q.flood && !q.secret && n(q) >= 4).sort((a, b) => n(a) - n(b))[0]; return r ? { at: door(r, -3), keep: f => roomAt(f.x, f.y) === r } : null; }
   if (what === 'sump') return A.sump && A.boss ? { at: door(A.sump.r, -2), keep: f => f.boss } : null; /* (in the passage outside: its rising is seen as he walks in) */
   return null;

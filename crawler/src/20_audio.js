@@ -351,6 +351,8 @@ const SFX = {
   },
   // a drop of water falling somewhere in the dark: a short bright plink and its small echo
   drip(pan = 0, v = 1) { if (!this.ok('drip', 0.25)) return; const f = rand(1100, 1900); this.tone('sine', f, f * 0.55, 0.07, 0.06 * v, pan, 0, 0.002); this.tone('sine', f * 0.98, f * 0.5, 0.06, 0.02 * v, -pan * 0.6, rand(0.16, 0.26), 0.002); },
+  // an ore cart's wheels over the rail joints: a low clack
+  rail(pan = 0) { if (!this.ok('rail', 0.06)) return; this.noise(this.brown, 0.05, 'lowpass', 520, 200, 1, 0.2, pan, 0, 0.002); this.tone('square', rand(84, 96), 66, 0.035, 0.035, pan, 0, 0.002); },
   // old timber taking the weight: a slow dry creak
   creak(pan = 0, v = 1) { if (!this.ok('creak', 2)) return; const f = rand(70, 110); this.tone('sawtooth', f, f * rand(1.25, 1.6), rand(0.45, 0.8), 0.035 * v, pan, 0, 0.12); this.noise(this.brown, 0.5, 'bandpass', rand(500, 800), 300, 5, 0.05 * v, pan, 0.05, 0.1); },
   drone() {

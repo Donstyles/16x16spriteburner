@@ -290,7 +290,8 @@ function screened(h, p) {
   return false;
 }
 function breakProp(p, mv) {
-  if (p.roofOf) { roofProp(p, mv); return; } // (a pit prop holding the roof over a chasm: 42_mineroof)
+  if (p.roofOf) { roofProp(p, mv); return; }
+  if (p.cart) { cartHit(p, mv); return; } // (an ore cart on its rails: 42_minecart) // (a pit prop holding the roof over a chasm: 42_mineroof)
   if (p.kind === 'crack') { hitCrack(p, mv && mv.dm >= 2 ? 3 : 1); return; } // (a cracked wall: a heavy blow breaks it at once, 41_puzzles)
   // (a shrine's chest opens only once its vault does)
   if (p.dead || p.hp > 1e8) return; if (p.kind === 'tchest') { if (p.sealed && !p.sealed.open) { SFX.clang(panOf(p.x)); return; } openChest(p); return; } if (p.kind === 'ore') { hitOre(p); return; }
