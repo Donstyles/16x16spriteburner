@@ -79,13 +79,13 @@ function drawbridge(A, r, g, near, adj) {
     const bs = []; for (let b = (o.v ? r.iy0 : r.ix0) + 1; b <= (o.v ? r.iy1 : r.ix1) - 2; b++) bs.push(b); const b = pitShuffle(bs).find(ends); if (b === undefined) continue;
     // the button's room: off a door of this room on the near side (a branch beyond it), never one passed before it
     const branch = new Set(); for (const d of r.doors) { if (near.has(other(d)) || !d.cells.some(([x, y]) => S.has(y * W + x))) continue; const seen = new Set([other(d)]), st = [other(d)]; while (st.length) { const a = st.pop(); for (const n of adj(a)) if (n !== r && !seen.has(n)) { seen.add(n); st.push(n); } } seen.forEach(h => branch.add(h)); }
-    const GF = gateFree(A), ok = h => hostOK(A)(h) && (!GF || GF.has(h)), host = pitShuffle([...branch].filter(ok)).sort((a, c) => adj(a).length - adj(c).length)[0]; if (!host) continue; // (only beyond: the chasm is met before its button)
+    const GF = gateFree(A), ok = h => hostOK(A)(h) && (!GF || GF.has(h)), host = pitShuffle([...branch].filter(ok)).sort((a, c) => adj(a).length - adj(c).length)[0]; if (!host && !isMines(A)) continue; // (only beyond: the chasm is met before its button)
     for (const i of band) A.fl[i] = PIT; for (const i of band) pitPaint(A, g, i); A.pitN = (A.pitN || 0) + band.size;
     const cells = []; for (let k = 0; k < H; k++) for (const s of [b, b + 1]) cells.push(o.v ? [o.at + k, s] : [s, o.at + k]);
     const lowNear = o.v ? S.has(b * W + o.at - 1) : S.has((o.at - 1) * W + b); // (laid from the near side)
     const br = { drawbridge: true, room: r.i, travel: o.v ? 'ew' : 'ns', wood: pick(['orange', 'green']), cells, len: H, back: !lowNear, laid: 0, going: false, x0: o.v ? o.at : b, x1: o.v ? o.at + H - 1 : b + 1, y0: o.v ? b : o.at, y1: o.v ? b + 1 : o.at + H - 1 };
-    br.runes = A.floor >= 2 && chance(0.4); // (laid by a button, or by the runes of a dark storeroom: 36_works)
-    (A.bridges = A.bridges || []).push(br); r.set = 'drawbridge'; r.bridge = br; A.sets.push('drawbridge'); br.preReach = new Set([...near, ...branch]); hostSluice(A, host, br); // (preReach: THE SUNKEN BUTTON, 36_works)
+    br.runes = !isMines(A) && A.floor >= 2 && chance(0.4); // (laid by a button, or by the runes of a dark storeroom: 36_works)
+    (A.bridges = A.bridges || []).push(br); r.set = 'drawbridge'; r.bridge = br; A.sets.push('drawbridge'); br.preReach = new Set([...near, ...branch]); if (isMines(A)) { br.roof = true; br.lowNear = lowNear; (A.puzNames = A.puzNames || []).push('BRING DOWN THE ROOF'); } /* (the mines': no bridge, no button: the roof over the chasm, held up by two props, 42_mineroof) */ else hostSluice(A, host, br); // (preReach: THE SUNKEN BUTTON, 36_works)
     for (const [x, y] of cells) for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) A.noProp.add((y + dy) * W + x + dx); // (nothing stands where it comes ashore)
     return true;
   }
@@ -269,7 +269,7 @@ function wayArrows(A, g) {
       && !(A.plates || []).some(p => p.tx === x && p.ty === y) && !(A.runes || []).some(p => p.tx === x && p.ty === y) && !(r.inlay || []).some(([a, b]) => x >= a && x <= a + 1 && y >= b && y <= b + 1) && !(A.charnel && A.charnel.area.has(y * A.w + x)); // (not on the way round the charnel pit: 43_crypt)
     const crypt = A.th.sheet === 'crypt', mid = [Math.round(cx), Math.round(cy)]; // (the crypt's: where its worn paths meet, the middle cell its wear runs to (30_arena), when that is free)
     const axis = crypt ? cands.filter(([x]) => x === mid[0]).sort((a, b) => Math.abs(a[1] - mid[1]) - Math.abs(b[1] - mid[1]) || a[1] - b[1]) : []; // (else the next free tile up or down its middle line)
-    const at = crypt && free(mid[0], mid[1]) ? mid : axis.find(([x, y]) => free(x, y)) || cands.find(([x, y]) => free(x, y)); if (at) { if (crypt) wayStone(g, COL[door.side], row, at[0] * TS, at[1] * TS); else tileAt(g, COL[door.side], row, at[0] * TS, at[1] * TS); }
+    const at = crypt && free(mid[0], mid[1]) ? mid : axis.find(([x, y]) => free(x, y)) || cands.find(([x, y]) => free(x, y)); if (at) { if (crypt) wayStone(g, COL[door.side], row, at[0] * TS, at[1] * TS); else if (isMines(A)) wayScratch(g, COL[door.side], row, at[0] * TS, at[1] * TS); else tileAt(g, COL[door.side], row, at[0] * TS, at[1] * TS); }
   }
 }
 // the crypt's way-stone: no pale slab of the cellar's, but the crypt's own plain slab with the arrow cut into it (the cellar
@@ -280,6 +280,16 @@ function wayStone(g, col, row, dx, dy) {
   const key = col + ',' + row; let cv = WAY_GLYPH[key];
   if (!cv) { cv = WAY_GLYPH[key] = mkCanvas(TS, TS); const c = cv.getContext('2d'), [img, sx, sy] = srcOf(col, row); c.drawImage(img, sx, sy, TS, TS, 0, 0, TS, TS); const D = c.getImageData(0, 0, TS, TS), d = D.data;
     for (let i = 0; i < TS * TS; i++) { const x = i % TS, y = (i / TS) | 0, l = 0.3 * d[i * 4] + 0.59 * d[i * 4 + 1] + 0.11 * d[i * 4 + 2]; if (x < 1 || x > TS - 2 || y < 1 || y > TS - 3 || l >= 128) d[i * 4 + 3] = 0; }
+    c.putImageData(D, 0, 0); }
+  g.drawImage(cv, dx, dy);
+}
+// the mines' way-mark: no slab at all, the same arrow scratched into the floor (the glyph's own pixels, dark, with a pale
+// lip under each: a groove in dirt or cobble)
+function wayScratch(g, col, row, dx, dy) {
+  const key = 'm' + col + ',' + row; let cv = WAY_GLYPH[key];
+  if (!cv) { cv = WAY_GLYPH[key] = mkCanvas(TS, TS); const c = cv.getContext('2d'); c.drawImage(IMG.cellar, col * TS, row * TS, TS, TS, 0, 0, TS, TS); const D = c.getImageData(0, 0, TS, TS), d = D.data, on = new Uint8Array(TS * TS), lum = i => 0.3 * d[i * 4] + 0.59 * d[i * 4 + 1] + 0.11 * d[i * 4 + 2], base = lum(8 * TS + 2); /* (the slab's own tone, whatever the sheet's recolour: a pixel of its plain face) */
+    for (let i = 0; i < TS * TS; i++) { const x = i % TS, y = (i / TS) | 0; on[i] = x >= 1 && x <= TS - 2 && y >= 1 && y <= TS - 3 && lum(i) < base - 8 ? 1 : 0; }
+    for (let i = 0; i < TS * TS; i++) { const k = i * 4; if (on[i]) { d[k] = 38; d[k + 1] = 24; d[k + 2] = 16; d[k + 3] = 215; } else if (i >= TS && on[i - TS]) { d[k] = 196; d[k + 1] = 156; d[k + 2] = 116; d[k + 3] = 90; } else d[k + 3] = 0; }
     c.putImageData(D, 0, 0); }
   g.drawImage(cv, dx, dy);
 }
@@ -373,7 +383,7 @@ function bridgeCine(C, dt) {
   if (skip || (C.endT !== undefined && C.t - C.endT > 1.1)) { G.cine = null; G.eyes = null; }
 }
 function cineTick(dt) {
-  const C = G.cine; C.t += dt; if (C.bridge) { bridgeCine(C, dt); return; } if (C.gate) { gateCine(C, dt); return; } if (C.exit) { exitCine(C, dt); return; } if (C.sump) { sumpCineTick(C, dt); return; } if (C.boss) { bossCineTick(C, dt); return; } if (C.echo) { echoCine(C, dt); return; } const p = C.pool;
+  const C = G.cine; C.t += dt; if (C.bridge) { bridgeCine(C, dt); return; } if (C.gate) { gateCine(C, dt); return; } if (C.exit) { exitCine(C, dt); return; } if (C.sump) { sumpCineTick(C, dt); return; } if (C.roof) { roofCineTick(C, dt); return; } if (C.boss) { bossCineTick(C, dt); return; } if (C.echo) { echoCine(C, dt); return; } const p = C.pool;
   if (C.t > 0.8 && !p.drain) startDrain(p);
   worksTick(dt); updateSight(dt); updateProj(0);
   for (const f of G.foes) if (f.drowned) foeTick(f, dt); // (the drowned settle where they lie)

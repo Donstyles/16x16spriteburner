@@ -100,6 +100,7 @@ function twoSluices(A, r, bare, plate, clear) {
 // the floor's other flooded galleries: a room or two of its plain ones, each with its valve on its bed
 function minesWater(A) {
   if (A.sump) sumpLake(A); // (the last floor's: 42_minesboss)
+  roofProps(A); // (the props under a roof that will make a bridge: 42_mineroof)
   const ok = r => r.kind === 'room' && !r.set && !r.puz && !r.chest && !r.gateOf && !r.flood && !r.shape && r.w * r.h >= 70, Wk = wkOf(A);
   for (const r of A.rooms.filter(ok).sort(() => Math.random() - 0.5).slice(0, 1 + (chance(0.5) ? 1 : 0))) {
     const f = floodRoom(A, r); if (!f || !f.at) continue; const [tx, ty] = f.at; removeIf(A.props, q => Math.abs(q.x - (tx * TS + 8)) < 14 && Math.abs(q.cy - (ty * TS + 10)) < 14);
