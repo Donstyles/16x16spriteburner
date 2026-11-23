@@ -64,16 +64,25 @@ const GALLERY = [
   ['THE CINDER COURT', 'magma', 'cinders', 'FIRE THAT WALKS, ITS MAGES, GOLEMS OF BLACK GLASS', '#ff9a50'],
   ['THE DEMON HORDE', 'magma', 'demons', 'THE IMPS THROW FIRE NOW', '#ff9a50'],
   ['LORD ON THE LAKE', 'magma', 'lake', 'WALK OUT TO THE ISLAND. THREE STAGES: THE BRIDGES FALL, THE LAKE RISES', '#ffb060'],
+  // the abandoned mines (42_mines, 42_minewater, 42_mineroof, 42_minesboss): built as a mines floor (the tenth; the twelfth for its drake)
+  ['FLOODED WORKINGS', 'mines', 'flood', 'WADE IN, THEN UNDER: YOUR BREATH RUNS OUT. THE VALVE AT THE FAR END DRAINS IT ALL', '#7fb8ff'],
+  ['THE DROWNED DOOR', 'mines', 'drowned', 'THE GATE IS SHUT WHILE THE ROOM IS UNDER WATER: DIVE FOR ITS VALVE', '#7fb8ff'],
+  ['THE TWO SLUICES', 'mines', 'sluices', 'THE FAR SLUICE WILL NOT TURN UNDER DEEP WATER: LOWER THE WATER FIRST', '#7fb8ff'],
+  ['BRING DOWN THE ROOF', 'mines', 'roof', 'NO BRIDGE AND NO BUTTON: KNOCK OUT BOTH PIT PROPS AND THE ROOF FILLS THE CHASM', '#d9a066'],
+  ['THE KOBOLD WARREN', 'mines', 'kobolds', 'DIGGERS AND THEIR MOLES: HEAVY BLOWS IN HERE SHAKE ROCK OUT OF THE ROOF', '#d9a066'],
+  ['THE TINKERS', 'mines', 'gnomes', 'GNOMES WITH FLASKS AND BOLTS: THEY KEEP THEIR DISTANCE', '#d9a066'],
+  ['DRAKE IN THE SUMP', 'mines', 'sump', 'IT CANNOT BE HURT UNDER ITS WATER. THREE SLUICES DRAIN THE SUMP: THEN IT IS YOURS', '#8fd0ff'],
 ];
 // (on a gallery floor: PREV and NEXT at the top step through them all, its name and number under them; 61_input)
 const GAL = { on: false, i: 0, kit: null };
 function galleryStep(d) { const n = GALLERY.length; beginGallery(GAL.kit, ((GAL.i + d) % n + n) % n); }
 function beginGallery(kit, i) {
-  const [label, kind, what, line] = GALLERY[i]; beginRun(kit); G.floor = kind === 'magma' ? (what === 'lake' ? 9 : 7) : kind === 'crypt' ? (what === 'moss' ? 6 : 4) : kind === 'puz' || kind === 'crack' ? 4 : chance(0.5) ? 3 : 4; let at = null, keep = null; // (brown or grey; the puzzles at their fullest on the fourth)
+  const [label, kind, what, line] = GALLERY[i]; beginRun(kit); G.floor = kind === 'mines' ? (what === 'sump' ? 12 : 10) : kind === 'magma' ? (what === 'lake' ? 9 : 7) : kind === 'crypt' ? (what === 'moss' ? 6 : 4) : kind === 'puz' || kind === 'crack' ? 4 : chance(0.5) ? 3 : 4; let at = null, keep = null; // (brown or grey; the puzzles at their fullest on the fourth)
   const room = r => { const W = ARENA.w, cx = Math.round((r.ix0 + r.ix1) / 2); for (let d = 0; d < 12; d++) for (const y of [r.iy1 - d, r.iy1 - d + 1]) for (const x of [cx, cx - d, cx + d]) if (y >= r.iy0 && y <= r.iy1 && FLOOR(ARENA.fl[y * W + x])) return [x * TS + 8, y * TS + 10]; return [(cx + 0.5) * TS, (r.iy1 + 0.5) * TS]; };
   const doorIn = (r, d) => { const [x, y] = d.cells[1]; return d.side === 'N' ? [x, y + 2] : d.side === 'S' ? [x, y - 2] : d.side === 'W' ? [x + 2, y] : [x - 2, y]; };
   for (let n = 0; n < 60 && !at; n++) {
     if (kind === 'magma') { if (['holes', 'rim', 'ledges', 'crumble'].includes(what)) ARCH.force = 'pits'; if (what === 'pool') ARCH.force = 'water'; if (what === 'forest') ARCH.force = 'stores'; if (what === 'crucible') PUZ.force = 'crucible'; if (what === 'cinders' || what === 'demons') G.nextArmy = what; else G.army = null; }
+    if (kind === 'mines') { if (what === 'drowned' || what === 'sluices') PUZ.force = what; if (what === 'kobolds' || what === 'gnomes') G.nextArmy = what; else G.army = null; }
     if (kind === 'crypt') { CRYPT.force = true; if (what === 'blood' || what === 'vigil') PUZ.force = what; if (what === 'charnel') PUZ.force = 'fires'; } // (the pit as the floor's puzzle: THE CHARNEL PIT)
     if (kind === 'shape') SHAPES.force = what; if (kind === 'great') GREAT.force = true; if (kind === 'theme') ARCH.theme = what; if (kind === 'puz') { PUZ.force = what === 'songhidden' ? 'song' : what === 'spikehidden' ? 'spikegate' : what; PUZ.hidden = what === 'songhidden'; PUZ.spikeHidden = what === 'spikehidden'; } if (kind === 'crack') { PUZ.force = what === 'lever' ? 'gate' : what === 'rune' ? 'rune' : null; HIDDEN.force = what === 'hall' || what.startsWith('nest') ? true : what === 'hallexit' ? 'exit' : false; HIDDEN.nest = what === 'nestalcove' ? 'alcove' : what === 'nestleg' ? 'leg' : null; } if (kind === 'arch') ARCH.force = what;
     try { startFloor(); } finally { SHAPES.force = null; GREAT.force = false; ARCH.theme = null; PUZ.force = null; PUZ.hidden = false; PUZ.spikeHidden = false; HIDDEN.force = false; HIDDEN.nest = null; ARCH.force = null; CRYPT.force = false; }
@@ -90,12 +99,13 @@ function beginGallery(kit, i) {
     else if (kind === 'arch') at = [A.spawn.x, A.spawn.y];
     else if (kind === 'crypt') { const r = galleryCrypt(A, what); if (r) { at = r.at; keep = r.keep || null; } }
     else if (kind === 'magma') { const r = galleryNear(A, galleryMagma(A, what)); if (r) { at = r.at; keep = r.keep || null; } }
+    else if (kind === 'mines') { const r = galleryNear(A, galleryMines(A, what)); if (r) { at = r.at; keep = r.keep || null; } }
   }
   // a quiet floor to look round: no foes, the hero right there
   for (const f of G.foes) if (!(keep && keep(f))) f.dead = true; removeIf(G.foes, f => f.dead); G.units = G.heroes.concat(G.foes);
   const h = G.me; if (at) { h.x = at[0]; h.y = at[1]; h.enter = null; } CAM.x = h.x; CAM.y = h.y; G.fade = 0.6;
   Object.assign(GAL, { on: true, i, kit });
-  G.card = { t: 0, life: 4.5, a: 'NIGHT GALLERY', b: label, c: line, d: kind === 'arch' ? (ARENA.arch.name || '') + ' · NO FOES' : kind === 'magma' ? (keep ? 'THEY ARE AWAKE' : 'NO FOES · THE LAVA IS LIVE') + ' · THE STAIRS LEAD ON AS EVER' : kind === 'crypt' ? 'THE DEAD STILL STIR · THE STAIRS LEAD ON AS EVER' : 'NO FOES · THE STAIRS LEAD ON AS EVER' };
+  G.card = { t: 0, life: 4.5, a: 'NIGHT GALLERY', b: label, c: line, d: kind === 'arch' ? (ARENA.arch.name || '') + ' · NO FOES' : kind === 'magma' ? (keep ? 'THEY ARE AWAKE' : 'NO FOES · THE LAVA IS LIVE') + ' · THE STAIRS LEAD ON AS EVER' : kind === 'mines' ? (keep ? 'THEY ARE AWAKE' : 'NO FOES · THE WATER IS DEEP') + ' · THE STAIRS LEAD ON AS EVER' : kind === 'crypt' ? 'THE DEAD STILL STIR · THE STAIRS LEAD ON AS EVER' : 'NO FOES · THE STAIRS LEAD ON AS EVER' };
 }
 // the gallery's screen: a grid of buttons, three columns (63_menu)
 function drawGalleryMenu(c, W, H, big, btn, k) {
@@ -132,6 +142,16 @@ function galleryCrypt0(A, what) {
   if (what === 'pool') { const q = (A.pools || []).find(q => !q.flooded); return q ? { at: [(q.x1 + 1.5) * TS + 8, (q.y0 + q.y1 + 1) / 2 * TS] } : null; }
   if (what === 'gallery') { const t = A.torches.find(t => t.candles && !A.rooms.some(r => inR(r, t.x, t.y + 24)) && FLOOR(A.fl[Math.floor((t.y + 24) / TS) * A.w + Math.floor(t.x / TS)])); return t ? { at: [t.x + 20, t.y + 26] } : null; }
   if (what === 'moss') return { at: [A.spawn.x, A.spawn.y] };
+  return null;
+}
+// a mines gallery entry: where the hero stands to see it, and who stays
+function galleryMines(A, what) {
+  const mid = r => [(r.ix0 + r.ix1 + 1) / 2 * TS, (r.iy0 + r.iy1 + 1) / 2 * TS], door = (r, k = 1) => { const d = r.doors.find(d => !d.hidden); if (!d) return mid(r); const [x, y] = d.cells[1], o = { N: [0, 1], S: [0, -1], W: [1, 0], E: [-1, 0] }[d.side]; return [(x + o[0] * k) * TS + 8, (y + o[1] * k) * TS + 10]; };
+  if (what === 'flood') { const r = A.rooms.find(q => q.flood && !q.puz && !q.secret && !(A.sump && A.sump.r === q)); return r ? { at: door(r, 0) } : null; } /* (in its doorway, the water in front of him) */
+  if (what === 'drowned' || what === 'sluices') { const r = A.rooms.find(q => q.puz === what && q.flood && !q.secret); return r ? { at: door(r, 0) } : null; }
+  if (what === 'roof') { const br = (A.bridges || []).find(q => q.roof && q.posts && q.posts.length === 2 && !A.rooms[q.room].secret); if (!br) return null; const [a, b] = br.posts, k = br.lowNear ? -26 : 26; return { at: br.travel === 'ew' ? [a.x + k, (a.y + b.y) / 2] : [(a.x + b.x) / 2, a.y + k] }; } /* (on its near side, between the two props) */
+  if (what === 'kobolds' || what === 'gnomes') { if (A.army !== what) return null; const n = q => G.foes.filter(f => roomAt(f.x, f.y) === q).length, r = A.rooms.filter(q => q.kind === 'room' && !q.set && !q.flood && !q.secret && n(q) >= 4).sort((a, b) => n(a) - n(b))[0]; return r ? { at: door(r, -3), keep: f => roomAt(f.x, f.y) === r } : null; }
+  if (what === 'sump') return A.sump && A.boss ? { at: door(A.sump.r, -2), keep: f => f.boss } : null; /* (in the passage outside: its rising is seen as he walks in) */
   return null;
 }
 // a magma gallery entry: where the hero stands to see it, and who stays

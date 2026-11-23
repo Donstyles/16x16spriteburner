@@ -31,7 +31,14 @@ function minesFloor(g, W, H, near, inRoom, rooms) {
     g.drawImage(IMG.mines, t[0] * TS, t[1] * TS, TS, TS, x * TS, y * TS, TS, TS);
   }
 }
-function minesTick(dt) { if (!isMines(ARENA)) return; floodsTick(dt); minesLights(); sumpTick(dt); roofTick(dt); } // (its water: 42_minewater)
+function minesTick(dt) { if (!isMines(ARENA)) return; floodsTick(dt); minesLights(); sumpTick(dt); roofTick(dt); minesSounds(dt); }
+// its small sounds: a drip now and then (more of them near water), a timber creaking under the roof's weight
+const MSND = { drip: 2, creak: 9 };
+function minesSounds(dt) {
+  if (G.cine || G.mode !== 'play') return; const h = G.me || G.heroes[0]; if (!h) return;
+  if ((MSND.drip -= dt) <= 0) { const wet = (ARENA.floods || []).some(f => f.level > 0.05 && h.x > f.px0 - 160 && h.x < f.px0 + f.bw + 160 && h.y > f.py0 - 160 && h.y < f.py0 + f.bh + 160); MSND.drip = wet ? rand(0.6, 2.2) : rand(2.5, 7); SFX.drip(rand(-0.8, 0.8), wet ? 1 : 0.6); }
+  if ((MSND.creak -= dt) <= 0) { MSND.creak = rand(9, 24); SFX.creak(rand(-0.7, 0.7), rand(0.6, 1)); }
+} // (its water: 42_minewater)
 // THE TIMBERING: the mines' wall lights are lanterns hung in the sheet's pit frames ([16..18, 28..31]: two posts and a
 // beam, a lantern on its hook between them, dark in rows 28 and 29, burning in 30 and 31), one frame to each light,
 // standing against the north wall with its feet a little out on the floor, so its beam shows under the wall's rim. A

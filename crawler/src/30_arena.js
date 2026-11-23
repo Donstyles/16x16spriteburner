@@ -286,7 +286,7 @@ function buildArena1(floor) {
   if ((floor >= 2 || HIDDEN.force) && (HIDDEN.force || chance(0.55))) {
     const cand = [...cells.entries()].filter(([k, [x, y]]) => y > 0 && !cells.has(key(x, y - 1)) && kindOf(k) !== 'shop' && kindOf(k) !== 'end' && !great.has(k) && !second.has(k));
     if (cand.length) {
-      const exit = HIDDEN.force === 'exit' || (!HIDDEN.force && floor >= 3 && !lakeFloor(floor) && chance(0.25)); cand.sort((a, b) => (far.get(b[0]) || 0) - (far.get(a[0]) || 0));
+      const exit = HIDDEN.force === 'exit' || (!HIDDEN.force && floor >= 3 && !lakeFloor(floor) && !sumpFloor(floor) && chance(0.25)); cand.sort((a, b) => (far.get(b[0]) || 0) - (far.get(a[0]) || 0));
       const [rk, [x, y]] = exit ? cand[randi(0, Math.min(2, cand.length - 1))] : pick(cand), sk = key(x, y - 1);
       hid = { r: rk, s: sk, x, kind: exit ? 'end' : chance(0.35) ? 'room' : 'treasure', nest: HIDDEN.nest || (!HIDDEN.force && floor >= 3 && chance(0.4)) }; cells.set(sk, [x, y - 1]); if (exit) endK = sk;
     }

@@ -35,7 +35,7 @@ function mkFlood(A, cells, o = {}) {
   const H = new Uint8Array(N).fill(255), dr = o.drain || null;
   for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) {
     if (!wet(x, y)) continue; const i = y * bw + x, X = px0 + x, Y = py0 + y, sw = 0.7 * lat(X, Y, 44) + 0.3 * lat(X + 300, Y + 170, 15);
-    const ds = D[i] - 5 + 9 * lat(X + 77, Y + 31, 7); if (ds <= 0) continue; // (the brim: never a straight line along the tiles, a ragged edge a few pixels in)
+    const ds = D[i] - 2 - 13 * lat(X + 77, Y + 31, 10) * lat(X + 9, Y + 140, 23) - 3 * lat(X + 40, Y + 9, 4); if (ds <= 0) continue; // (the brim: never a straight line along the tiles, a ragged edge a few pixels in)
     let d = Math.min(1, ds / FLOOD.RAMP) * (o.flat ? 0.93 + 0.07 * sw : 0.5 + 0.5 * Math.min(1, sw * 1.35));
     for (const [sx, sy, sr, st = FLOOD.SHOAL] of o.shoals || []) { const q = Math.hypot(X - sx, (Y - sy) * 1.25) / sr * (0.82 + 0.36 * lat(X + 11, Y + 5, 11)); if (q < 1.6) d = Math.min(d, st + (1 - st) * clamp((q - 0.8) / 0.8, 0, 1) + 0.03 * (sw - 0.5)); } // (a shoal: a rise in the bed, its top flat: under a full flood's dark, out of it once the water is down a fifth) // (how deep, of the full depth: nothing at a shore, half to all of it out in the open)
     if (dr && !o.shoals) d = Math.max(d, Math.min(1, ds / 10) * Math.max(0, 1 - Math.hypot(X - dr[0], (Y - dr[1]) * 1.3) / 34)); // (its lowest hollow, round the drain)

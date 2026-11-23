@@ -14,7 +14,7 @@ const SFX = {
     this.white = c.createBuffer(1, n, c.sampleRate); const w = this.white.getChannelData(0); for (let i = 0; i < n; i++) w[i] = Math.random() * 2 - 1;
     this.brown = c.createBuffer(1, n, c.sampleRate); const b = this.brown.getChannelData(0); let l = 0; for (let i = 0; i < n; i++) { l = (l + 0.02 * (Math.random() * 2 - 1)) / 1.02; b[i] = l * 3.5; }
     this.crunch = c.createWaveShaper(); const curve = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 3.2); } this.crunch.curve = curve; this.crunch.connect(this.master);
-    this.unlock(); this.on = true; this.drone(); if (typeof ARENA !== 'undefined' && ARENA && ARENA.th && ARENA.th.sheet === 'crypt') this.cryptAir(true); if (typeof ARENA !== 'undefined' && ARENA && ARENA.th && ARENA.th.sheet === 'magma') this.magmaAir(true);
+    this.unlock(); this.on = true; this.drone(); if (typeof ARENA !== 'undefined' && ARENA && ARENA.th && ARENA.th.sheet === 'crypt') this.cryptAir(true); if (typeof ARENA !== 'undefined' && ARENA && ARENA.th && ARENA.th.sheet === 'magma') this.magmaAir(true); if (typeof ARENA !== 'undefined' && ARENA && ARENA.th && ARENA.th.sheet === 'mines') this.minesAir(true);
   },
   // a moment of silence played inside the tap itself: older iPhones only let a page's sound start that way
   unlock() { try { const c = this.ctx, s = c.createBufferSource(); s.buffer = c.createBuffer(1, 1, 22050); s.connect(c.destination); s.start(0); } catch (e) { /* not needed here */ } },
@@ -335,6 +335,24 @@ const SFX = {
     }
     const g = this.magmaG.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(on ? 0.05 : 0, t + (on ? 4 : 1.5));
   },
+  // the mines' air (floors 10 to 12, 42_mines): a hollow draught down long workings (brown noise through a low band that
+  // wanders, quieter than the crypt's moan) over one very low tone; water dripping and timber creaking come on their own (below)
+  minesAir(on) {
+    if (!this.ctx) return; const c = this.ctx, t = c.currentTime;
+    if (!this.minesG) {
+      const bus = c.createGain(); bus.gain.value = 0; bus.connect(this.master); this.minesG = bus;
+      const src = c.createBufferSource(); src.buffer = this.brown; src.loop = true; const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 210; bp.Q.value = 1.6; const wg = c.createGain(); wg.gain.value = 0.9;
+      src.connect(bp); bp.connect(wg); wg.connect(bus); src.start();
+      const l1 = c.createOscillator(); l1.frequency.value = 0.031; const l1g = c.createGain(); l1g.gain.value = 80; l1.connect(l1g); l1g.connect(bp.frequency); l1.start();
+      const l2 = c.createOscillator(); l2.frequency.value = 0.083; const l2g = c.createGain(); l2g.gain.value = 0.5; l2.connect(l2g); l2g.connect(wg.gain); l2.start();
+      const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = 46.2; const og = c.createGain(); og.gain.value = 0.3; o.connect(og); og.connect(bus); o.start();
+    }
+    const g = this.minesG.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(on ? 0.045 : 0, t + (on ? 4 : 1.5));
+  },
+  // a drop of water falling somewhere in the dark: a short bright plink and its small echo
+  drip(pan = 0, v = 1) { if (!this.ok('drip', 0.25)) return; const f = rand(1100, 1900); this.tone('sine', f, f * 0.55, 0.07, 0.06 * v, pan, 0, 0.002); this.tone('sine', f * 0.98, f * 0.5, 0.06, 0.02 * v, -pan * 0.6, rand(0.16, 0.26), 0.002); },
+  // old timber taking the weight: a slow dry creak
+  creak(pan = 0, v = 1) { if (!this.ok('creak', 2)) return; const f = rand(70, 110); this.tone('sawtooth', f, f * rand(1.25, 1.6), rand(0.45, 0.8), 0.035 * v, pan, 0, 0.12); this.noise(this.brown, 0.5, 'bandpass', rand(500, 800), 300, 5, 0.05 * v, pan, 0.05, 0.1); },
   drone() {
     const c = this.ctx, f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 130; const g = c.createGain(); g.gain.value = 0.05; f.connect(g); g.connect(this.master); this.droneG = g;
     for (const fr of [41.2, 41.5, 61.7]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr; o.connect(f); o.start(); }
