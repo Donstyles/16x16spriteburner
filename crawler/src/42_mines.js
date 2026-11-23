@@ -31,7 +31,7 @@ function minesFloor(g, W, H, near, inRoom, rooms) {
     g.drawImage(IMG.mines, t[0] * TS, t[1] * TS, TS, TS, x * TS, y * TS, TS, TS);
   }
 }
-function minesTick(dt) { if (!isMines(ARENA)) return; floodsTick(dt); minesLights(); sumpTick(dt); } // (its water: 42_minewater)
+function minesTick(dt) { if (!isMines(ARENA)) return; floodsTick(dt); minesLights(); sumpTick(dt); roofTick(dt); } // (its water: 42_minewater)
 // THE TIMBERING: the mines' wall lights are lanterns hung in the sheet's pit frames ([16..18, 28..31]: two posts and a
 // beam, a lantern on its hook between them, dark in rows 28 and 29, burning in 30 and 31), one frame to each light,
 // standing against the north wall with its feet a little out on the floor, so its beam shows under the wall's rim. A

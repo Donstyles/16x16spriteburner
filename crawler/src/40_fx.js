@@ -61,6 +61,7 @@ function crackPx(g, s) {
   for (let i = 0; i <= n; i++) { const x = Math.round(x0 + (x1 - x0) * i / n), y = Math.round(y0 + (y1 - y0) * i / n); g.fillStyle = 'rgba(255,230,190,0.14)'; g.fillRect(x, y + k, k, 1); g.fillStyle = 'rgba(6,4,4,0.85)'; g.fillRect(x, y, k, k); }
 }
 function cracks(x, y, n, len, speed = 260, hot = 2.5, col = 'magma') {
+  roofShake(x, y, n); // (the mines: a heavy blow may bring the roof down, 42_mineroof)
   const segs = [];
   const grow = (sx, sy, a, l, t, depth) => {
     let px = sx, py = sy; const steps = Math.max(2, (l / 7) | 0);

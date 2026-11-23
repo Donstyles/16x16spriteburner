@@ -215,7 +215,7 @@ function digTestPit(A, r) {
   TEST.pit = { x: (tx + 1) * TS, y: (ty + 1) * TS }; if (A.clean) keepClean(A); // (CLEAN wipes back to the floor with the pit in it)
 }
 // DIE: he dies the next death on the list, at once (the fall: he is walked into the pit with nothing left to pay for it)
-const TEST_DEATHS = ['bleed', 'fall', 'burst', 'acid', 'vermin', 'vermin3', 'behead', 'drag', 'raised', 'bats', 'carried', 'looted', 'ragdoll', 'ticks', 'hexed'];
+const TEST_DEATHS = ['bleed', 'fall', 'burst', 'acid', 'vermin', 'vermin3', 'behead', 'drag', 'raised', 'bats', 'carried', 'looted', 'ragdoll', 'ticks', 'hexed', 'buried'];
 const testDeathName = k => k === 'vermin3' ? 'EATEN BY THREE RATS' : DEATH_NAMES[k]; // (vermin3: the fewest that can bury him)
 function testDie() {
   const h = G.me; if (!TEST.on || TEST.mode !== 'armour' || !h) return;
@@ -235,7 +235,7 @@ function testDie() {
   const f = by || G.foes.filter(q => !q.dead).sort((a, b) => dist(a.x, a.y, h.x, h.y) - dist(b.x, b.y, h.x, h.y))[0], src = f || { x: h.x + 20, y: h.y, team: 'foe', def: {} }, a = angTo(src.x, src.y, h.x, h.y);
   if (kind === 'vermin3') for (const [i, sp] of ['GiantRat', 'GiantRat', 'MonstrousRat'].entries()) { const b = i / 3 * TAU + rand(-0.4, 0.4), x = h.x + Math.cos(b) * 34, y = h.y + Math.sin(b) * 22, v = mkFoe('skitter', 1, x, y, sp); Object.assign(v, { aware: true, state: 'fight', tgt: h, ctest: TEST.gen }); v.def.gold = [0, 0]; G.foes.push(v); G.units.push(v); smoke(x, y, 2, 'dust', 6, 12, 0.5); } // (three rats and no more)
   if (kind === 'vermin') for (let i = 0; i < 7; i++) { const b = rand(TAU), x = h.x + Math.cos(b) * rand(26, 40), y = h.y + Math.sin(b) * rand(18, 28), v = mkFoe('skitter', 1, x, y, pick(['GiantRat', 'MonstrousRat', 'TaintedCockroach', 'DungBeetle', 'BloatedBedbug', 'FamishedTick', 'ForagingMaggot'])); Object.assign(v, { aware: true, state: 'fight', tgt: h, ctest: TEST.gen }); v.def.gold = [0, 0]; G.foes.push(v); G.units.push(v); smoke(x, y, 2, 'dust', 6, 12, 0.5); } // (a swarm brought on for it)
-  TEST.forceDeath = kind === 'vermin3' ? 'vermin' : kind; hurt(h, Math.ceil((h.hp + 6) / 0.9), src, { kx: Math.cos(a) * 120, ky: Math.sin(a) * 90, ang: a, big: kind === 'burst', acid: kind === 'acid', ...more }); TEST.forceDeath = null;
+  TEST.forceDeath = kind === 'vermin3' ? 'vermin' : kind; hurt(h, Math.ceil((h.hp + 6) / 0.9), src, { kx: Math.cos(a) * 120, ky: Math.sin(a) * 90, ang: a, big: kind === 'burst', acid: kind === 'acid', buried: kind === 'buried', ...more }); TEST.forceDeath = null;
 }
 function rackMail() { G.drops.push({ k: 'chainmail', x: TEST.rack2.x, y: TEST.rack2.y, z: 0, vx: 0, vy: 0, vz: 0, t: 1, hold: 0 }); smoke(TEST.rack2.x, TEST.rack2.y, 2, 'dust', 6, 12, 0.6); }
 function rackGambeson() { G.drops.push({ k: 'gambeson', x: TEST.rack.x, y: TEST.rack.y, z: 0, vx: 0, vy: 0, vz: 0, t: 1, hold: 0 }); smoke(TEST.rack.x, TEST.rack.y, 2, 'dust', 6, 12, 0.6); }
