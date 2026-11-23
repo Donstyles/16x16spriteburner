@@ -14,7 +14,7 @@
 //   she wards it again (her healing is off for now)
 // Bolts that fly straight (the laser, the hex, the soul-fire, the thorns) can be parried back like arrows; a wave or a
 // flask cannot.
-const CAST = { LizardfolkScout: 'laser', GoblinOccultist: 'hex', VileWitch: 'flask', MerfolkAquamancer: 'wave', AdeptNecromancer: 'raise', ElfEnchanter: 'heal', AcidAnt: 'spit', CrimsonImp: 'fire', FlameMagus: 'fire', NovicePyromancer: 'fire' }; // (fire: a ball of it, that sets alight what it strikes: the magma's imps and mages, 42_magma)
+const CAST = { LizardfolkScout: 'laser', GoblinOccultist: 'hex', VileWitch: 'flask', MerfolkAquamancer: 'wave', AdeptNecromancer: 'raise', ElfEnchanter: 'heal', AcidAnt: 'spit', CrimsonImp: 'fire', FlameMagus: 'fire', NovicePyromancer: 'fire', Pyro: 'fire', GnomeAlchemist: 'flask', GnomeMage: 'hex' }; // (fire: a ball of it, that sets alight what it strikes: the magma's imps and mages, 42_magma)
 const ENCHANTER_HEALS = false; // her healing is off for now: she wards and throws thorns
 const WARD_BLOWS = 3; // a ward takes this many blows before it breaks
 const SPELL = {

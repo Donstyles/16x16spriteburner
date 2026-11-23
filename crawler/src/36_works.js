@@ -151,6 +151,7 @@ function liquify(cv, L) { // (each blue pixel: the liquid's colour, as much ligh
 
 // ---- building (called from buildArena): before the room is furnished, and after
 function worksBefore(A, r, g) {
+  if (isMines(A)) return; // (the mines hold no cisterns, ponds or rune shrines: their water is their own, 42_minewater)
   if (r.sunkHost) { const w = r.sunkHost.preReach || null; if (beyondHost(A, r, w)) cistern(A, r, g, w); else if (r.crack || crackIn(A, r, 'drain')) { r.crack.holds = 'drain'; cistern(A, r, g, w); } else r.sunkHost = null; return; } // (a set piece's button to be sunk in it: THE SUNKEN BUTTON; only where the cistern's own drain can be in a room beyond it, or else sealed behind a cracked wall in its own room: never out in the open in its own room; with neither, the button stands dry in this room as ever)
   if (r.kind !== 'room' || r.chest || r.set || r.sluice || r.shape || r.puz) return; // (nor a puzzle's room: 41_puzzles) // (a set piece's room, or the room with its sluice: 37_levels)
   if (!A.cistern && !A.sunkPlanned && r.w >= 12 && r.h >= 8 && beyondHost(A, r) && chance(ARCH.cur.water ? 0.95 : 0.6)) cistern(A, r, g); // (THE WATERWORKS: 35_themes) // (only where its sluice can be beyond it: 37_levels)

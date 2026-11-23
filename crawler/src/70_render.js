@@ -76,7 +76,8 @@ function bigSprite(spr, sc) {
   // centred on them, and drawn at the half pixel a frame's edge column reads into the next frame on some screens)
   return (BIG[key] = { cv, white: silhouette(cv), red, W, H, ox: -(W >> 1), fx: fr => fr * S + 1, foot: Math.round((foot + 1) * H / fh) });
 }
-function drawUnit(c, u) {
+function drawUnit(c, u) { const D = u.wd > 0.5 && !u.fall ? u.wd : 0; if (D) drawWetThing(c, u.x, u.y, D, g => drawUnitRaw(g, u), !!u.sub); else drawUnitRaw(c, u); } // (in the mines' water: under its blue from the waterline down, 42_minewater)
+function drawUnitRaw(c, u) {
   if (u.shade) { if (!u.dead && foeShown(u)) drawShade(c, u); return; } // (the crypt's Shade: 43_crypt)
   const m = MOBS[u.spr]; if (!m || u.hidden) return; const fade = darkFade(u); if (fade <= 0.02) return; /* (taken off into the dark: 49_deaths2) */ if (u.team === 'foe' && !foeShown(u)) return; /* (hidden: under the vermin's heap, 48_deaths) */ if (u.under) { drawMound(c, u); return; }
   const sy = m[0], fw = m[1], fh = m[2], foot = footOf(u.spr), sleep = u.state === 'sleep' && !u.aware, dp = u.team === 'hero' && u.dead ? deathPose(u) : null; if (dp && dp.gone) return;
@@ -124,7 +125,8 @@ function drawUnit(c, u) {
 function drawPropPart(c, p, low) {
   const S = propSplit(p), top = p.y - 64; c.save(); c.beginPath(); if (low) c.rect(p.x - 9, S.band, 18, p.y + 4 - S.band); else c.rect(p.x - 9, top, 18, S.band - top); c.clip(); drawProp(c, p); c.restore();
 }
-function drawProp(c, p) {
+function drawProp(c, p) { const D = ARENA.floodAt ? depthPx(p.x, p.cy === undefined ? p.y - 4 : p.cy) : 0; if (D > 0.5) drawWetThing(c, p.x, p.y, D, g => drawPropRaw(g, p), false); else drawPropRaw(c, p); } // (standing in the mines' water: 42_minewater)
+function drawPropRaw(c, p) {
   if (p.draw === false) return; // (painted into the ground, a body only: the charnel pit, 43_crypt)
   if (p.kind === 'font') { drawFont(c, p); return; } // (a skull font's basin: 43_crypt)
   if (p.kind === 'pillar') { const [tx, ty] = p.tile; for (let i = 0; i < 3; i++) c.drawImage(IMG.cellar, tx * TS, (ty + i) * TS, TS, TS, p.x - 8, p.y - 14 - 32 + i * TS, TS, TS); }
@@ -250,7 +252,7 @@ function render() {
   const c = wbc; c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; c.fillStyle = '#0b0c0f'; c.fillRect(0, 0, bw, bh); c.imageSmoothingEnabled = false; X(c);
   drawGround(c, ox, oy, bw, bh);
   const tb = ARENA.th.tone === 'brown' ? 5 : 0; if (ARENA.wallCandles) drawCandles(c, ARENA.wallCandles, true); /* (the crypt's niches: 44_candles) */ for (const t of ARENA.torches) { if (t.candles) continue; if (ARENA.th.sheet === 'crypt' && !t.exit) { cryptTorch(c, t); continue; } /* (the way down's two are the cellar's torches, recoloured) */ if (t.out) { c.drawImage(IMG.cellar, (t.ember ? 31 : 30) * TS, (tb ? 5 : 2) * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); continue; } const f = ((G.time * 9 + t.f) | 0) % 4; c.drawImage(IMG.cellar, (tb + f) * TS, 26 * TS, TS, TS, t.x - 8, t.y - 9, TS, TS); } // (the brown floors' own, iron on stone)
-  drawWorks(c); drawHeaps(c); drawPits(c); drawMagma(c); drawWet(c); drawHazards(c); drawWake(c); drawRuns(c); drawDoors(c); drawTele(c); drawTelegraphs(c);
+  drawWorks(c); drawHeaps(c); drawPits(c); drawMagma(c); drawFloods(c); drawWet(c); drawHazards(c); drawWake(c); drawRuns(c); drawDoors(c); drawTele(c); drawTelegraphs(c);
   // the shadows, on a layer of their own cut to the floor (noFloor), then laid down
   if (!shb) { shb = mkCanvas(1, 1); shbc = shb.getContext('2d'); } fitBuf(shb, bw, bh); const S = shbc; S.setTransform(1, 0, 0, 1, 0, 0); S.globalCompositeOperation = 'source-over'; S.clearRect(0, 0, bw, bh); X(S);
   // (a drained basin: whoever stands outside it casts no shadow on its walls' faces nor its bed, whoever is down in it
@@ -281,7 +283,7 @@ function render() {
   for (const [, k, o] of list) if (k === 0) { if (o.fall) drawFalling(c, o); else if (!(o.rise > 0 && ((G.time * 18) | 0) % 2)) drawUnit(c, o); } else if (k === 1) { if (propSplit(o)) drawPropPart(c, o, false); else drawProp(c, o); } else if (k === 2) drawDrop(c, o); else if (k === 3) drawProj(c, o); else if (k === 5) drawWallArrow(c, o); else if (k === 6) drawStrut(c, o); else if (k === 7) drawSouthDoor(c, o); else drawRock(c, o);
   if (ARENA.shop) for (const w of ARENA.shop.wares) drawWare(c, w); // (his wares, over everyone: they never hide behind a customer, 39_shop)
   for (const h of G.heroes) if (h.shown) drawShown(c, h);
-  drawLids(c); drawMagmaOver(c); drawWorldParts(c); drawCeil(c, ox, oy, bw, bh); drawSouthStruts(c); // the tops of the south, east and west walls, at the ceiling, over everything in the room (and a south doorway's strut: 32_crawl)
+  drawLids(c); drawMagmaOver(c); drawWorldParts(c); drawFloodsOver(c); drawCeil(c, ox, oy, bw, bh); drawSouthStruts(c); // the tops of the south, east and west walls, at the ceiling, over everything in the room (and a south doorway's strut: 32_crawl)
   renderLight();
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'multiply'; c.drawImage(lc, 0, 0);
   fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.globalCompositeOperation = 'source-over'; fctx.globalAlpha = 1; fctx.clearRect(0, 0, bw, bh); fctx.globalCompositeOperation = 'lighter'; fctx.imageSmoothingEnabled = false; X(fctx);

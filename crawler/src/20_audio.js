@@ -9,7 +9,7 @@ const SFX = {
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     const c = this.ctx = new AC();
     const comp = c.createDynamicsCompressor(); comp.threshold.value = -16; comp.knee.value = 10; comp.ratio.value = 8; comp.attack.value = 0.002; comp.release.value = 0.3;
-    this.master = c.createGain(); this.master.gain.value = 0.85; this.master.connect(comp); comp.connect(c.destination);
+    this.master = c.createGain(); this.master.gain.value = 0.85; this.lp = c.createBiquadFilter(); this.lp.type = 'lowpass'; this.lp.frequency.value = 20000; this.lp.Q.value = 0.7; this.master.connect(this.lp); this.lp.connect(comp); comp.connect(c.destination); // (lp: wide open, shut down to a murmur while his head is under water, 42_minewater)
     const n = c.sampleRate * 2;
     this.white = c.createBuffer(1, n, c.sampleRate); const w = this.white.getChannelData(0); for (let i = 0; i < n; i++) w[i] = Math.random() * 2 - 1;
     this.brown = c.createBuffer(1, n, c.sampleRate); const b = this.brown.getChannelData(0); let l = 0; for (let i = 0; i < n; i++) { l = (l + 0.02 * (Math.random() * 2 - 1)) / 1.02; b[i] = l * 3.5; }
@@ -320,6 +320,8 @@ const SFX = {
   },
   // the magma's air (floors 7 to 9, 42_magma): the lava's own voice, a deep slow roar (brown noise under a low pass that
   // breathes) with a rumble under it, and a hiss of heat on top; faded in on a magma floor, out elsewhere
+  // a head under water: everything heard through it, dull and close
+  muffle(on) { if (!this.ctx || !this.lp || this.muf === on) return; this.muf = on; const t = this.ctx.currentTime, f = this.lp.frequency; f.cancelScheduledValues(t); f.setValueAtTime(f.value, t); f.exponentialRampToValueAtTime(on ? 520 : 20000, t + (on ? 0.12 : 0.25)); },
   magmaAir(on) {
     if (!this.ctx) return; const c = this.ctx, t = c.currentTime;
     if (!this.magmaG) {

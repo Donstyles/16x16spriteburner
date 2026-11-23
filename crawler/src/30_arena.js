@@ -26,7 +26,7 @@ THEMES.magma = Object.assign({}, THEMES.grey, { name: 'magma', sheet: 'magma', s
 } });
 const MAGMA = { force: false }; // (a test: the magma on any floor)
 const solidTh = th => !!(th && th.solid), isCrypt = A => !!A && A.th.sheet === 'crypt', isMagma = A => !!A && A.th.sheet === 'magma';
-const themeOf = floor => (CRYPT.force ? THEMES.crypt : MAGMA.force || (floor >= 7 && floor <= 9) ? THEMES.magma : floor >= 4 && floor <= 6 ? THEMES.crypt : floor % 2 ? THEMES.brown : THEMES.grey);
+const themeOf = floor => (CRYPT.force ? THEMES.crypt : MINES.force || (!MAGMA.force && floor >= 10 && floor <= 12) ? THEMES.mines : MAGMA.force || (floor >= 7 && floor <= 9) ? THEMES.magma : floor >= 4 && floor <= 6 ? THEMES.crypt : floor % 2 ? THEMES.brown : THEMES.grey);
 // the theme a floor is being made or drawn in: tileAt and the wall pieces draw through its map (buildArena1)
 let TH = null;
 // where a tile of the cellar sheet is drawn from in the theme at hand: the crypt's own tile if it has one ([image, sx, sy])
@@ -37,7 +37,7 @@ let ARENA = null;
 // crypt's floors take them recoloured in its stone (tools/crypt_recolor.py), so nothing carried over shows the cellar's colours
 // (IMG.pool: the sheet a pool's pieces are drawn from to be read off their blue, 36_works waterBody; in the crypt, IMG.cellar
 // is that sheet with its water already in the floor's liquid, for the sunken pieces, the wet pillars and the rest)
-function themeSheets(th, liq) { const c = th.sheet, K = c === 'crypt' ? 'Crypt' : c === 'magma' ? 'Magma' : null; IMG.pool = K ? IMG['cellar' + K] : IMG.cellarBase; IMG.cellar = K ? (IMG.cellarLiq[liq] || (IMG.cellarLiq[liq] = liquidSheet(liq, IMG['cellar' + K]))) : IMG.cellarBase; IMG.doors = K ? IMG['doors' + K] : IMG.doorsBase; IMG.ends = K ? IMG['ends' + K] : IMG.endsBase; PIX.cellar = K ? PIX['cellar' + K] : PIX.cellarBase; PIT_BLACK = null; }
+function themeSheets(th, liq) { const c = th.sheet, K = c === 'crypt' ? 'Crypt' : c === 'magma' ? 'Magma' : c === 'mines' ? 'Mines' : null; IMG.pool = K ? IMG['cellar' + K] : IMG.cellarBase; IMG.cellar = K && !liq ? IMG['cellar' + K] /* (the mines': its water is its own, 42_minewater) */ : K ? (IMG.cellarLiq[liq] || (IMG.cellarLiq[liq] = liquidSheet(liq, IMG['cellar' + K]))) : IMG.cellarBase; IMG.doors = K ? IMG['doors' + K] : IMG.doorsBase; IMG.ends = K ? IMG['ends' + K] : IMG.endsBase; PIX.cellar = K ? PIX['cellar' + K] : PIX.cellarBase; PIT_BLACK = null; }
 const CW = 24, CH = 17; // one grid cell, in tiles
 const FORCE_SHOP = { on: false }; // (the shop test: 39_shop)
 // a short straight corridor between a room's south doorway and the next room's north doorway: three rows of floor or fewer
@@ -372,6 +372,7 @@ function buildArena1(floor) {
   for (const r of rooms) if (r.kind === 'start' || r.kind === 'end') r.stairX = wallSpot(r); // (before the floor is laid: the crypt's wear runs from the stairs too)
   if (th.sheet === 'crypt') cryptFloor(g, W, H, near, inRoomRect, rooms, halls);
   else if (th.sheet === 'magma') magmaFloor(g, W, H, near, inRoomRect, rooms, halls);
+  else if (th.sheet === 'mines') minesFloor(g, W, H, near, inRoomRect, rooms, halls);
   else for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (near(x, y)) tileAt(g, 10, inRoomRect(x, y) ? floorRow : hallRow, x * TS, y * TS);
   // an inlaid square now and then: four corner slabs that only make sense together, or the small one-slab square
   if (!solidTh(th)) for (const r of rooms) { // (the crypt's broken slabs: cryptFloor; the magma's: magmaFloor)
@@ -409,7 +410,7 @@ function buildArena1(floor) {
   for (const r of rooms) worksBefore(A, r, g); // a cistern, a rune shrine (36_works)
   for (const r of rooms) { furnish(A, r, g); shapeAfter(A, r); } // (what stands in the alcoves: 33_shapes)
   mapChest(A); // (the floor's map, in one of its small chests)
-  for (const r of rooms) worksAfter(A, r); for (const r of rooms) levelAfter(A, r); for (const r of rooms) puzzleAfter(A, r); spikeHalls(A); corridorWood(A, g); if (th.sheet === 'crypt') { cryptGalleries(A, g); cryptDress(A, g); } wayArrows(A, g); // (the crypt's dead, on floor nothing else needs: 43_crypt)
+  for (const r of rooms) worksAfter(A, r); for (const r of rooms) levelAfter(A, r); for (const r of rooms) puzzleAfter(A, r); spikeHalls(A); corridorWood(A, g); if (th.sheet === 'crypt') { cryptGalleries(A, g); cryptDress(A, g); } wayArrows(A, g); if (isMines(A)) minesWater(A); // (the crypt's dead, on floor nothing else needs: 43_crypt) // (the mines' flooded galleries: 42_mines)
   // the stairway we came down, in the start room's north wall; the way down waits shut in the end room's
   { const r = A.start, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 12, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 13, (sx + i) * TS, (r.fy0 + 1) * TS); } }
   { const r = A.end, sx = r.stairX; for (let i = 0; i < 3; i++) { tileAt(g, th.stairs + i, 14, (sx + i) * TS, r.fy0 * TS); tileAt(g, th.stairs + i, 15, (sx + i) * TS, (r.fy0 + 1) * TS); } A.stairs = { x: (sx + 1.5) * TS, y: (r.fy0 + 2) * TS + 2, sx, sy: r.fy0, room: r.i };

@@ -28,9 +28,10 @@ function uiKey(code) {
   else if (MENU.screen === 'summary') { if (code === 'Enter' || code === 'Space') MENU.screen = 'kits'; else if (code === 'Escape') MENU.screen = 'title'; }
 }
 function togglePause() { if (G.mode !== 'play') return; UI.paused = !UI.paused; INPUT.btn = {}; INPUT.stick = null; }
-function beginRun(kit) { UI.paused = false; CRYPT.force = false; MAGMA.force = false; LAKE.force = false; startRun(kit); }
+function beginRun(kit) { UI.paused = false; CRYPT.force = false; MAGMA.force = false; LAKE.force = false; MINES.force = false; startRun(kit); }
 // the catacombs as they stand: a run whose floors are all drawn in the crypt (30_arena THEMES.crypt), the bone legion's
-function beginMagma(kit, floor = 7) { UI.paused = false; CRYPT.force = false; MAGMA.force = false; LAKE.force = false; startRun(kit); G.floor = floor; G.army = null; G.seedsUsed = new Set(); startFloor(); G.mode = 'play'; } // (a test: a run begun in the magma depths, or at their lord)
+function beginMagma(kit, floor = 7) { UI.paused = false; CRYPT.force = false; MAGMA.force = false; LAKE.force = false; MINES.force = false; startRun(kit); G.floor = floor; G.army = null; G.seedsUsed = new Set(); startFloor(); G.mode = 'play'; } // (a test: a run begun in the magma depths, or at their lord)
+function beginMines(kit, floor = 10) { UI.paused = false; CRYPT.force = false; MAGMA.force = false; LAKE.force = false; MINES.force = false; startRun(kit); G.floor = floor; G.army = null; G.seedsUsed = new Set(); startFloor(); G.mode = 'play'; } // (a test: a run begun in the abandoned mines)
 function beginCrypt(kit) { UI.paused = false; CRYPT.force = true; G.nextArmy = 'bones'; startRun(kit); }
 function abandonRun() { UI.paused = false; TEST.on = false; G.mode = 'menu'; MENU.screen = 'title'; menuBackdrop(); }
 function drawMenu(c) {
@@ -61,7 +62,7 @@ function drawMenu(c) {
     // (the test rooms and set-piece floors: off the kit screen, played as the kit chosen there)
     const k = KIT_ORDER[MENU.sel]; font(c, 900, clamp(big / 9, 26, 46), F_DISP); label(c, 'Test rooms', W / 2, H * 0.15, '#f8ecd6', { align: 'center' });
     font(c, 500, 13, F_HUD); spaced(c, 'AS ' + KITS[k].name, W / 2, H * 0.15 + 24, 2, 'rgba(240,224,192,0.6)', 'center');
-    const T = [['NIGHT GALLERY', () => { MENU.screen = 'gallery'; }, '#ffe4a0'], ['ARMOUR & DEATH ROOM', () => beginArmourTest(k), '#ecdcae'], ['SHOP', () => beginShopTest(k), '#ffd860'], ['PUZZLE FLOOR', () => beginPuzzleFloor(k), '#e8c87a'], ['PIT FLOOR', () => beginPitFloor(k), '#c8a0e8'], ['CATACOMBS (WORK IN PROGRESS)', () => beginCrypt(k), '#b8c0a0'], ['MAGMA DEPTHS', () => beginMagma(k, 7), '#ff9a50'], ['LORD ON THE LAKE', () => beginMagma(k, 9), '#ffb060'], ['BLOOD TEST ROOM', () => beginTest(k), '#e8907a'], ['CREATURE TEST ROOM', () => beginCreatureTest(k), '#9ad0e8'], ['WATER TEST ROOM', () => beginWaterTest(k), '#7ab8f0'], ['DOOR TEST ROOM', () => beginDoorTest(k), '#d8c8a8']];
+    const T = [['NIGHT GALLERY', () => { MENU.screen = 'gallery'; }, '#ffe4a0'], ['ARMOUR & DEATH ROOM', () => beginArmourTest(k), '#ecdcae'], ['SHOP', () => beginShopTest(k), '#ffd860'], ['PUZZLE FLOOR', () => beginPuzzleFloor(k), '#e8c87a'], ['PIT FLOOR', () => beginPitFloor(k), '#c8a0e8'], ['CATACOMBS (WORK IN PROGRESS)', () => beginCrypt(k), '#b8c0a0'], ['MAGMA DEPTHS', () => beginMagma(k, 7), '#ff9a50'], ['LORD ON THE LAKE', () => beginMagma(k, 9), '#ffb060'], ['ABANDONED MINES', () => beginMines(k, 10), '#7ab8d8'], ['BLOOD TEST ROOM', () => beginTest(k), '#e8907a'], ['CREATURE TEST ROOM', () => beginCreatureTest(k), '#9ad0e8'], ['WATER TEST ROOM', () => beginWaterTest(k), '#7ab8f0'], ['DOOR TEST ROOM', () => beginDoorTest(k), '#d8c8a8']];
     // (two columns once they no longer fit in one: down the first, then the second)
     const y0 = H * 0.15 + 42, room = H - y0 - 14 - VIEW.safe.b, cols = room / T.length - 8 >= 34 ? 1 : 2, rows = Math.ceil(T.length / cols), gx = 14;
     const bw = Math.min(260, (W - 28 - VIEW.safe.l - VIEW.safe.r - gx * (cols - 1)) / cols), bh = clamp(room / rows - 8, 28, 40), ox = W / 2 - (bw * cols + gx * (cols - 1)) / 2;

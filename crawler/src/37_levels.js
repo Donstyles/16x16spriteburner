@@ -21,7 +21,7 @@ function levelPlan(A, g) {
   const reach = skip => { const seen = new Set([A.start]), q = [A.start]; while (q.length) { const r = q.shift(); for (const n of adj(r)) if (n !== skip && !seen.has(n)) { seen.add(n); q.push(n); } } return seen; };
   const free = r => r.kind === 'room' && !r.chest && !r.set && !r.sluice && !r.shape && !r.puz, shuffled = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(v => v[1]);
   A.sets = []; A.plankSet = new Set(); A.noProp = new Set(); A.planning = true;
-  const tryFlood = () => { for (const r of shuffled(rooms.filter(r => free(r) && !reach(r).has(A.end)))) {
+  const tryFlood = () => { if (isMines(A)) return false; /* (the mines' water is their own: 42_minewater) */ for (const r of shuffled(rooms.filter(r => free(r) && !reach(r).has(A.end)))) {
     // the flooded way stands where the way to the stairs runs through it and a side branch leaves it too: you come in
     // on one side, a ledge along the wall takes you round to the branch, and the stairs' side lies across the water.
     // The sluice is in the branch, which can only be reached through the flooded room.
@@ -46,8 +46,8 @@ function levelPlan(A, g) {
     if ((PUZ.force || chance(0.5)) && puzzleTry(A, g)) continue; /* (the portcullis, the echoing runes, the weight, the gap, the spike gate: 41_puzzles) */ const order = A.sets.includes('flood') ? [tryBridge, tryFlood] : A.sets.includes('drawbridge') ? [tryFlood, tryBridge] : chance(0.5) ? [tryFlood, tryBridge] : [tryBridge, tryFlood]; if (!order[0]()) order[1](); }
   else if (FORCE.set || chance(ARCH.cur.water ? 0.9 : 0.55)) tryFlood();
   if (FORCE.set) tryBridge();
-  if (FORCE.set || chance(0.45)) for (const r of shuffled(rooms.filter(r => free(r) && !r.offDoor && r.w >= 12 && r.h >= 8 && r.doors.length >= 2 && beyondHost(A, r)))) if (gauntlet(A, r, g)) { r.set = 'gauntlet'; A.sets.push('gauntlet'); remoteSluice(A, r, r.pool); break; }
-  if (FORCE.set || chance(0.4)) for (const r of shuffled(rooms.filter(r => free(r) && r.w >= 11 && r.h >= 7 && beyondHost(A, r)))) if (sentinelPond(A, r, g)) { r.set = 'sentinel'; A.sets.push('sentinel'); remoteSluice(A, r, r.pool); break; }
+  if (isMines(A)) { /* (no causeways, no ponds: 42_mines) */ } else if (FORCE.set || chance(0.45)) for (const r of shuffled(rooms.filter(r => free(r) && !r.offDoor && r.w >= 12 && r.h >= 8 && r.doors.length >= 2 && beyondHost(A, r)))) if (gauntlet(A, r, g)) { r.set = 'gauntlet'; A.sets.push('gauntlet'); remoteSluice(A, r, r.pool); break; }
+  if (!isMines(A) && (FORCE.set || chance(0.4))) for (const r of shuffled(rooms.filter(r => free(r) && r.w >= 11 && r.h >= 7 && beyondHost(A, r)))) if (sentinelPond(A, r, g)) { r.set = 'sentinel'; A.sets.push('sentinel'); remoteSluice(A, r, r.pool); break; }
   if (A.floor >= 4 && chance(0.4)) puzzleTry(A, g); // (deeper down, now and then one more)
   for (let i = 0; i < (ARCH.cur.puzzles || 0); i++) puzzleTry(A, g); // (THE LOCKED WAYS: 35_themes)
   secretPlan(A); // (cracked walls with niches behind them: 41_puzzles)
@@ -293,7 +293,7 @@ const FURN = {
   junk: [[24, 9], [24, 11], [25, 9], [25, 11], [26, 9], [26, 11], [27, 9], [27, 11], [28, 9], [28, 11], [31, 9], [31, 11]],
 };
 function corridorWood(A, g) {
-  if (solidTh(A.th)) return; // (the crypt's corridors hold no wood, nor the magma's)
+  if (solidTh(A.th) && !isMines(A)) return; // (the crypt's corridors hold no wood, nor the magma's; the mines' do)
   const put = (kind, t, tx, ty, th = 1) => A.props.push({ kind, tile: t, th, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 40, hall: true });
   const spiky = (x, y) => (A.spikes || []).some(s => s.tx === x && s.ty === y);
   // a smashed crate: still a heap of wood in the way (it takes a blow to clear)

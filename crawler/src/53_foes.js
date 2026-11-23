@@ -32,31 +32,33 @@ const ARMIES = {
   elves: { name: 'THE ELVEN HOST', grunt: ['ElfBladedancer', 'ElfWayfarer'], brute: ['GrizzledTreant'], archer: ['ElfSharpshooter', 'ElfEnchanter'], skitter: ['FlutteringPixie'], flanker: ['SneakySatyr'] },
   demons: { name: 'THE DEMON HORDE', grunt: ['FledglingDemon', 'PointedDemonspawn'], brute: ['BloodDrinker'], archer: ['CrimsonImp'], skitter: ['RascallyDemonling', 'NefariousScamp'], flanker: ['GrinningGremlin'] },
   cinders: { name: 'THE CINDER COURT', grunt: ['FireElemental'], brute: ['ObsidianGolem'], archer: ['FlameMagus', 'NovicePyromancer'], skitter: ['LavaAnt'], flanker: ['BabyBrassDragon'] }, // (the magma's own: fire that walks, its mages, the golems of its black glass, the ants of its lava, a dragon's whelp: 42_magma)
+  kobolds: { name: 'THE KOBOLD WARREN', grunt: ['KoboldDigger', 'KoboldTrapper'], brute: ['EarthElemental'], archer: ['KoboldRockthrower', 'KoboldTrickster'], skitter: ['TunnelingMole'], flanker: ['KoboldScavenger'] }, // (the mines': squatters in the old workings, and the rock they pray to, 42_mines)
+  gnomes: { name: 'THE TINKERS’ GUILD', grunt: ['GnomeWanderer'], brute: ['MithrilConstruct'], archer: ['GnomeTinkerer', 'GnomeMage', 'GnomeAlchemist', 'Pyro'], skitter: [], flanker: [] }, // (come to salvage what the miners left)
   ants: { name: 'THE ANT COLONY', grunt: ['SoldierAnt', 'LavaAnt'], brute: ['RhinoBeetle'], archer: ['AcidAnt'], skitter: ['DungBeetle'], flanker: [] },
 };
 const ZONES = [
   { to: 3, name: 'THE CELLARS', armies: ['goblins', 'vermin', 'ants'] },
   { to: 6, name: 'THE CRYPT', armies: ['bones', 'rot'] },
   { to: 9, name: 'THE MAGMA DEPTHS', armies: ['demons', 'cinders'] },
+  { to: 12, name: 'THE ABANDONED MINES', armies: ['kobolds', 'gnomes'] },
   { to: 99, name: 'THE DEEP', armies: ['lizardfolk', 'merfolk', 'elves'] },
 ];
 // Kept for later, on no floor yet (the army board's reserve): the king's soldiers, the wanderers (the minotaur and the
-// toxic hound), the gnolls, the gnomes, the ratkin, the kobolds and the orcs. The creature test room shows them all. The
+// toxic hound), the gnolls, the ratkin and the orcs. The creature test room shows them all. The
 // scarecrow and the golems guard the treasure rooms (the scarecrow in the cellars, a golem deeper down).
 const RESERVE = {
   soldiers: { name: 'THE KING’S SOLDIERS', grunt: ['DeterminedSoldier'], brute: ['Cavalry'], archer: ['Bowman', 'SkilledBattlemage'], skitter: [], flanker: ['SilentRanger'] },
   wanderers: { name: 'WANDERERS', grunt: [], brute: ['BestialMinotaur'], archer: [], skitter: ['ToxicHound'], flanker: [] },
   gnolls: { name: 'THE CACKLING PACK', grunt: ['GnollGrunt', 'GnollPikeman'], brute: ['GnollWarlord', 'GnollBrute'], archer: [], skitter: [], flanker: ['GnollRipper'] },
-  gnomes: { name: 'THE TINKERS’ GUILD', grunt: ['GnomeWanderer'], brute: ['MithrilConstruct'], archer: ['GnomeTinkerer', 'GnomeMage', 'GnomeAlchemist', 'Pyro'], skitter: [], flanker: [] },
   ratkin: { name: 'THE PLAGUE NEST', grunt: ['MonstrousRat'], brute: ['RatkinMutant'], archer: ['RatkinCrossbowman', 'RatkinPlaguespreader', 'RatkinPoisoner'], skitter: ['VoraciousMouse', 'GiantRat'], flanker: ['RatkinStabber'] },
-  kobolds: { name: 'THE KOBOLD WARREN', grunt: ['KoboldDigger', 'KoboldTrapper'], brute: [], archer: ['KoboldRockthrower', 'KoboldTrickster'], skitter: [], flanker: ['KoboldScavenger'] },
   orcs: { name: 'THE SKULLSPLITTER CLAN', grunt: ['OrcReaver', 'OrcSavage'], brute: ['Brakgul'], archer: ['OrcWarlock'], skitter: ['OrcShaman'], flanker: ['OrcCaptain'] },
 };
 const GUARDS = [['ScarecrowGolem'], ['StoneGolem', 'ClayGolem'], ['StoneGolem', 'ClayGolem']]; // by depth
 // the army holding a floor: one of its depth's, not the one that held the floor above if there is another
 function pickArmy(f) { if (G.nextArmy) { const a = G.nextArmy; G.nextArmy = null; return (G.army = a); } const L = zoneAt(f).armies, prev = G.army && L.length > 1 ? L.filter(a => a !== G.army) : L; return (G.army = pick(prev)); }
-const BLOOD_OF = { AcidAnt: 'bug', AdeptNecromancer: 'sludge', BoundCadaver: 'sludge', BrittleArcher: 'bone', CarcassFeeder: 'sludge', ClayGolem: 'stone', DecrepitBones: 'bone', DismemberedCrawler: 'sludge', DungBeetle: 'bug', FamishedTick: 'bug', FleshGolem: 'sludge', FireElemental: 'ember', MoltenEfreeti: 'ember', ObsidianGolem: 'stone', FlutteringPixie: 'dust', ForagingMaggot: 'bug', GrapplerMummy: 'bone', GraveRevenant: 'bone', GrizzledTreant: 'wood', LavaAnt: 'bug', MithrilConstruct: 'stone', MutilatedStumbler: 'sludge', RhinoBeetle: 'bug', RottingArcher: 'sludge', SandGhoul: 'sludge', ScarecrowGolem: 'straw', SkitteringHand: 'bone', SoldierAnt: 'bug', StoneGolem: 'stone', TaintedCockroach: 'bug', UnravelingCrawler: 'bone', WaterElemental: 'water' };
+const BLOOD_OF = { EarthElemental: 'stone', AcidAnt: 'bug', AdeptNecromancer: 'sludge', BoundCadaver: 'sludge', BrittleArcher: 'bone', CarcassFeeder: 'sludge', ClayGolem: 'stone', DecrepitBones: 'bone', DismemberedCrawler: 'sludge', DungBeetle: 'bug', FamishedTick: 'bug', FleshGolem: 'sludge', FireElemental: 'ember', MoltenEfreeti: 'ember', ObsidianGolem: 'stone', FlutteringPixie: 'dust', ForagingMaggot: 'bug', GrapplerMummy: 'bone', GraveRevenant: 'bone', GrizzledTreant: 'wood', LavaAnt: 'bug', MithrilConstruct: 'stone', MutilatedStumbler: 'sludge', RhinoBeetle: 'bug', RottingArcher: 'sludge', SandGhoul: 'sludge', ScarecrowGolem: 'straw', SkitteringHand: 'bone', SoldierAnt: 'bug', StoneGolem: 'stone', TaintedCockroach: 'bug', UnravelingCrawler: 'bone', WaterElemental: 'water' };
 const BURNS = new Set(['FireElemental', 'MoltenEfreeti', 'LavaAnt', 'PitBalor']), FIREPROOF = new Set(['FireElemental', 'MoltenEfreeti', 'ObsidianGolem', 'LavaAnt', 'PitBalor', 'BloodDrinker']); // (whose blows set alight, and who neither burns nor is thrown into lava: 42_magma)
+const SWIMS = new Set(['MerfolkJavelineer', 'MerfolkScout', 'MerfolkImpaler', 'MerfolkAquamancer', 'MerfolkMystic', 'WaterElemental', 'AquaDrake', 'GreenNaga', 'MudWyvern']); // (at home in the mines' water: 42_minewater)
 const STONE_SHOT = { HalflingSlinger: true, KoboldRockthrower: true };
 // Bats fly: they hover over their shadow, rising and sinking gently with their wingbeats and drifting in slow loops; they
 // turn in wide arcs, not on the spot (see steer); winding up to strike they climb a little, then dive at their target
@@ -79,12 +81,12 @@ function flyTick(u, dt) {
 // the undead never sleep: found idle, they stand about or wander their room (the mutilated stumblers shuffle about it aimlessly: 56_gaits)
 const UNDEAD = new Set(['DecrepitBones', 'GraveRevenant', 'GrapplerMummy', 'BrittleArcher', 'UnravelingCrawler', 'SkitteringHand', 'MutilatedStumbler', 'SandGhoul', 'BoundCadaver', 'FleshGolem', 'RottingArcher', 'DismemberedCrawler']);
 const FLAT_SLEEPERS = new Set(['BloatedBedbug', 'EngorgedTick', 'TunnelingMole', 'CarcassFeeder', 'DismemberedCrawler', 'DungBeetle', 'SoldierAnt', 'PygmyWyvern', 'MudWyvern', 'WaterElemental', 'GrizzledTreant', 'GoblinWolfRider', 'FlutteringPixie', 'InfectedMouse', 'TaintedCockroach', 'FamishedTick', 'SkitteringHand', 'SwoopingBat', 'ForagingMaggot', 'AcidAnt', 'LavaAnt', 'RhinoBeetle', 'MawingBeaver', 'ToxicHound', 'UnravelingCrawler', 'VoraciousMouse', 'GiantRat', 'MonstrousRat']);
-const zoneAt = f => (CRYPT.force ? ZONES[1] : MAGMA.force ? ZONES[2] : ZONES.find(z => f <= z.to) || ZONES[ZONES.length - 1]); // (the catacombs test, the crypt from the first floor: the crypt's names and armies all the way down)
+const zoneAt = f => (CRYPT.force ? ZONES[1] : MINES.force ? ZONES[3] : MAGMA.force ? ZONES[2] : ZONES.find(z => f <= z.to) || ZONES[ZONES.length - 1]); // (the catacombs test, the crypt from the first floor: the crypt's names and armies all the way down)
 function floorName(f) { const z = zoneAt(f), nat = ZONES.find(q => f <= q.to) || ZONES[ZONES.length - 1], first = z !== nat ? 1 : ZONES.indexOf(z) ? ZONES[ZONES.indexOf(z) - 1].to + 1 : 1; /* (the catacombs test above the crypt's own floors counts from the first) */ return z.name + ' · ' + ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][Math.max(0, Math.min(9, f - first))]; }
 function troops(type, army) { const L = army && ARMIES[army] && ARMIES[army][type]; if (L && L.length) return L; return Object.values(ARMIES).flatMap(a => a[type]); }
 function mkFoe(type, f, x, y, spr) {
   const T = FOE_TYPES[type], mul = 1 + 0.18 * (f - 1); spr = spr || pick(troops(type, ARENA && ARENA.army));
-  const u = mkActor('foe', { ...T, spr, blood: BLOOD_OF[spr] || 'red', name: type, burns: BURNS.has(spr), fireproof: FIREPROOF.has(spr) }, x, y, mul);
+  const u = mkActor('foe', { ...T, spr, blood: BLOOD_OF[spr] || 'red', name: type, burns: BURNS.has(spr), fireproof: FIREPROOF.has(spr), swims: SWIMS.has(spr) }, x, y, mul);
   Object.assign(u, { type, dmgMul: 1 + 0.12 * (f - 1), aware: false, state: 'idle', home: { x, y }, cdT: rand(0.4, 1), tgt: null, wanderT: rand(1, 4), face: chance(0.5) ? 1 : -1, jit: rand(-1, 1), jit2: rand(-1, 1), lostT: 0 });
   u.dir = u.face < 0 ? Math.PI : 0; makeFlyer(u); return u;
 }
