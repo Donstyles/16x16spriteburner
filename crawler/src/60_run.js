@@ -30,7 +30,7 @@ function makeFloor() {
   A.army = pickArmy(G.floor); G.foes = []; for (const r of A.rooms) if ((r.kind === 'room' || r.kind === 'end') && r.set !== 'flood') { const own = A.army; if (r.flood) A.army = 'merfolk'; /* (what lives in a flooded gallery swims: 42_mines) */ const fs = populateRoom(A, r, G.floor); A.army = own; if (r === A.end) for (const f of fs) f.exitGuard = true; G.foes.push(...fs); } // (the exit room's own: the stairs stay sealed till they are dead, 36_works exitSeal)
   G.foes.push(...chestGuards(A, G.floor));
   for (const r of A.rooms) if (r.islands) removeIf(G.foes, u => r.islands.some(([x, y]) => u.x >= x * TS - 8 && u.x <= (x + 2) * TS + 8 && u.y >= y * TS - 8 && u.y <= (y + 2) * TS + 8)); // (nobody stranded on an island but its archer)
-  G.foes.push(...levelFoes(A, G.floor)); if (A.th.sheet === 'crypt') { cryptBury(A); cryptShade(A); cryptLord(A); } if (isMagma(A)) magmaLord(A); G.cine = null; G.eyes = null; // (the crypt's buried dead: 43_crypt)
+  G.foes.push(...levelFoes(A, G.floor)); if (A.th.sheet === 'crypt') { cryptBury(A); cryptShade(A); cryptLord(A); } if (isMagma(A)) magmaLord(A); if (A.sump) sumpLord(A); G.cine = null; G.eyes = null; // (the crypt's buried dead: 43_crypt)
   G.units = G.heroes.concat(G.foes);
   G.phase = 'play'; G.phaseT = 0; G.fade = 1;
   CAM.x = sp.x; CAM.y = sp.y; CAM.z = exploreZoom();

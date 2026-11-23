@@ -67,7 +67,7 @@ function bossCall(B, n, cage) { // the lake answers him: rocks at the hero, or a
   for (let k = 0; k < n; k++) { const [sx, sy] = src(); A.erupt.push({ x: sx, y: sy, t: -0.25 * k, n: 1, r: K.r, h }); }
 }
 function bossTick(dt) {
-  const A = ARENA, B = A && A.boss; if (!B || G.cine) return; const K = A.lake, L = B.L, hs = G.heroes.filter(u => !u.dead);
+  const A = ARENA, B = A && A.boss; if (!B || !A.lake || G.cine) return; const K = A.lake, L = B.L, hs = G.heroes.filter(u => !u.dead);
   if (!A.bombs) { A.bombs = []; A.erupt = []; }
   if (B.stage === 0) { if (hs.some(u => !u.fall && onIsle(K, u, true)) || L.hp < L.maxHp) bossCine('intro'); return; }
   if (L.dead) { if (!B.over && (B.deadT = (B.deadT || 0) + dt) > 0.6) { B.over = true; bossCine('end'); } return; }
@@ -128,6 +128,7 @@ function bossAdds(A, B) {
 function drawBossBar(c, W, H) {
   const A = ARENA, B = A && A.boss; if (!B || B.stage < 1 || B.over || G.mode !== 'play') return; const L = B.L, w = Math.min(360, W * 0.36), x = Math.round(W / 2 - w / 2), y = 30, k = clamp(L.hp / L.maxHp, 0, 1);
   font(c, 600, 15, F_HUD); label(c, B.name, W / 2, y - 6, '#ffd9a0', { align: 'center', stroke: 3 });
-  c.fillStyle = 'rgba(0,0,0,0.7)'; c.fillRect(x - 2, y, w + 4, 11); c.fillStyle = '#3a0c06'; c.fillRect(x, y + 2, w, 7); c.fillStyle = B.stage >= 3 ? '#ffb030' : B.stage === 2 ? '#ff7a1c' : '#e23c18'; c.fillRect(x, y + 2, Math.round(w * k), 7); c.fillStyle = 'rgba(255,255,255,0.25)'; c.fillRect(x, y + 2, Math.round(w * k), 2);
+  c.fillStyle = 'rgba(0,0,0,0.7)'; c.fillRect(x - 2, y, w + 4, 11); c.fillStyle = '#3a0c06'; c.fillRect(x, y + 2, w, 7); c.fillStyle = B.col ? B.col[Math.min(2, Math.max(0, B.stage - 1))] : B.stage >= 3 ? '#ffb030' : B.stage === 2 ? '#ff7a1c' : '#e23c18'; c.fillRect(x, y + 2, Math.round(w * k), 7); c.fillStyle = 'rgba(255,255,255,0.25)'; c.fillRect(x, y + 2, Math.round(w * k), 2);
+  if (B.marks === false) { if (L.deep) { font(c, 600, 11, F_HUD); label(c, 'UNDER ITS WATER', W / 2, y + 23, '#9fd8ff', { align: 'center', stroke: 3 }); } return; } // (the sump's drake: no stages by its life; while nothing can hurt it, that is said)
   c.fillStyle = 'rgba(0,0,0,0.75)'; for (const s of [LAKE.s2, LAKE.s3]) c.fillRect(x + Math.round(w * s) - 1, y + 1, 2, 9);
 }

@@ -86,7 +86,7 @@ function drawWetThing(c, x, y, D, draw, full) {
   if (!WCV) WCV = mkCanvas(144, 144); const g = WCV.getContext('2d'), ox = Math.round(x) - 72, oy = Math.round(y) - 116;
   g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; g.clearRect(0, 0, 144, 144); g.imageSmoothingEnabled = false; g.setTransform(1, 0, 0, 1, -ox, -oy);
   draw(g);
-  g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-atop'; g.globalAlpha = 1; const foot = Math.round(y) - oy, wl = Math.max(0, foot - Math.round(D));
+  g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-atop'; g.globalAlpha = 1; const foot = Math.round(y) - oy, wl = full ? 0 : Math.max(0, foot - Math.round(D));
   g.fillStyle = full ? 'rgba(42,116,192,0.56)' : 'rgba(47,127,204,0.5)'; g.fillRect(0, wl, 144, foot + 2 - wl);
   if (!full) { g.fillStyle = 'rgba(206,230,246,0.7)'; g.fillRect(0, wl, 144, 1); } // (the waterline across it)
   g.globalCompositeOperation = 'source-over'; c.drawImage(WCV, ox, oy);
@@ -96,15 +96,15 @@ const swims = u => !!(u.def && u.def.swims);
 function floodUnits(dt) {
   const A = ARENA; if (!A.floods) return;
   for (const u of G.units) {
-    if (u.fall || u.enter) continue; const D = u.fly && !u.dead ? 0 : depthPx(u.x, u.y), was = u.wd || 0, head = FLOOD.HEAD * (u.scale || 1); u.wd = D; const sub = D >= head && (u.z || 0) < 4, wasSub = !!u.sub; u.sub = sub;
+    if (u.fall || u.enter) continue; const D = u.fly && !u.dead ? 0 : depthPx(u.x, u.y), was = u.wd || 0, head = FLOOD.HEAD * (u.scale || 1); u.wd = D; const sub = D >= (u.low || head) && (u.z || 0) < 4, /* (low: what lies low in it, the sump's drake) */ wasSub = !!u.sub; u.sub = sub;
     if (u.dead) continue;
     if (D >= 1 && was < 1) { splash(u.x, u.y, 2, 5, { spd: 0.5 }); SFX.splash(panOf(u.x)); }
-    if (sub !== wasSub) { ring(u.x, u.y - head, 11, 'bolt2', 0.45, 1.5, 3); splash(u.x, u.y - head, 3, sub ? 8 : 6, { spd: 0.6 }); SFX.splash(panOf(u.x), sub); }
+    if (sub !== wasSub) { ring(u.x, u.y - head, 11, 'bolt', 0.45, 1, 3); splash(u.x, u.y - head, 3, sub ? 8 : 6, { spd: 0.6 }); SFX.splash(panOf(u.x), sub); }
     const mv = Math.hypot(u.vx, u.vy) + Math.hypot(u.kx, u.ky);
-    if (D >= FLOOD.WADE && !sub && mv > 8) { u.ripT = (u.ripT || 0) - dt; if (u.ripT <= 0) { u.ripT = 0.28; ring(u.x, u.y - D, 6 + u.r, 'bolt2', 0.45, 1, u.r * 0.6); if (chance(0.4)) water(u.x + rand(-3, 3), u.y, D + 1, rand(-14, 14), rand(-8, 8), rand(20, 46)); } }
+    if (D >= FLOOD.WADE && !sub && mv > 8) { u.ripT = (u.ripT || 0) - dt; if (u.ripT <= 0) { u.ripT = 0.28; ring(u.x, u.y - D, 6 + u.r, 'bolt', 0.45, 1, u.r * 0.6); if (chance(0.4)) water(u.x + rand(-3, 3), u.y, D + 1, rand(-14, 14), rand(-8, 8), rand(20, 46)); } }
     if (sub && chance(dt * (u.team === 'hero' ? 2.2 : 1.1))) part({ k: 'glow', x: u.x + rand(-2, 2), y: u.y, z: head - 2 + rand(-2, 2), vx: rand(-3, 3), vy: 0, vz: rand(10, 18), drag: 0.6, life: rand(0.5, 0.9), s0: rand(0.5, 0.9), s1: 0.3, col: 'bolt2', a0: 0.5, a1: 0 }); // bubbles
     if (D >= 4 && u.fireT > 0) { u.fireT = 0; smoke(u.x, u.y - D, 3, 'breath', 8, 14, 0.9, 16); SFX.sizzle(panOf(u.x)); } // (the water puts the fire out: 42_magma)
-    if (u.team !== 'hero') { if (sub && !swims(u)) { u.cdT = Math.max(u.cdT || 0, 0.6); u.drownT = (u.drownT || 0) + dt; if (u.drownT >= 2.5) { u.drownT = 2; u.hp -= Math.max(1, u.maxHp * 0.04); u.flash = 0.08; for (let i = 0; i < 4; i++) part({ k: 'glow', x: u.x + rand(-3, 3), y: u.y, z: head + rand(-3, 1), vx: rand(-8, 8), vy: 0, vz: rand(14, 26), drag: 0.6, life: rand(0.5, 0.9), s0: rand(0.7, 1.2), s1: 0.3, col: 'bolt2', a0: 0.6, a1: 0 }); if (u.hp <= 0) { ring(u.x, u.y - head, 14, 'white', 0.6, 2, 3); kill(u, null); } } } else u.drownT = 0; continue; } // (out of its depth: it flounders, lands no blow, and drowns)
+    if (u.team !== 'hero') { if (sub && !swims(u) && !u.boss) { u.cdT = Math.max(u.cdT || 0, 0.6); u.drownT = (u.drownT || 0) + dt; if (u.drownT >= 2.5) { u.drownT = 2; u.hp -= Math.max(1, u.maxHp * 0.04); u.flash = 0.08; for (let i = 0; i < 4; i++) part({ k: 'glow', x: u.x + rand(-3, 3), y: u.y, z: head + rand(-3, 1), vx: rand(-8, 8), vy: 0, vz: rand(14, 26), drag: 0.6, life: rand(0.5, 0.9), s0: rand(0.7, 1.2), s1: 0.3, col: 'bolt2', a0: 0.6, a1: 0 }); if (u.hp <= 0) { ring(u.x, u.y - head, 14, 'white', 0.6, 2, 3); kill(u, null); } } } else u.drownT = 0; continue; } // (out of its depth: it flounders, lands no blow, and drowns)
     // a hero's breath: gone in FLOOD.breath seconds under, back in one and a half above; with none left the water takes his life
     if (u.breath === undefined) u.breath = 1;
     if (sub) { u.breath = Math.max(0, u.breath - dt / FLOOD.breath); if (u.breath <= 0) { u.drownT = (u.drownT || 0) + dt; if (u.drownT >= 0.5) { u.drownT = 0; const d = Math.max(1, Math.round(u.maxHp * 0.04)); if (!godOn()) u.hp -= d; u.flash = 0.1; number(u.x, u.y, headZ(u) + 1, d, 'red', false, u); for (let i = 0; i < 5; i++) part({ k: 'glow', x: u.x + rand(-3, 3), y: u.y, z: head + rand(-3, 1), vx: rand(-8, 8), vy: 0, vz: rand(14, 26), drag: 0.6, life: rand(0.5, 0.9), s0: rand(0.7, 1.2), s1: 0.3, col: 'bolt2', a0: 0.6, a1: 0 }); if (u.hp <= 0) { if (godOn()) u.hp = 1; else kill(u, null); } } } }
@@ -120,7 +120,7 @@ function floodsTick(dt) {
   for (const f of A.floods) {
     f.t += dt;
     if (f.level !== f.to) { const d = f.rate * dt, up = f.to > f.level; f.level = up ? Math.min(f.to, f.level + d) : Math.max(f.to, f.level - d); if (f.level > f.hi) f.hi = f.level; f.dampA = 0.34; f.dampT = 0; f.moving = true;
-      if (f.drain && !up && f.level > 0.03) { const [x, y] = f.drain; if (chance(dt * 5)) ring(x, y, rand(5, 13), 'bolt2', 0.7, 1, 2); if (chance(dt * 8)) part({ k: 'glow', x: x + rand(-5, 5), y: y + rand(-3, 3), z: 1, vx: 0, vy: 0, vz: rand(6, 14), life: 0.5, s0: 0.8, s1: 0.2, col: 'bolt2', a0: 0.5, a1: 0 }); }
+      if (f.drain && !up && f.level > 0.03) { const [x, y] = f.drain; if (chance(dt * 5)) ring(x, y, rand(5, 13), 'bolt', 0.7, 1, 2); if (chance(dt * 8)) part({ k: 'glow', x: x + rand(-5, 5), y: y + rand(-3, 3), z: 1, vx: 0, vy: 0, vz: rand(6, 14), life: 0.5, s0: 0.8, s1: 0.2, col: 'bolt2', a0: 0.5, a1: 0 }); }
       if (f.level === f.to) { f.moving = false; if (f.done) { const fn = f.done; f.done = null; fn(f); } } }
     for (const pl of f.valves || []) if (!pl.down && depthPx(pl.x, pl.y) > 5 && chance(dt * 7)) part({ k: 'glow', x: pl.x + rand(-2, 2), y: pl.y + rand(-1, 1), z: rand(0, 3), vx: rand(-2, 2), vy: 0, vz: rand(12, 20), drag: 0.4, life: rand(0.7, 1.1), s0: rand(0.5, 1), s1: 0.3, col: 'bolt2', a0: 0.55, a1: 0 }); // (a valve under water: a thread of bubbles)
     if (f.level !== f.to) { /* (moving: above) */ } else if (f.dampA > 0) { f.dampT = (f.dampT || 0) + dt; if (f.dampT > 6) f.dampA = Math.max(0.1, 0.34 - (f.dampT - 6) / FLOOD.wet * 0.24); } // (it dries to a faint stain, which stays)
@@ -135,7 +135,7 @@ function drawFloodsOver(c) {
     c.fillStyle = 'rgba(6,10,18,0.8)'; c.fillRect(x - 1, y - 1, w + 2, 4); c.fillStyle = low ? '#ff5a48' : '#9fd8ff'; c.fillRect(x, y, Math.round(w * h.breath), 2); }
 }
 // a valve stood on: its flood goes where the valve sends it; a door the water held opens when it is gone
-function floodValve(pl) { const f = pl.flood; logEv('valve', { at: pl.tx + ',' + pl.ty, to: pl.to || 0 }); shake(0.12); floodSend(f, pl.to || 0, () => { if (f.gate && !f.gate.going && f.level <= 0.02) startGateCine(pl, f.gate); }, 0.12); }
+function floodValve(pl) { const f = pl.flood; logEv('valve', { at: pl.tx + ',' + pl.ty, to: pl.to || 0 }); shake(0.12); if (f.onValve) f.onValve(f, pl); floodSend(f, pl.to || 0, () => { if (f.gate && !f.gate.going && f.level <= 0.02) startGateCine(pl, f.gate); }, 0.12); }
 // a sluice stood on that will not turn against the water over it: it judders, groans and lets a burst of bubbles go
 function valveStuck(pl, dt) {
   pl.stuckT = (pl.stuckT || 0) - dt; pl.f = ((G.time * 14) | 0) % 2; if (pl.stuckT > 0) return; pl.stuckT = 0.7; SFX.stone(panOf(pl.x), false); shake(0.05);

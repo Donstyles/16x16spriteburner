@@ -19,7 +19,7 @@ function shapeRooms(rooms, fl, W, H, floor) {
   for (const r of rooms) if (r.great) { greatHall(r, fl, W, H); r.shape = 'great'; } // (THE GREAT HALL: 30_arena)
   for (const r of rooms) {
     if (r.great) continue;
-    if (r.kind !== 'room' && r.kind !== 'end') continue; if (r.hiddenN) continue; if (r.kind === 'end' && lakeFloor(floor)) continue; // (the lake's room stays whole: 42_magmaboss) // (a hidden wing's doorway in its north wall: kept plain)
+    if (r.kind !== 'room' && r.kind !== 'end') continue; if (r.hiddenN) continue; if (r.kind === 'end' && (lakeFloor(floor) || sumpFloor(floor))) continue; // (the lake's room stays whole: 42_magmaboss) // (a hidden wing's doorway in its north wall: kept plain)
     if (!SHAPES.force && !chance(clamp((0.32 + floor * 0.04) * (ARCH.cur.shape || 1), 0.32, 0.8))) continue; // (more on THE HALLS OF STONE: 35_themes)
     const kinds = SHAPES.force ? [SHAPES.force] : pitShuffle(r.kind === 'end' ? ['hall', 'ring'] : solidTh(TH) ? ['hall', 'ring', 'cuts'] : SHAPE_KINDS.slice()); // (the crypt's: only the shapes that can stand mirrored; its cut corners go in mirrored pairs, below)
     for (const k of kinds) if (shapeRoom(r, k, fl, W, H)) { r.shape = k; break; }

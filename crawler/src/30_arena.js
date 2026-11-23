@@ -272,6 +272,10 @@ function buildArena1(floor) {
   // room, thirty to thirty-six tiles long, or a nave twenty-four to twenty-eight tall; the end room may be one
   const great = new Map(); if (floor >= 2 || GREAT.force) {
     const want = GREAT.force ? 1 : floor >= 6 ? 2 : 1, used = new Set(), ok = k => kindOf(k) === 'room' || (kindOf(k) === 'end' && !lakeFloor(floor));
+    if (sumpFloor(floor)) { // (the mines' last floor: its end room a great hall, wide if it can be: the sump wants the room, 42_minesboss)
+      const row = e => (cells.get(e[0])[1] === cells.get(e[1])[1] ? 0 : 1), E = pitShuffle(edges.slice()).filter(([a, b]) => (kindOf(a) === 'end') !== (kindOf(b) === 'end') && ok(a) && ok(b)).sort((p, q) => row(p) - row(q))[0];
+      if (E) { const [a, b] = E, ca = cells.get(a), cb = cells.get(b), [f, s] = ca[0] + ca[1] * 100 < cb[0] + cb[1] * 100 ? [a, b] : [b, a]; great.set(f, s); used.add(a); used.add(b); }
+    }
     for (const [a, b] of pitShuffle(edges.slice())) { if (great.size >= want) break; if (!ok(a) || !ok(b) || used.has(a) || used.has(b)) continue; const ca = cells.get(a), cb = cells.get(b); if (ca[1] !== cb[1] && !chance(0.35)) continue; if (!GREAT.force && !chance(Math.min(0.9, 0.45 * (ARCH.cur.great || 1)))) continue; const [f, s] = ca[0] + ca[1] * 100 < cb[0] + cb[1] * 100 ? [a, b] : [b, a]; great.set(f, s); used.add(a); used.add(b); }
   }
   const second = new Set(great.values());
@@ -404,6 +408,7 @@ function buildArena1(floor) {
   for (const r of rooms) if (r.hidCrack) { r.crack = r.hidCrack; r.crackX = r.crack.x; (A.cracks = A.cracks || []).push(r.crack); if (r.crack.inner) A.cracks.push(r.crack.inner); A.secret = A.secret || new Uint8Array(W * H); for (const c of [r.crack, r.crack.inner]) if (c) for (const i of c.secret) A.secret[i] = 1; } // (the hidden wing's walled-up doorway)
   // ---- furnishing (the stairways' places first, so no torch or banner hangs on them)
   if (!rooms.some(q => q.kind === 'treasure')) { const q = pick(rooms.filter(q => q.kind === 'room' && !q.shape)) || pick(rooms.filter(q => q.kind === 'room')); if (q) q.chest = true; } // no dead end: a guarded room keeps the chest
+  if (sumpFloor(floor)) sumpMark(A); /* (the mines' last floor: its end room kept for the sump, 42_minesboss) */
   if (lakeFloor(floor)) lavaLake(A, g); // (the magma's last floor: its way down across a lake of lava, before anything else claims the room: 42_magmaboss)
   levelPlan(A, g); // the floor's set pieces: a flooded way, a gauntlet, a sentinel (37_levels)
   pitPlan(A, g); // a chasm, broken floor, the ledges (38_pits)

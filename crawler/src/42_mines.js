@@ -31,7 +31,7 @@ function minesFloor(g, W, H, near, inRoom, rooms) {
     g.drawImage(IMG.mines, t[0] * TS, t[1] * TS, TS, TS, x * TS, y * TS, TS, TS);
   }
 }
-function minesTick(dt) { if (!isMines(ARENA)) return; floodsTick(dt); minesLights(); } // (its water: 42_minewater)
+function minesTick(dt) { if (!isMines(ARENA)) return; floodsTick(dt); minesLights(); sumpTick(dt); } // (its water: 42_minewater)
 // THE CRYSTAL LAMPS (the sheet's, [18..25, 33..39]: a crystal in a low socket, or on a post two tiles tall; green and blue
 // in rows 33 to 35, red and yellow in 37 to 39): the only light that burns under water, so a flooded gallery is lit by them
 const MLAMP = { heal: [18, 33], bolt: [22, 33], crimson: [18, 37], gold: [22, 37] };
@@ -46,7 +46,7 @@ function floodRoom(A, r, o = {}) {
   const W = A.w, cells = new Set(); for (let y = r.iy0; y <= r.iy1; y++) for (let x = r.ix0; x <= r.ix1; x++) if (A.fl[y * W + x] === 1) cells.add(y * W + x);
   if (o.doorIn) for (const [x, y] of o.doorIn.cells) if (A.fl[y * W + x] === 1) cells.add(y * W + x);
   if (cells.size < 40) return null;
-  A.torches = A.torches.filter(t => !(t.tx >= r.ix0 && t.tx <= r.ix1 && Math.abs(t.y - ((r.fy0 + 1) * TS + 9)) < 2)); removeIf(A.props, p => p.kind === 'brazier' && cells.has(Math.floor(p.cy / TS) * W + Math.floor(p.x / TS))); A.lights = A.slit = null;
+  A.torches = A.torches.filter(t => t.exit || !(t.tx >= r.ix0 && t.tx <= r.ix1 && Math.abs(t.y - ((r.fy0 + 1) * TS + 9)) < 2)); removeIf(A.props, p => p.kind === 'brazier' && cells.has(Math.floor(p.cy / TS) * W + Math.floor(p.x / TS))); A.lights = A.slit = null;
   const doors = r.doors.filter(d => d !== o.doorIn), far = (x, y) => Math.min(99, ...doors.map(d => Math.min(...d.cells.map(([a, b]) => Math.hypot(a - x, b - y))))), clear = (x, y, m = 14) => !A.props.some(q => !q.dead && q.solid && Math.abs(q.x - (x * TS + 8)) < m && Math.abs(q.cy - (y * TS + 10)) < m);
   let at = null, bd = -1; for (let y = r.iy0 + 2; y <= r.iy1 - 2; y++) for (let x = r.ix0 + 2; x <= r.ix1 - 2; x++) { if (!cells.has(y * W + x) || !clear(x, y, 20) || (A.noProp && A.noProp.has(y * W + x))) continue; const d = far(x, y) + hash2(x, y) * 0.5; if (d > bd) { bd = d; at = [x, y]; } }
   const f = mkFlood(A, cells, { room: r.i, drain: at ? [at[0] * TS + 8, at[1] * TS + 8] : null, flat: o.flat, shoals: o.shoals && at ? o.shoals(at) : null }); r.flood = f; f.at = at;
@@ -78,6 +78,7 @@ function twoSluices(A, r, bare, plate, clear) {
 }
 // the floor's other flooded galleries: a room or two of its plain ones, each with its valve on its bed
 function minesWater(A) {
+  if (A.sump) sumpLake(A); // (the last floor's: 42_minesboss)
   const ok = r => r.kind === 'room' && !r.set && !r.puz && !r.chest && !r.gateOf && !r.flood && !r.shape && r.w * r.h >= 70, Wk = wkOf(A);
   for (const r of A.rooms.filter(ok).sort(() => Math.random() - 0.5).slice(0, 1 + (chance(0.5) ? 1 : 0))) {
     const f = floodRoom(A, r); if (!f || !f.at) continue; const [tx, ty] = f.at; removeIf(A.props, q => Math.abs(q.x - (tx * TS + 8)) < 14 && Math.abs(q.cy - (ty * TS + 10)) < 14);
