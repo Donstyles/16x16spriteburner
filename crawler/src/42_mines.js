@@ -65,7 +65,7 @@ function minesDress(A, r, g, prop, nearDoor, free) {
 const MLAMP = { heal: [18, 33], bolt: [22, 33], crimson: [18, 37], gold: [22, 37] };
 function minesLamp(A, r, tx, ty, col, tall) { const [cx, cy] = MLAMP[col], k = randi(0, 3); A.props.push({ kind: 'stone', sheet: 'mines', tile: [cx + k, cy + (tall ? 1 : 0)], th: tall ? 2 : 1, x: tx * TS + 8, y: ty * TS + 14, cy: ty * TS + 10, r: 5, solid: true, hp: 1e9, room: r.i, crystal: col, rock: true }); }
 function minesLamps(A) { const L = []; if (!isMines(A)) return L; for (const p of A.props) if (p.crystal && !p.dead) L.push({ x: p.x, y: p.y - 4, r: 56 }); return L; }
-function minesLights() { const A = ARENA; for (const p of A.props) if (p.crystal && !p.dead) light(p.x, p.y - (p.th === 2 ? 20 : 8), 58 + 4 * Math.sin(G.time * 2.2 + p.x), p.crystal, 0.8); }
+function minesLights() { const A = ARENA; for (const p of A.props) if (p.crystal && !p.dead && inView(p.x, p.y, 90)) light(p.x, p.y - (p.th === 2 ? 20 : 8), 58 + 4 * Math.sin(G.time * 2.2 + p.x), p.crystal, 0.8); }
 // A FLOODED GALLERY: a room under water wall to wall (its doors' own tiles dry, so the water shelves down from every
 // way in; o.doorIn: but this door's tiles under it too, the water standing against a door it holds shut). No fire burns
 // in it: its torches and braziers are taken out and crystal lamps stand in their place. Its valve, if it has one, is a

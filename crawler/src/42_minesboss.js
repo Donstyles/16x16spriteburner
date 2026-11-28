@@ -51,7 +51,7 @@ function sumpTick(dt) {
   const A = ARENA, B = A && A.boss, K = A && A.sump; if (!B || !K || G.cine) return; const L = B.L, hs = G.heroes.filter(u => !u.dead);
   if (L.dead) { if (!B.over && (B.deadT = (B.deadT || 0) + dt) > 0.6) { B.over = true; pushBanner({ a: 'THE WORKINGS ARE STILL', col: 'bolt2', life: 3 }); SFX.quake(1.5); } return; }
   // it cannot be hurt under its water: a blow at it there dies in the water over its back
-  const D = depthPx(L.x, L.y), under = D >= SUMP.under; if (under) L.iframe = Math.max(L.iframe || 0, 0.15); L.deep = under;
+  const D = depthPx(L.x, L.y), under = D >= SUMP.under; L.deep = under; L.iframe = 0; // (deep: no blow lands, 50_actors hurt; not an iframe, which nothing counts down for a foe: it stayed up after the water was gone and the drake could never be hurt)
   if (B.stage === 0) { const r = K.r; if (hs.some(u => u.x > r.ix0 * TS && u.x < (r.ix1 + 1) * TS && u.y > r.iy0 * TS && u.y < (r.iy1 + 1) * TS) || L.hp < L.maxHp) sumpStage(1); return; }
   if (B.stage === 3 && L.script) { L.script = null; L.act = null; L.vx = L.vy = 0; L.aware = true; wakeFoe(L, hs[0] || null, 'noise'); } // (in the shallows: it fights on its feet)
   if (B.stage === 4 && !B.beached && K.f.level <= 0.06) { B.beached = true; L.gaitK = 0.45; stagger(L, 2.6); SFX.groan(panOf(L.x)); shake(0.3); smoke(L.x, L.y, 5, 'breath', 10, 24, 1); }

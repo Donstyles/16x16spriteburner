@@ -125,7 +125,7 @@ function drawUnitRaw(c, u) {
 function drawPropPart(c, p, low) {
   const S = propSplit(p), top = p.y - 64; c.save(); c.beginPath(); if (low) c.rect(p.x - 9, S.band, 18, p.y + 4 - S.band); else c.rect(p.x - 9, top, 18, S.band - top); c.clip(); drawProp(c, p); c.restore();
 }
-function drawProp(c, p) { const D = ARENA.floodAt ? depthPx(p.x, p.cy === undefined ? p.y - 4 : p.cy) : 0; if (D > 0.5) drawWetThing(c, p.x, p.y, D, g => drawPropRaw(g, p), false); else drawPropRaw(c, p); } // (standing in the mines' water: 42_minewater)
+function drawProp(c, p) { const D = ARENA.floodAt ? depthPx(p.x, p.cy === undefined ? p.y - 4 : p.cy) : 0; if (D > 0.5) drawWetProp(c, p, D); else drawPropRaw(c, p); } // (standing in the mines' water: 42_minewater)
 function drawPropRaw(c, p) {
   if (p.draw === false) return; // (painted into the ground, a body only: the charnel pit, 43_crypt)
   if (p.kind === 'font') { drawFont(c, p); return; } // (a skull font's basin: 43_crypt)
@@ -276,9 +276,10 @@ function render() {
   S.globalCompositeOperation = 'destination-out'; S.drawImage(noFloor(), 0, 0); S.globalCompositeOperation = 'source-over';
   c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(shb, 0, 0); c.restore();
   // everything standing, lying or flying, drawn back to front by where it meets the floor
-  for (const p of ARENA.props) if (!p.dead && !p.flat && propSplit(p)) drawPropPart(c, p, true); // (the columns' plinths, under everyone)
+  const seenAt = o => o.x > ox - 120 && o.x < ox + bw + 120 && o.y > oy - 120 && o.y < oy + bh + 200; // (only what stands in the view or near it is drawn: a floor holds a hundred props and more, and in the mines each one in water costs a layer of its own)
+  for (const p of ARENA.props) if (!p.dead && !p.flat && seenAt(p) && propSplit(p)) drawPropPart(c, p, true); // (the columns' plinths, under everyone)
   for (const h of G.heroes) if (h.dead && h.death && (h.death.kind === 'vermin' || h.death.kind === 'bats')) verminCover(h); // (to bones only in a frame the heap hides him wholly: 48_deaths)
-  const list = []; for (const u of G.units) list.push([u.sortY !== undefined ? u.sortY : u.y, 0, u]); /* (sortY: climbing out of a tomb, after it: 43_crypt climbOut) */ if (ARENA.shop) { list.push([ARENA.shop.keeper.y, 0, ARENA.shop.keeper]); } for (const p of ARENA.props) if (!p.dead && !p.flat) { const S = propSplit(p); list.push([S ? S.mid : p.y, 1, p]); } // (the shopkeeper, his wares on the counter: 39_shop)
+  const list = []; for (const u of G.units) if (seenAt(u)) list.push([u.sortY !== undefined ? u.sortY : u.y, 0, u]); /* (sortY: climbing out of a tomb, after it: 43_crypt climbOut) */ if (ARENA.shop) { list.push([ARENA.shop.keeper.y, 0, ARENA.shop.keeper]); } for (const p of ARENA.props) if (!p.dead && !p.flat && seenAt(p)) { const S = propSplit(p); list.push([S ? S.mid : p.y, 1, p]); } // (the shopkeeper, his wares on the counter: 39_shop)
   for (const d of G.drops) list.push([d.y, 2, d]); for (const p of G.proj) list.push([p.y, 3, p]); for (const r of FX.rocks) list.push([r.y, 4, r]); for (const w of ARENA.warrows || []) list.push([w.y, 5, w]); for (const d of ARENA.doors || []) { const s = STRUTS(d); if (s) list.push(s); if (d.side === 'S' && d.k > 0) list.push([(d.cells[0][1] + 2) * TS + S_DROP - 3, 7, d]); } list.sort((a, b) => a[0] - b[0]);
   for (const [, k, o] of list) if (k === 0) { if (o.fall) drawFalling(c, o); else if (!(o.rise > 0 && ((G.time * 18) | 0) % 2)) drawUnit(c, o); } else if (k === 1) { if (propSplit(o)) drawPropPart(c, o, false); else drawProp(c, o); } else if (k === 2) drawDrop(c, o); else if (k === 3) drawProj(c, o); else if (k === 5) drawWallArrow(c, o); else if (k === 6) drawStrut(c, o); else if (k === 7) drawSouthDoor(c, o); else drawRock(c, o);
   if (ARENA.shop) for (const w of ARENA.shop.wares) drawWare(c, w); // (his wares, over everyone: they never hide behind a customer, 39_shop)
